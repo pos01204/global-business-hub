@@ -610,7 +610,7 @@ export default function MarketerPage() {
                   )}
                   <button
                     onClick={() => {
-                      const text = `${generatedContent.title}\n\n${generatedContent.content}\n\n${generatedContent.metadata.hashtags.map(t => t.startsWith('#') ? t : `#${t}`).join(' ')}`
+                      const text = `${generatedContent.title}\n\n${generatedContent.content}\n\n${generatedContent.metadata.hashtags.map((t: string) => t.startsWith('#') ? t : `#${t}`).join(' ')}`
                       navigator.clipboard.writeText(text)
                       alert('콘텐츠가 클립보드에 복사되었습니다.')
                     }}
