@@ -4,8 +4,8 @@
   "description": "글로벌 비즈니스 통합 허브 백엔드 API",
   "main": "dist/index.js",
   "engines": {
-    "node": ">=18.0.0",
-    "npm": ">=9.0.0"
+    "node": ">=20.18.1",
+    "npm": ">=10.0.0"
   },
   "scripts": {
     "dev": "tsx watch src/index.ts",

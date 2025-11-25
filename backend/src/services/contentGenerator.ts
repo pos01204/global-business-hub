@@ -1,5 +1,6 @@
 import { ContentGenerationRequest, GeneratedContent } from '../types/marketer'
 import { ollamaService } from './ollamaService'
+import { openaiService } from './openaiService'
 
 // UUID 생성 함수 (간단한 버전)
 function generateUUID(): string {
