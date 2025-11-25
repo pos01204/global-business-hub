@@ -1,0 +1,507 @@
+<div class="global-filters card">
+    <div class="filter-group">
+        <label for="startDate">시작일</label>
+        <input type="date" id="startDate">
+    </div>
+    <div class="filter-group">
+        <label for="endDate">종료일</label>
+        <input type="date" id="endDate">
+    </div>
+    <button class="action-button" onclick="applyMainFilters()" style="padding: 0.5rem 1rem; height: 38px;">
+      <i class="fa-solid fa-search" style="margin-right: 4px;"></i> 조회
+    </button>
+</div>
+
+  <div id="loader-container">
+    <?!= include('loading'); ?>
+  </div>
+
+  <div id="dashboard-content" class="initially-hidden">
+
+    <h2 class="section-title">📈 핵심 성과 (vs 이전 기간)</h2>
+    <div class="kpi-grid">
+      <div class="card"><h3>Total GMV</h3><p id="kpi-gmv" class="value">₩0</p><p id="kpi-gmv-change" class="change-indicator"></p></div>
+      <div class="card"><h3>객단가 (AOV)</h3><p id="kpi-aov" class="value">₩0</p><p id="kpi-aov-change" class="change-indicator"></p></div>
+      <div class="card"><h3>주문 건수</h3><p id="kpi-order-count" class="value">0</p><p id="kpi-order-count-change" class="change-indicator"></p></div>
+      <div class="card"><h3>판매 작품 수</h3><p id="kpi-item-count" class="value">0</p><p id="kpi-item-count-change" class="change-indicator"></p></div>
+    </div>
+
+    <h2 class="section-title">📊 GMV & 주문 추세 (7일 이동평균)</h2>
+    <div class="card chart-card">
+      <canvas id="trendChartCanvas" style="width: 100%; height: 350px;"></canvas>
+    </div>
+
+    <h2 class="section-title">📌 주요 현황 요약</h2>
+    <div class="summary-grid">
+      <div class="card">
+        <h3>미입고 현황</h3>
+        <div class="inventory-summary">
+          <p>총 <strong id="inv-total">0</strong> 건</p>
+          <p class="delay-warning">🚨 <span id="inv-threshold">7</span>일 이상 지연: <strong id="inv-delayed">0</strong> 건</p>
+        </div>
+        <div class="card-footer">
+          <a href="<?= ScriptApp.getService().getUrl() ?>?page=start" class="pipeline-link">미입고 관리 바로가기 &gt;</a>
+        </div>
+      </div>
+
+      <div class="card">
+        <h3>성과 스냅샷 (선택 기간)</h3>
+        <div class="snapshot-grid">
+          <div><span class="snapshot-icon">🌍</span><p><strong id="snap-countries">0</strong> 개국</p></div>
+          <div><span class="snapshot-icon">🧑‍🎨</span><p><strong id="snap-artists">0</strong> 명</p></div>
+          <div><span class="snapshot-icon">🎨</span><p><strong id="snap-items">0</strong> 개 상품</p></div>
+        </div>
+      </div>
+ 
+      <div class="card placeholder-card">
+         <p style="text-align: center; color: var(--text-muted-color); padding: 4rem 0;">추가 정보 영역</p>
+       </div>
+
+    </div>
+  </div>
+</div>
+
+<script>
+  // --- Chart.js 인스턴스 저장 ---
+  let charts = {};
+
+  // --- 페이지 초기화 ---
+  document.addEventListener("DOMContentLoaded", function() {
+  // 기본 날짜를 '최근 30일'로 설정
+  const endDateInput = document.getElementById('endDate');
+  const startDateInput = document.getElementById('startDate');
+  
+  const today = new Date();
+  // (참고: 29일을 빼야 오늘 포함 30일이 됩니다)
+  const thirtyDaysAgo = new Date(new Date().setDate(today.getDate() - 29)); 
+  
+  // 'YYYY-MM-DD' 형식으로 변환
+  const formatDate = (date) => date.toISOString().split('T')[0];
+  
+  endDateInput.value = formatDate(today);
+  startDateInput.value = formatDate(thirtyDaysAgo);
+
+  applyMainFilters(); // 설정된 기본값으로 데이터 로드
+});
+
+  // --- 필터 적용 및 데이터 로드 ---
+  function applyMainFilters() {
+  const startDate = document.getElementById('startDate').value;
+  const endDate = document.getElementById('endDate').value;
+
+  // 유효성 검사
+  if (!startDate || !endDate) {
+      alert('시작일과 종료일을 모두 선택해주세요.');
+      return;
+  }
+  if (startDate > endDate) {
+      alert('시작일은 종료일보다 이전이거나 같아야 합니다.');
+      return;
+  }
+
+  document.getElementById('loader-container').style.display = 'block';
+  document.getElementById('dashboard-content').classList.add('initially-hidden');
+
+  // 기존 차트 인스턴스 파괴
+  Object.values(charts).forEach(chart => {
+      if (chart && typeof chart.destroy === 'function') {
+          chart.destroy();
+      }
+  });
+  charts = {}; // 초기화
+
+  google.script.run
+    .withSuccessHandler(updateUI)
+    .withFailureHandler(showError)
+    .getMainDashboardData(startDate, endDate); // [수정] 2개의 날짜 인자 전달
+}
+
+  // --- 데이터 렌더링 ---
+  function updateUI(data) {
+    if (data.error) {
+      showError(data.error);
+      return;
+    }
+
+    // KPI 업데이트
+    updateMainKpiCard('gmv', data.kpis.gmv.value, data.kpis.gmv.change, 'currency');
+    updateMainKpiCard('aov', data.kpis.aov.value, data.kpis.aov.change, 'currency');
+    updateMainKpiCard('order-count', data.kpis.orderCount.value, data.kpis.orderCount.change, 'number');
+    updateMainKpiCard('item-count', data.kpis.itemCount.value, data.kpis.itemCount.change, 'number');
+
+    // Chart.js 차트 그리기
+    drawTrendChart_ChartJS(data.trend); // 트렌드 차트만 호출
+
+    // 미입고 현황 업데이트
+    document.getElementById('inv-total').textContent = data.inventoryStatus.total.toLocaleString();
+    document.getElementById('inv-delayed').textContent = data.inventoryStatus.delayed.toLocaleString();
+    document.getElementById('inv-threshold').textContent = data.inventoryStatus.threshold;
+    const delayWarningEl = document.querySelector('.delay-warning');
+    if(delayWarningEl) {
+       delayWarningEl.style.color = data.inventoryStatus.delayed > 0 ? 'var(--danger-color)' : 'inherit';
+       delayWarningEl.style.fontWeight = data.inventoryStatus.delayed > 0 ? 'bold' : 'normal';
+    }
+
+    // Performance Snapshot 업데이트
+    document.getElementById('snap-countries').textContent = data.snapshot.activeCountries.toLocaleString();
+    document.getElementById('snap-artists').textContent = data.snapshot.activeArtists.toLocaleString();
+    document.getElementById('snap-items').textContent = data.snapshot.activeItems.toLocaleString();
+    // 로더 숨기고 컨텐츠 표시
+    document.getElementById('loader-container').style.display = 'none';
+    document.getElementById('dashboard-content').classList.remove('initially-hidden');
+  }
+
+  // --- UI 업데이트 함수 ---
+  function updateMainKpiCard(id, value, change, format) {
+    const valueEl = document.getElementById(`kpi-${id}`);
+    const changeEl = document.getElementById(`kpi-${id}-change`);
+    if (valueEl) {
+      if (format === 'currency') valueEl.textContent = `₩${Math.round(value).toLocaleString()}`;
+      else if (format === 'percent') valueEl.textContent = `${(value * 100).toFixed(1)}%`;
+      else valueEl.textContent = value.toLocaleString();
+    }
+    if (changeEl) {
+      if (change != null && !isNaN(change) && isFinite(change)) {
+        if (change >= 0) { changeEl.innerHTML = `<span class="up">▲</span> ${(change * 100).toFixed(1)}%`;
+          changeEl.className = 'change-indicator up'; }
+        else { changeEl.innerHTML = `<span class="down">▼</span> ${(Math.abs(change) * 100).toFixed(1)}%`;
+          changeEl.className = 'change-indicator down'; }
+      } else if (change === Infinity) {
+          changeEl.innerHTML = `<span class="up">▲</span> New`;
+          changeEl.className = 'change-indicator up';
+      } else {
+        changeEl.innerHTML = '';
+        changeEl.className = 'change-indicator';
+      }
+    }
+  }
+
+  // --- 숫자 포맷 헬퍼 ---
+  function formatShortNumber(value) {
+      if (value === null || value === undefined) return '-';
+      if (value >= 1e9) return (value / 1e9).toFixed(1) + 'B';
+      if (value >= 1e6) return (value / 1e6).toFixed(1) + 'M';
+      if (value >= 1e3) return (value / 1e3).toFixed(1) + 'K';
+      return value < 1000 ? value.toFixed(0) : value.toLocaleString(undefined, {maximumFractionDigits: 0});
+  }
+   function formatNumber(value) { return value === null || value === undefined ? '-' : value.toLocaleString();}
+   function formatCurrency(value) { return value === null || value === undefined ? '-' : '₩' + Math.round(value).toLocaleString();}
+
+  // --- Chart.js 차트 그리기 함수 ---
+
+  const chartJsDefaultOptions = {
+      responsive: true,
+      maintainAspectRatio: false,
+      animation: {
+          duration: 800,
+          easing: 'easeOutQuart'
+      },
+      plugins: {
+          legend: {
+              position: 'bottom',
+              labels: { font: { family: 'Pretendard', size: 11 }, color: '#555', padding: 15 }
+          },
+          tooltip: {
+              enabled: false, // 커스텀 툴팁 사용 위해 비활성화
+              external: customTooltip
+          }
+      },
+      scales: {
+          x: { grid: { display: false }, ticks: { font: { family: 'Pretendard', size: 11 }, color: '#555' } },
+          y: { grid: { color: '#eee' }, ticks: { font: { family: 'Pretendard', size: 11 }, color: '#555' }, beginAtZero: true }
+      },
+      layout: { padding: { top: 10, right: 20, bottom: 0, left: 10 } }
+  };
+  /**
+   * Chart.js - GMV & 주문 트렌드 콤보 차트 (개선 적용)
+   */
+  function drawTrendChart_ChartJS(chartData) {
+      const canvasId = 'trendChartCanvas';
+      const ctx = document.getElementById(canvasId);
+      // 캔버스 요소 존재 여부 확인
+      if (!ctx) {
+          console.error('Canvas element not found:', canvasId);
+          return;
+      }
+      // 데이터 유효성 검사
+      if (!chartData || !chartData.labels || chartData.labels.length === 0) {
+          const parent = ctx.parentNode;
+          if (parent) {
+              // 데이터 없을 시 메시지 표시
+              parent.innerHTML = '<p class="no-data-message">추세 데이터 없음</p>';
+          }
+          // 이전 차트 인스턴스가 있으면 파괴
+          if (charts[canvasId] && typeof charts[canvasId].destroy === 'function') {
+              charts[canvasId].destroy();
+              delete charts[canvasId]; // 참조 제거
+          }
+          return;
+      }
+      // 기존 차트가 있으면 파괴 (재생성 위함)
+      if (charts[canvasId] && typeof charts[canvasId].destroy === 'function') {
+           charts[canvasId].destroy();
+      }
+
+      // 그라데이션 생성 함수
+      function createGradient(context, color1, color2) {
+          const chart = context.chart;
+          const {ctx, chartArea} = chart;
+          if (!chartArea) { // chartArea가 준비되지 않았을 수 있음
+              return null;
+          }
+          const gradient = ctx.createLinearGradient(0, chartArea.bottom, 0, chartArea.top);
+          gradient.addColorStop(0, color2); // 아래쪽 (투명도 높게)
+          gradient.addColorStop(1, color1); // 위쪽 (투명도 낮게)
+          return gradient;
+      }
+
+      // Chart.js 인스턴스 생성 및 저장
+      charts[canvasId] = new Chart(ctx, {
+          // data 객체는 백엔드에서 전달된 chartData를 그대로 사용
+          data: chartData,
+          options: {
+              ...chartJsDefaultOptions, // 기본 옵션 상속
+              plugins: {
+                  ...chartJsDefaultOptions.plugins, // 기본 플러그인 옵션 상속
+                  tooltip: { // 커스텀 HTML 툴팁 사용 설정
+                      enabled: false, // Chart.js 기본 툴팁 비활성화
+                      external: customTooltip // 커스텀 툴팁 콜백 함수 지정
+                  }
+              },
+              scales: {
+                  x: { // X축 (시간 축) 설정
+                     type: 'time', // 시간 타입 축 사용
+                     time: {
+                         unit: 'day', // 기본 단위 '일'
+                         tooltipFormat: 'll', // Moment.js 로케일 날짜 형식 (예: Oct 24, 2025)
+                         displayFormats: { day: 'M/D' } // 축 레이블 형식 (예: 10/24)
+                     },
+                     grid: { display: false }, // X축 그리드 라인 숨김
+                     ticks: {
+                         ...chartJsDefaultOptions.scales.x.ticks, // 기본 틱 옵션 상속
+                         source: 'auto', // 데이터 기반 자동 틱 생성
+                         maxRotation: 0, // 레이블 회전 없음
+                         autoSkip: true, // 공간 부족 시 자동 건너뛰기
+                         autoSkipPadding: 30 // 건너뛰기 시 최소 여백
+                     }
+                  },
+                  yGmv: { // 왼쪽 Y축 (GMV)
+                      type: 'linear', // 선형 축
+                      position: 'left', // 왼쪽에 위치
+                      grid: { color: '#eee' }, // 그리드 라인 색상
+                      ticks: {
+                          font: { family: 'Pretendard', size: 11 }, // 틱 폰트
+                          color: '#555', // 틱 색상
+                          // 짧은 숫자 형식 (K, M, B) 콜백
+                          callback: value => formatShortNumber(value)
+                      },
+                      title: { // 축 제목
+                          display: true,
+                          text: 'GMV (KRW)',
+                          font: { family: 'Pretendard', size: 12 },
+                          color: '#333'
+                      },
+                      beginAtZero: true // 0부터 시작
+                  },
+                  yOrders: { // 오른쪽 Y축 (Orders)
+                     type: 'linear', // 선형 축
+                      position: 'right', // 오른쪽에 위치
+                      grid: { drawOnChartArea: false }, // 차트 영역 내 그리드 라인 그리지 않음 (중복 방지)
+                      title: { // 축 제목
+                          display: true,
+                          text: '주문 건수',
+                          font: { family: 'Pretendard', size: 12 },
+                          color: '#333'
+                      },
+                      ticks: {
+                          font: { family: 'Pretendard', size: 11 }, // 틱 폰트
+                          color: '#F79F79', // 틱 색상 (Orders 선 색상과 일치)
+                          stepSize: 5,      // 눈금 간격을 5로 설정
+                          precision: 0      // 소수점 없이 정수로 표시
+                          // callback: value => formatNumber(value) // stepSize 사용 시 불필요
+                      },
+                      beginAtZero: true // 0부터 시작
+                  }
+              },
+              interaction: { // 마우스 상호작용 설정
+                  mode: 'index', // 동일한 인덱스(날짜)의 모든 데이터셋 아이템을 찾음
+                  intersect: false // 마우스 포인터가 정확히 요소 위에 있지 않아도 상호작용
+               },
+              layout: { // 차트 전체 여백 설정
+                  padding: { top: 10, right: 15, bottom: 0, left: 5 } // Y축 제목/라벨 공간 고려
+              }
+          }
+      });
+  }
+
+  // --- 커스텀 툴팁 콜백 함수 ---
+  function customTooltip(context) {
+        let tooltipEl = document.getElementById('chartjs-tooltip');
+        // Create element on first render
+        if (!tooltipEl) {
+            tooltipEl = document.createElement('div');
+            tooltipEl.id = 'chartjs-tooltip';
+            // [개선] 스타일은 chart_styles.txt에서 관리하므로 여기서 제거
+            // tooltipEl.style.opacity = 0;
+            // ... (기존 인라인 스타일 제거) ...
+            document.body.appendChild(tooltipEl);
+        }
+
+        const tooltipModel = context.tooltip;
+        // Hide if no tooltip
+        if (tooltipModel.opacity === 0) {
+            tooltipEl.style.opacity = 0;
+            return;
+        }
+
+        // Set caret Position (기존 코드 유지)
+        tooltipEl.classList.remove('above', 'below', 'no-transform');
+        tooltipEl.classList.add(tooltipModel.yAlign || 'no-transform');
+
+        // Set Text
+        if (tooltipModel.body) {
+            const titleLines = tooltipModel.title || [];
+            const dataPoints = tooltipModel.dataPoints || [];
+
+            let innerHtml = '';
+            // Title (Date)
+            titleLines.forEach(function(title) {
+                innerHtml += '<strong>' + moment(title).format('YYYY-MM-DD (ddd)') + '</strong><br>'; // 요일 정보 추가
+            });
+            // Body
+            const gmv = dataPoints.find(dp => dp.datasetIndex === 0)?.raw;
+            const orders = dataPoints.find(dp => dp.datasetIndex === 1)?.raw;
+            const gmvMA = dataPoints.find(dp => dp.datasetIndex === 2)?.raw;
+            const ordersMA = dataPoints.find(dp => dp.datasetIndex === 3)?.raw;
+
+            innerHtml += `GMV: <strong>${formatCurrency(gmv)}</strong><br>`;
+            innerHtml += `Orders: <strong>${formatNumber(orders)}</strong><br>`;
+            innerHtml += '<hr style="border: 0; border-top: 1px solid #eee; margin: 4px 0;">';
+            innerHtml += `GMV MA(7): ${formatCurrency(gmvMA)}<br>`;
+            innerHtml += `Orders MA(7): ${formatNumber(ordersMA)}`;
+
+            tooltipEl.innerHTML = innerHtml;
+        }
+
+        // Display, position, and set styles for font (기존 코드 유지)
+        const position = context.chart.canvas.getBoundingClientRect();
+        tooltipEl.style.opacity = 1;
+        let left = position.left + window.pageXOffset + tooltipModel.caretX;
+        let top = position.top + window.pageYOffset + tooltipModel.caretY;
+        // Prevent tooltip going out of bounds
+         if (left + tooltipEl.offsetWidth > window.innerWidth - 10) {
+           left = window.innerWidth - tooltipEl.offsetWidth - 10;
+         }
+         if (left < 10) {
+           left = 10;
+         }
+        if (tooltipModel.yAlign === 'above' || top + tooltipEl.offsetHeight > window.innerHeight - 10) {
+          top -= tooltipEl.offsetHeight + 10; // Position above cursor
+        } else {
+          top += 10; // Position below cursor
+        }
+         if (top < 10) {
+           top = 10;
+         }
+
+        tooltipEl.style.left = left + 'px';
+        tooltipEl.style.top = top + 'px';
+  }
+
+  // --- 에러 처리 함수 ---
+  function showError(error) {
+    console.error('Error:', error);
+    const content = document.getElementById('dashboard-content');
+    const loader = document.getElementById('loader-container');
+    if(loader) loader.style.display = 'none';
+    if (content) {
+        content.classList.remove('initially-hidden');
+        // 오류 메시지를 더 눈에 띄게 표시 (card error-card 활용)
+        content.innerHTML = `<div class="card error-card">
+                              <h3><span style="color:var(--danger-color); margin-right: 0.5em;">⚠️</span>오류 발생</h3>
+                              <p>데이터를 불러오는 중 문제가 발생했습니다.</p>
+                              <p class="error-details">${error.toString()}</p>
+                             </div>`;
+    } else if (loader) {
+        // 로더 영역에 오류 메시지 표시 (컨텐츠 영역 로드 실패 시)
+        loader.innerHTML = `<p class="error-message">데이터 로딩 실패: ${error.toString()}</p>`;
+    }
+  }
+</script>
+
+<style>
+  /* 기본 섹션 제목 */
+  .section-title { margin-top: 2rem; margin-bottom: 1rem; font-size: 1.5rem; color: var(--text-color);
+    border-bottom: 1px solid var(--border-color); padding-bottom: 0.5rem; }
+  /* KPI 카드 추세 */
+  .change-indicator { font-size: 0.9rem; margin-top: 0.25rem;
+    color: var(--text-muted-color); }
+  .change-indicator .up { color: var(--success-color); }
+  .change-indicator .down { color: var(--danger-color);
+  }
+  .change-indicator span { margin-right: 0.2em; }
+  /* 현황 요약 그리드 */
+  .summary-grid { display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(300px, 1fr)); gap: 1.5rem; }
+  /* 카드 푸터 */
+  .card-footer { margin-top: auto; padding-top: 1rem;
+    text-align: right; border-top: 1px solid var(--border-color); }
+  .card .card-footer { margin-left: -1.5rem; margin-right: -1.5rem; padding-right: 1.5rem;
+  } /* 기본 카드 패딩(24px) 고려 */
+  .pipeline-link { color: var(--primary-color); text-decoration: none; font-weight: 500;
+  }
+  .pipeline-link:hover { text-decoration: underline; }
+  /* 차트 관련 메시지 */
+  .no-data-message { text-align: center; color: var(--text-muted-color);
+    padding: 2rem; }
+  .no-data-message.error, .error-message { color: var(--danger-color); font-weight: bold;
+  }
+  /* 오류 카드 스타일 */
+   .error-card { border-left: 5px solid var(--danger-color); padding: 1.5rem; background-color: #fff8f8;
+   }
+   .error-card h3 { color: var(--danger-color); margin-top: 0; }
+   .error-details { font-size: 0.9em; color: var(--text-muted-color);
+    margin-top: 1em; word-break: break-all; }
+   
+   /* [삭제] #chartjs-tooltip 스타일 제거 (chart_styles.txt에서 관리) */
+   
+   /* 차트 카드 패딩 조정 */
+   .card.chart-card { padding: 0.5rem;
+   } /* component_styles.txt에서 수정 가능 */
+</style>
+
+<style>
+  /* index.html 페이지 전용 스타일 */
+  .inventory-summary { padding: 1rem 0;
+  }
+  .inventory-summary p { margin: 0.5rem 0; font-size: 1.1rem; }
+  .inventory-summary strong { font-size: 1.8rem; color: var(--text-color);
+  }
+  .delay-warning { font-size: 1rem !important; }
+  .delay-warning strong { font-size: 1.3rem !important; color: var(--danger-color);
+  }
+
+  .snapshot-grid { display: flex; justify-content: space-around; align-items: center; text-align: center; padding: 1rem 0;
+  }
+  .snapshot-grid div { display: flex; flex-direction: column; align-items: center; }
+  .snapshot-icon { font-size: 2.5rem; margin-bottom: 0.5rem;
+    color: var(--primary-color); }
+  .snapshot-grid p { margin: 0; font-size: 1rem; color: var(--text-muted-color); }
+  .snapshot-grid strong { font-size: 1.8rem;
+    display: block; color: var(--text-color); }
+
+  .placeholder-card {
+     display: flex; align-items: center; justify-content: center; min-height: 250px;
+     background-color: var(--background-alt-color); border: 1px dashed var(--border-color);
+   }
+
+   /* 미입고 관리 KPI 관련 스타일 (start.html로 이동 권장하나, 여기 있어도 무방) */
+   #kpi-total small, #kpi-orders small, #kpi-artists small, #kpi-delayed small {
+     font-size: 0.7em;
+     color: var(--text-muted-color);
+     margin-left: 0.2em;
+   }
+   #kpi-delayed.warning {
+       color: var(--warning-color);
+   }
+</style>

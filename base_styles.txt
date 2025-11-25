@@ -1,0 +1,201 @@
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+
+<style>
+/* ====================
+   Global Variables & Base Styles (Enhanced)
+   ==================== */
+:root {
+  /* [개선] Light Mode (Default) */
+  --primary-color: #4A6FA5;
+  --secondary-color: #34495e;
+  --accent-color: #F79F79;
+  --background-color: #f8f9fa; /* Light grey background */
+  --background-alt-color: #f1f3f5; /* Slightly darker grey for table stripes */
+  --card-background-color: #ffffff; /* White cards */
+  --text-color: #212529; /* Darker text */
+  --text-muted-color: #6c757d;
+  --border-color: #dee2e6;
+  --hover-color: #e9ecef;
+  --success-color: #27ae60; /* Adjusted Green */
+  --danger-color: #c0392b; /* Adjusted Red */
+  --warning-color: #f39c12;
+  --info-color: #17a2b8;
+
+  --font-family: 'Pretendard', 'Inter', 'Noto Sans KR', sans-serif;
+  --font-size-base: 1rem; /* 16px */
+  --font-size-sm: 0.875rem; /* 14px */
+  --font-size-lg: 1.25rem; /* 20px */
+  --font-size-xs: 0.75rem; /* 12px */
+
+  --border-radius: 6px; /* Slightly sharper */
+  --box-shadow: 0 2px 4px rgba(0, 0, 0, 0.04); /* Subtler shadow */
+  /* [신규] 여백 (Spacing) 변수 */
+  --spacing-xs: 4px;
+  --spacing-sm: 8px;    /* control_tower.txt [cite: 38] 등에서 사용 */
+  --spacing-md: 12px;   /* control_tower.txt [cite: 45] 등에서 사용 */
+  --spacing-lg: 16px;   /* control_tower.txt [cite: 37] 등에서 사용 */
+  --spacing-xl: 24px;   /* 카드 내부 여백 등에 사용하기 좋음 */
+
+  /* Table Specific */
+  --table-header-bg: #f8f9fa;
+  
+  /* [신규] Browser theme hint */
+  color-scheme: light;
+}
+
+/* [신규] Dark Mode Theme */
+[data-theme="dark"] {
+  --primary-color: #5E8BCC; /* Lighter blue */
+  --secondary-color: #aebecd; /* Light greyish blue */
+  --accent-color: #F79F79;
+  --background-color: #121212; /* Very dark grey */
+  --background-alt-color: #1e1e1e; /* Darker grey */
+  --card-background-color: #1e1e1e; /* Dark cards */
+  --text-color: #f0f0f0; /* Light text */
+  --text-muted-color: #888888; /* Medium-light grey */
+  --border-color: #3a3a3a; /* Dark border */
+  --hover-color: #2a2a2a; /* Dark hover */
+  --success-color: #2ecc71; /* Brighter Green */
+  --danger-color: #e74c3c; /* Brighter Red */
+  --warning-color: #f39c12;
+  --info-color: #17a2b8;
+
+  --table-header-bg: #222222; /* Darker header */
+  
+  color-scheme: dark;
+}
+
+
+*,
+*::before,
+*::after {
+  box-sizing: border-box;
+}
+
+html {
+  font-size: var(--font-size-base);
+  line-height: 1.6;
+}
+
+body {
+  font-family: var(--font-family);
+  background-color: var(--background-color);
+  margin: 0;
+  color: var(--text-color);
+  display: flex;
+  min-height: 100vh;
+  /* [개선] Font smoothing */
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+  text-rendering: optimizeLegibility;
+}
+
+h1 {
+  font-size: 28px;
+  font-weight: 700;
+  color: var(--secondary-color);
+  margin-bottom: 8px;
+  margin-top: 0;
+}
+h3 { /* General h3, potentially overridden by card h3 */
+  font-size: 16px;
+  font-weight: 600;
+  margin-top: 0;
+  color: var(--text-muted-color);
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+}
+
+/* ====================
+   Layout & Structure
+   ==================== */
+.app-layout {
+  display: flex;
+  min-height: 100vh;
+  width: 100%; /* Ensure full width */
+}
+
+.main-content {
+  flex-grow: 1;
+  display: flex;
+  flex-direction: column;
+  overflow: hidden; /* Prevent content overflow issues */
+}
+
+.header { /* [개선] Flex layout for theme toggle */
+  padding: 24px 32px;
+  border-bottom: 1px solid var(--border-color);
+  background-color: var(--card-background-color);
+  flex-shrink: 0;
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+}
+
+.header-title {
+  margin: 0;
+  font-size: 1.75rem; /* 28px */
+  font-weight: 700;
+  color: var(--text-color); /* [수정] secondary-color보다 진하게 */
+  line-height: 1.2;
+}
+
+.page-content {
+  padding: 32px;
+  overflow-y: auto; /* Allow scrolling within content area */
+  flex-grow: 1;
+}
+
+.container {
+  max-width: 1400px;
+  margin: 0 auto;
+  padding: 0 1rem; /* Consistent horizontal padding */
+}
+
+.section-title {
+  margin-top: 2rem;
+  margin-bottom: 1rem;
+  font-size: 1.5rem; /* Adjusted size */
+  font-weight: 700;
+  color: var(--secondary-color);
+  border-bottom: 1px solid var(--border-color); /* Underline */
+  padding-bottom: 0.5rem;
+}
+
+/* Grids */
+.kpi-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(200px, 1fr)); /* Adjusted min size */
+  gap: 1.5rem; /* Adjusted gap */
+  margin-bottom: 1.5rem;
+}
+
+.analytics-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(300px, 1fr));
+  gap: 1.5rem;
+  margin-bottom: 1.5rem;
+}
+.analytics-grid.single-column {
+  grid-template-columns: 1fr;
+}
+.analytics-grid-large {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(450px, 1fr)); /* Larger min size for RFM */
+  gap: 2rem;
+}
+
+.summary-grid { /* For main page */
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(300px, 1fr));
+  gap: 1.5rem;
+}
+
+.modal-grid { /* For Control Tower Modal */
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 24px;
+}
+</style>

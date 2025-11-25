@@ -1,0 +1,87 @@
+<style>
+/* ====================
+   Sidebar Styles (Enhanced)
+   ==================== */
+.sidebar {
+  width: 240px;
+  background-color: var(--card-background-color);
+  border-right: 1px solid var(--border-color);
+  padding: 16px;
+  display: flex;
+  flex-direction: column;
+  flex-shrink: 0;
+  /* [개선] Add sticky position for scrolling */
+  height: 100vh;
+  position: sticky;
+  top: 0;
+  transition: background-color 0.3s ease, border-color 0.3s ease; /* Theme transition */
+}
+
+.sidebar-header {
+  padding: 16px 8px;
+  margin-bottom: 16px;
+  border-bottom: 1px solid var(--border-color); /* Added separator */
+}
+.sidebar-brand {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  text-decoration: none;
+  font-size: 24px;
+  font-weight: 700;
+  color: var(--secondary-color);
+}
+.sidebar-brand-text { /* Add this class to your <span> in sidebar.txt */
+    transition: color 0.3s ease;
+}
+
+.sidebar-nav {
+  list-style: none;
+  padding: 0;
+  margin: 0;
+  flex-grow: 1; /* Grow to fill space */
+}
+.nav-item {
+  margin-bottom: 4px;
+}
+.sidebar .nav-link {
+  display: flex; /* [개선] Use flex for icon alignment */
+  align-items: center;
+  gap: 10px; /* Space for icon */
+  padding: 12px 16px;
+  text-decoration: none;
+  color: var(--text-muted-color);
+  font-weight: 500;
+  border-radius: var(--border-radius);
+  transition: background-color 0.2s ease, color 0.2s ease; /* [개선] Smoother transition */
+}
+.sidebar .nav-link:hover {
+  background-color: var(--hover-color);
+  color: var(--primary-color);
+}
+.sidebar .nav-link.active {
+  background-color: var(--primary-color);
+  color: var(--card-background-color); /* [개선] Use variable for light/dark text */
+  font-weight: 600;
+}
+/* [개선] Ensure active link stays active on hover */
+.sidebar .nav-link.active:hover {
+  background-color: var(--primary-color);
+  color: var(--card-background-color);
+}
+
+.nav-category {
+  padding: 16px 16px 8px;
+  font-size: 12px;
+  font-weight: 600;
+  color: var(--text-muted-color);
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+  margin-top: 8px;
+}
+
+.nav-item.sub-item .nav-link {
+  padding-left: 32px;
+  font-size: 14px;
+}
+</style>

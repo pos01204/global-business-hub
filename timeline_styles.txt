@@ -1,0 +1,93 @@
+<style>
+/* ====================
+   Timeline Styles (Table & Modal - Enhanced)
+   ==================== */
+
+/* Timeline row in table */
+tr.timeline-row td {
+  padding: 24px 48px 24px 52px !important;
+  background-color: var(--background-alt-color); /* [테마] Use variable */
+  box-shadow: inset 4px 0 0 0 var(--primary-color);
+}
+
+/* Timeline container (shared) */
+.timeline-container {
+  display: flex;
+  align-items: center;
+  overflow-x: auto;
+  padding: 8px 0;
+}
+
+/* Timeline event (shared) */
+.timeline-event {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  text-align: center;
+  position: relative;
+  padding: 0 16px;
+  flex-shrink: 0;
+}
+/* Timeline dot (shared) */
+.timeline-event::before {
+  content: '';
+  position: absolute;
+  top: -8px;
+  left: 50%;
+  transform: translateX(-50%);
+  width: 16px;
+  height: 16px;
+  border-radius: 50%;
+  background-color: var(--primary-color);
+  border: 3px solid var(--card-background-color); /* [테마] Use variable */
+  z-index: 1;
+}
+.timeline-status {
+  font-weight: 600;
+  color: var(--secondary-color);
+  margin-top: 16px;
+  font-size: 14px;
+  white-space: nowrap;
+}
+.timeline-date {
+  font-size: 12px;
+  color: var(--text-muted-color);
+  white-space: nowrap;
+}
+
+/* Timeline line (shared) */
+.timeline-line {
+  flex-grow: 1;
+  height: 4px;
+  background-color: var(--border-color); /* [테마] Use variable */
+  min-width: 50px;
+}
+
+/* Modal Timeline Adjustments */
+.modal-section .timeline-container {
+  align-items: flex-start;
+  padding-top: 10px;
+}
+.modal-section .timeline-event {
+  padding: 20px 8px 0;
+  font-size: 13px;
+}
+.modal-section .timeline-event::before {
+  width: 14px;
+  height: 14px;
+  top: 0; /* Position dot at the top line */
+  border-width: 3px;
+}
+.modal-section .timeline-status {
+  margin-top: 4px; /* Reduced space */
+  font-size: 13px;
+}
+.modal-section .timeline-date {
+  font-size: 11px;
+}
+.modal-section .timeline-line {
+  margin-top: 7px; /* Align line with center of dot */
+  height: 3px;
+  min-width: 30px;
+}
+</style>

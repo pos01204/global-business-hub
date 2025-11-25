@@ -1,0 +1,293 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <title>실시간 물류 관제 센터</title>
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css">
+</head>
+<body>
+<div class="container">
+  <div id="loader-container">
+    <?!= include('loading'); ?>
+  </div>
+
+  <div id="dashboard-content" class="initially-hidden">
+    <h2 class="section-title">
+        <i class="fa-solid fa-tower-broadcast" style="margin-right: 8px; color: var(--primary-color);"></i>
+        실시간 물류 관제 센터
+    </h2>
+    <div id="pipeline-command-center" class="pipeline-container">
+      </div>
+  </div>
+</div>
+
+<div id="order-detail-modal" class="modal-overlay">
+  <div class="modal-content large">
+    <div class="modal-header">
+      <h2 class="modal-title" id="modal-title">주문 상세 정보</h2>
+      <button class="modal-close" onclick="closeModal()">&times;</button>
+    </div>
+    <div class="modal-body" id="modal-body">
+      </div>
+  </div>
+</div>
+
+<style>
+  /* Base Layout */
+  .section-title i { font-size: 0.9em; }
+
+  /* Pipeline Container */
+  .pipeline-container { display: flex; align-items: stretch; justify-content: flex-start; gap: var(--spacing-lg); width: 100%; overflow-x: auto; padding: var(--spacing-sm) 0 var(--spacing-lg); scrollbar-width: thin; scrollbar-color: var(--border-color) var(--background-color); }
+  .pipeline-container::-webkit-scrollbar { height: 8px; }
+  .pipeline-container::-webkit-scrollbar-track { background: var(--background-color); border-radius: 4px; }
+  .pipeline-container::-webkit-scrollbar-thumb { background: var(--border-color); border-radius: 4px; }
+  .pipeline-container::-webkit-scrollbar-thumb:hover { background: #adb5bd; }
+
+  /* Pipeline Card */
+  /* Pipeline Card */
+  .pipeline-card { background: var(--card-background-color);
+  border: 1px solid var(--border-color); border-radius: var(--border-radius); box-shadow: var(--box-shadow); 
+  padding: 20px; /* ⬅️ 수정: var(--spacing-lg) (16px) 보다 여유있게 20px로 변경 */
+  display: flex; flex-direction: column; 
+  width: 300px;  /* ⬅️ 수정: 270px에서 300px로 변경 */
+  flex-shrink: 0;
+  transition: transform 0.2s ease, box-shadow 0.2s ease; border-top: 4px solid var(--success-color); position: relative; }
+  .pipeline-card.critical { border-top-color: var(--danger-color); }
+  .pipeline-card:hover { transform: translateY(-3px); box-shadow: 0 6px 12px rgba(0,0,0,0.08); }
+
+  /* Card Sections */
+  .pipeline-card__header { display: flex; flex-direction: column; align-items: center; text-align: center; margin-bottom: var(--spacing-md); }
+  .pipeline-card__icon { font-size: 1.8rem; width: 48px; height: 48px; border-radius: 50%; display: flex; align-items: center; justify-content: center; background-color: var(--hover-color); color: var(--primary-color); margin-bottom: var(--spacing-sm); }
+  .pipeline-card.critical .pipeline-card__icon { background-color: #fff0f0; color: var(--danger-color); }
+  .pipeline-card__title { font-size: 1rem; font-weight: 600; margin: 0; color: var(--secondary-color); }
+  .pipeline-card__body { display: flex; justify-content: space-around; text-align: center; margin-bottom: var(--spacing-md); padding: var(--spacing-md) 0; border-top: 1px solid var(--border-color); border-bottom: 1px solid var(--border-color); }
+  .pipeline-card__metric {}
+  .pipeline-card__metric-value { font-size: 1.75rem; font-weight: 700; color: var(--primary-color); line-height: 1.1; }
+  .pipeline-card__metric-value small { font-size: var(--font-size-sm); font-weight: 500; color: var(--text-muted-color); margin-left: 2px; }
+  .pipeline-card__metric-label { font-size: var(--font-size-xs); color: var(--text-muted-color); display: block; margin-top: 4px; }
+  .pipeline-card__health-bar { position: relative; width: 100%; height: 16px; background-color: #e9ecef; border-radius: 8px; overflow: hidden; margin-bottom: var(--spacing-md); }
+  .pipeline-card__health-bar-fill { height: 100%; background-color: var(--danger-color); border-radius: 8px 0 0 8px; transition: width 0.5s ease-in-out; }
+  .pipeline-card__health-bar-text { position: absolute; top: 50%; left: 50%; transform: translate(-50%, -50%); font-size: 10px; font-weight: 600; color: #fff; text-shadow: 1px 1px 2px rgba(0,0,0,0.6); white-space: nowrap; }
+
+  /* Critical List */
+  .pipeline-card__critical-list-container { margin-top: var(--spacing-md); padding-top: var(--spacing-md); border-top: 1px solid var(--border-color); padding-bottom: var(--spacing-sm); }
+  .pipeline-card__critical-list-title { display: block; font-size: var(--font-size-xs); font-weight: 600; color: var(--secondary-color); margin-bottom: var(--spacing-sm); }
+  .pipeline-card__critical-list { list-style: none; padding: 0; margin: 0; max-height: 82px; overflow: hidden; transition: max-height 0.3s ease-out; } /* Shows ~3 items */
+  .pipeline-card__critical-list.expanded { max-height: 150px; overflow-y: auto; padding-right: 5px; }
+  .pipeline-card__critical-list::-webkit-scrollbar { width: 4px; }
+  .pipeline-card__critical-list::-webkit-scrollbar-thumb { background: #ccc; border-radius: 4px; }
+  .pipeline-card__critical-list li { display: flex; justify-content: space-between; align-items: center; 
+  padding: 8px 2px; /* ⬅️ 수정: 5px 0 에서 변경 (상하 여백 확보) */ 
+  font-size: var(--font-size-sm); /* ⬅️ 수정: xs에서 sm으로 변경 (가독성 향상) */ 
+  border-bottom: 1px solid #e9ecef;
+  gap: var(--spacing-sm); }
+  .pipeline-card__critical-list li:last-child { border-bottom: none; }
+  .pipeline-card__critical-list .item-link { white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
+  flex-grow: 1; min-width: 0; color: var(--primary-color); 
+  font-weight: 600; /* ⬅️ 수정: 500에서 600으로 변경 (주문번호 강조) */
+}
+  .pipeline-card__critical-list .item-link:hover { text-decoration: underline; color: var(--secondary-color);}
+  .pipeline-card__critical-list .danger-text { flex-shrink: 0; background-color: var(--danger-color); color: white; 
+  padding: 3px 7px; /* ⬅️ 수정: 2px 6px에서 변경 */
+  border-radius: 10px; 
+  font-size: 11px;  /* ⬅️ 수정: 10px에서 11px로 변경 */
+  font-weight: 500; }
+  .pipeline-card__see-more-btn { background: none; border: 1px solid var(--border-color); color: var(--text-muted-color); padding: 4px 10px; font-size: var(--font-size-xs); border-radius: var(--border-radius); cursor: pointer; margin-top: var(--spacing-sm); width: 100%; text-align: center; transition: background-color 0.2s ease, border-color 0.2s ease; }
+  .pipeline-card__see-more-btn:hover { background-color: var(--hover-color); border-color: #ced4da; }
+
+  /* Card Footer */
+  .pipeline-card__footer { display: flex; justify-content: space-between; align-items: center; margin-top: auto; padding-top: var(--spacing-md); border-top: 1px solid var(--border-color); }
+  .pipeline-card__critical-info { font-size: var(--font-size-xs); font-weight: 500; color: var(--secondary-color); }
+  .pipeline-card__critical-info b { color: var(--danger-color); font-weight: 700; }
+  .pipeline-card__link { font-size: var(--font-size-xs); font-weight: 600; text-decoration: none; color: var(--primary-color); display: inline-flex; align-items: center; gap: 4px; }
+  .pipeline-card__link:hover { text-decoration: underline; }
+  .pipeline-card__link i { font-size: 0.9em; }
+
+  /* Pipeline Connector */
+  .pipeline-connector { display: flex; align-items: center; justify-content: center; flex-shrink: 0; width: 50px; }
+  .pipeline-connector svg { width: 24px; height: 24px; }
+  @media (max-width: 1400px) { .pipeline-connector { display: none; } }
+
+  /* Modal Styles */
+  .modal-section .timeline-container { padding-top: var(--spacing-sm); }
+</style>
+
+<script>
+  document.addEventListener("DOMContentLoaded", function() {
+    google.script.run
+      .withSuccessHandler(updateUI)
+      .withFailureHandler(showError)
+      .getControlTowerData();
+  });
+
+  function updateUI(data) {
+    if (!data || data.error) {
+      showError(data ? data.error : "파이프라인 데이터를 받지 못했습니다.");
+      return;
+    }
+
+    const pipelineCenter = document.getElementById('pipeline-command-center');
+    if (!pipelineCenter) {
+        showError("파이프라인 컨테이너 요소를 찾을 수 없습니다.");
+        return;
+    }
+    pipelineCenter.innerHTML = '';
+
+    const pipelineData = data.pipeline;
+    const stages = ['unreceived', 'artistShipping', 'awaitingInspection', 'inspectionComplete', 'internationalShipping'];
+    const baseUrl = '<?= ScriptApp.getService().getUrl() ?>';
+
+    const stageMeta = { /* ... (stageMeta remains the same) ... */
+        unreceived: { icon: '📦', link: `${baseUrl}?page=start` },
+        artistShipping: { icon: '🚚', link: `${baseUrl}?page=logistics&status=작가+송장+입력` },
+        awaitingInspection: { icon: '🔍', link: `${baseUrl}?page=logistics&status=작가+송장+입력` },
+        inspectionComplete: { icon: '✅', link: `${baseUrl}?page=logistics&status=검수+완료` },
+        internationalShipping: { icon: '✈️', link: `${baseUrl}?page=logistics` }
+    };
+
+    stages.forEach((stageKey, index) => {
+        const stage = pipelineData ? pipelineData[stageKey] : null;
+        if (!stage) {
+          console.warn(`Pipeline data for stage "${stageKey}" is missing.`);
+          pipelineCenter.innerHTML += `<div class="pipeline-card"><div class="pipeline-card__header"><h3 class="pipeline-card__title">${stageMeta[stageKey]?.title || stageKey}</h3></div><p style='text-align:center; color: var(--text-muted-color);'>데이터 없음</p></div>`;
+          if (index < stages.length - 1) { pipelineCenter.innerHTML += '<div class="pipeline-connector"></div>'; }
+          return;
+        }
+        const meta = stageMeta[stageKey];
+        const criticalPercentage = stage.orderCount > 0 ? (stage.criticalCount / stage.orderCount) * 100 : 0;
+
+        // --- Build Critical Orders List HTML ---
+        let criticalListHtml = '';
+        const criticals = Array.isArray(stage.criticals) ? stage.criticals : [];
+        if (criticals.length > 0) {
+            const itemsHtml = criticals.map((item) => {
+                const orderCode = item.orderCode || 'N/A';
+                const days = item.days || 0;
+                const safeOrderCode = orderCode.replace(/'/g, "\\'");
+                return `
+                  <li>
+                      <a href="javascript:void(0)" onclick="openModal('${safeOrderCode}')" class="item-link" title="'${orderCode}' 상세 정보 보기">
+                        ${orderCode}
+                      </a>
+                      <span class="danger-text">${days}일 지연</span>
+                  </li>`;
+              }).join('');
+
+            // [FIX] Correctly inject itemsHtml and remove placeholder comments
+            criticalListHtml = `
+              <div class="pipeline-card__critical-list-container">
+                 <span class="pipeline-card__critical-list-title">
+                    가장 시급한 주문 (${stage.criticalCount}건)
+                  </span>
+                  <ul class="pipeline-card__critical-list">
+                     ${itemsHtml}
+                 </ul>
+                 ${criticals.length > 3 ? `<button class="pipeline-card__see-more-btn" onclick="toggleCriticalList(this)">더보기</button>` : ''}
+              </div>
+            `;
+        }
+        // --- End Critical Orders List HTML ---
+
+        // --- Build Pipeline Card HTML (Using BEM-like classes) ---
+        const cardHtml = `
+          <div class="pipeline-card ${stage.criticalCount > 0 ? 'critical' : ''}">
+              <div class="pipeline-card__header">
+                  <div class="pipeline-card__icon">${meta.icon}</div>
+                  <h3 class="pipeline-card__title">${stage.title || 'N/A'}</h3>
+              </div>
+              <div class="pipeline-card__body">
+                  <div class="pipeline-card__metric">
+                      <span class="pipeline-card__metric-value">${stage.orderCount || 0}<small>건</small></span>
+                      <span class="pipeline-card__metric-label">총 주문</span>
+                  </div>
+                  <div class="pipeline-card__metric">
+                      <span class="pipeline-card__metric-value">${stage.itemCount || 0}<small>개</small></span>
+                      <span class="pipeline-card__metric-label">총 작품</span>
+                  </div>
+              </div>
+              <div class="pipeline-card__health-bar">
+                  <div class="pipeline-card__health-bar-fill" style="width: ${criticalPercentage.toFixed(1)}%;"></div>
+                  <span class="pipeline-card__health-bar-text">${stage.criticalCount > 0 ? `${stage.criticalCount}건 위험` : '정상'}</span>
+              </div>
+              ${criticalListHtml} 
+              <div class="pipeline-card__footer">
+                  <div class="pipeline-card__critical-info">${(stage.maxDays || 0) > 0 ? `최장 <b>${stage.maxDays}</b>일 지연` : '지연 없음'}</div>
+                  <a href="${meta.link}" class="pipeline-card__link">전체 보기 <i class="fa-solid fa-angle-right"></i></a>
+              </div>
+          </div>
+        `;
+        // --- End Pipeline Card HTML ---
+
+        pipelineCenter.innerHTML += cardHtml;
+
+        if (index < stages.length - 1) {
+             pipelineCenter.innerHTML += `<div class="pipeline-connector"><svg width="24" height="24" viewBox="0 0 24 24"><path d="M14.43 5.92993L20.5 11.9999L14.43 18.0699" stroke="var(--text-muted-color)" stroke-width="2" stroke-miterlimit="10" stroke-linecap="round" stroke-linejoin="round"/><path d="M3.5 12H20.33" stroke="var(--text-muted-color)" stroke-width="2" stroke-miterlimit="10" stroke-linecap="round" stroke-linejoin="round"/></svg></div>`;
+        }
+    });
+
+    hideLoader();
+  }
+
+  // Toggle function for critical list expansion
+  function toggleCriticalList(button) {
+    // Navigate up to the container, then find the list
+    const listContainer = button.closest('.pipeline-card__critical-list-container');
+    if (!listContainer) return;
+    const list = listContainer.querySelector('.pipeline-card__critical-list');
+    if (!list) return;
+
+    const isExpanding = !list.classList.contains('expanded');
+    list.classList.toggle('expanded');
+    button.textContent = isExpanding ? '숨기기' : '더보기';
+  }
+
+
+  // --- Modal Functions (Keep existing logic) ---
+  function openModal(orderCode) {
+    const modal = document.getElementById('order-detail-modal');
+    const modalBody = document.getElementById('modal-body');
+    const modalTitle = document.getElementById('modal-title');
+    if(!modal || !modalBody || !modalTitle) { console.error("Modal elements not found"); return; }
+    modalTitle.textContent = `${orderCode} 상세 정보`;
+    modalBody.innerHTML = '<div class="modal-loading-container"><div class="loader"></div></div>';
+    modal.style.display = 'flex';
+    google.script.run.withSuccessHandler(populateModal).withFailureHandler(showModalError).getOrderDetail(orderCode);
+  }
+  function populateModal(data) { /* ... (No changes needed from previous safe version) ... */
+    const modalBody = document.getElementById('modal-body');
+    if (!modalBody) return;
+    if (!data || data.error) { showModalError(data ? data.error : "주문 상세 데이터를 받지 못했습니다."); return; }
+    const items = Array.isArray(data.items) ? data.items : [];
+    const timelineEvents = Array.isArray(data.timelineEvents) ? data.timelineEvents : [];
+    const itemsList = items.map(item => { const statusClass = item.status === '입고완료' ? 'status-received' : 'status-unreceived'; const statusText = item.status === '입고완료' ? '[입고완료]' : '[미입고]'; const statusColor = item.status === '입고완료' ? 'var(--success-color)' : 'var(--danger-color)'; const itemName = item.name || 'N/A'; const itemQty = item.quantity || 'N/A'; const itemUrl = item.url || '#'; const artistName = item.artistName || '정보 없음'; return `<li class="${statusClass}"><span style="color: ${statusColor}; font-weight: bold; margin-right: 5px;">${statusText}</span><a href="${itemUrl}" target="_blank" class="item-link">${itemName} (수량: ${itemQty})</a><br><small style="color: #555; margin-left: 65px;">by ${artistName}</small></li>`; }).join('');
+    const timelineHtml = timelineEvents.map((event, index) => { return `<div class="timeline-event"><div class="timeline-status">${event.status || 'N/A'}</div><div class="timeline-date">${event.date || 'N/A'}</div></div>${index < timelineEvents.length - 1 ? '<div class="timeline-line"></div>' : ''}`; }).join('');
+    const customerInfo = data.customerInfo || { name: 'N/A', country: 'N/A' };
+    const artistTracking = data.artistTracking || { number: 'N/A', url: '#' };
+    const intlTracking = data.internationalTracking || { number: 'N/A', url: '#' };
+    modalBody.innerHTML = `<div class="modal-grid"><div class="modal-section"><h4>진행 상태</h4><div class="timeline-container">${timelineHtml || '<p style="font-size: var(--font-size-sm); color: var(--text-muted-color);">타임라인 정보 없음</p>'}</div></div><div class="modal-section"><h4>주문 정보</h4><p><strong>고객:</strong> ${customerInfo.name} (${customerInfo.country || 'N/A'})</p><p><strong>종합 상태:</strong> ${data.logisticsStatus || 'N/A'}</p><p><strong>배송 국가:</strong> ${data.country || 'N/A'}</p><p><strong>현재 메모:</strong> <span class="current-status-text" style="font-size:14px;">${data.currentMemo || '메모 없음'}</span></p></div><div class="modal-section"><h4>작품 목록 (입고 현황)</h4><div class="item-list-container"><ul class="item-list">${itemsList || '<li>작품 정보 없음</li>'}</ul></div></div><div class="modal-section"><h4>배송 정보</h4><p><strong>국내배송 (작가):</strong> <a href="${artistTracking.url}" target="_blank" class="tracking-link">${artistTracking.number}</a></p><p><strong>국제배송:</strong> <a href="${intlTracking.url}" target="_blank" class="tracking-link">${intlTracking.number}</a></p></div></div>`;
+   }
+  function showModalError(error) { const modalBody = document.getElementById('modal-body'); if (modalBody) modalBody.innerHTML = `<p class="error-message" style="padding: 1rem;">오류: ${error.toString()}</p>`; }
+  function closeModal() { const modal = document.getElementById('order-detail-modal'); if (modal) modal.style.display = 'none'; }
+  // --- End Modal Functions ---
+
+  function hideLoader() {
+      const loader = document.getElementById('loader-container');
+      if (loader) loader.style.display = 'none';
+      const content = document.getElementById('dashboard-content');
+      if (content) content.classList.remove('initially-hidden');
+  }
+
+  function showError(error) {
+    console.error('오류 발생:', error);
+    hideLoader();
+    const content = document.getElementById('dashboard-content');
+    if (content) {
+        content.innerHTML = `<div class="card error-card"><h3><span style="color:var(--danger-color); margin-right: 0.5em;">⚠️</span> 오류 발생</h3><p>데이터를 불러오거나 표시하는 중 문제가 발생했습니다.</p><p class="error-details">${error.toString()}</p></div>`;
+    } else {
+        const loaderContainer = document.getElementById('loader-container');
+        if (loaderContainer) loaderContainer.innerHTML = `<p class="error-message">페이지 로드 실패: ${error.toString()}</p>`;
+    }
+  }
+</script>
+
+</body>
+</html>

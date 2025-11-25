@@ -1,0 +1,398 @@
+<div class="container">
+  <h1>🚨 미입고 관리 (V10.40)</h1>
+  <p style="color: var(--text-muted-color); margin-top: -8px; margin-bottom: 24px;">
+    '결제 완료' 상태의 주문 중 '처리완료'되지 않은 개별 작품 목록입니다.
+  </p>
+
+  <div class="kpi-grid">
+    <div class="card"><h3>총 미입고 작품</h3><p id="kpi-total" class="value">0 <small>개</small></p></div>
+    <div class="card"><h3>관련 주문</h3><p id="kpi-orders" class="value">0 <small>건</small></p></div>
+    <div class="card"><h3>관련 작가</h3><p id="kpi-artists" class="value">0 <small>명</small></p></div>
+    <div class="card"><h3>🚨 <span id="kpi-threshold">7</span>일 이상 지연</h3><p id="kpi-delayed" class="value warning">0 <small>개</small></p></div>
+  </div>
+
+  <div class="global-filters card">
+  
+  <div class="filter-group" style="flex-grow: 1;"> <label for="searchInput">검색</label>
+    <input type="text" id="searchInput" onkeyup="applyFilters()" placeholder="주문번호, 작가명, 작품명으로 검색...">
+  </div>
+
+  <div class="filter-group">
+    <label for="delayFilter">지연 상태</label>
+    <select id="delayFilter" onchange="applyFilters()">
+      <option value="all">모든 지연 상태</option>
+      <option value="delayed">7일 이상 지연</option>
+    </select>
+  </div>
+
+  <div class="filter-group">
+    <label for="bundleFilter">주문 유형</label>
+    <select id="bundleFilter" onchange="applyFilters()">
+      <option value="all">모든 주문 유형</option>
+      <option value="bundle">묶음 주문 (2명 이상 작가)</option>
+      <option value="single">단일 주문 (작가 1명)</option>
+    </select>
+  </div>
+
+</div>
+
+  <div id="loader-container"><?!= include('loading'); ?></div>
+
+  <div id="unreceived-content" class="table-container initially-hidden">
+    <table id="unreceived-table" class="table">
+      <thead>
+        <tr>
+          <th class="col-order-code">주문번호</th>
+          <th class="col-artist-name">작가명</th>
+          <th class="col-product-name">작품명 (주문 내 현황)</th>
+          <th class="col-date">주문일</th>
+          <th class="col-days">경과일</th>
+          <th class="col-status">현재 메모</th>
+        </tr>
+      </thead>
+      <tbody>
+        </tbody>
+    </table>
+  </div>
+</div>
+
+<div id="memo-modal" class="modal-overlay">
+  <div class="modal-content">
+    <div class="modal-header">
+      <h2 class="modal-title" id="memo-modal-title">메모 수정</h2>
+      <button class="modal-close" onclick="closeMemoModal()">&times;</button>
+    </div>
+    <div class="modal-body">
+      <textarea id="memo-textarea" placeholder="처리 상태 메모 입력..."></textarea>
+      <p class="current-status-text" style="margin-top: 8px;">
+        <strong>현재 메모:</strong> <span id="current-memo-text"></span>
+      </p>
+    </div>
+    <div class="modal-footer">
+      <button class="action-button" id="save-memo-button" onclick="saveMemo()">저장</button>
+      </div>
+  </div>
+</div>
+
+<script>
+  let allUnreceivedData = [];
+  let currentEditingOrderCode = null;
+
+  document.addEventListener("DOMContentLoaded", function() {
+    google.script.run
+      .withSuccessHandler(initializePage)
+      .withFailureHandler(showError)
+      .getUnreceivedItemsData();
+  });
+
+  function initializePage(data) {
+    if (data.error) {
+      showError(data.error);
+      return;
+    }
+    const kpis = data.kpis || {};
+    document.getElementById('kpi-total').innerHTML = `${(kpis.total || 0).toLocaleString()} <small>개</small>`;
+    document.getElementById('kpi-orders').innerHTML = `${(kpis.orders || 0).toLocaleString()} <small>건</small>`;
+    document.getElementById('kpi-artists').innerHTML = `${(kpis.artists || 0).toLocaleString()} <small>명</small>`;
+    document.getElementById('kpi-delayed').innerHTML = `${(kpis.delayed || 0).toLocaleString()} <small>개</small>`;
+    document.getElementById('kpi-threshold').textContent = kpis.threshold || 7;
+    if (kpis.delayed > 0) {
+      document.getElementById('kpi-delayed').classList.add('warning');
+    } else {
+      document.getElementById('kpi-delayed').classList.remove('warning');
+    }
+    allUnreceivedData = data.items || [];
+    allUnreceivedData.sort((a, b) => b.daysElapsed - a.daysElapsed);
+    populateTable(allUnreceivedData);
+    document.getElementById('loader-container').style.display = 'none';
+    document.getElementById('unreceived-content').classList.remove('initially-hidden');
+  }
+
+  function applyFilters() {
+    const searchTerm = document.getElementById('searchInput').value.toLowerCase();
+    const delayFilter = document.getElementById('delayFilter').value;
+    const bundleFilter = document.getElementById('bundleFilter').value;
+    let filteredData = allUnreceivedData;
+    if (searchTerm) {
+      filteredData = filteredData.filter(item =>
+        item.orderCode.toLowerCase().includes(searchTerm) ||
+        item.artistName.toLowerCase().includes(searchTerm) ||
+        item.productName.toLowerCase().includes(searchTerm)
+      );
+    }
+    if (delayFilter === 'delayed') {
+      const threshold = parseInt(document.getElementById('kpi-threshold').textContent || 7);
+      filteredData = filteredData.filter(item => item.daysElapsed >= threshold);
+    }
+    if (bundleFilter === 'bundle') {
+      filteredData = filteredData.filter(item => item.isBundle === true);
+    } else if (bundleFilter === 'single') {
+      filteredData = filteredData.filter(item => item.isBundle === false);
+    }
+    populateTable(filteredData);
+  }
+
+  // ▼▼▼▼▼ [수정됨] DOM API를 사용하도록 변경 (SyntaxError 해결) ▼▼▼▼▼
+  function populateTable(data) {
+    const tableBody = document.getElementById('unreceived-table').getElementsByTagName('tbody')[0];
+    tableBody.innerHTML = ''; // Clear previous table data
+
+    if (data.length === 0) {
+      // Display message if no data matches filters
+      tableBody.innerHTML = '<tr><td colspan="6" style="text-align:center; padding: 2rem;">표시할 데이터가 없습니다.</td></tr>';
+      return;
+    }
+
+    data.forEach(row => {
+      let newRow = tableBody.insertRow();
+
+      // Apply row highlighting based on delay
+      if (row.daysElapsed >= 10) { newRow.className = 'status-danger'; }
+      else if (row.daysElapsed >= 7) { newRow.className = 'status-warning'; }
+
+      // 1. Order Code Cell
+      let cellOrderCode = newRow.insertCell();
+      cellOrderCode.className = 'col-order-code';
+      cellOrderCode.textContent = row.orderCode;
+
+      // 2. Artist Name Cell
+      let cellArtist = newRow.insertCell();
+      cellArtist.className = 'col-artist-name';
+      cellArtist.textContent = row.artistName;
+
+      // 3. Product Name (with Bundle Tooltip) Cell
+      let cellProduct = newRow.insertCell();
+      // Apply tooltip class to TD for overflow fix
+      cellProduct.className = 'col-product-name cell-with-tooltip';
+
+      // Separate product name span and bundle container div for vertical stacking
+      let productNameHtml = `<span class="product-name-cell" title="${row.productName}">${row.productName}</span>`;
+      let bundleContainerHtml = ''; // Initialize bundle container HTML
+
+      // Generate bundle badge and tooltip HTML if applicable
+      if (row.isBundle && row.allItems && row.allItems.length > 0) {
+        let tooltipItemsHtml = '';
+        row.allItems.forEach(item => {
+          const statusClass = item.status === '입고완료' ? 'status-received' : 'status-unreceived';
+          tooltipItemsHtml += `<li class="${statusClass}"><strong>${item.productName}</strong><br><small>by ${item.artistName}</small></li>`;
+        });
+
+        // Use the structure defined in (updated) table_styles.txt
+        bundleContainerHtml = `
+          <div class="bundle-container">
+            <span class="bundle-badge" title="이 주문은 여러 작가의 작품을 포함합니다.">묶음 (${row.allItems.length}개)</span>
+            <div class="bundle-tooltip">
+              <strong>'${row.orderCode}' 주문 현황</strong>
+              <ul>${tooltipItemsHtml}</ul>
+            </div>
+          </div>`;
+      }
+      // Combine the name span and bundle container vertically
+      cellProduct.innerHTML = productNameHtml + bundleContainerHtml;
+
+      // 4. Order Date Cell
+      let cellDate = newRow.insertCell();
+      cellDate.className = 'col-date';
+      cellDate.textContent = row.orderDate;
+
+      // 5. Days Elapsed Cell
+      let cellDays = newRow.insertCell();
+      cellDays.className = 'col-days';
+      cellDays.textContent = `${row.daysElapsed} 일`;
+
+      // 6. Status/Memo Cell
+      let cellStatus = newRow.insertCell();
+      cellStatus.className = 'col-status';
+
+      // --- [수정] DOM API를 사용하여 셀 컨텐츠 생성 ---
+      
+      // 6.1. 컨테이너 div 생성
+      const flexDiv = document.createElement('div');
+      flexDiv.style.display = 'flex';
+      flexDiv.style.justifyContent = 'space-between';
+      flexDiv.style.alignItems = 'center';
+      flexDiv.style.gap = '8px';
+
+      // 6.2. 메모 텍스트 span 생성
+      const memoSpan = document.createElement('span');
+      memoSpan.className = 'current-status-text';
+      memoSpan.title = row.currentStatus || '';
+      memoSpan.style.flexGrow = '1';
+      memoSpan.style.overflow = 'hidden';
+      memoSpan.style.textOverflow = 'ellipsis';
+      memoSpan.style.whiteSpace = 'nowrap';
+      memoSpan.textContent = row.currentStatus || '메모 없음';
+
+      // 6.3. 수정 버튼 생성
+      const editButton = document.createElement('button');
+      editButton.className = 'action-button memo-button';
+      editButton.textContent = '수정';
+      
+      // 6.4. [핵심] dataset API로 원본 텍스트를 안전하게 저장
+      editButton.dataset.memo = row.currentStatus || '';
+      
+      // 6.5. [핵심] addEventListener로 클릭 이벤트 바인딩
+      editButton.addEventListener('click', function(event) {
+        event.stopPropagation();
+        // 'this' (클릭된 버튼)와 orderCode를 모달 함수로 전달
+        openMemoModal(this, row.orderCode); 
+      });
+
+      // 6.6. 생성된 요소들을 셀에 추가
+      flexDiv.appendChild(memoSpan);
+      flexDiv.appendChild(editButton);
+      cellStatus.appendChild(flexDiv);
+      // --- [수정] DOM API 사용 끝 ---
+    });
+  }
+  // ▲▲▲▲▲ [수정됨] populateTable 함수 끝 ▲▲▲▲▲
+
+
+  // ▼▼▼▼▼ [수정됨] JSON.parse()를 제거하고 dataset.memo를 직접 읽도록 변경 ▼▼▼▼▼
+  function openMemoModal(buttonElement, orderCode) {
+    // [수정] dataset.memo에서 원본 텍스트를 직접 읽어옵니다.
+    const currentMemo = buttonElement.dataset.memo;
+
+    currentEditingOrderCode = orderCode;
+    document.getElementById('memo-modal-title').textContent = `${orderCode} 메모 수정`;
+    document.getElementById('current-memo-text').textContent = currentMemo || '메모 없음';
+    document.getElementById('memo-textarea').value = currentMemo || ''; // null일 경우 빈 문자열로
+    document.getElementById('memo-modal').style.display = 'flex';
+    document.getElementById('memo-textarea').focus();
+  }
+  // ▲▲▲▲▲ [수정됨] openMemoModal 함수 끝 ▲▲▲▲▲
+
+  function closeMemoModal() {
+    document.getElementById('memo-modal').style.display = 'none';
+    currentEditingOrderCode = null;
+  }
+
+  function saveMemo() {
+    if (!currentEditingOrderCode) return;
+    const button = document.getElementById('save-memo-button');
+    // const spinner = document.getElementById('save-spinner'); // UX Suggestion
+    const newMemo = document.getElementById('memo-textarea').value;
+    button.disabled = true;
+    button.textContent = '저장 중...';
+    // if (spinner) spinner.style.display = 'inline-block'; // UX Suggestion
+
+    google.script.run
+      .withSuccessHandler(function(response) {
+        button.disabled = false;
+        button.textContent = '저장';
+        // if (spinner) spinner.style.display = 'none'; // UX Suggestion
+
+        if (response.status === 'success') {
+          allUnreceivedData.forEach(item => {
+            if (item.orderCode === currentEditingOrderCode) {
+              item.currentStatus = newMemo;
+            }
+          });
+          applyFilters();
+          closeMemoModal();
+          // UX Suggestion: Show toast notification here
+          // showToast('메모가 저장되었습니다.');
+        } else {
+          alert('오류: ' + response.message);
+        }
+      })
+      .withFailureHandler(function(error) {
+        button.disabled = false;
+        button.textContent = '저장';
+        // if (spinner) spinner.style.display = 'none'; // UX Suggestion
+        alert('서버 오류 발생: ' + error.toString());
+      })
+      .updateProcessingStatus(currentEditingOrderCode, newMemo);
+  }
+
+  // UX Suggestion: Add a function for toast notifications
+  /*
+  function showToast(message) {
+    // Implementation for showing a temporary message overlay
+  }
+  */
+
+  function showError(error) {
+    console.error('Error fetching unreceived data:', error);
+    document.getElementById('loader-container').style.display = 'none';
+    document.getElementById('unreceived-content').classList.remove('initially-hidden');
+    const tableBody = document.getElementById('unreceived-table').getElementsByTagName('tbody')[0];
+    tableBody.innerHTML = `<tr><td colspan="6" style="text-align:center; color:red; padding: 2rem;">데이터 로딩 실패: ${error.toString()}</td></tr>`;
+  }
+</script>
+
+<style>
+  /* ▼▼▼▼▼ [삭제됨] 레이아웃 오류를 일으키는 CSS 규칙 ▼▼▼▼▼ */
+  /*
+  #unreceived-content.table-container {
+      overflow-x: visible; 
+  }
+  #unreceived-table {
+      table-layout: auto; 
+      min-width: 0;
+  }
+  */
+  /* ▲▲▲▲▲ [삭제됨] 여기까지 ▲▲▲▲▲ */
+
+
+  /* [리팩토링] 툴팁이 뱃지 '아래'로 나오도록 table_styles.txt 덮어쓰기 */
+  .bundle-tooltip {
+      bottom: auto; /* 기존 bottom 속성 무효화 */
+      top: 100%;    /* 뱃지 아래로 펼치기 */
+      margin-bottom: 0; /* 기존 margin-bottom 무효화 */
+      margin-top: 8px;  /* 뱃지와의 간격 */
+      z-index: 20;  /* 다른 요소들보다 위에 오도록 z-index 보장 */
+  }
+
+  /* [리팩토링] 툴팁 화살표 추가 (위를 향하도록) */
+  .bundle-tooltip::after {
+      content: "";
+      position: absolute;
+      bottom: 100%; /* 툴팁의 상단 */
+      left: 50%;
+      margin-left: -5px;
+      border-width: 5px;
+      border-style: solid;
+      /* table_styles.txt의 툴팁 배경색(var(--secondary-color))을 따라감 */
+      border-color: transparent transparent var(--secondary-color) transparent;
+  }
+  
+  /* [리팩토링] 다크 모드 툴팁 화살표 색상 덮어쓰기 */
+  [data-theme="dark"] .bundle-tooltip::after {
+      /* table_styles.txt의 다크모드 툴팁 배경색(var(--card-background-color))을 따라감 */
+      border-color: transparent transparent var(--card-background-color) transparent;
+  }
+
+  /* --- 기존 start.txt 스타일 (유지) --- */
+  #kpi-total small, #kpi-orders small, #kpi-artists small, #kpi-delayed small {
+    font-size: 0.7em;
+ color: var(--text-muted-color);
+    margin-left: 0.2em;
+  }
+  #kpi-delayed.warning {
+      color: var(--warning-color);
+ }
+
+  /* Column widths (ensure these match or override table_styles.txt if needed) */
+  #unreceived-table .col-order-code { width: 15%; }
+  #unreceived-table .col-artist-name { width: 15%; }
+  #unreceived-table .col-product-name { width: 30%;}
+  #unreceived-table .col-date { width: 12%; text-align: center; }
+  #unreceived-table .col-days { width: 10%; text-align: right; }
+  #unreceived-table .col-status { width: 18%; }
+
+  /* UX Suggestion: Increase row padding */
+  /*
+  #unreceived-table th, #unreceived-table td {
+    padding-top: 0.9rem; padding-bottom: 0.9rem;
+  }
+  */
+
+  /* UX Suggestion: Highlight delayed days cell */
+  /*
+  #unreceived-table td.col-days { font-weight: 500; }
+  #unreceived-table tr.status-warning td.col-days { background-color: rgba(243, 156, 18, 0.1); }
+  #unreceived-table tr.status-danger td.col-days { background-color: rgba(231, 76, 60, 0.1); font-weight: bold; }
+  */
+
+</style>

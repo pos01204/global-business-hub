@@ -1,0 +1,136 @@
+<style>
+/* ====================
+   Table Styles (Enhanced)
+   ==================== */
+
+/* Table Scroll Container */
+.table-container {
+  width: 100%;
+  max-width: 100%;
+  overflow-x: auto;
+  -webkit-overflow-scrolling: touch;
+  margin-top: 0.5rem;
+  border: 1px solid var(--border-color);
+  border-radius: var(--border-radius);
+  background-color: var(--card-background-color);
+  box-shadow: var(--box-shadow); /* [개선] Add shadow */
+}
+.table-container .no-data-message { padding: 2rem; text-align: center; color: var(--text-muted-color); }
+.table-container.no-data { border: none; border-radius: 0; background-color: transparent; box-shadow: none; }
+
+/* Base Table */
+.table {
+  width: 100%;
+  border-collapse: collapse;
+  font-size: 0.9rem;
+  table-layout: fixed;
+  min-width: 650px;
+}
+
+.table th, .table td {
+  padding: 0.75rem 0.8rem;
+  border-bottom: 1px solid var(--border-color);
+  text-align: left;
+  vertical-align: middle;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.table th {
+  background-color: var(--table-header-bg);
+  color: var(--text-muted-color);
+  font-weight: 600;
+  white-space: normal;
+  text-transform: uppercase;
+  font-size: 0.8rem;
+  letter-spacing: 0.5px;
+  vertical-align: bottom;
+  padding-bottom: 0.5rem;
+}
+
+/* [테마] Use variable for alternating rows */
+.table tbody tr:nth-child(odd) {
+  background-color: var(--background-alt-color);
+}
+.table tbody tr:hover { background-color: var(--hover-color); }
+.table tr:last-child td { border-bottom: none; }
+
+/* ... (Omitted .ranking-table, .crm-table, etc. as they use vars) ... */
+/* (Ensure all color/bg properties below use variables if they exist) */
+.ranking-table th:first-child, .ranking-table td:first-child { width: 50px; text-align: center; }
+.ranking-table th:last-child, .ranking-table td:last-child { width: 120px; text-align: right; }
+.ranking-split-container { display: grid; grid-template-columns: repeat(auto-fit, minmax(250px, 1fr)); gap: 20px 30px; }
+.crm-table .col-user-id { width: 10%; }
+.crm-table .col-name { width: 18%; }
+.crm-table .col-country { width: 8%; text-align: center; }
+.crm-table .col-status { width: 10%; text-align: center; }
+.crm-table .col-monetary { width: 12%; }
+.crm-table .col-frequency { width: 8%; }
+.crm-table .col-recency { width: 10%; text-align: center; }
+.crm-table .col-artist-diversity { width: 8%; }
+.crm-table .col-first-amount { width: 10%; }
+.crm-table .col-first-count { width: 8%; }
+.crm-table .col-first-date { width: 10%; text-align: center; }
+.table td.col-numeric { text-align: right; font-feature-settings: "tnum"; }
+.table .item-link, .table .user-id-link, .table .artist-name-link { color: var(--primary-color); text-decoration: none; cursor: pointer; display: inline-block; max-width: 100%; overflow: hidden; text-overflow: ellipsis; vertical-align: middle; font-weight: 500; }
+.table .item-link:hover, .table .user-id-link:hover, .table .artist-name-link:hover { text-decoration: underline; }
+.table .copy-icon { cursor: pointer; margin-left: 0.5em; color: var(--text-muted-color); font-size: 0.9em; vertical-align: middle; }
+.table .copy-icon:hover { color: var(--primary-color); }
+.subtotal-row td { background-color: var(--hover-color); font-weight: bold; border-bottom: 1px solid var(--border-color); }
+.table tbody tr.subtotal-row:last-child td { border-bottom: none; }
+
+/* ... (Omitted logistics/start specific styles) ... */
+#logistics-table th:nth-child(2), #start-table th:nth-child(4) { width: 30%; }
+#logistics-table td:nth-child(2), #start-table td:nth-child(4) { white-space: normal; overflow: visible; text-overflow: clip; }
+#logistics-table td:nth-child(2) .item-list-container li, #start-table td:nth-child(4) .item-list-container li { display: block; max-width: 100%; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+#start-table td:nth-child(2), #logistics-table td:nth-child(1) { font-weight: 600; color: var(--primary-color); }
+#start-table td:nth-child(6) { font-weight: 700; text-align: right; }
+td.product-name-cell { font-weight: 500; color: var(--secondary-color); }
+
+.tracking-link { color: var(--primary-color); text-decoration: none; font-weight: 500; }
+.tracking-link:hover { text-decoration: underline; }
+tr.status-warning td { background-color: #fff9e6 !important; }
+tr.status-danger td { background-color: #fff0f0 !important; }
+[data-theme="dark"] tr.status-warning td { background-color: #3e2e00 !important; }
+[data-theme="dark"] tr.status-danger td { background-color: #3c0000 !important; }
+tr.order-group-start td { border-top: 2px solid var(--border-color); }
+tr.group-hover { background-color: var(--hover-color); }
+
+/* Tooltip inside cells */
+td.cell-with-tooltip { overflow: visible; position: relative; }
+.bundle-container { position: relative; display: inline-block; }
+.bundle-badge { background-color: var(--secondary-color); color: white; padding: 2px 6px; font-size: 10px; font-weight: 600; border-radius: 4px; white-space: nowrap; cursor: pointer; }
+/* [테마] Bundle Tooltip Dark Mode */
+.bundle-tooltip {
+    display: none; position: absolute; bottom: 100%; left: 50%; transform: translateX(-50%);
+    background-color: var(--secondary-color); /* Use variable */
+    color: var(--card-background-color); /* Use variable */
+    padding: 12px; border-radius: var(--border-radius);
+    box-shadow: 0 5px 15px rgba(0,0,0,0.2); width: 280px; z-index: 10; font-size: 13px;
+    margin-bottom: 8px; opacity: 0;
+    transition: opacity 0.2s; white-space: normal;
+    border: 1px solid var(--border-color); /* Added border */
+}
+.bundle-container:hover .bundle-tooltip { display: block; opacity: 1; }
+.bundle-tooltip strong { color: var(--card-background-color); font-weight: 600; } /* Use variable */
+.bundle-tooltip ul { list-style: none; padding-left: 0; margin-top: 8px; margin-bottom: 0; }
+.bundle-tooltip li { padding: 6px 0; border-bottom: 1px solid #555; font-size: 12px; } /* #555 is ok for dark bg */
+.bundle-tooltip li:last-child { border-bottom: none; }
+.bundle-tooltip small { color: #ccc; font-size: 11px; } /* #ccc is ok for dark bg */
+.bundle-tooltip li.status-received::before { content: '✔'; color: var(--success-color); margin-right: 8px; font-weight: bold; }
+.bundle-tooltip li.status-unreceived::before { content: '✖'; color: var(--danger-color); margin-right: 8px; font-weight: bold; }
+
+/* Alternating rows fix */
+.table tbody tr:not(.timeline-row):nth-child(odd) { background-color: var(--background-alt-color); }
+.table tbody tr:not(.timeline-row):nth-child(even) { background-color: var(--card-background-color); }
+.table tbody tr:not(.timeline-row):hover { background-color: var(--hover-color); }
+
+/* 미입고 관리 테이블 열 너비 */
+#unreceived-table .col-order-code { width: 15%; }
+#unreceived-table .col-artist-name { width: 15%; }
+#unreceived-table .col-product-name { width: 30%; }
+#unreceived-table .col-date { width: 12%; text-align: center; }
+#unreceived-table .col-days { width: 10%; text-align: right; }
+#unreceived-table .col-status { width: 18%; }
+</style>

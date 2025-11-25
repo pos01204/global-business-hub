@@ -1,0 +1,432 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <title>통합 검색</title>
+</head>
+<body>
+<div class="container">
+    <h1><i class="fa-solid fa-search" style="margin-right: 8px; color: var(--primary-color);"></i> 통합 검색</h1>
+    
+    <div class="card" style="padding: 1.5rem; margin-bottom: 1.5rem;">
+        <form class="lookup-form" onsubmit="performLookup(event)"> 
+            <div class="filter-group">
+                <label for="searchType">검색 기준</label>
+                <select id="searchType">
+         
+                     <option value="shipment_id">Shipment ID (LGL)</option>
+                    <option value="order_code">주문 번호</option>
+                    <option value="user_id">구매 유저 ID</option>
+                    <option value="artist_name">작가명</option>
+                    
+ <option value="product_name">작품명</option>
+                    <option value="artist_id">작가 ID</option>
+                    <option value="product_id">작품 ID</option>
+                </select>
+            </div>
+            <div class="filter-group" style="flex-grow: 1;">
+            
+                 <label for="searchQuery">검색어</label>
+                <input type="text" id="searchQuery" placeholder="검색어를 입력하세요..." style="width: 100%;">
+            </div>
+            <button type="submit" class="action-button lookup-button">
+                <i class="fa-solid fa-search"></i> 검색
+            </button>
+        </form>
+    </div>
+
+   
+     <div id="loader-container" style="display: none;"><?!= include('loading'); ?></div>
+
+    <div id="lookup-results-container">
+        <div class="card card-placeholder">
+            <i class="fa-solid fa-search"></i>
+            <p>검색 기준을 선택하고 검색어를 입력해주세요.</p>
+        </div>
+    </div>
+</div>
+
+<div id="order-detail-modal" class="modal-overlay">
+  <div class="modal-content large">
+    <div class="modal-header">
+      <h2 class="modal-title" id="modal-title">주문 상세 정보</h2>
+      <button class="modal-close" onclick="closeModal()">&times;</button>
+    </div>
+    
+ <div class="modal-body" id="modal-body"></div>
+  </div>
+</div>
+<div id="customer-detail-modal" class="modal-overlay">
+  <div class="modal-content large">
+    <div class="modal-header">
+      <h2 class="modal-title" id="customer-modal-title">고객 상세 정보</h2>
+      <button class="modal-close" onclick="closeCustomerModal()">&times;</button>
+     </div>
+    <div class="modal-body" id="customer-modal-body"></div>
+  </div>
+</div>
+
+<style>
+    /* ... (스타일은 변경 없음) ... */
+    /* 검색 폼 스타일 */
+    .lookup-form {
+        display: flex;
+        flex-wrap: wrap;
+        gap: 1rem;
+        align-items: flex-end; /* 하단 정렬 */
+    }
+    .lookup-form .filter-group {
+        flex: 1 1 200px; /* 기본 너비 200px, 축소 가능, 확장 가능 */
+    }
+    .lookup-form .filter-group label {
+        font-weight: 500;
+        font-size: 0.9rem;
+        margin-bottom: 0.25rem;
+        display: block;
+    }
+    .lookup-form .filter-group select,
+    .lookup-form .filter-group input {
+        width: 100%;
+    }
+    .lookup-form .filter-group[style*="flex-grow: 1"] {
+        flex: 3 1 300px; /* 검색어 입력창이 더 많은 공간 차지 */
+    }
+    .lookup-button {
+        height: 38px; /* input/select 높이와 맞춤 (component_styles 기준) */
+        padding: 0 1.5rem;
+        font-size: 0.9rem;
+        background-color: var(--primary-color);
+        flex-shrink: 0; /* 축소 방지 */
+    }
+
+    /* 초기 플레이스홀더 카드 */
+    .card-placeholder {
+        padding: 3rem;
+        text-align: center; color: var(--text-muted-color);
+        border: 1px dashed var(--border-color); background-color: var(--background-alt-color);
+        display: flex; flex-direction: column; align-items: center;
+        gap: 1rem;
+    }
+    .card-placeholder i { font-size: 2rem; opacity: 0.5; }
+    
+    /* 결과 카드 */
+    .results-card { padding: 0; }
+    .results-card h3 {
+        padding: 1.5rem 1.5rem 0;
+        margin-bottom: 1rem;
+        font-size: 1.25rem;
+    }
+    .results-warning {
+        padding: 0 1.5rem 1rem;
+        font-size: 0.9rem;
+        color: var(--warning-color);
+        font-weight: 500;
+    }
+
+    /* 프로필 카드 */
+    .profile-card {
+        padding: 1.5rem;
+        background-color: var(--hover-color);
+        border: 1px solid var(--border-color);
+        border-radius: var(--border-radius);
+        margin-bottom: 1.5rem;
+        display: grid;
+        grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+        gap: 1rem;
+    }
+    .profile-card h3 {
+        grid-column: 1 / -1; /* Title spans all columns */
+        margin-bottom: 0.5rem;
+        border-bottom: 1px solid var(--border-color);
+        padding-bottom: 0.5rem;
+        font-size: 1.1rem;
+    }
+    .profile-card p { margin: 0; font-size: var(--font-size-sm); }
+    .profile-card p strong { min-width: 60px; display: inline-block; }
+
+    /* [개선] 결과 테이블 (고정 레이아웃 사용) */
+    .results-table {
+        table-layout: fixed;
+        width: 100%;
+        min-width: 900px; /* 가로 스크롤 생성 */
+    }
+    .results-table th, .results-table td {
+        vertical-align: top;
+        padding: 12px 14px;
+        white-space: nowrap;
+        overflow: hidden;
+        text-overflow: ellipsis;
+    }
+    /* [개선] 줄바꿈 허용 컬럼 */
+    .results-table .col-product, 
+    .results-table .col-artist {
+        white-space: normal;
+        word-break: break-word;
+    }
+    /* [개선] 컬럼 너비 지정 */
+    .results-table .col-date { width: 10%; }
+    .results-table .col-order-code { width: 15%; }
+    .results-table .col-shipment-id { width: 15%; }
+    .results-table .col-product { width: 25%; }
+    .results-table .col-artist { width: 15%; }
+    .results-table .col-user-id { width: 10%; }
+    .results-table .col-status { width: 10%; }
+    
+    /* 검색어 하이라이트 */
+    .highlight {
+        font-weight: 700;
+        color: var(--danger-color);
+        background-color: #fff0f0;
+    }
+</style>
+
+<script>
+    // URL 파라미터를 읽는 변수
+    const PRESET_QUERY = "<?!= presetQuery ?>";
+    const PRESET_TYPE = "<?!= presetType ?>";
+
+    // 페이지 로드 시 자동 검색 실행
+    document.addEventListener("DOMContentLoaded", function() {
+      try {
+        // presetQuery와 presetType이 유효한 값('null' 문자열이 아님)인지 확인
+        if (PRESET_QUERY && PRESET_QUERY !== 'null' && PRESET_TYPE && PRESET_TYPE !== 'null') {
+          
+          const searchInput = document.getElementById('searchQuery');
+          const searchTypeSelect = document.getElementById('searchType');
+          
+          // 폼 필드를 시각적으로 채워줌
+          if (searchInput) searchInput.value = PRESET_QUERY;
+          if (searchTypeSelect) searchTypeSelect.value = PRESET_TYPE;
+          
+          console.log(`Preset search triggered: ${PRESET_TYPE} = ${PRESET_QUERY}`);
+          
+          // ▼▼▼▼▼ [수정] 타이밍 문제(Race Condition) 해결을 위해 setTimeout 추가 ▼▼▼▼▼
+          // google.script.run API가 로드될 시간을 100ms 확보합니다.
+          setTimeout(function() {
+            performLookup(null, PRESET_QUERY, PRESET_TYPE);
+          }, 100); 
+          // ▲▲▲▲▲ [수정] 여기까지 ▲▲▲▲▲
+        }
+      } catch (e) {
+        console.error("페이지 로드 시 자동 검색 오류:", e);
+      }
+    });
+
+
+    // Enter 키로 검색 실행
+    function handleEnterKey(event) {
+        if (event.key === 'Enter') {
+            performLookup(event);
+        }
+    }
+
+    // [수정] 함수가 (event) 외에 presetQuery, presetType 인자를 받도록 변경
+    function performLookup(event, presetQuery = null, presetType = null) {
+        if (event) event.preventDefault(); // 폼 제출(새로고침) 방지
+        
+        let query, searchType;
+
+        if (presetQuery && presetType) {
+            // [추가] 자동 실행 시: 파라미터로 받은 값을 사용
+            query = presetQuery;
+            searchType = presetType;
+        } else {
+            // 수동 검색 시: 폼(DOM)에서 값을 읽음
+            query = document.getElementById('searchQuery').value;
+            searchType = document.getElementById('searchType').value;
+        }
+        
+        if (!query || query.trim() === '') {
+            alert('검색어를 입력해주세요.');
+            return;
+        }
+        
+        const loader = document.getElementById('loader-container');
+        const container = document.getElementById('lookup-results-container');
+        if (loader) loader.style.display = 'block';
+        if (container) container.innerHTML = ''; // 이전 결과 지우기
+
+        // [수정] 결정된 query, searchType 변수를 백엔드로 전달
+        google.script.run
+            .withSuccessHandler(renderLookupResults)
+            .withFailureHandler(showLookupError)
+            .getLookupData(query.trim(), searchType);
+    }
+
+    // 검색 성공 시 결과 렌더링
+    function renderLookupResults(data) {
+        const loader = document.getElementById('loader-container');
+        if (loader) loader.style.display = 'none';
+        
+        const container = document.getElementById('lookup-results-container');
+        if (!container) return;
+        if (!data || data.error) {
+            container.innerHTML = `<div class="card error-card"><h3>검색 오류</h3><p>${data.error || '알 수 없는 오류가 발생했습니다.'}</p></div>`;
+            return;
+        }
+
+        if (!data.results || data.results.length === 0) {
+            container.innerHTML = `<div class="card" style="padding: 2rem; text-align: center;"><p>'${data.query}' (${data.searchType})에 대한 검색 결과가 없습니다.</p></div>`;
+            return;
+        }
+
+        let html = '';
+        // 1. 유저 프로필 카드 렌더링 (user_id 검색 시)
+        if (data.profile) {
+            html += renderUserProfileCard(data.profile);
+        }
+
+        // 2. 결과 테이블 렌더링
+        html += `<div class="card results-card">`;
+        html += `<h3>검색 결과: ${data.results.length}건</h3>`;
+        // 경고 메시지 (결과 수 제한 등)
+        if (data.warning) {
+            html += `<p class="results-warning">⚠️ ${data.warning}</p>`;
+        }
+        html += renderOrderTable(data.results, data.searchType, data.query);
+        html += `</div>`;
+        
+        container.innerHTML = html;
+    }
+
+    // 헬퍼: 유저 프로필 카드 HTML 생성
+    function renderUserProfileCard(profile) {
+        if (!profile) return '';
+        const userId = profile.ID || 'N/A';
+        return `
+            <div class="profile-card">
+                <h3><i class="fa-solid fa-user"></i> 고객 정보</h3>
+                <p><strong>User ID:</strong> <a href="javascript:void(0)" onclick="openCustomerModal('${userId}')" class="item-link">${userId}</a></p>
+                <p><strong>고객명:</strong> ${profile.NAME || 'N/A'}</p>
+                <p><strong>이메일:</strong> ${profile.EMAIL || 'N/A'}</p>
+                <p><strong>국가:</strong> ${profile.COUNTRY || 'N/A'}</p>
+                <p><strong>가입일:</strong> ${profile.CREATED_AT ? new Date(profile.CREATED_AT).toLocaleDateString("ko-KR") : 'N/A'}</p>
+            </div>
+        `;
+    }
+
+    // 헬퍼: 결과 테이블 HTML 생성
+    function renderOrderTable(results, searchType, query) {
+        let tableHtml = '<div class="table-container"><table class="table results-table"><thead><tr>';
+        const headers = [
+            { key: 'orderDate', label: '주문일', class: 'col-date' },
+            { key: 'orderCode', label: '주문 번호', class: 'col-order-code' },
+            { key: 'shipmentId', label: 'Shipment ID', class: 'col-shipment-id' },
+            { key: 'productName', label: '작품명', class: 'col-product' },
+            { key: 'artistName', label: '작가명', class: 'col-artist' },
+            { key: 'userId', label: 'User ID', class: 'col-user-id' },
+            { key: 'logisticsStatus', label: '종합 상태', class: 'col-status' }
+        ];
+        headers.forEach(h => tableHtml += `<th class="${h.class}">${h.label}</th>`);
+        tableHtml += '</tr></thead><tbody>';
+
+        const lowerQuery = query.toLowerCase();
+        results.forEach(row => {
+            // Safe data access
+            const orderDate = row.orderDate || 'N/A';
+            const orderCode = row.orderCode || 'N/A';
+            const shipmentId = row.shipmentId || 'N/A';
+            const productName = row.productName || 'N/A';
+            const artistName = row.artistName || 'N/A';
+            const userId = row.userId || 'N/A';
+            const status = row.logisticsStatus || 'N/A';
+
+            // 하이라이트 클래스 적용
+            const orderCodeClass = (searchType === 'order_code' && orderCode.toLowerCase() === lowerQuery) ? 'highlight' : '';
+            const shipmentIdClass = (searchType === 'shipment_id' && String(shipmentId).toLowerCase() === lowerQuery) ? 'highlight' : '';
+            const productNameClass = (searchType === 'product_name' && productName.toLowerCase().includes(lowerQuery)) ? 'highlight' : '';
+            const artistNameClass = (searchType === 'artist_name' && artistName.toLowerCase().includes(lowerQuery)) ? 'highlight' : '';
+            const userIdClass = (searchType === 'user_id' && String(userId) === query) ? 'highlight' : '';
+            // artist_id, product_id 하이라이트 (선택 사항)
+            const artistIdClass = (searchType === 'artist_id' && String(row.artistId).toLowerCase() === lowerQuery) ? 'highlight' : '';
+            const productIdClass = (searchType === 'product_id' && String(row.productId).toLowerCase() === lowerQuery) ? 'highlight' : '';
+            tableHtml += `
+                <tr>
+                    <td class="col-date">${orderDate}</td>
+                    <td class="col-order-code ${orderCodeClass}">
+                        <a href="javascript:void(0)" onclick="openModal('${orderCode}')" class="item-link" title="주문 상세 보기">${orderCode}</a>
+         
+                     </td>
+                    <td class="col-shipment-id ${shipmentIdClass}">${shipmentId}</td>
+                    <td class="col-product ${productNameClass} ${productIdClass}">${productName}</td>
+                    <td class="col-artist ${artistNameClass} ${artistIdClass}">${artistName}</td>
+                    <td class="col-user-id ${userIdClass}">
+                        ${userId !== 'N/A' ? `<span onclick="openCustomerModal('${userId}')" class="item-link" title="고객 상세 보기">${userId}</span>` : 'N/A'}
+                    </td>
+                    <td class="col-status">${status}</td>
+                </tr>
+            `;
+        });
+
+        tableHtml += '</tbody></table></div>';
+        return tableHtml;
+    }
+
+    // 검색 실패 처리
+    function showLookupError(error) {
+        console.error('Lookup Error:', error);
+        const loader = document.getElementById('loader-container');
+        if (loader) loader.style.display = 'none';
+        const container = document.getElementById('lookup-results-container');
+        if (container) {
+            container.innerHTML = `<div class="card error-card"><h3><span style="color:var(--danger-color);">⚠️</span> 검색 실패</h3><p>데이터 조회 중 오류가 발생했습니다.</p><p class="error-details">${error.toString()}</p></div>`;
+        }
+    }
+
+    // --- Modal Functions (Copied from other pages) ---
+    // (Ensure getOrderDetail and getCustomerDetail exist in code.gs)
+
+    function openModal(orderCode) {
+        if (window.event) window.event.stopPropagation();
+        const modal = document.getElementById('order-detail-modal'); const modalBody = document.getElementById('modal-body'); const modalTitle = document.getElementById('modal-title');
+        if (!modal || !modalBody || !modalTitle) { console.error("Order Detail Modal elements not found."); return; }
+        modalTitle.textContent = `${orderCode} 상세 정보`;
+        modalBody.innerHTML = '<div class="modal-loading-container"><div class="loader"></div></div>';
+        modal.style.display = 'flex';
+        google.script.run.withSuccessHandler(populateModal).withFailureHandler(showModalError).getOrderDetail(orderCode);
+    }
+    function populateModal(data) {
+        const modalBody = document.getElementById('modal-body');
+        if (!modalBody) return;
+        if (!data || data.error) { showModalError(data ? data.error : "주문 상세 데이터를 받지 못했습니다."); return; }
+        const items = Array.isArray(data.items) ? data.items : [];
+        const timelineEvents = Array.isArray(data.timelineEvents) ? data.timelineEvents : [];
+        const itemsList = items.map(item => { const statusClass = item.status === '입고완료' ? 'status-received' : 'status-unreceived'; const statusText = item.status === '입고완료' ? '[입고완료]' : '[미입고]'; const statusColor = item.status === '입고완료' ? 'var(--success-color)' : 'var(--danger-color)'; const itemName = item.name || 'N/A'; const itemQty = item.quantity || 'N/A'; const itemUrl = item.url || '#'; const artistName = item.artistName || '정보 없음'; return `<li class="${statusClass}"><span style="color: ${statusColor}; font-weight: bold; margin-right: 5px;">${statusText}</span><a href="${itemUrl}" target="_blank" class="item-link">${itemName} (수량: ${itemQty})</a><br><small style="color: #555; margin-left: 65px;">by ${artistName}</small></li>`; }).join('');
+        const timelineHtml = timelineEvents.map((event, index) => { return `<div class="timeline-event"><div class="timeline-status">${event.status || 'N/A'}</div><div class="timeline-date">${event.date || 'N/A'}</div></div>${index < timelineEvents.length - 1 ? '<div class="timeline-line"></div>' : ''}`; }).join('');
+        const customerInfo = data.customerInfo || { name: 'N/A', country: 'N/A' }; const artistTracking = data.artistTracking ||
+        { number: 'N/A', url: '#' }; const intlTracking = data.internationalTracking || { number: 'N/A', url: '#' };
+        modalBody.innerHTML = `<div class="modal-grid"><div class="modal-section"><h4>진행 상태</h4><div class="timeline-container">${timelineHtml || '<p style="font-size: var(--font-size-sm); color: var(--text-muted-color);">타임라인 정보 없음</p>'}</div></div><div class="modal-section"><h4>주문 정보</h4><p><strong>고객:</strong> ${customerInfo.name} (${customerInfo.country || 'N/A'})</p><p><strong>종합 상태:</strong> ${data.logisticsStatus || 'N/A'}</p><p><strong>배송 국가:</strong> ${data.country || 'N/A'}</p><p><strong>현재 메모:</strong> <span class="current-status-text" style="font-size:14px;">${data.currentMemo || '메모 없음'}</span></p></div><div class="modal-section"><h4>작품 목록 (입고 현황)</h4><div class="item-list-container"><ul class="item-list">${itemsList || '<li>작품 정보 없음</li>'}</ul></div></div><div class="modal-section"><h4>배송 정보</h4><p><strong>국내배송 (작가):</strong> <a href="${artistTracking.url}" target="_blank" class="tracking-link">${artistTracking.number}</a></p><p><strong>국제배송:</strong> <a href="${intlTracking.url}" target="_blank" class="tracking-link">${intlTracking.number}</a></p></div></div>`;
+    }
+    function showModalError(error) { const modalBody = document.getElementById('modal-body'); if (modalBody) modalBody.innerHTML = `<p class="error-message" style="padding: 1rem;">오류: ${error.toString()}</p>`; }
+    function closeModal() { const modal = document.getElementById('order-detail-modal'); if (modal) modal.style.display = 'none'; }
+
+    function openCustomerModal(userId) {
+        if (window.event) window.event.stopPropagation();
+        const m = document.getElementById('customer-detail-modal'); const b = document.getElementById('customer-modal-body'); const t = document.getElementById('customer-modal-title');
+        if(!m || !b || !t) { console.error("Customer Detail Modal elements not found."); return; }
+        t.textContent = `고객 상세 정보 (ID: ${userId})`; b.innerHTML = '<div class="modal-loading-container"><div class="loader"></div></div>';
+        m.style.display = 'flex';
+        google.script.run.withSuccessHandler(populateCustomerModal).withFailureHandler(showCustomerModalError).getCustomerDetail(userId);
+    }
+    function populateCustomerModal(data){
+        const b = document.getElementById('customer-modal-body');
+        if(!b) return;
+        if (data === null || data === undefined) { showCustomerModalError("서버로부터 고객 상세 정보를 받지 못했습니다. (null 반환)"); return; }
+        if (data.error) { showCustomerModalError(data.error); return; }
+        const p = data.profile || { name: 'N/A', email: 'N/A', country: 'N/A', createdAt: 'N/A' };
+        const pHtml = `<div class="modal-section" style="background-color:#f8f9fa;padding:16px;border-radius:8px;margin-bottom:24px"><h4 style="margin-top:0">고객 프로필</h4><p><strong>고객명:</strong> ${p.name||'N/A'}</p><p><strong>이메일:</strong> ${p.email||'N/A'}</p><p><strong>국가:</strong> ${p.country||'N/A'}</p><p><strong>가입일:</strong> ${p.createdAt||'N/A'}</p></div>`;
+        const stats = data.stats || { R: 'N/A', F: 0, M: 0, ArtistDiversity: 0 };
+        const rDisplay = stats.R !== 'N/A' ? `${stats.R}<small>일 전</small>` : 'N/A'; const fDisplay = `${stats.F}<small>회</small>`; const mDisplay = `₩${Math.round(stats.M).toLocaleString()}`; const aDisplay = `${stats.ArtistDiversity}<small>명</small>`;
+        const rfmHtml = `<div class="kpi-grid" style="margin-bottom:24px;grid-template-columns:repeat(auto-fit,minmax(150px,1fr));gap:1rem"><div class="card" style="padding:16px;text-align:center"><h3 style="font-size:13px">최근 구매일 (R)</h3><p class="value" style="font-size:24px">${rDisplay}</p></div><div class="card" style="padding:16px;text-align:center"><h3 style="font-size:13px">구매 빈도 (F)</h3><p class="value" style="font-size:24px">${fDisplay}</p></div><div class="card" style="padding:16px;text-align:center"><h3 style="font-size:13px">총 구매액 (M)</h3><p class="value" style="font-size:24px">${mDisplay}</p></div><div class="card" style="padding:16px;text-align:center"><h3 style="font-size:13px">작가 다양성</h3><p class="value" style="font-size:24px">${aDisplay}</p></div></div>`;
+        const orders = Array.isArray(data.orders) ? data.orders : []; const artists = Array.isArray(data.artistList) ? data.artistList : [];
+        const oHtml = orders.length > 0 ? orders.map(o => `<li>${o.dateFormatted || 'N/A'}: ${o.orderCode || 'N/A'} (작품 ${o.productCount || 0}개, ₩${Math.round(o.amount || 0).toLocaleString()})</li>`).join('') : '<li>주문 내역 없음</li>';
+        const aHtml = artists.length > 0 ? artists.map(a => `<li>${a}</li>`).join('') : '<li>구매 작가 없음</li>';
+        const gHtml = `<div class="modal-grid"><div class="modal-section"><h4>주문 내역 (최근순)</h4><div class="item-list-container" style="max-height:200px"><ul class="item-list">${oHtml}</ul></div></div><div class="modal-section"><h4>구매 작가 목록 (Unique)</h4><div class="item-list-container" style="max-height:200px"><ul class="item-list">${aHtml}</ul></div></div></div>`;
+        b.innerHTML = pHtml + rfmHtml + gHtml;
+    }
+    function showCustomerModalError(error){ const b = document.getElementById('customer-modal-body'); if(b) b.innerHTML = `<p class="error-message">오류: ${error.toString()}</p>`; }
+    function closeCustomerModal(){ const m = document.getElementById('customer-detail-modal'); if(m) m.style.display = 'none'; }
+
+</script>
+
+</body>
+</html>

@@ -1,0 +1,36 @@
+<style>
+.pulsing-loader {
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  gap: 10px;
+  min-height: 150px; /* 로더 컨테이너의 기본 높이 유지 */
+}
+.pulsing-loader div {
+  width: 12px;
+  height: 12px;
+  border-radius: 50%;
+  background-color: var(--primary-color);
+  opacity: 0.2;
+  animation: pulse 1.2s infinite ease-in-out;
+}
+.pulsing-loader div:nth-child(1) { animation-delay: -0.2s; }
+.pulsing-loader div:nth-child(2) { animation-delay: -0.1s; }
+.pulsing-loader div:nth-child(3) { animation-delay: 0s; }
+
+@keyframes pulse {
+  0%, 80%, 100% {
+    transform: scale(0.8);
+    opacity: 0.2;
+  }
+  40% {
+    transform: scale(1);
+    opacity: 1;
+  }
+}
+</style>
+<div class="pulsing-loader">
+  <div></div>
+  <div></div>
+  <div></div>
+</div>

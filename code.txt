@@ -1,0 +1,1859 @@
+// code.gs - 개선된 전체 코드
+const SPREADSHEET_ID = SpreadsheetApp.getActiveSpreadsheet().getId();
+const SPREADSHEET = SpreadsheetApp.openById(SPREADSHEET_ID);
+const ORDER_SHEET_NAME = "order";
+const LOGISTICS_SHEET_NAME = "logistics";
+const USER_SHEET_NAME = "users";
+const ARTIST_SHEET_NAME = "artists";
+
+function doGet(e) {
+  // 1. 페이지 파라미터 확인 (기본값 'index')
+  const page = e.parameter.page || 'index';
+  let pageInfo;
+
+  // 2. 페이지 파라미터에 따라 로드할 파일과 제목 결정
+  switch (page) {
+    case 'logistics':
+      pageInfo = { file: 'logistics.html', title: '글로벌 물류 추적' };
+      break;
+    case 'start':
+      pageInfo = { file: 'start.html', title: '미입고 관리' };
+      break;
+    case 'analytics':
+      pageInfo = { file: 'analytics.html', title: '성과 분석' };
+      break;
+    case 'control_tower':
+      pageInfo = { file: 'control_tower.html', title: '실시간 물류 관제 센터' };
+      break;
+    
+    // [신규] 통합 검색 페이지 라우팅 추가
+    case 'lookup':
+      pageInfo = { file: 'lookup.html', title: '통합 검색' };
+      break;
+
+    default: // 'index' 또는 그 외 모든 경우
+      pageInfo = { file: 'index.html', title: '메인 대시보드' };
+  }
+
+  // 3. 메인 템플릿('Page.html') 및 페이지별 콘텐츠 템플릿 로드
+  const template = HtmlService.createTemplateFromFile('Page.html');
+  const pageContentTemplate = HtmlService.createTemplateFromFile(pageInfo.file);
+
+  // 4. 특정 페이지에 URL 파라미터 전달 (예: 물류 추적)
+  if (page === 'logistics') {
+    pageContentTemplate.presetFilter = e.parameter.status || 'null';
+    pageContentTemplate.presetSearch = e.parameter.search || 'null';
+  }
+  
+  // 5. [신규] lookup 페이지에 URL 파라미터 전달 (선택 사항)
+  if (page === 'lookup') {
+     pageContentTemplate.presetQuery = e.parameter.query || 'null';
+     pageContentTemplate.presetType = e.parameter.type || 'null';
+  }
+
+  // 6. 템플릿에 변수 주입
+  template.pageContent = pageContentTemplate.evaluate().getContent(); // 페이지 콘텐츠 주입
+  template.pageTitle = pageInfo.title; // 페이지 제목 주입
+  template.activePage = page; // 사이드바 활성화를 위한 페이지 변수 주입
+
+  // 7. 최종 HTML 렌더링 및 반환
+  return template.evaluate()
+    .setTitle('Global Order & Logistics Hub') // 브라우저 탭 제목 설정
+    .setXFrameOptionsMode(HtmlService.XFrameOptionsMode.ALLOWALL); // iframe 임베딩 허용 (필요시)
+}
+
+function include(filename) {
+  return HtmlService.createHtmlOutputFromFile(filename).getContent();
+}
+
+/**
+ * @description [개선] 시트 데이터를 JSON으로 변환. (데이터 무결성을 위해 fill-down 로직을 선택적(flag)으로 변경)
+ * @param {string} sheetName - 시트 이름
+ * @param {boolean} [enableFillDown=false] - (선택) logistics 시트처럼 빈 셀을 위에서 채우는 로직 활성화 여부
+ */
+function getSheetDataAsJson(sheetName, enableFillDown = false) {
+  const sheet = SPREADSHEET.getSheetByName(sheetName);
+  if (!sheet) {
+    console.error(`시트를 찾을 수 없습니다: ${sheetName}`);
+    return [];
+  }
+
+  const lastRow = sheet.getLastRow();
+  const lastCol = sheet.getLastColumn();
+  
+  if (lastRow < 2) {
+    return [];
+  }
+
+  const range = sheet.getRange(1, 1, lastRow, lastCol);
+  let data = range.getValues();
+
+  const headers = data.shift();
+  // 빈 행 제거
+  data = data.filter(row => row.join('').length > 0);
+
+  let processedData = data;
+
+  // [개선] enableFillDown 플래그가 true일 때만 (logistics 시트 전용) fill-down 로직 실행
+  if (enableFillDown) {
+    const groupKeyIndex = headers.indexOf('order_code');
+    let lastValues = new Array(headers.length).fill('');
+    
+    processedData = data.map(row => {
+      // order_code가 새로 시작되면 lastValues 초기화
+      if (groupKeyIndex !== -1 && row[groupKeyIndex] !== '' && row[groupKeyIndex] != null) {
+        lastValues = new Array(headers.length).fill('');
+      }
+
+      return row.map((cell, colIndex) => {
+        if (cell !== '' && cell != null) {
+          lastValues[colIndex] = cell;
+          return cell;
+        } else {
+          return lastValues[colIndex]; // 빈 셀이면 이전 값으로 채움
+        }
+      });
+    });
+  }
+  
+  // JSON 객체로 변환
+  return processedData.map(row => {
+    const obj = {};
+    headers.forEach((header, index) => {
+      if (header) {
+        const cleanHeader = header.trim();
+        obj[cleanHeader] = row[index];
+      }
+    });
+    return obj;
+  });
+}
+
+/**
+ * @description [개선] User 마스터 데이터를 Map 객체로 로드 (fill-down 비활성화)
+ * @returns {Map<number, object>} { ID => UserRow }
+ */
+function getUserMap() {
+  // [개선] fill-down 비활성화 (false)
+  const userData = getSheetDataAsJson(USER_SHEET_NAME, false); 
+  const userMap = new Map();
+  userData.forEach(row => {
+    if (row.ID) {
+      userMap.set(parseInt(row.ID), row);
+    }
+  });
+  return userMap;
+}
+
+/**
+ * @description [개선] Artist 마스터 데이터를 이름 기준으로 Map 객체로 로드 (fill-down 비활성화)
+ * @returns {Map<string, object>} { (KR)작가명 => ArtistRow }
+ */
+function getArtistMap() {
+  // [개선] fill-down 비활성화 (false)
+  const artistData = getSheetDataAsJson(ARTIST_SHEET_NAME, false);
+  const artistMap = new Map();
+  artistData.forEach(row => {
+    const artistNameKR = row['(KR)작가명'];
+    if (artistNameKR) {
+      row['(KR)Live 작품수'] = parseInt(String(row['(KR)Live 작품수']).replace(/,/g, '')) || 0;
+      row['(Global)Live 작품수'] = parseInt(String(row['(Global)Live 작품수']).replace(/,/g, '')) || 0;
+      artistMap.set(artistNameKR, row);
+    }
+  });
+  return artistMap;
+}
+
+// ========================================================================
+// 2. DATA GETTER FUNCTIONS (Backend for Pages)
+// ========================================================================
+
+/**
+ * @description 실시간 물류 관제 센터 데이터 (V4.0)
+ * (참고: 이 함수는 getSheetDataAsJson을 사용하지 않고 직접 시트를 읽으므로 fill-down 수정 불필요)
+ */
+function getControlTowerData() {
+  try {
+    const sheet = SPREADSHEET.getSheetByName(LOGISTICS_SHEET_NAME);
+    if (!sheet) throw new Error(`시트를 찾을 수 없습니다: ${LOGISTICS_SHEET_NAME}`);
+    const lastRow = sheet.getLastRow();
+    const initialPipeline = {
+        unreceived: { title: '미입고 (결제 완료)', orderCount: 0, itemCount: 0, criticalCount: 0, maxDays: 0, criticals: [] },
+        artistShipping: { title: '국내 배송중 (입고 대기)', orderCount: 0, itemCount: 0, criticalCount: 0, maxDays: 0, criticals: [] },
+        awaitingInspection: { title: '검수 대기 (입고 완료)', orderCount: 0, itemCount: 0, criticalCount: 0, maxDays: 0, criticals: [] },
+        inspectionComplete: { title: '포장/출고 대기 (검수 완료)', orderCount: 0, itemCount: 0, criticalCount: 0, maxDays: 0, criticals: [] },
+        internationalShipping: { title: '국제 배송중', orderCount: 0, itemCount: 0, criticalCount: 0, maxDays: 0, criticals: [] }
+    };
+    if (lastRow < 2) return { pipeline: initialPipeline };
+
+    const headers = sheet.getRange(1, 1, 1, sheet.getLastColumn()).getValues()[0];
+    const colIndices = {
+      logistics: headers.indexOf('logistics'),
+      order_code: headers.indexOf('order_code'),
+      processingStatus: headers.indexOf('처리상태'),
+      internationalTracking: headers.indexOf('국제송장번호'),
+      orderCreated: headers.indexOf('order_created'),
+      artistShippingUpdated: headers.indexOf('작가 발송 updated'),
+      inspectionUpdated: headers.indexOf('artist bundle item updated'),
+      orderItemStatus: headers.indexOf('order item status'),
+      artistSendStatus: headers.indexOf('작가 발송 상태'),
+      artistBundleStatus: headers.indexOf('artist bundle item status'),
+      shipmentItemStatus: headers.indexOf('shipment item status'),
+      globalBundleStatus: headers.indexOf('global bundle status')
+    };
+    const requiredCols = ['order_code', 'orderCreated', 'orderItemStatus', 'artistSendStatus', 'artistBundleStatus', 'shipmentItemStatus', 'globalBundleStatus'];
+    for (const col of requiredCols) {
+      if (colIndices[col] === -1) throw new Error(`필수 칼럼을 찾을 수 없습니다: '${col}'`);
+    }
+
+    const data = sheet.getRange(2, 1, lastRow - 1, sheet.getLastColumn()).getValues();
+    const now = new Date();
+    const toDays = (ms) => Math.floor(ms / (1000 * 60 * 60 * 24));
+    const pipeline = {
+      unreceived: { orders: new Set(), items: 0, criticals: [] },
+      artistShipping: { orders: new Set(), items: 0, criticals: [] },
+      awaitingInspection: { orders: new Set(), items: 0, criticals: [] },
+      inspectionComplete: { orders: new Set(), items: 0, criticals: [] },
+      internationalShipping: { orders: new Set(), items: 0, criticals: [] }
+    };
+    
+    const classifyOrderStatus = (row, idx) => {
+      const globalStatus = (row[idx.globalBundleStatus] || '').trim();
+      const shipmentItemStatus = (row[idx.shipmentItemStatus] || '').trim();
+      const orderItemStatus = (row[idx.orderItemStatus] || '').trim();
+      const artistSendStatus = (row[idx.artistSendStatus] || '').trim();
+      const artistBundleStatus = (row[idx.artistBundleStatus] || '').trim();
+
+      if (row[idx.internationalTracking] || globalStatus === 'EXPORT_START' || globalStatus === 'SHIPPED' || globalStatus === 'DELIVERING' || orderItemStatus === 'IN_TRANSIT') {
+          return 'internationalShipping';
+      }
+      if (shipmentItemStatus === 'INSPECTION_COMPLETE' || artistSendStatus === 'INSPECTION_COMPLETE' || artistBundleStatus === 'INSPECT_SUCCESS' || orderItemStatus === 'COURIER_PICK_UP' || orderItemStatus === 'PACKAGING') {
+          return 'inspectionComplete';
+      }
+      if (artistSendStatus === 'IMPORTED') {
+          return 'awaitingInspection';
+      }
+      if (artistSendStatus === 'IN_DELIVERY' || globalStatus === 'IN_DELIVERY' || shipmentItemStatus === 'ARTIST_SENT') {
+          return 'artistShipping';
+      }
+      if (orderItemStatus === 'ORDER_COMPLETED' || orderItemStatus === 'PREPARING' || shipmentItemStatus === 'CREATED' || artistBundleStatus === 'CREATED') {
+          return 'unreceived';
+      }
+      return null;
+    };
+
+    data.forEach(row => {
+      const logisticsStatus = (row[colIndices.logistics] || '').trim();
+      if (logisticsStatus === '배송완료' || row[colIndices.orderItemStatus] === 'DELIVERED' || row[colIndices.shipmentItemStatus] === 'DELIVERED') return;
+
+      const processingStatus = (row[colIndices.processingStatus] || '').trim();
+      if (processingStatus === '처리완료') return;
+
+      const orderCode = row[colIndices.order_code];
+      if (!orderCode) return;
+
+       const stage = classifyOrderStatus(row, colIndices);
+
+      if (stage) {
+         pipeline[stage].orders.add(orderCode);
+          pipeline[stage].items++;
+
+          let startDate;
+          let days = 0;
+
+          if (stage === 'unreceived') {
+              startDate = new Date(row[colIndices.orderCreated]);
+              days = !isNaN(startDate.getTime()) ? toDays(now - startDate) : 0;
+             if (days >= 7) pipeline[stage].criticals.push({ orderCode, days });
+          } else if (stage === 'artistShipping') {
+              startDate = new Date(row[colIndices.artistShippingUpdated] || row[colIndices.orderCreated]);
+              days = !isNaN(startDate.getTime()) ? toDays(now - startDate) : 0;
+              if (days >= 5) pipeline[stage].criticals.push({ orderCode, days });
+          } else if (stage === 'awaitingInspection') {
+              startDate = new Date(row[colIndices.artistShippingUpdated] || row[colIndices.orderCreated]);
+              days = !isNaN(startDate.getTime()) ? toDays(now - startDate) : 0;
+              if (days >= 2) pipeline[stage].criticals.push({ orderCode, days });
+          } else if (stage === 'inspectionComplete') {
+              startDate = new Date(row[colIndices.inspectionUpdated]);
+              days = !isNaN(startDate.getTime()) ? toDays(now - startDate) : 0;
+              if (days >= 3) pipeline[stage].criticals.push({ orderCode, days });
+          }
+      }
+    });
+
+    const pipelineData = {};
+    for (const stageKey in pipeline) {
+      const stage = pipeline[stageKey];
+      stage.criticals.sort((a, b) => b.days - a.days);
+      pipelineData[stageKey] = {
+        title: initialPipeline[stageKey].title,
+        orderCount: stage.orders.size,
+        itemCount: stage.items,
+        criticalCount: stage.criticals.length,
+        maxDays: stage.criticals.length > 0 ? stage.criticals[0].days : 0,
+        criticals: stage.criticals
+      };
+    }
+
+    return { pipeline: pipelineData };
+  } catch (e) {
+    console.error('관제 센터 데이터 V4.0 로딩 실패:', e);
+    return { error: '데이터를 처리하는 중 오류가 발생했습니다: ' + e.toString() };
+  }
+}
+
+/**
+ * @description [V10.6 수정] 메인 대시보드 데이터 (사용자 지정 날짜 범위 지원)
+ * @param {string} startDateStr - 'YYYY-MM-DD' 형식의 시작일
+ * @param {string} endDateStr - 'YYYY-MM-DD' 형식의 종료일
+ */
+function getMainDashboardData(startDateStr, endDateStr) { 
+  
+  // --- 1. 날짜 유효성 검사 및 기본값 설정 ---
+  let validStartDateStr = startDateStr;
+  let validEndDateStr = endDateStr;
+
+  if (!validStartDateStr || !validEndDateStr || new Date(validStartDateStr) > new Date(validEndDateStr)) {
+      // 파라미터가 없거나 잘못된 경우 '최근 30일'로 강제 설정
+      const today = new Date();
+      const thirtyDaysAgo = new Date(new Date().setDate(today.getDate() - 29));
+      
+      const formatDate = (date) => date.toISOString().split('T')[0];
+      validEndDateStr = formatDate(today);
+      validStartDateStr = formatDate(thirtyDaysAgo);
+  }
+
+  // --- 2. 캐시 키 수정 ---
+  const cache = CacheService.getScriptCache();
+  // 캐시 키가 동적 날짜를 반영하도록 변경 (버전업 v10.6)
+  const cacheKey = `main_dashboard_data_v10.6_${validStartDateStr}_${validEndDateStr}`; 
+  const cachedData = cache.get(cacheKey);
+  if (cachedData != null) { return JSON.parse(cachedData); }
+
+  console.log(`메인 대시보드 V10.6 (${validStartDateStr} ~ ${validEndDateStr}) 리뉴얼`);
+
+  try {
+    const USD_TO_KRW_RATE = 1350.0;
+    const now = new Date(); // (참고용, 필터링엔 사용 안함)
+
+    // --- 3. [수정] 기간 설정 로직 (동적 계산) ---
+    
+    // 현재 기간 설정
+    const startDate = new Date(validStartDateStr);
+    startDate.setHours(0, 0, 0, 0); // 2025-10-01 00:00:00
+    
+    const endDate = new Date(validEndDateStr);
+    endDate.setHours(23, 59, 59, 999); // 2025-10-30 23:59:59
+
+    // 현재 기간의 일수 계산 (예: 30일)
+    const diffTime = Math.abs(endDate - startDate);
+    // (참고: 10/1~10/30은 30일이므로 +1일이 필요 없음. 1000 * 60 * 60 * 24로 나누면 정확한 일수 차이)
+    const periodDays = Math.round(diffTime / (1000 * 60 * 60 * 24)) + 1; // +1로 일수 보정
+    
+    // 이전 기간 설정
+    // (예: startDate가 10/1이면, prevEndDate는 9/30 23:59:59)
+    const prevEndDate = new Date(startDate.getTime() - (1 * 24 * 60 * 60 * 1000));
+    prevEndDate.setHours(23, 59, 59, 999);
+
+    // (예: 30일 기간이면, 9/30에서 29일 전인 9/1 00:00:00)
+    const prevStartDate = new Date(prevEndDate.getTime() - ((periodDays - 1) * 24 * 60 * 60 * 1000));
+    prevStartDate.setHours(0, 0, 0, 0);
+
+    // --- (이하 로직은 기존과 거의 동일) ---
+    
+    const cleanAndParseFloat = (value) => {
+      if (typeof value === 'number') return value;
+      if (typeof value === 'string') return parseFloat(value.replace(/,/g, '')) || 0;
+      return 0;
+    };
+    const getKrwValue = (gmv) => { 
+      const gmvFloat = cleanAndParseFloat(gmv);
+      return gmvFloat * USD_TO_KRW_RATE;
+    };
+    const getChange = (current, previous) => {
+        if (previous > 0) return (current - previous) / previous;
+        if (current > 0) return Infinity; 
+        return 0;
+    };
+    
+    // --- 데이터 로드 (개선된 함수 호출) ---
+    const allLogisticsData = getSheetDataAsJson(LOGISTICS_SHEET_NAME, true);
+
+    // --- 기간 필터링 ---
+    const filterDataByDate = (data, start, end) => {
+      return data.filter(row => {
+        try {
+          if (!row || !row.order_created) return false;
+          const orderDate = new Date(row.order_created);
+          return orderDate >= start && orderDate <= end;
+        } catch (e) { return false; }
+      });
+    };
+    
+    const currentPeriodData = filterDataByDate(allLogisticsData, startDate, endDate);
+    const previousPeriodData = filterDataByDate(allLogisticsData, prevStartDate, prevEndDate);
+
+    // --- 1. KPI 계산 ---
+    const calculateKpis = (data) => {
+      let gmv = 0;
+      let itemCount = 0;
+      const orderCodes = new Set();
+      data.forEach(row => {
+        const rowGmv = getKrwValue(row['Total GMV']);
+        gmv += rowGmv;
+        itemCount += parseInt(row['구매수량']) || 0;
+        orderCodes.add(row.order_code);
+      });
+      const orderCount = orderCodes.size;
+      const aov = orderCount > 0 ? gmv / orderCount : 0;
+      return { gmv, aov, orderCount, itemCount };
+    };
+
+    const kpisCurrent = calculateKpis(currentPeriodData);
+    const kpisPrevious = calculateKpis(previousPeriodData);
+    const kpis = {
+      gmv: { value: kpisCurrent.gmv, change: getChange(kpisCurrent.gmv, kpisPrevious.gmv) },
+      aov: { value: kpisCurrent.aov, change: getChange(kpisCurrent.aov, kpisPrevious.aov) },
+      orderCount: { value: kpisCurrent.orderCount, change: getChange(kpisCurrent.orderCount, kpisPrevious.orderCount) },
+      itemCount: { value: kpisCurrent.itemCount, change: getChange(kpisCurrent.itemCount, kpisPrevious.itemCount) }
+    };
+
+    // --- 2. Trend Chart (GMV & Orders) ---
+    const trendStartDate = startDate; // [수정] 동적 시작일 사용
+    const trendData = filterDataByDate(allLogisticsData, trendStartDate, endDate);
+    
+    const dailyData = {};
+    let currentDate = new Date(trendStartDate.getTime());
+    while (currentDate <= endDate) {
+      const dateStr = currentDate.toISOString().split('T')[0];
+      dailyData[dateStr] = { gmv: 0, orderCodes: new Set() };
+      currentDate.setDate(currentDate.getDate() + 1);
+    }
+
+    trendData.forEach(row => {
+      try {
+        const dateStr = new Date(row.order_created).toISOString().split('T')[0];
+        if (dailyData[dateStr]) {
+          dailyData[dateStr].gmv += getKrwValue(row['Total GMV']);
+          dailyData[dateStr].orderCodes.add(row.order_code);
+        }
+      } catch (e) {}
+    });
+    const labels = Object.keys(dailyData).sort();
+    const gmvValues = labels.map(label => Math.round(dailyData[label].gmv));
+    const orderValues = labels.map(label => dailyData[label].orderCodes.size);
+
+    const calculateMA = (data, period) => {
+      let ma = [];
+      for (let i = 0; i < data.length; i++) {
+        if (i < period - 1) {
+          ma.push(null);
+        } else {
+          const slice = data.slice(i - period + 1, i + 1);
+          const avg = slice.reduce((a, b) => a + b, 0) / period;
+          ma.push(Math.round(avg));
+        }
+      }
+      return ma;
+    };
+    
+    const gmvMA7 = calculateMA(gmvValues, 7);
+    const ordersMA7 = calculateMA(orderValues, 7);
+
+    const trendChartData = {
+      labels: labels,
+      datasets: [
+        {
+          label: 'GMV (일별)',
+          data: gmvValues,
+          type: 'bar',
+          backgroundColor: 'rgba(74, 111, 165, 0.2)', 
+          borderColor: 'rgba(74, 111, 165, 0.2)',
+          yAxisID: 'yGmv'
+        },
+        {
+          label: '주문 건수 (일별)',
+          data: orderValues,
+          type: 'bar',
+          backgroundColor: 'rgba(247, 159, 121, 0.2)',
+          borderColor: 'rgba(247, 159, 121, 0.2)',
+          yAxisID: 'yOrders'
+        },
+        {
+          label: 'GMV (7일 이동평균)',
+          data: gmvMA7,
+          type: 'line',
+          backgroundColor: '#4A6FA5',
+          borderColor: '#4A6FA5',
+          borderWidth: 2,
+          pointRadius: 0,
+          yAxisID: 'yGmv',
+          tension: 0.3
+        },
+        {
+          label: '주문 건수 (7일 이동평균)',
+          data: ordersMA7,
+          type: 'line',
+          backgroundColor: '#F79F79',
+          borderColor: '#F79F79',
+          borderWidth: 2,
+          pointRadius: 0,
+          yAxisID: 'yOrders',
+          tension: 0.3
+        }
+      ]
+    };
+
+    // --- 3. Inventory Status (미입고 현황) ---
+    // (참고: 이 부분은 선택된 기간과 상관없이 '현재 시점'의 미입고 현황을 보여줍니다.
+    //  요구사항에 따라 이 부분도 기간 필터링(currentPeriodData)을 사용하도록 바꿀 수 있으나,
+    //  '현재' 현황을 보는 것이 더 의미 있으므로 기존 로직을 유지합니다.)
+    const UNRECEIVED_THRESHOLD_DAYS = 7;
+    const thresholdDate = new Date(new Date().getTime() - (UNRECEIVED_THRESHOLD_DAYS * 24 * 60 * 60 * 1000));
+    
+    let totalUnreceived = 0;
+    let delayedUnreceived = 0;
+    
+    allLogisticsData.forEach(row => {
+      if ((row.logistics || '').trim() === '결제 완료' && (row['처리상태'] || '').trim() !== '처리완료') {
+        totalUnreceived++;
+        try {
+          const orderDate = new Date(row.order_created);
+          if (orderDate <= thresholdDate) {
+            delayedUnreceived++;
+          }
+        } catch (e) {}
+      }
+    });
+    const inventoryStatus = {
+      total: totalUnreceived,
+      delayed: delayedUnreceived,
+      threshold: UNRECEIVED_THRESHOLD_DAYS
+    };
+
+    // --- 4. Snapshot ---
+    // (이 부분은 선택된 기간(currentPeriodData)을 기준으로 합니다)
+    const activeCountries = new Set();
+    const activeArtists = new Set();
+    const activeItems = new Set();
+
+    currentPeriodData.forEach(row => {
+      activeCountries.add(row.country);
+      activeArtists.add(row['artist_name (kr)']);
+      activeItems.add(row.product_id);
+    });
+    const snapshot = {
+      activeCountries: activeCountries.size,
+      activeArtists: activeArtists.size,
+      activeItems: activeItems.size
+    };
+
+    // --- 최종 결과 반환 ---
+    const result = {
+      kpis: kpis,
+      trend: trendChartData,
+      inventoryStatus: inventoryStatus,
+      snapshot: snapshot
+    };
+    cache.put(cacheKey, JSON.stringify(result), 600); // 10분 캐싱
+    return result;
+
+  } catch (e) {
+    console.error(`메인 대시보드 V10.6 로딩 실패:`, e, e.stack);
+    return { error: '데이터를 처리하는 중 오류가 발생했습니다: ' + e.toString() };
+  }
+}
+
+/**
+ * @description [V10.4 Reverted + V10.40 Frontend-Fix] 미입고 관리 데이터 (start.html V10.40 호환)
+ * (이전 프롬프트에서 요청한 수정된 함수)
+ */
+function getUnreceivedItemsData() {
+  const cache = CacheService.getScriptCache();
+  const cacheKey = 'unreceived_items_data_v7_reverted_kpi_fix';
+  const cachedData = cache.get(cacheKey);
+  if (cachedData != null) { return JSON.parse(cachedData);
+  }
+
+  try {
+    // [개선] logisticsData는 fill-down(true) 필요
+    const logisticsData = getSheetDataAsJson(LOGISTICS_SHEET_NAME, true); 
+
+    const orders = {};
+    logisticsData.forEach(row => {
+      const orderCode = row.order_code;
+      if (!orders[orderCode]) {
+        orders[orderCode] = { items: [], artists: new Set() };
+      }
+      orders[orderCode].items.push(row);
+      orders[orderCode].artists.add(row['artist_name (kr)']);
+    });
+    const unreceivedItems = logisticsData.filter(row =>
+      (row.logistics || '').trim() === '결제 완료' &&
+      (row['처리상태'] || '').trim() !== '처리완료'
+    );
+    const today = new Date();
+    today.setHours(0, 0, 0, 0);
+
+    const result = unreceivedItems.map(row => {
+      const orderCode = row.order_code;
+      const orderInfo = orders[orderCode] || { items: [], artists: new Set() };
+      const isBundle = orderInfo.artists.size > 1;
+
+      const allItemsInOrder = orderInfo.items.map(item => {
+          const isReceived = (item.logistics || '').trim() !== '결제 완료' || (item['처리상태'] || '').trim() === '처리완료';
+          const itemArtistNameLogistics = item['artist_name (kr)'] || '정보 없음';
+          return {
+             productName: item.product_name || '정보 없음',
+              artistName: itemArtistNameLogistics,
+              status: isReceived ? '입고완료' : '미입고'
+          };
+      });
+
+      const orderDate = new Date(row.order_created);
+      orderDate.setHours(0, 0, 0, 0);
+      const elapsedMilliseconds = today - orderDate;
+      const daysElapsed = Math.floor(elapsedMilliseconds / (1000 * 60 * 60 * 24));
+      const artistNameLogistics = row['artist_name (kr)'] || '정보 없음';
+
+      return {
+        orderCode: row.order_code,
+        artistName: artistNameLogistics,
+        productName: row.product_name || '작품 정보 없음',
+        orderDate: orderDate.toLocaleDateString("ko-KR"),
+        daysElapsed: daysElapsed,
+        currentStatus: row['처리상태'] || '',
+        isBundle: isBundle,
+        allItems: allItemsInOrder
+      };
+    });
+
+    // --- [V10.40 (Frontend) 호환성 수정 시작] ---
+    // 구버전 프론트엔드(start.html V10.40)가 {kpis, items} 객체 형식을 기대합니다.
+    const kpi_total = result.length;
+    const kpi_orders = new Set(result.map(item => item.orderCode)).size;
+    const kpi_artists = new Set(result.map(item => item.artistName)).size;
+    const kpi_delayed = result.filter(item => item.daysElapsed >= 7).length; // 7일 기준
+
+    const kpis = {
+      total: kpi_total,
+      orders: kpi_orders,
+      artists: kpi_artists,
+      delayed: kpi_delayed,
+      threshold: 7 
+    };
+
+    const finalOutput = {
+      kpis: kpis,
+      items: result // 기존 'result' 배열을 'items' 키에 할당
+    };
+    // --- [V10.40 (Frontend) 호환성 수정 끝] ---
+
+    cache.put(cacheKey, JSON.stringify(finalOutput), 600); // 수정된 finalOutput을 캐시
+    return finalOutput; // 수정된 finalOutput 객체 반환
+
+  } catch (e) {
+    console.error('미입고 데이터 로딩 실패:', e);
+    return { error: e.toString() };
+  }
+}
+
+
+/**
+ * @description [개선] 글로벌 물류 추적 데이터 (getSheetDataAsJson 호출 수정)
+ */
+function getLogisticsTrackingData() {
+  try {
+    // [개선] logisticsData는 fill-down(true) 필요
+    const logisticsData = getSheetDataAsJson(LOGISTICS_SHEET_NAME, true);
+    const inTransitData = logisticsData.filter(row => (row.logistics || '').trim() !== '배송완료');
+
+    const groupedOrders = {};
+    inTransitData.forEach(row => {
+      const orderCode = row.order_code;
+      if (!groupedOrders[orderCode]) {
+        const shipmentUpdatedDate = new Date(row['shipment_item_updated']);
+        const internationalTrackingNumber = row['국제송장번호'];
+
+        const timelineEvents = [];
+        if(row.order_created && !isNaN(new Date(row.order_created).getTime())) {
+          timelineEvents.push({ status: '결제 완료', date: new Date(row.order_created).toLocaleDateString("ko-KR") });
+        }
+        if(row['작가 발송 updated'] && !isNaN(new Date(row['작가 발송 updated']).getTime())) {
+           timelineEvents.push({ status: '작가 발송', date: new Date(row['작가 발송 updated']).toLocaleDateString("ko-KR") });
+        }
+        if(row['artist bundle item updated'] && !isNaN(new Date(row['artist bundle item updated']).getTime())) {
+           timelineEvents.push({ status: '검수 완료', date: new Date(row['artist bundle item updated']).toLocaleDateString("ko-KR") });
+        }
+        if(internationalTrackingNumber && !isNaN(shipmentUpdatedDate.getTime())) {
+           timelineEvents.push({ status: '국제배송 시작', date: shipmentUpdatedDate.toLocaleDateString("ko-KR") });
+        }
+
+        groupedOrders[orderCode] = {
+          orderCode: orderCode,
+          country: row.country,
+          logisticsStatus: row.logistics,
+          lastUpdate: !isNaN(shipmentUpdatedDate.getTime()) ? shipmentUpdatedDate.toLocaleDateString("ko-KR") : "날짜 없음",
+          artistTracking: {
+              number: row['작가 발송 송장번호'],
+              url: getTrackingUrl(row['작가 발송 택배사'], row['작가 발송 송장번호'])
+          },
+          internationalTracking: {
+              number: internationalTrackingNumber,
+              url: internationalTrackingNumber ? `https://lglet.lottegl.com/view/tracking/export/any/EN/Tracking/${internationalTrackingNumber}` : '#'
+           },
+          items: [],
+          timelineEvents: timelineEvents
+        };
+      }
+
+      groupedOrders[orderCode].items.push({
+        name: row['product_name'] || '작품 정보 없음',
+        quantity: row['구매수량'] || 'N/A',
+        url: getProductUrl(row.country, row.product_id)
+      });
+    });
+
+    return Object.values(groupedOrders);
+
+  } catch (e) {
+    console.error('물류 추적 데이터 로딩 실패:', e);
+    return { error: e.toString() };
+  }
+}
+
+/**
+ * @description [개선] 분석 페이지 데이터 (V10.31 + Chart.js Format Fix)
+ * Chart.js가 요구하는 { labels: [], datasets: [] } 형식으로 차트 데이터를 변환하여 반환합니다.
+ * @param {string} dateRange - '7d', '30d', '90d', '365d' 중 하나
+ * @param {string} countryFilter - 'all', 'jp', 'non_jp' 중 하나
+ * @returns {object} 모든 분석 데이터가 포함된 종합 객체 (차트 데이터는 Chart.js 형식)
+ */
+function getAnalyticsData(dateRange = '30d', countryFilter = 'all') {
+  const cache = CacheService.getScriptCache();
+  // 캐시 키는 데이터 형식 변경을 반영하여 업데이트 (예: v4)
+  const cacheKey = `analytics_data_v4_${dateRange}_${countryFilter}`;
+  const cachedData = cache.get(cacheKey);
+  if (cachedData != null) {
+    try {
+        // 캐시된 데이터 파싱 시도
+        return JSON.parse(cachedData);
+    } catch (e) {
+        console.warn("캐시된 분석 데이터 파싱 오류:", e);
+        // 파싱 실패 시 캐시 무시하고 새로 계산
+    }
+  }
+
+  console.log(`분석 데이터 계산 (${dateRange}, ${countryFilter}): Chart.js 형식 변환 포함`);
+  try {
+    const USD_TO_KRW_RATE = 1350.0; // 필요시 외부 설정 또는 API에서 가져오도록 개선 가능
+    const now = new Date();
+    const today = new Date(now.getFullYear(), now.getMonth(), now.getDate());
+    const cleanAndParseFloat = (value) => { return typeof value === 'string' ? parseFloat(value.replace(/,/g, '')) || 0 : value || 0; };
+
+    // --- 원본 데이터 로드 ---
+    // logistics 시트는 fill-down 필요, 나머지는 불필요
+    let logisticsData = getSheetDataAsJson(LOGISTICS_SHEET_NAME, true);
+    let orderData = getSheetDataAsJson(ORDER_SHEET_NAME, false);
+    const userMap = getUserMap(); // Map<userId, userData>
+    let userDataValues = Array.from(userMap.values()); // Array<userData> - let으로 변경됨
+    // const artistMap = getArtistMap(); // 현재 코드에서 artistMap 직접 사용 X
+
+    // --- 국가 필터링 적용 ---
+    if (countryFilter === 'jp') {
+        logisticsData = logisticsData.filter(row => row.country === 'JP');
+        orderData = orderData.filter(row => {
+            const userId = parseInt(row.user_id);
+            const userInfo = userMap.get(userId);
+            return userInfo && userInfo.COUNTRY === 'JP';
+        });
+        // 사용자 데이터도 필터링
+        userDataValues = userDataValues.filter(user => user.COUNTRY === 'JP');
+    } else if (countryFilter === 'non_jp') {
+        logisticsData = logisticsData.filter(row => row.country !== 'JP');
+        orderData = orderData.filter(row => {
+            const userId = parseInt(row.user_id);
+            const userInfo = userMap.get(userId);
+            return !userInfo || userInfo.COUNTRY !== 'JP';
+        });
+        // 사용자 데이터도 필터링
+        userDataValues = userDataValues.filter(user => user.COUNTRY !== 'JP');
+    }
+
+    // --- RFM DB 구축 (firstOrderDate 포함) ---
+    const customerDb = {};
+    const orderCodeToUserId = {};
+    orderData.forEach(row => {
+      try {
+        const userId = parseInt(row.user_id);
+        if (!userId || isNaN(userId)) return;
+        const orderCode = row.order_code;
+        if(orderCode) orderCodeToUserId[orderCode] = userId;
+
+        if (!customerDb[userId]) {
+          customerDb[userId] = { userId: userId, orders: [], totalAmount: 0, orderCount: 0, lastOrderDate: new Date('1970-01-01'), firstOrderDate: new Date('9999-12-31'), artistSet: new Set(), productCountPerOrder: {} };
+        }
+
+        let orderDate;
+        try {
+            orderDate = new Date(row.order_created);
+            if (isNaN(orderDate.getTime())) throw new Error('Invalid Date');
+        } catch(e) { return; } // Invalid date, skip order
+
+        const gmv = row['Total GMV'];
+        const amount = cleanAndParseFloat(gmv) * USD_TO_KRW_RATE;
+
+        if (!isNaN(amount) && amount >= 0) {
+          customerDb[userId].orders.push({ date: orderDate, amount: amount, orderCode: orderCode });
+          customerDb[userId].totalAmount += amount;
+          customerDb[userId].orderCount++;
+          if (orderDate > customerDb[userId].lastOrderDate) customerDb[userId].lastOrderDate = orderDate;
+          if (orderDate < customerDb[userId].firstOrderDate) customerDb[userId].firstOrderDate = orderDate;
+        }
+      } catch (e) {
+        console.error(`RFM DB 구축 중 주문 처리 오류 (Order: ${row.order_code}): ${e}`);
+      }
+    });
+
+    logisticsData.forEach(row => {
+      try {
+        const userId = orderCodeToUserId[row.order_code];
+        if (!userId || !customerDb[userId]) return;
+        const artistName = row['artist_name (kr)'];
+        if (artistName) customerDb[userId].artistSet.add(artistName);
+        const orderCode = row.order_code;
+        let quantity = 1;
+        if(row['구매수량']) {
+            const parsedQty = parseInt(String(row['구매수량']).replace(/,/g, ''));
+            if (!isNaN(parsedQty) && parsedQty > 0) quantity = parsedQty;
+        }
+        customerDb[userId].productCountPerOrder[orderCode] = (customerDb[userId].productCountPerOrder[orderCode] || 0) + quantity;
+      } catch (e) {
+          console.error(`RFM DB 구축 중 물류 데이터 처리 오류 (Order: ${row.order_code}): ${e}`);
+      }
+    });
+
+    // --- 활동 상태 계산 ---
+    const activitySummary = { active: 0, inactive: 0, churnRisk: 0, noPurchase: 0 };
+    const activityThresholds = { active: 90, inactive: 180 };
+    Object.values(customerDb).forEach(customer => {
+        let status = 'noPurchase'; // 기본 상태
+        if (customer.orderCount > 0 && customer.lastOrderDate instanceof Date && !isNaN(customer.lastOrderDate) && customer.lastOrderDate.getFullYear() !== 1970) {
+            const lastOrderDay = new Date(customer.lastOrderDate.getFullYear(), customer.lastOrderDate.getMonth(), customer.lastOrderDate.getDate());
+            const daysSinceLastOrder = (today - lastOrderDay) / (1000 * 60 * 60 * 24);
+            
+             // [수정] 할당되는 상태 문자열을 소문자로 변경
+             if (daysSinceLastOrder <= activityThresholds.active) status = 'active';
+            else if (daysSinceLastOrder <= activityThresholds.inactive) status = 'inactive';
+            else status = 'churnRisk';
+        }
+        customer.activityStatus = status; // 고객 객체에 상태 저장 (소문자로 저장됨)
+        if (activitySummary[status] !== undefined && status !== 'noPurchase') activitySummary[status]++; // 요약 카운트 (noPurchase 제외)
+    });
+    // 구매 이력 없는 유저 계산 (전체 유저 - 구매 유저)
+    activitySummary.noPurchase = userDataValues.length - Object.keys(customerDb).length;
+
+
+    // --- 생애주기 상태 계산 및 요약 ---
+    const lifecycleSummary = { New: 0, Growing: 0, Core: 0, Dormant: 0, Churned: 0, Prospect: 0 };
+    const lifecycleThresholds = { newDays: 90, coreDays: 365, dormantDays: 180 }; // Churn은 Dormant 이후 상태로 간주
+    const userIdToLifecycleStatus = new Map();
+
+    userDataValues.forEach(user => { // 필터링된 userDataValues 사용
+        const userId = parseInt(user.ID);
+        if (isNaN(userId)) return;
+        const customerData = customerDb[userId];
+        let lifecycleStatus = 'Prospect'; // 기본: 잠재 고객
+        let createdAt = null;
+        try { createdAt = new Date(user.CREATED_AT); if(isNaN(createdAt.getTime())) createdAt = null; } catch(e) {}
+
+        if (createdAt) {
+            const daysSinceSignup = (today - new Date(createdAt.getFullYear(), createdAt.getMonth(), createdAt.getDate())) / (1000 * 60 * 60 * 24);
+            // 구매 이력이 있는 경우
+            if (customerData && customerData.orderCount > 0 && customerData.lastOrderDate instanceof Date && !isNaN(customerData.lastOrderDate) && customerData.lastOrderDate.getFullYear() !== 1970) {
+                const lastOrderDay = new Date(customerData.lastOrderDate.getFullYear(), customerData.lastOrderDate.getMonth(), customerData.lastOrderDate.getDate());
+                const daysSinceLastOrder = (today - lastOrderDay) / (1000 * 60 * 60 * 24);
+
+                if (daysSinceSignup <= lifecycleThresholds.newDays && daysSinceLastOrder <= activityThresholds.active) {
+                    lifecycleStatus = 'New'; // 가입 90일 이내 & 최근 90일내 구매
+                } else if (daysSinceLastOrder <= activityThresholds.active) { // 최근 90일 내 구매 (Active)
+                      if (daysSinceSignup <= lifecycleThresholds.coreDays) lifecycleStatus = 'Growing'; // 가입 1년 이내
+                      else lifecycleStatus = 'Core'; // 가입 1년 초과
+                } else if (daysSinceLastOrder <= lifecycleThresholds.dormantDays) { // 91~180일 미구매
+                      lifecycleStatus = 'Dormant';
+                } else { // 181일 이상 미구매
+                      lifecycleStatus = 'Churned';
+                }
+            } // 구매 이력 없는 경우는 Prospect 유지
+        }
+        if (lifecycleSummary[lifecycleStatus] !== undefined) lifecycleSummary[lifecycleStatus]++;
+        userIdToLifecycleStatus.set(userId, lifecycleStatus);
+    });
+
+    // --- 기간 필터링 ---
+    const days = { '7d': 7, '30d': 30, '90d': 90, '365d': 365 }[dateRange];
+    const endDate = new Date(now); // now 사용
+    const startDate = new Date(now.getTime() - (days * 24 * 60 * 60 * 1000));
+    startDate.setHours(0, 0, 0, 0);
+    endDate.setHours(23, 59, 59, 999);
+    const prevEndDate = new Date(startDate.getTime() - 1); // 하루 전 자정 직전
+    prevEndDate.setHours(23, 59, 59, 999);
+    const prevStartDate = new Date(prevEndDate.getTime() - (days * 24 * 60 * 60 * 1000) + 1); // 기간 동일하게
+    prevStartDate.setHours(0, 0, 0, 0);
+
+
+    const filterLogisticsByDate = (data, start, end) => {
+      return data.filter(row => {
+        try {
+          if (!row || !row.order_created) return false;
+          const orderDate = new Date(row.order_created);
+          return !isNaN(orderDate.getTime()) && orderDate >= start && orderDate <= end;
+        } catch (e) { return false; }
+      });
+    };
+    const filterOrderByDate = (data, start, end) => { // orderData용 필터
+        return data.filter(row => {
+            try {
+                if (!row || !row.order_created) return false;
+                const orderDate = new Date(row.order_created);
+                return !isNaN(orderDate.getTime()) && orderDate >= start && orderDate <= end;
+            } catch (e) { return false; }
+        });
+    };
+
+    const currentPeriodLogisticsData = filterLogisticsByDate(logisticsData, startDate, endDate);
+    // logisticsData는 이미 필터링된 상태일 수 있으므로 전체 원본에서 다시 필터링
+    const previousPeriodLogisticsData = filterLogisticsByDate(getSheetDataAsJson(LOGISTICS_SHEET_NAME, true), prevStartDate, prevEndDate);
+
+    // --- 매출 KPI ---
+    const salesColumnName = 'Total GMV';
+    const calculateSalesKpis = (logisticsSubset) => {
+      let totalSalesInKrw = 0;
+      const orderCodes = new Set();
+      logisticsSubset.forEach(row => {
+        const sales = cleanAndParseFloat(row[salesColumnName]);
+        totalSalesInKrw += sales * USD_TO_KRW_RATE;
+        if(row.order_code) orderCodes.add(row.order_code);
+      });
+      const orderCount = orderCodes.size;
+      const aov = orderCount > 0 ? totalSalesInKrw / orderCount : 0;
+      return { totalSales: totalSalesInKrw, orderCount: orderCount, aov: aov };
+    };
+
+    const currentKpis = calculateSalesKpis(currentPeriodLogisticsData);
+    const previousKpis = calculateSalesKpis(previousPeriodLogisticsData);
+    const getChange = (current, previous) => {
+        if(previous === 0 && current > 0) return Infinity;
+        if(previous === 0 && current === 0) return 0;
+        // previous가 음수일 경우는 없다고 가정, 필요시 처리 추가
+        return (current - previous) / previous;
+    };
+
+
+    // --- 지역 성과 ---
+    let regionalPerformance = [];
+    if (countryFilter === 'all') { // 지역 성과는 전체 국가일 때만 계산
+        const countryPerformanceData = {};
+        currentPeriodLogisticsData.forEach(row => {
+            const country = row.country || 'N/A';
+            if (country === 'N/A') return;
+            if (!countryPerformanceData[country]) countryPerformanceData[country] = { totalOriginalSales: 0, orderCodes: new Set() };
+            countryPerformanceData[country].totalOriginalSales += cleanAndParseFloat(row[salesColumnName]);
+            if(row.order_code) countryPerformanceData[country].orderCodes.add(row.order_code);
+        });
+        const totalSalesAllCountries = currentKpis.totalSales;
+        regionalPerformance = Object.entries(countryPerformanceData).map(([country, data]) => {
+            const orderCount = data.orderCodes.size;
+            const totalSalesInKrw = data.totalOriginalSales * USD_TO_KRW_RATE;
+            const aovInKrw = orderCount > 0 ? totalSalesInKrw / orderCount : 0;
+            return { country, totalOriginalSales: data.totalOriginalSales, currency: 'USD', totalSalesInKrw, salesShare: totalSalesAllCountries > 0 ? totalSalesInKrw / totalSalesAllCountries : 0, orderCount, aovInKrw };
+        }).sort((a, b) => b.totalSalesInKrw - a.totalSalesInKrw);
+    }
+
+    // --- 채널/결제 분석 데이터 집계 ---
+    const currentPeriodOrderData = filterOrderByDate(orderData, startDate, endDate);
+    const platformRevenue = {}, pgCounts = {}, methodCounts = {};
+    currentPeriodOrderData.forEach(row => {
+      const krwValue = cleanAndParseFloat(row[salesColumnName]) * USD_TO_KRW_RATE;
+      const platform = row.platform || 'N/A';
+      const pg = row.PG사 || 'N/A';
+      const method = row.method || 'N/A';
+      if (!isNaN(krwValue)) {
+        platformRevenue[platform] = (platformRevenue[platform] || 0) + krwValue;
+      }
+      pgCounts[pg] = (pgCounts[pg] || 0) + 1;
+      methodCounts[method] = (methodCounts[method] || 0) + 1;
+    });
+    // 배열의 배열 형태로 먼저 생성
+    const platformChartDataArr = [['Platform', 'Revenue (KRW)'], ...Object.entries(platformRevenue).sort(([, a], [, b]) => b - a).map(([l, v]) => [l, Math.round(v)])];
+    const pgChartDataArr = [['PGSA', 'Orders'], ...Object.entries(pgCounts).sort(([, a], [, b]) => b - a)];
+    const methodChartDataArr = [['Method', 'Orders'], ...Object.entries(methodCounts).sort(([, a], [, b]) => b - a)];
+
+    // --- Top 작품 / Top 작가 / 생애주기별 매출 ---
+    const productSales = {};
+    const artistMetrics = {};
+    const lifecycleRevenue = { New: 0, Growing: 0, Core: 0, Dormant: 0, Churned: 0, Prospect: 0 };
+    currentPeriodLogisticsData.forEach(row => {
+      const salesInKrw = cleanAndParseFloat(row[salesColumnName]) * USD_TO_KRW_RATE;
+      if (isNaN(salesInKrw) || salesInKrw <= 0) return;
+      const artistName = row['artist_name (kr)'];
+      const productName = row.product_name || '정보 없음';
+      const productId = row.product_id;
+      const country = row.country;
+      let quantity = 1;
+      if(row['구매수량']) {
+          const parsedQty = parseInt(String(row['구매수량']).replace(/,/g, ''));
+          if (!isNaN(parsedQty) && parsedQty > 0) quantity = parsedQty;
+      }
+      const orderCode = row.order_code;
+      const userId = orderCodeToUserId[orderCode];
+      if (productName !== '정보 없음' && productId) {
+        if (!productSales[productName]) { productSales[productName] = { sales: 0, quantity: 0, id: productId, country: country }; }
+        productSales[productName].sales += salesInKrw; productSales[productName].quantity += quantity;
+      }
+      if (artistName && orderCode) {
+        if (!artistMetrics[artistName]) { artistMetrics[artistName] = { sales: 0, orderCodes: new Set() }; }
+        artistMetrics[artistName].sales += salesInKrw; artistMetrics[artistName].orderCodes.add(orderCode);
+      }
+      if (userId) {
+        const status = userIdToLifecycleStatus.get(userId);
+        if (status && lifecycleRevenue[status] !== undefined) { lifecycleRevenue[status] += salesInKrw; }
+      }
+    });
+    const topProductsBySales = Object.entries(productSales).sort(([, a], [, b]) => b.sales - a.sales).slice(0, 10).map(([n, d]) => [n, Math.round(d.sales), getProductUrl(d.country, d.id)]);
+    const topProductsByQuantity = Object.entries(productSales).sort(([, a], [, b]) => b.quantity - a.quantity).slice(0, 10).map(([n, d]) => [n, d.quantity, getProductUrl(d.country, d.id)]);
+    const topArtistsBySales = Object.entries(artistMetrics).map(([n, d]) => [n, Math.round(d.sales)]).sort((a, b) => b[1] - a[1]).slice(0, 10);
+    const topArtistsByOrders = Object.entries(artistMetrics).map(([n, d]) => [n, d.orderCodes.size]).sort((a, b) => b[1] - a[1]).slice(0, 10);
+    // 생애주기 차트용 배열 데이터 생성
+    const lifecycleSummaryChartDataArr = [['Stage', 'Count'], ...Object.entries(lifecycleSummary).map(([k, v]) => [k, v])];
+    const lifecycleRevenueChartDataArr = [['Stage', 'Revenue (KRW)'], ...Object.entries(lifecycleRevenue).map(([k, v]) => [k, Math.round(v)])];
+
+    // --- RFM 세그먼트 (기간 내 활동 고객 대상) ---
+    const activeUserIdsInPeriod = new Set();
+    currentPeriodLogisticsData.forEach(row => {
+        const userId = orderCodeToUserId[row.order_code];
+        if (userId) activeUserIdsInPeriod.add(userId);
+    });
+    const rfmSegments = { vip: [], potential: [], new: [], atRisk: [] };
+    activeUserIdsInPeriod.forEach(userId => {
+      const data = customerDb[userId];
+      if (!data || !data.orders || data.orders.length === 0) return;
+      const userInfo = userMap.get(userId);
+      const R = (data.lastOrderDate instanceof Date && !isNaN(data.lastOrderDate) && data.lastOrderDate.getFullYear() !== 1970)
+              ? Math.floor((today - new Date(data.lastOrderDate.getFullYear(), data.lastOrderDate.getMonth(), data.lastOrderDate.getDate())) / (1000 * 60 * 60 * 24))
+              : Infinity;
+      const F = data.orderCount; const M = data.totalAmount; const A = data.artistSet.size;
+      let firstOrder = null;
+      if (data.firstOrderDate instanceof Date && data.firstOrderDate.getFullYear() !== 9999) {
+          firstOrder = data.orders.find(o => o.date.getTime() === data.firstOrderDate.getTime());
+      }
+      const firstOrderProdCnt = firstOrder && firstOrder.orderCode ? (data.productCountPerOrder[firstOrder.orderCode] || 0) : 0;
+      const firstOrderAmount = firstOrder ? (firstOrder.amount || 0) : 0;
+      const firstOrderDateStr = (data.firstOrderDate instanceof Date && data.firstOrderDate.getFullYear() !== 9999) ? data.firstOrderDate.toLocaleDateString("ko-KR") : 'N/A';
+      const lastOrderDateStr = (data.lastOrderDate instanceof Date && data.lastOrderDate.getFullYear() !== 1970) ? data.lastOrderDate.toLocaleDateString("ko-KR") : 'N/A';
+      const stats = { userId: userId, name: userInfo ? userInfo.NAME : 'N/A', country: userInfo ? userInfo.COUNTRY : 'N/A', R: R === Infinity ? Infinity : R, F: F, M: M, artistCount: A, firstOrderAmount: firstOrderAmount, firstOrderProductCount: firstOrderProdCnt, firstOrderDate: firstOrderDateStr, lastOrderDate: lastOrderDateStr, activityStatus: data.activityStatus || 'N/A' };
+      let seg = 'other';
+      if (F === 1) seg = 'new';
+      else if (R > activityThresholds.inactive) seg = 'atRisk';
+      else if (F >= 5 && M >= 1000000 && R <= activityThresholds.active) seg = 'vip';
+      else if (F >= 2 && M >= 300000 && R <= activityThresholds.inactive) seg = 'potential';
+      if (rfmSegments[seg]) rfmSegments[seg].push(stats);
+    });
+    const topVips = rfmSegments.vip.sort((a, b) => b.M - a.M).slice(0, 10);
+    const topPotentials = rfmSegments.potential.sort((a, b) => b.artistCount - a.artistCount).slice(0, 10);
+    const topNewCustomers = rfmSegments.new.sort((a, b) => b.firstOrderAmount - a.firstOrderAmount).slice(0, 10);
+
+    // --- 사용자 확보 분석 ---
+    const monthlySignups = {};
+    const monthlyFtps = {};
+    const newUserCountriesData = {};
+    const acquisitionKpis = { totalNewUsers: 0, totalFtps: 0, cvr: 0.0 };
+    userDataValues.forEach(u => { // 필터링된 userDataValues 사용
+      try {
+        if (!u || !u.CREATED_AT) return;
+        let cD; try { cD = new Date(u.CREATED_AT); if(isNaN(cD.getTime())) return; } catch(e){ return; }
+        const userId = parseInt(u.ID); if (isNaN(userId)) return;
+        const customerData = customerDb[userId];
+        const isFtp = (customerData && customerData.firstOrderDate instanceof Date && customerData.firstOrderDate.getFullYear() !== 9999);
+        if (cD >= startDate && cD <= endDate) {
+          acquisitionKpis.totalNewUsers++;
+          if (isFtp) { acquisitionKpis.totalFtps++; }
+          const c = u.COUNTRY || 'N/A';
+          newUserCountriesData[c] = (newUserCountriesData[c] || 0) + 1;
+        }
+        const yM = `${cD.getFullYear()}-${String(cD.getMonth() + 1).padStart(2, '0')}`;
+        monthlySignups[yM] = (monthlySignups[yM] || 0) + 1;
+        if (isFtp) { monthlyFtps[yM] = (monthlyFtps[yM] || 0) + 1; }
+      } catch (e) { console.error(`사용자 확보 분석 중 오류 (User ID: ${u.ID}): ${e}`); }
+    });
+    if (acquisitionKpis.totalNewUsers > 0) { acquisitionKpis.cvr = (acquisitionKpis.totalFtps / acquisitionKpis.totalNewUsers); }
+    // 트렌드 및 국가 차트용 배열 생성
+    const acquisitionTrendDataArr = [['월', '신규 가입자 수', '첫 구매 전환율']];
+    const sortedMonths = Object.keys(monthlySignups).sort();
+    sortedMonths.forEach(m => { const signups = monthlySignups[m] || 0; const ftps = monthlyFtps[m] || 0; const cvr = (signups > 0) ? (ftps / signups) : 0; acquisitionTrendDataArr.push([m, signups, cvr]); });
+    const newUserCountriesDataArr = [['국가', '가입자 수']];
+    Object.entries(newUserCountriesData).sort(([, a], [, b]) => b - a).forEach(([c, n]) => { newUserCountriesDataArr.push([c, n]); });
+
+    // --- [데이터 포맷 변환] Chart.js 형식으로 ---
+    const formatChartData = (dataArray, labelName = 'Data') => { /* ... 이전 답변의 Helper 함수 ... */
+      if (!Array.isArray(dataArray) || dataArray.length < 2) { return { labels: [], datasets: [{ label: labelName, data: [] }] }; }
+      try { const headers = dataArray[0]; const labels = dataArray.slice(1).map(row => row[0]); const data = dataArray.slice(1).map(row => row[1]); return { labels: labels, datasets: [{ label: headers[1] || labelName, data: data }] }; } catch (e) { console.error("formatChartData 오류:", e, "원본:", dataArray); return { labels: [], datasets: [{ label: labelName, data: [] }] }; }
+    };
+    const formatAcquisitionTrend = (dataArray) => { /* ... 이전 답변의 Helper 함수 ... */
+        if (!Array.isArray(dataArray) || dataArray.length < 2) { return { labels: [], datasets: [] }; }
+        try { const headers = dataArray[0]; const labels = dataArray.slice(1).map(row => row[0]); const signupsData = dataArray.slice(1).map(row => row[1]); const cvrData = dataArray.slice(1).map(row => row[2]); return { labels: labels, datasets: [ { label: headers[1], data: signupsData, type: 'bar', yAxisID: 'ySignups' }, { label: headers[2], data: cvrData, type: 'line', yAxisID: 'yCvr' } ] }; } catch (e) { console.error("formatAcquisitionTrend 오류:", e, "원본:", dataArray); return { labels: [], datasets: [] }; }
+    };
+    // 변환 실행
+    const lifecycleDistributionChartJs = formatChartData(lifecycleSummaryChartDataArr);
+    const lifecycleRevenueChartJs = formatChartData(lifecycleRevenueChartDataArr);
+    const acquisitionTrendChartJs = formatAcquisitionTrend(acquisitionTrendDataArr);
+    const newUserCountriesChartJs = formatChartData(newUserCountriesDataArr);
+    const platformChartJs = formatChartData(platformChartDataArr);
+    const pgChartJs = formatChartData(pgChartDataArr);
+    const methodChartJs = formatChartData(methodChartDataArr);
+
+    // --- 최종 결과 객체 ---
+    const result = {
+      kpis: { totalSales: { value: currentKpis.totalSales, change: getChange(currentKpis.totalSales, previousKpis.totalSales) }, aov: { value: currentKpis.aov, change: getChange(currentKpis.aov, previousKpis.aov) }, orderCount: { value: currentKpis.orderCount, change: getChange(currentKpis.orderCount, previousKpis.orderCount) } },
+      rankings: { topProductsBySales, topProductsByQuantity, topArtistsBySales, topArtistsByOrders },
+      regionalPerformance, // 배열 형식 유지
+      charts: { // Chart.js 객체 형식
+          platformChart: platformChartJs,
+          pgChart: pgChartJs,
+          methodChart: methodChartJs
+       },
+      rfm: { topVips, topPotentials, topNewCustomers }, // 배열 형식 유지
+      acquisition: { // Chart.js 객체 형식 + KPI
+        kpis: acquisitionKpis,
+        trend: acquisitionTrendChartJs,
+        countries: newUserCountriesChartJs
+      },
+      activitySummary: activitySummary, // 요약 객체 유지
+      lifecycle: { // Chart.js 객체 형식
+        distribution: lifecycleDistributionChartJs,
+        revenue: lifecycleRevenueChartJs
+      }
+      // 숨겨진 분석 결과는 제외
+    };
+
+    cache.put(cacheKey, JSON.stringify(result), 600); // 10분 캐시
+    return result;
+
+  } catch (e) {
+    console.error(`getAnalyticsData 최종 오류:`, e, e.stack);
+    // 오류 시 빈 구조 반환
+    return {
+        error: `서버 오류: ${e.toString()}`,
+        kpis: {totalSales:{value:0,change:0}, aov:{value:0,change:0}, orderCount:{value:0,change:0}},
+        rankings: {topProductsBySales:[], topProductsByQuantity:[], topArtistsBySales:[], topArtistsByOrders:[]}, regionalPerformance: [],
+        charts: {platformChart:{labels:[], datasets:[]}, pgChart:{labels:[], datasets:[]}, methodChart:{labels:[], datasets:[]}},
+        rfm: {topVips:[], topPotentials:[], topNewCustomers:[]},
+        acquisition: { kpis:{totalNewUsers:0, totalFtps:0, cvr:0}, trend:{labels:[], datasets:[]}, countries:{labels:[], datasets:[]} },
+        activitySummary: {active:0, inactive:0, churnRisk:0, noPurchase:0},
+        lifecycle: { distribution:{labels:[], datasets:[]}, revenue:{labels:[], datasets:[]} }
+    };
+  }
+} // End getAnalyticsData
+
+// ========================================================================
+// 3. MODAL & ACTION FUNCTIONS
+// ========================================================================
+
+/**
+ * @description 처리상태(메모) 업데이트
+ */
+function updateProcessingStatus(orderCode, statusText) {
+  try {
+    if (!statusText || statusText.trim() === '') {
+      return { status: 'error', message: '메모 내용이 비어있습니다.' };
+    }
+
+    const sheet = SPREADSHEET.getSheetByName(LOGISTICS_SHEET_NAME);
+    const headerRange = sheet.getRange(1, 1, 1, sheet.getLastColumn());
+    const headers = headerRange.getValues()[0];
+    const orderCodeColIndex = headers.indexOf('order_code');
+    const statusColIndex = headers.indexOf('처리상태');
+
+    if (orderCodeColIndex === -1) throw new Error("'order_code' 칼럼을 찾을 수 없습니다.");
+    if (statusColIndex === -1) throw new Error("'처리상태' 칼럼을 찾을 수 없습니다.");
+
+    const dataRange = sheet.getRange(2, 1, sheet.getLastRow() - 1, sheet.getLastColumn());
+    const data = dataRange.getValues();
+
+    let updated = false;
+    for (let i = 0; i < data.length; i++) {
+      if (data[i][orderCodeColIndex] == orderCode) {
+        sheet.getRange(i + 2, statusColIndex + 1).setValue(statusText);
+        updated = true;
+      }
+    }
+
+    if (updated) {
+      const cache = CacheService.getScriptCache();
+      // 관련 캐시 모두 삭제
+      cache.removeAll(['main_dashboard_data_v10_38_7d', 'main_dashboard_data_v10_38_30d', 'main_dashboard_data_v10_38_90d', 'main_dashboard_data_v10_38_365d', 'unreceived_items_data_v7_reverted_kpi_fix']);
+      return { status: 'success', message: `${orderCode} 상태 업데이트 완료` };
+    } else {
+      return { status: 'not_found', message: '해당 주문 코드를 찾을 수 없습니다.' };
+    }
+
+  } catch(e) {
+    console.error("updateProcessingStatus Error: ", e);
+    return { status: 'error', message: e.toString() };
+  }
+}
+
+/**
+ * @description [V1.2 - 오류 수정 및 기능 추가] 통합 검색 페이지(lookup.html)용 데이터 조회 함수
+ * - shipment_id, user_id, artist_name, product_name 검색 오류 수정
+ * - artist_id, product_id 검색 기능 추가
+ * @param {string} query - 검색어
+ * @param {string} searchType - 검색 기준 (shipment_id, order_code, user_id, artist_name, product_name, artist_id, product_id)
+ * @returns {object} { searchType, query, results: [...], profile: {...} }
+ */
+function getLookupData(query, searchType) {
+  // 1. 유효성 검사
+  if (!query || !searchType) {
+    return { error: '검색어와 검색 기준이 모두 필요합니다.' };
+  }
+  
+  try {
+    // 2. 데이터 로드
+    // logistics 시트는 fill-down(빈 셀 채우기)이 필요할 수 있으므로 'true'로 설정
+    const logisticsData = getSheetDataAsJson(LOGISTICS_SHEET_NAME, true);
+    
+    // 3. 변수 초기화
+    let results = [];
+    let profile = null;
+    const lowerQuery = query.toLowerCase(); // 소문자 검색어
+
+    console.log(`[getLookupData V1.2] Starting search. Type: ${searchType}, Query: ${query}`);
+
+    // 4. 검색 타입별 분기 처리
+    switch (searchType) {
+      
+      case 'shipment_id':
+        // [FIX] 'shipment_id' 컬럼을 문자열로 변환하여 소문자 비교
+        results = logisticsData.filter(row => 
+          String(row.shipment_id || '').toLowerCase() === lowerQuery
+        );
+        break;
+
+      case 'order_code':
+        results = logisticsData.filter(row => 
+          row.order_code && row.order_code.toLowerCase() === lowerQuery
+        );
+        break;
+
+      case 'user_id':
+        // [FIX] 'user_id' 컬럼을 문자열로 변환하여 비교
+        results = logisticsData.filter(row => 
+          String(row.user_id || '').toLowerCase() === lowerQuery
+        );
+        // user_id로 검색 시 프로필 정보 추가 로드
+        const userMap = getUserMap();
+        const userIdNum = parseInt(query);
+        if (!isNaN(userIdNum)) {
+            profile = userMap.get(userIdNum) || null;
+        }
+        break;
+
+      case 'artist_name':
+        // [FIX] String()으로 명시적 형 변환
+        results = logisticsData.filter(row => {
+            const artistName = String(row['artist_name (kr)'] || '');
+            return artistName.toLowerCase().includes(lowerQuery);
+        });
+        break;
+        
+      case 'product_name':
+        // [FIX] String()으로 명시적 형 변환
+        results = logisticsData.filter(row => {
+            const productName = String(row.product_name || '');
+            return productName.toLowerCase().includes(lowerQuery);
+        });
+        break;
+        
+      // --- [신규 기능 추가] ---
+      case 'artist_id':
+        // 'artist_id' 컬럼이 logistics 시트에 존재한다고 가정
+        results = logisticsData.filter(row =>
+          String(row.artist_id || '').toLowerCase() === lowerQuery
+        );
+        break;
+        
+      case 'product_id':
+        // 'product_id' 컬럼이 logistics 시트에 존재한다고 가정
+        results = logisticsData.filter(row =>
+          String(row.product_id || '').toLowerCase() === lowerQuery
+        );
+        break;
+      // --- [신규 기능 추가 끝] ---
+
+      default:
+        return { error: '알 수 없는 검색 기준입니다.' };
+    }
+
+    console.log(`[getLookupData V1.2] Found ${results.length} matching rows.`);
+
+    // 5. 프론트엔드에 필요한 데이터만 정제하여 반환
+    const refinedResults = results.map(row => {
+        return {
+            orderCode: row.order_code || 'N/A',
+            shipmentId: row.shipment_id || 'N/A',
+            productName: row.product_name || 'N/A',
+            artistName: row['artist_name (kr)'] || 'N/A',
+            country: row.country || 'N/A',
+            logisticsStatus: row.logistics || 'N/A',
+            orderDate: row.order_created ? (new Date(row.order_created).toLocaleDateString("ko-KR")) : 'N/A',
+            userId: row.user_id ? parseInt(row.user_id) : 'N/A', // logistics 시트의 user_id 사용
+            productId: row.product_id || 'N/A',
+            artistId: row.artist_id || 'N/A' // artist_id 추가
+        };
+    });
+    
+    // 6. 검색 결과가 많을 경우 일부만 반환 (예: 200개)
+    const MAX_RESULTS = 200;
+    let warning = null;
+    if (refinedResults.length > MAX_RESULTS) {
+         warning = `검색 결과가 너무 많습니다 (${refinedResults.length}건). 상위 ${MAX_RESULTS}건만 표시합니다.`;
+    }
+
+    return {
+      searchType: searchType,
+      query: query,
+      results: refinedResults.slice(0, MAX_RESULTS), // 200개로 제한
+      profile: profile, // user_id 검색 시 프로필 정보 포함
+      warning: warning // 결과 제한 시 경고 메시지
+    };
+
+  } catch (e) {
+    console.error(`[getLookupData] Error: ${e.message}`, e.stack);
+    return { error: `검색 중 오류가 발생했습니다: ${e.message}` };
+  }
+}
+
+/**
+ * @description [개선] 주문 상세 모달 데이터 (V10.33) (getSheetDataAsJson 호출 수정)
+ * (중복 함수 제거 후 최신 버전만 남김)
+ */
+function getOrderDetail(orderCode) {
+  if (!orderCode) return { error: "주문 번호가 필요합니다." };
+  try {
+    // [개선] logisticsData(true), orderData(false)
+    const logisticsData = getSheetDataAsJson(LOGISTICS_SHEET_NAME, true);
+    const orderData = getSheetDataAsJson(ORDER_SHEET_NAME, false);
+    const userMap = getUserMap();
+    
+    const orderRows = logisticsData.filter(row => row.order_code === orderCode);
+    if (orderRows.length === 0) return { error: "해당 주문 정보를 찾을 수 없습니다." };
+
+    const orderSheetRow = orderData.find(r => r.order_code === orderCode);
+    const userId = orderSheetRow ? parseInt(orderSheetRow.user_id) : null;
+    const userInfo = userId ? userMap.get(userId) : null;
+    const customerInfo = { name: userInfo ? userInfo.NAME : 'N/A', country: userInfo ? userInfo.COUNTRY : 'N/A' };
+    
+    // --- 타임라인 생성 로직 ---
+    const mainRow = orderRows[0];
+    const shipmentUpdatedDate = new Date(mainRow['shipment_item_updated']);
+    const inspectionDate = new Date(mainRow['artist bundle item updated']);
+    const artistShipDate = new Date(mainRow['작가 발송 updated']);
+    const orderCreatedDate = new Date(mainRow.order_created);
+    const intlTracking = mainRow['국제송장번호'];
+    const globalStatus = (mainRow['global bundle status'] || '').trim();
+    const orderItemStatusMain = (mainRow['order item status'] || '').trim();
+    
+    const timelineEvents = [];
+    if (!isNaN(orderCreatedDate.getTime())) timelineEvents.push({ status: '결제 완료', date: orderCreatedDate.toLocaleDateString("ko-KR") });
+    
+    const hasArtistSent = orderRows.some(row => {
+        const sIS = (row['shipment item status'] || '').trim();
+        const aSS = (row['작가 발송 상태'] || '').trim();
+        const gS = (row['global bundle status'] || '').trim();
+        const aBS = (row['artist bundle item status'] || '').trim();
+        const iT = row['국제송장번호'];
+        return !isNaN(new Date(row['작가 발송 updated']).getTime()) && (sIS==='ARTIST_SENT'||aSS==='IN_DELIVERY'||gS==='IN_DELIVERY'||aSS==='IMPORTED'||aSS==='INSPECTION_COMPLETE'||sIS==='INSPECTION_COMPLETE'||aBS==='INSPECT_SUCCESS'||gS==='EXPORT_START'||iT);
+    });
+    if (hasArtistSent && !isNaN(artistShipDate.getTime())) timelineEvents.push({ status: '작가 발송', date: artistShipDate.toLocaleDateString("ko-KR") });
+    
+    const hasArrived = orderRows.some(row => (row['작가 발송 상태'] || '').trim() === 'IMPORTED');
+    if (hasArrived && !isNaN(inspectionDate.getTime())) timelineEvents.push({ status: '입고 완료', date: inspectionDate.toLocaleDateString("ko-KR") });
+    
+     const hasInspected = orderRows.some(row => {
+        const sIS = (row['shipment item status'] || '').trim();
+        const aSS = (row['작가 발송 상태'] || '').trim();
+        const aBS = (row['artist bundle item status'] || '').trim();
+        const gS = (row['global bundle status'] || '').trim();
+        const iT = row['국제송장번호'];
+        return !isNaN(new Date(row['artist bundle item updated']).getTime()) && (sIS==='INSPECTION_COMPLETE'||aSS==='INSPECTION_COMPLETE'||aBS==='INSPECT_SUCCESS'||gS==='EXPORT_START'||iT);
+     });
+     if (hasInspected && !isNaN(inspectionDate.getTime())) timelineEvents.push({ status: '검수 완료', date: inspectionDate.toLocaleDateString("ko-KR") });
+     
+    if (intlTracking && !isNaN(shipmentUpdatedDate.getTime()) && (globalStatus==='EXPORT_START'||globalStatus==='SHIPPED'||globalStatus==='DELIVERING'||orderItemStatusMain==='IN_TRANSIT')) timelineEvents.push({ status: '국제배송 시작', date: shipmentUpdatedDate.toLocaleDateString("ko-KR") });
+    // --- 타임라인 로직 끝 ---
+
+    // --- 아이템 목록 생성 (V10.33 로직) ---
+    const items = orderRows.map(row => {
+      const artistName = row['artist_name (kr)'] || '정보 없음';
+      
+      // [V10.33] '결제 완료'와 '작가 송장 입력'만 '미입고'로 처리
+      const itemLogisticsStatus = (row.logistics || '').trim();
+      const isReceived = itemLogisticsStatus !== '결제 완료' && itemLogisticsStatus !== '작가 송장 입력';
+      const itemStatus = isReceived ? '입고완료' : '미입고';
+
+      return {
+        name: row['product_name'] || '작품 정보 없음',
+        artistName: artistName,
+        quantity: row['구매수량'] || 'N/A',
+        url: getProductUrl(row.country, row.product_id),
+        status: itemStatus
+      };
+    });
+    // --- 아이템 목록 생성 끝 ---
+
+    const orderDetail = {
+      orderCode: mainRow.order_code,
+      country: mainRow.country,
+      logisticsStatus: mainRow.logistics,
+      customerInfo: customerInfo,
+      currentMemo: mainRow['처리상태'] || '메모 없음',
+      artistTracking: { number: mainRow['작가 발송 송장번호'], url: getTrackingUrl(mainRow['작가 발송 택배사'], mainRow['작가 발송 송장번호']) },
+      internationalTracking: { number: intlTracking, url: intlTracking ? `https://lglet.lottegl.com/view/tracking/export/any/EN/Tracking/${intlTracking}` : '#' },
+      items: items,
+      timelineEvents: timelineEvents
+    };
+    return orderDetail;
+
+  } catch (e) {
+    console.error('getOrderDetail Error:', e);
+    return { error: '주문 상세 정보를 불러오는 중 오류가 발생했습니다: ' + e.toString() };
+  }
+}
+
+/**
+ * @description [V10.21 수정] 고객 상세 정보 - customerDb 키 타입을 문자열(String)로 통일
+ * [V10.22 수정] Date 객체 직렬화(Serialization) 오류 해결
+ */
+function getCustomerDetail(userId) {
+  if (!userId) {
+    return { error: "조회할 User ID가 필요합니다." };
+  }
+
+  try {
+    const logisticsData = getSheetDataAsJson(LOGISTICS_SHEET_NAME, true);
+    const orderData = getSheetDataAsJson(ORDER_SHEET_NAME, false);
+    const userMap = getUserMap(); // userMap은 숫자(Number) 키를 사용함
+
+    // --- Helper functions ---
+    const cleanAndParseFloat = (value) => {
+      if (typeof value === 'number') return value;
+      if (typeof value === 'string') return parseFloat(value.replace(/,/g, '')) || 0;
+      return 0;
+    };
+    const getKrwValue = (gmv) => { 
+      const gmvFloat = cleanAndParseFloat(gmv);
+      const USD_TO_KRW_RATE = 1350.0;
+      return gmvFloat * USD_TO_KRW_RATE;
+    };
+    // --- End Helper functions ---
+
+    const customerDb = {};
+    const orderCodeToUserId = {}; 
+
+    orderData.forEach(row => {
+      // ▼▼▼▼▼ [수정] user_id를 문자열로 강제 변환 ▼▼▼▼▼
+      const currentUserId = String(row.user_id); 
+      // ▲▲▲▲▲ [수정] 여기까지 ▲▲▲▲▲
+
+      if (!currentUserId) return; 
+
+      const orderCode = row.order_code;
+      if (orderCode) {
+        orderCodeToUserId[orderCode] = currentUserId; // 매핑 정보 저장 (문자열 ID)
+      }
+
+      if (!customerDb[currentUserId]) {
+        customerDb[currentUserId] = {
+          userId: currentUserId,
+          orders: [], 
+          totalAmount: 0,
+          orderCount: 0,
+          lastOrderDate: new Date('1970-01-01'), 
+          artistSet: new Set(),
+          productCountPerOrder: {},
+          firstOrderDate: new Date('9999-12-31') 
+        };
+      }
+
+      let orderDate;
+      try {
+        orderDate = new Date(row.order_created);
+        if (isNaN(orderDate.getTime())) throw new Error('Invalid Date');
+      } catch (e) {
+        console.warn(`Invalid order_created date format for order ${orderCode}: ${row.order_created}`);
+        return; 
+      }
+      const amount = getKrwValue(row['Total GMV']);
+      if (!isNaN(amount) && amount >= 0) {
+        customerDb[currentUserId].orders.push({
+          date: orderDate,
+          amount: amount,
+          orderCode: orderCode
+        });
+        customerDb[currentUserId].totalAmount += amount;
+        customerDb[currentUserId].orderCount++;
+        if (orderDate > customerDb[currentUserId].lastOrderDate) {
+             customerDb[currentUserId].lastOrderDate = orderDate;
+        }
+        if (orderDate < customerDb[currentUserId].firstOrderDate) {
+            customerDb[currentUserId].firstOrderDate = orderDate;
+        }
+      } else {
+           console.warn(`Invalid amount calculated for order ${orderCode}, GMV: ${row['Total GMV']}`);
+      }
+    }); // End orderData.forEach
+
+    // logisticsData 순회
+    logisticsData.forEach(row => {
+      // ▼▼▼▼▼ [수정] orderCodeToUserId는 이미 문자열 ID를 반환 ▼▼▼▼▼
+      const currentUserId = orderCodeToUserId[row.order_code]; // (String 타입)
+      // ▲▲▲▲▲ [수정] 여기까지 ▲▲▲▲▲
+      
+      if (!currentUserId || !customerDb[currentUserId]) return; 
+
+      const artistName = row['artist_name (kr)'];
+      if (artistName) {
+        customerDb[currentUserId].artistSet.add(artistName);
+      }
+
+      const orderCode = row.order_code;
+      let quantity = 1; 
+      if (row['구매수량']) {
+          const parsedQty = parseInt(String(row['구매수량']).replace(/,/g, ''));
+          if (!isNaN(parsedQty) && parsedQty > 0) {
+              quantity = parsedQty;
+          }
+      }
+      customerDb[currentUserId].productCountPerOrder[orderCode] = (customerDb[currentUserId].productCountPerOrder[orderCode] || 0) + quantity;
+    }); // End logisticsData.forEach
+
+    // ▼▼▼▼▼ [수정] ID를 문자열과 숫자로 모두 준비 ▼▼▼▼▼
+    const targetUserIdString = String(userId); // (예: '12345')
+    const targetUserIdNumber = parseInt(userId); // (예: 12345)
+    // ▲▲▲▲▲ [수정] 여기까지 ▲▲▲▲▲
+
+    // ▼▼▼▼▼ [수정] customerDb는 문자열 키로 조회 ▼▼▼▼▼
+    const customerData = customerDb[targetUserIdString];
+    // ▲▲▲▲▲ [수정] 여기까지 ▲▲▲▲▲
+
+    if (!customerData) {
+      // customerDb에 데이터가 없는 경우 (주문 0건 고객)
+      // userMap은 숫자(Number) 키를 사용하므로 targetUserIdNumber로 조회
+      const userInfoFallback = userMap.get(targetUserIdNumber);
+      
+      const profileFallback = userInfoFallback ? {
+          name: userInfoFallback.NAME || 'N/A',
+          email: userInfoFallback.EMAIL || 'N/A',
+          country: userInfoFallback.COUNTRY || 'N/A',
+          createdAt: userInfoFallback.CREATED_AT ? new Date(userInfoFallback.CREATED_AT).toLocaleDateString("ko-KR") : 'N/A'
+      } : { name: 'N/A', email: 'N/A', country: 'N/A', createdAt: 'N/A' };
+      
+      return {
+          userId: targetUserIdString, // 문자열 ID 반환
+          profile: profileFallback,
+          stats: { R: 'N/A', F: 0, M: 0, ArtistDiversity: 0 },
+          orders: [],
+          artistList: []
+      };
+    }
+
+    // 주문 객체에 상품 수량 및 포맷된 날짜 추가
+    customerData.orders.forEach(order => {
+      order.productCount = customerDb[targetUserIdString].productCountPerOrder[order.orderCode] || 0;
+      order.dateFormatted = order.date instanceof Date && !isNaN(order.date)
+                           ? order.date.toLocaleDateString("ko-KR")
+                           : 'N/A';
+    });
+
+    // ▼▼▼▼▼ [수정] Date 객체로 먼저 정렬합니다. ▼▼▼▼▼
+    const sortedOrders = customerData.orders.sort((a, b) => b.date - a.date);
+
+    // ▼▼▼▼▼ [수정] 직렬화(Serialization)를 위해 Date 객체를 제거합니다. ▼▼▼▼▼
+    // .map()을 사용하여 'date' 속성이 제거된 '새로운' 배열을 만듭니다.
+    const serializableOrders = sortedOrders.map(order => {
+      return {
+        // date: order.date, // <-- 직렬화 오류를 일으키는 원본 Date 객체 (제거)
+        
+        // 프론트엔드(populateCustomerModal)에서 필요한 속성들만 전달
+        orderCode: order.orderCode,
+        amount: order.amount,
+        productCount: order.productCount,
+        dateFormatted: order.dateFormatted 
+      };
+    });
+    // ▲▲▲▲▲ [수정] 여기까지 ▲▲▲▲▲
+
+
+    const artistList = Array.from(customerData.artistSet).sort();
+    const now = new Date();
+    const R_days = customerData.lastOrderDate instanceof Date && !isNaN(customerData.lastOrderDate) && customerData.lastOrderDate.getFullYear() !== 1970
+                   ? Math.floor((now - customerData.lastOrderDate) / (1000 * 60 * 60 * 24))
+                   : Infinity;
+
+    // ▼▼▼▼▼ [수정] userMap은 숫자(Number) 키로 조회 ▼▼▼▼▼
+    const userInfo = userMap.get(targetUserIdNumber);
+    // ▲▲▲▲▲ [수정] 여기까지 ▲▲▲▲▲
+    
+    const profile = userInfo ? {
+      name: userInfo.NAME || 'N/A',
+      email: userInfo.EMAIL || 'N/A',
+      country: userInfo.COUNTRY || 'N/A',
+      createdAt: userInfo.CREATED_AT ? new Date(userInfo.CREATED_AT).toLocaleDateString("ko-KR") : 'N/A'
+    } : { name: 'N/A', email: 'N/A', country: 'N/A', createdAt: 'N/A' };
+
+    // 최종 결과 반환
+    return {
+      userId: customerData.userId, // (String 타입)
+      profile: profile,
+      stats: {
+        R: R_days === Infinity ? 'N/A' : R_days,
+        F: customerData.orderCount,
+        M: customerData.totalAmount,
+        ArtistDiversity: artistList.length
+      },
+      
+      // ▼▼▼▼▼ [수정] Date 객체가 제거된 새로운 'serializableOrders' 배열을 반환합니다. ▼▼▼▼▼
+      orders: serializableOrders,
+      // ▲▲▲▲▲ [수정] 여기까지 ▲▲▲▲▲
+
+      artistList: artistList
+    };
+
+  } catch (e) {
+    console.error(`getCustomerDetail Error for User ID ${userId}:`, e, e.stack);
+    return { error: '고객 상세 정보를 불러오는 중 오류가 발생했습니다: ' + e.toString() };
+  }
+} // End getCustomerDetail (V10.20 restored)
+
+/**
+ * @description [개선] 특정 작가의 기간 내 주문 내역 조회 (V10.22) (getSheetDataAsJson 호출 수정)
+ */
+function getOrdersByArtist(artistName, dateRange) {
+  if (!artistName || !dateRange) {
+    return { error: '작가 이름과 기간이 필요합니다.' };
+  }
+
+  try {
+    // [개선] logisticsData(true), orderData(false)
+    const logisticsData = getSheetDataAsJson(LOGISTICS_SHEET_NAME, true);
+    const orderData = getSheetDataAsJson(ORDER_SHEET_NAME, false);
+
+    // 기간 설정
+    const days = { '7d': 7, '30d': 30, '90d': 90, '365d': 365 }[dateRange];
+    if (!days) return { error: '잘못된 기간 값입니다.' };
+    const endDate = new Date();
+    const startDate = new Date(endDate.getTime() - (days * 24 * 60 * 60 * 1000));
+    
+    // 1. 기간 및 작가 이름으로 logisticsData 필터링
+    const filteredLogistics = logisticsData.filter(row => {
+        if (row['artist_name (kr)'] !== artistName) return false;
+        try {
+            const orderDate = new Date(row.order_created);
+            return orderDate >= startDate && orderDate <= endDate;
+        } catch(e) {
+            return false;
+        }
+    });
+    
+    if (filteredLogistics.length === 0) {
+      return { orders: [] };
+    }
+
+    // 2. 주문별로 아이템 그룹화 및 정보 집계
+    const ordersByCode = {};
+    const USD_TO_KRW_RATE = 1350.0;
+    const cleanAndParseFloat = (value) => { return typeof value === 'string' ? parseFloat(value.replace(/,/g, '')) || 0 : value || 0; };
+
+    filteredLogistics.forEach(row => {
+        const orderCode = row.order_code;
+        if (!ordersByCode[orderCode]) {
+             let orderDateStr = 'N/A';
+             try {
+                if (row.order_created) {
+                   orderDateStr = new Date(row.order_created).toLocaleDateString("ko-KR");
+                } else {
+                    const orderInfo = orderData.find(o => o.order_code === orderCode);
+                    if (orderInfo && orderInfo.order_created) {
+                       orderDateStr = new Date(orderInfo.order_created).toLocaleDateString("ko-KR");
+                    }
+                }
+             } catch(e){}
+            
+            ordersByCode[orderCode] = {
+                orderCode: orderCode,
+                date: orderDateStr,
+                items: [],
+                artistTotalAmount: 0 
+            };
+        }
+
+        const gmv = row['Total GMV'];
+        const amountKrw = cleanAndParseFloat(gmv) * USD_TO_KRW_RATE;
+        if(!isNaN(amountKrw)){
+            ordersByCode[orderCode].items.push({
+                productName: row.product_name || '정보 없음',
+                quantity: row['구매수량'] || 'N/A',
+                amount: amountKrw,
+                productUrl: getProductUrl(row.country, row.product_id)
+            });
+            ordersByCode[orderCode].artistTotalAmount += amountKrw;
+        }
+    });
+    
+    const ordersArray = Object.values(ordersByCode).sort((a, b) => {
+        try {
+           const dateA = new Date(a.date.replace(/\.\s*/g, '-').replace(/-$/, ''));
+           const dateB = new Date(b.date.replace(/\.\s*/g, '-').replace(/-$/, ''));
+           return dateB - dateA; // 내림차순 (최신순)
+        } catch(e) {
+           return 0;
+        }
+    });
+    
+    return { orders: ordersArray };
+
+  } catch (e) {
+    console.error(`getOrdersByArtist Error for ${artistName}:`, e);
+    return { error: '작가 주문 내역 조회 중 오류 발생: ' + e.toString() };
+  }
+}
+
+/**
+ * @description [수정] 활동 상태별 고객 목록 CSV 내보내기 (String() 형변환으로 .replace 오류 수정)
+ */
+function exportCustomerListByStatus(status, countryFilter = 'all') {
+  console.log(`[exportCustomerListByStatus] ${status} 고객 목록 내보내기 (필터: ${countryFilter})`);
+  try {
+    const now = new Date();
+    const today = new Date(now.getFullYear(), now.getMonth(), now.getDate());
+    // [개선] orderData는 fill-down(false) 불필요
+    let orderData = getSheetDataAsJson(ORDER_SHEET_NAME, false);
+    const userMap = getUserMap();
+    // 국가 필터링 적용
+    if (countryFilter === 'jp') {
+        orderData = orderData.filter(row => {
+            const userId = parseInt(row.user_id);
+            const userInfo = userMap.get(userId);
+            return userInfo && userInfo.COUNTRY === 'JP';
+        });
+    } else if (countryFilter === 'non_jp') {
+        orderData = orderData.filter(row => {
+            const userId = parseInt(row.user_id);
+            const userInfo = userMap.get(userId);
+            return !userInfo || userInfo.COUNTRY !== 'JP';
+        });
+    }
+
+    // --- RFM DB 구축 (활동 상태 계산용) ---
+    const customerDb = {};
+    orderData.forEach(row => {
+      try {
+        const userId = parseInt(row.user_id);
+        if (!userId) return;
+        if (!customerDb[userId]) {
+          customerDb[userId] = { userId: userId, orderCount: 0, lastOrderDate: new Date('1970-01-01') };
+        }
+        const orderDate = new Date(row.order_created);
+        customerDb[userId].orderCount++;
+        if (orderDate > customerDb[userId].lastOrderDate) 
+ 
+          customerDb[userId].lastOrderDate = orderDate;
+      } catch (e) {}
+    });
+    // --- 활동 상태 계산 ---
+    const activityThresholds = { active: 90, inactive: 180 };
+    Object.values(customerDb).forEach(customer => {
+        let calculatedStatus = 'noPurchase';
+        if (customer.orderCount > 0 && customer.lastOrderDate instanceof Date && !isNaN(customer.lastOrderDate) && customer.lastOrderDate.getFullYear() !== 1970) {
+            const lastOrderDay = new Date(customer.lastOrderDate.getFullYear(), customer.lastOrderDate.getMonth(), customer.lastOrderDate.getDate());
+            const daysSinceLastOrder = (today - lastOrderDay) / (1000 * 60 * 60 * 24);
+            
+          
+   if (daysSinceLastOrder <= activityThresholds.active) {
+                calculatedStatus = 'Active';
+            } else if (daysSinceLastOrder <= activityThresholds.inactive) {
+                calculatedStatus = 'Inactive';
+            } else {
+                calculatedStatus = 'Churn Risk';
+       
+     }
+        } else {
+             calculatedStatus = 'noPurchase';
+        }
+        customer.activityStatus = calculatedStatus;
+    });
+    // --- 요청된 상태(status)의 고객 필터링 및 CSV 생성 ---
+    const requestedStatus = status;
+    let csvContent = "user_id,name,email\n";
+    let count = 0;
+    
+    Object.values(customerDb).forEach(customer => {
+      if (customer.activityStatus === requestedStatus) {
+        const userInfo = userMap.get(customer.userId);
+        if (userInfo) {
+          
+          // ▼▼▼▼▼ [수정] String()으로 강제 형변환 ▼▼▼▼▼
+          const name = `"${String(userInfo.NAME || '').replace(/"/g, '""')}"`;
+          const email = `"${String(userInfo.EMAIL || '').replace(/"/g, '""')}"`;
+          // ▲▲▲▲▲ [수정] 여기까지 ▲▲▲▲▲
+
+          csvContent += `${customer.userId},${name},${email}\n`;
+          count++;
+        }
+      }
+    });
+    if (requestedStatus === 'noPurchase') {
+        userMap.forEach((user, userId) => {
+            if (!customerDb[userId]) { 
+                
+                // ▼▼▼▼▼ [수정] String()으로 강제 형변환 ▼▼▼▼▼
+                const name = `"${String(user.NAME || '').replace(/"/g, '""')}"`;
+                const email = `"${String(user.EMAIL || '').replace(/"/g, '""')}"`;
+                // ▲▲▲▲▲ [수정] 여기까지 ▲▲▲▲▲
+
+                csvContent += `${userId},${name},${email}\n`;
+                count++;
+            }
+        });
+    }
+
+    console.log(`[exportCustomerListByStatus] ${count}명의 '${status}' 고객 CSV 생성 완료.`);
+    return csvContent;
+  } catch (e) {
+    console.error(`[exportCustomerListByStatus] 오류:`, e);
+    return `Error: ${e.toString()}`;
+  }
+}
+
+// ========================================================================
+// 4. HELPER FUNCTIONS (중복 제거)
+// ========================================================================
+
+/**
+ * @description [개선] 헬퍼 함수 (중복 제거 후 최신 버전만 남김)
+ */
+function getTrackingUrl(courier, trackingNumber) {
+    if (!courier || !trackingNumber) return '#';
+    const courierLower = String(courier).toLowerCase();
+    if (courierLower.includes('cj')) { return `https://www.cjlogistics.com/ko/tool/parcel/tracking?gnbInvcNo=${trackingNumber}`; }
+    else if (courierLower.includes('lotte')) { return `https://www.lotteglogis.com/home/reservation/tracking/index?invcno=${trackingNumber}`; }
+    else if (courierLower.includes('ups')) { return `https://www.ups.com/track?loc=en_US&tracknum=${trackingNumber}`; }
+    else if (courierLower.includes('postal')) { return `https://service.epost.go.kr/trace/RetrieveDomRigiTraceList.comm?sid1=${trackingNumber}`; }
+    return '#';
+}
+
+function getProductUrl(country, productId) {
+    if (!productId) return '#';
+    const lang = (country === 'JP') ? 'jp' : 'en';
+    return `https://global.idus.com/${lang}/product/${productId}`;
+}

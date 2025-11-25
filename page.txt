@@ -1,0 +1,123 @@
+<!DOCTYPE html>
+<html>
+  <head>
+    <base target="_top">
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+    
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css">
+
+    <?!= include('base_styles'); ?>
+    <?!= include('sidebar_styles'); ?>
+    <?!= include('component_styles'); ?>
+    <?!= include('table_styles'); ?>
+    <?!= include('chart_styles'); ?>
+    <?!= include('timeline_styles'); ?>
+    
+    <script src="https://cdn.jsdelivr.net/npm/moment@2.29.1/moment.min.js"></script>
+    
+    <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.0/dist/chart.umd.min.js"></script>
+    
+    <script src="https://cdn.jsdelivr.net/npm/chartjs-adapter-moment@1.0.0/dist/chartjs-adapter-moment.min.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/chartjs-plugin-datalabels@2.2.0/dist/chartjs-plugin-datalabels.min.js"></script>
+    
+
+  </head>
+  <body>
+
+    <script>
+      (function() {
+        try {
+          const theme = localStorage.getItem('theme');
+          const prefersDark = window.matchMedia && window.matchMedia('(prefers-color-scheme: dark)').matches;
+          if (theme === 'dark' || (!theme && prefersDark)) {
+            document.documentElement.setAttribute('data-theme', 'dark');
+          } else {
+            document.documentElement.setAttribute('data-theme', 'light');
+          }
+        } catch (e) {
+          console.error("Theme switcher init failed:", e);
+          document.documentElement.setAttribute('data-theme', 'light'); // Fallback
+        }
+      })();
+    </script>
+
+    <div class="app-layout">
+      <?
+         var sidebarTemplate = HtmlService.createTemplateFromFile('sidebar');
+         sidebarTemplate.activePage = activePage; // activePage는 doGet에서 전달됨
+      ?>
+      <?!= sidebarTemplate.evaluate().getContent(); ?>
+
+      <main class="main-content">
+  <?
+     // [수정] header에 pageTitle 변수를 전달합니다.
+     var headerTemplate = HtmlService.createTemplateFromFile('header');
+     headerTemplate.pageTitle = pageTitle; // pageTitle은 code.gs에서 이미 전달되고 있습니다.
+  ?>
+  <?!= headerTemplate.evaluate().getContent(); ?>
+
+  <div class="page-content">
+    <?!= pageContent ?>
+  </div>
+</main>
+    </div>
+
+    <script>
+      function updateThemeIcons() {
+        try {
+          const currentTheme = document.documentElement.getAttribute('data-theme');
+          const sunIcon = document.getElementById('theme-icon-sun');
+          const moonIcon = document.getElementById('theme-icon-moon');
+          if (sunIcon && moonIcon) {
+            if (currentTheme === 'dark') {
+              sunIcon.style.display = 'none';
+              moonIcon.style.display = 'inline-block';
+            } else {
+              sunIcon.style.display = 'inline-block';
+              moonIcon.style.display = 'none';
+            }
+          }
+        } catch(e) { console.error("Theme icon update failed:", e); }
+      }
+      
+      function toggleTheme() {
+        try {
+          const currentTheme = document.documentElement.getAttribute('data-theme');
+          const newTheme = currentTheme === 'dark' ? 'light' : 'dark';
+          document.documentElement.setAttribute('data-theme', newTheme);
+          localStorage.setItem('theme', newTheme);
+          updateThemeIcons();
+        } catch(e) { console.error("Theme toggle failed:", e); }
+      }
+      
+      // 페이지 로드 시 아이콘 초기 설정
+      document.addEventListener('DOMContentLoaded', updateThemeIcons);
+    </script>
+
+    <style>
+      .theme-toggle-btn {
+        background-color: var(--background-alt-color);
+        border: 1px solid var(--border-color);
+        color: var(--text-muted-color);
+        width: 36px;
+        height: 36px;
+        border-radius: 50%;
+        cursor: pointer;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        font-size: 1rem;
+        transition: all 0.2s ease;
+      }
+      .theme-toggle-btn:hover {
+        background-color: var(--hover-color);
+        color: var(--primary-color);
+      }
+      .theme-toggle-btn:active {
+        transform: scale(0.95);
+      }
+    </style>
+  </body>
+</html>

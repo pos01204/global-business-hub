@@ -1,0 +1,159 @@
+import axios from 'axios'
+
+const OPENAI_API_KEY = process.env.OPENAI_API_KEY
+const OPENAI_MODEL = process.env.OPENAI_MODEL || 'gpt-4o-mini'
+const OPENAI_BASE_URL = process.env.OPENAI_BASE_URL || 'https://api.openai.com/v1'
+
+interface OpenAIResponse {
+  id: string
+  object: string
+  created: number
+  model: string
+  choices: Array<{
+    index: number
+    message: {
+      role: string
+      content: string
+    }
+    finish_reason: string
+  }>
+  usage: {
+    prompt_tokens: number
+    completion_tokens: number
+    total_tokens: number
+  }
+}
+
+export class OpenAIService {
+  private apiKey: string
+  private model: string
+  private baseUrl: string
+
+  constructor() {
+    this.apiKey = OPENAI_API_KEY || ''
+    this.model = OPENAI_MODEL
+    this.baseUrl = OPENAI_BASE_URL
+
+    if (!this.apiKey) {
+      console.warn('⚠️ OPENAI_API_KEY가 설정되지 않았습니다. 환경 변수를 확인하세요.')
+    }
+  }
+
+  async generate(prompt: string, options?: { temperature?: number; maxTokens?: number }): Promise<string> {
+    try {
+      if (!this.apiKey) {
+        throw new Error('OpenAI API 키가 설정되지 않았습니다. OPENAI_API_KEY 환경 변수를 설정하세요.')
+      }
+
+      console.log(`[OpenAI] 생성 요청 시작 - 모델: ${this.model}`)
+
+      const response = await axios.post<OpenAIResponse>(
+        `${this.baseUrl}/chat/completions`,
+        {
+          model: this.model,
+          messages: [
+            {
+              role: 'user',
+              content: prompt,
+            },
+          ],
+          temperature: options?.temperature || 0.7,
+          max_tokens: options?.maxTokens || 2000,
+        },
+        {
+          headers: {
+            'Authorization': `Bearer ${this.apiKey}`,
+            'Content-Type': 'application/json',
+          },
+          timeout: 60000, // 60초 타임아웃
+        }
+      )
+
+      const content = response.data.choices[0]?.message?.content || ''
+      console.log(`[OpenAI] 생성 성공 - 응답 길이: ${content.length}, 토큰 사용: ${response.data.usage.total_tokens}`)
+      
+      return content
+    } catch (error: any) {
+      console.error('[OpenAI] API 오류 상세:', {
+        message: error.message,
+        code: error.code,
+        response: error.response?.data,
+        status: error.response?.status,
+        model: this.model,
+      })
+
+      // 더 상세한 에러 메시지 제공
+      if (error.response?.status === 401) {
+        throw new Error('OpenAI API 키가 유효하지 않습니다. OPENAI_API_KEY를 확인하세요.')
+      } else if (error.response?.status === 429) {
+        throw new Error('OpenAI API 요청 한도가 초과되었습니다. 잠시 후 다시 시도하세요.')
+      } else if (error.response?.status === 404) {
+        throw new Error(`모델 '${this.model}'을 찾을 수 없습니다. 사용 가능한 모델을 확인하세요.`)
+      } else if (error.response?.data?.error?.message) {
+        throw new Error(`OpenAI 오류: ${error.response.data.error.message}`)
+      } else if (error.message) {
+        throw new Error(`OpenAI 연결 오류: ${error.message}`)
+      } else {
+        throw new Error('콘텐츠 생성 중 오류가 발생했습니다.')
+      }
+    }
+  }
+
+  async checkConnection(): Promise<boolean> {
+    try {
+      if (!this.apiKey) {
+        console.warn('[OpenAI] API 키가 설정되지 않았습니다.')
+        return false
+      }
+
+      // 간단한 테스트 요청으로 연결 확인
+      console.log('[OpenAI] 연결 확인 시작')
+      const response = await axios.post(
+        `${this.baseUrl}/chat/completions`,
+        {
+          model: this.model,
+          messages: [{ role: 'user', content: 'test' }],
+          max_tokens: 5,
+        },
+        {
+          headers: {
+            'Authorization': `Bearer ${this.apiKey}`,
+            'Content-Type': 'application/json',
+          },
+          timeout: 10000,
+        }
+      )
+
+      const isConnected = response.status === 200
+      if (isConnected) {
+        console.log(`✅ OpenAI 연결 성공 - 모델: ${this.model}`)
+      }
+      
+      return isConnected
+    } catch (error: any) {
+      console.error('[OpenAI] 연결 확인 실패:', {
+        message: error.message,
+        status: error.response?.status,
+        error: error.response?.data?.error?.message,
+      })
+      return false
+    }
+  }
+
+  /**
+   * 사용 가능한 모델 목록 조회 (OpenAI는 API로 조회 불가, 일반적인 모델 목록 반환)
+   */
+  async listModels(): Promise<string[]> {
+    // OpenAI는 모델 목록 API가 유료이므로 일반적인 모델 목록 반환
+    return [
+      'gpt-4o',
+      'gpt-4o-mini',
+      'gpt-4-turbo',
+      'gpt-4',
+      'gpt-3.5-turbo',
+    ]
+  }
+}
+
+export const openaiService = new OpenAIService()
+

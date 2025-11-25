@@ -1,0 +1,1212 @@
+<!DOCTYPE html>
+<html>
+<head>
+  </head>
+<body>
+<div class="container">
+    <h1><i class="fa-solid fa-chart-line" style="margin-right: 8px; color: var(--primary-color);"></i> 성과 분석</h1>
+
+    <div class="global-filters card">
+        <div class="filter-group">
+            <label for="dateRangeFilter">기간 선택</label>
+            <select id="dateRangeFilter" onchange="applyAnalyticsFilters()">
+                <option value="7d">최근 7일</option>
+                <option value="30d" selected>최근 30일</option>
+       
+          <option value="90d">이번 분기</option>
+                <option value="365d">지난 1년</option>
+            </select>
+        </div>
+        <div class="filter-group">
+             <label for="countryFilter">국가 필터</label>
+            <select id="countryFilter" onchange="applyAnalyticsFilters()">
+             
+    <option value="all" selected>전체 국가</option>
+                <option value="jp">일본 (JP)</option>
+                <option value="non_jp">Global (JP 제외)</option>
+            </select>
+        </div>
+    </div>
+
+    <div id="loader-container">
+        <?!= include('loading');
+ ?>
+    </div>
+
+    <div id="analytics-content" class="initially-hidden">
+
+        <div class="tab-buttons card" style="margin-bottom: 1.5rem; padding: 0.5rem; display: flex; flex-wrap: wrap; gap: 0.5rem;">
+            <button class="tab-button active" onclick="showTab('tab-overview')" data-tab-id="tab-overview">종합 성과</button>
+            <button class="tab-button" onclick="showTab('tab-customer')" data-tab-id="tab-customer">고객 분석</button>
+            <button class="tab-button" onclick="showTab('tab-channel')" data-tab-id="tab-channel">채널 및 랭킹</button>
+            <button class="tab-button" onclick="showTab('tab-regional')" data-tab-id="tab-regional" style="display: none;">지역 성과</button> </div>
+
+ 
+        <div class="tab-panels">
+            
+            <div id="tab-overview" class="tab-panel active" style="display: block;">
+                <h2 class="section-title">📈 매출 성과</h2>
+                <div class="kpi-grid">
+                    <div class="card"><h3>총 매출</h3><p id="kpi-total-sales" class="value">₩0</p><p id="kpi-total-sales-change" class="change-indicator"></p></div>
+ 
+                    <div class="card"><h3>객단가 (AOV)</h3><p id="kpi-aov" class="value">₩0</p><p id="kpi-aov-change" class="change-indicator"></p></div>
+                    <div class="card"><h3>주문 건수</h3><p id="kpi-order-count" class="value">0</p><p id="kpi-order-count-change" class="change-indicator"></p></div>
+                </div>
+                <h2 class="section-title" style="margin-top: 2rem;">🏃 고객 활동 상태 요약 (전체 구매 고객 기준)</h2>
+      
+           <div class="kpi-grid">
+                    <div class="card downloadable-card" onclick="downloadActivityList('Active', this)">
+                        <h3>활성 고객 (Active)</h3><p id="kpi-active-users" class="value status-active">0</p><p class="change-indicator"><small>(최근 90일 내 구매)</small></p>
+                    </div>
+            
+         <div class="card downloadable-card" onclick="downloadActivityList('Inactive', this)">
+                        <h3>비활성 고객 (Inactive)</h3><p id="kpi-inactive-users" class="value status-inactive">0</p><p class="change-indicator"><small>(91일 ~ 180일 내 구매)</small></p>
+                    </div>
+                    <div class="card downloadable-card" onclick="downloadActivityList('Churn Risk', this)">
+         
+                <h3>이탈 위험 고객 (Churn Risk)</h3><p id="kpi-churn-users" class="value status-churn">0</p><p class="change-indicator"><small>(181일 이상 미구매)</small></p>
+                    </div>
+                </div>
+            </div>
+
+            <div id="tab-customer" class="tab-panel" style="display: none;">
+           
+      <h2 class="section-title">🔄 고객 생애주기 분석 (전체 사용자 기준)</h2>
+                <div class="analytics-grid single-column">
+                    <div class="card chart-card">
+                        <div style="display: grid;
+ grid-template-columns: repeat(auto-fit, minmax(280px, 1fr)); gap: var(--spacing-lg);">
+                            <div>
+                                <h3 style="text-align: center;
+ font-weight: 500; color: #555; margin-bottom: var(--spacing-md);">고객 분포 현황 (Count)</h3>
+                                <div class="chart-container" style="position: relative;
+ height: 300px; width: 100%;">
+                                    <canvas id="lifecycleDistChartCanvas"></canvas>
+                                </div>
+                            
+ </div>
+                            <div>
+                                <h3 style="text-align: center;
+ font-weight: 500; color: #555; margin-bottom: var(--spacing-md);">단계별 매출 기여도 (Pay GMV)</h3>
+                                <div class="chart-container" style="position: relative;
+ height: 300px; width: 100%;">
+                                    <canvas id="lifecycleRevChartCanvas"></canvas>
+                                </div>
+                            
+ </div>
+                        </div>
+                    </div>
+                </div>
+                <h2 class="section-title" style="margin-top: 2rem;">🚀 사용자 확보 분석</h2>
+                <div class="kpi-grid">
+ 
+                    <div class="card"><h3>총 신규 가입자</h3><p id="kpi-new-users" class="value">0</p><p class="change-indicator"><small>선택 기간 내</small></p></div>
+                    <div class="card"><h3>첫 구매 전환 수</h3><p id="kpi-new-ftps" class="value">0</p><p class="change-indicator"><small>신규 가입자 중</small></p></div>
+                    <div class="card"><h3>첫 구매 전환율 (CVR)</h3><p id="kpi-new-cvr" class="value">0.0%</p><p class="change-indicator"><small>신규 가입자 중</small></p></div>
+               
+  </div>
+                <div class="analytics-grid">
+                    <div class="card chart-card"><h3>월별 신규 가입자 및 전환율 추세</h3>
+                         <div class="chart-container" style="position: relative;
+ height: 300px; width: 100%;">
+                            <canvas id="acquisitionTrendChartCanvas"></canvas>
+                         </div>
+                    </div>
+                    <div class="card chart-card"><h3>기간 
+ 내 신규 가입자 국가 분포</h3>
+                         <div class="chart-container" style="position: relative;
+ height: 300px; width: 100%;">
+                            <canvas id="newUserCountryChartCanvas"></canvas>
+                         </div>
+                    </div>
+                </div>
+       
+          <h2 class="section-title" style="margin-top: 2rem;">🤵 고객 세그먼트 분석 (기간 내 활동 고객)</h2>
+                <div class="analytics-grid single-column">
+                    <div class="card">
+                        <div>
+                  
+           <h3 class="sub-section-title">👑 핵심 고객 (VIP)</h3>
+                            <div id="top_vips_table" class="table-container"></div>
+                        </div>
+                        <div style="margin-top: 2rem;">
+      
+                       <h3 class="sub-section-title">🚀 잠재적 충성 고객</h3>
+                            <div id="top_potentials_table" class="table-container"></div>
+                        </div>
+                    
+     <div style="margin-top: 2rem;">
+                            <h3 class="sub-section-title">🏃‍♂️ 신규 고객 (High-Value)</h3>
+                            <div id="top_new_customers_table" class="table-container"></div>
+                        </div>
+        
+             </div>
+                </div>
+            </div>
+
+            <div id="tab-channel" class="tab-panel" style="display: none;">
+                <h2 class="section-title">📊 채널 및 결제 분석</h2>
+                <div class="analytics-grid">
+      
+               <div class="card chart-card"><h3><i class="fa-solid fa-mobile-screen-button"></i> 플랫폼별 매출 비중</h3>
+                         <div class="chart-container" style="position: relative;
+ height: 300px; width: 100%;">
+                            <canvas id="platformChartCanvas"></canvas>
+                         </div>
+                    </div>
+                    <div class="card chart-card"><h3><i 
+ class="fa-solid fa-credit-card"></i> 결제 수단 비중 (PG사)</h3>
+                         <div class="chart-container" style="position: relative;
+ height: 300px; width: 100%;">
+                            <canvas id="pgChartCanvas"></canvas>
+                         </div>
+                    </div>
+                    <div class="card chart-card"><h3><i 
+ class="fa-solid fa-wallet"></i> 결제 방식 비중 (Method)</h3>
+                         <div class="chart-container" style="position: relative;
+ height: 300px; width: 100%;">
+                            <canvas id="methodChartCanvas"></canvas>
+                         </div>
+                    </div>
+                </div>
+       
+          <h2 class="section-title" style="margin-top: 2rem;">🏆 매출 랭킹</h2>
+                <div class="analytics-grid single-column">
+                    <div class="card">
+                        <h3>Top 10 작품</h3>
+                     
+    <div class="ranking-split-container">
+                            <div><h4 class="ranking-sub-title">매출액 기준</h4><div id="top-products-sales-table"></div></div>
+                            <div><h4 class="ranking-sub-title">판매 수량 기준</h4><div id="top-products-quantity-table"></div></div>
+                        </div>
+         
+            </div>
+                    <div class="card">
+                        <h3>Top 10 작가</h3>
+                        <div class="ranking-split-container">
+                 
+            <div><h4 class="ranking-sub-title">매출액 기준</h4><div id="top-artists-sales-table"></div></div>
+                            <div><h4 class="ranking-sub-title">주문 건수 기준</h4><div id="top-artists-orders-table"></div></div>
+                        </div>
+                    </div>
+          
+       </div>
+            </div>
+
+             <div id="tab-regional" class="tab-panel" style="display: none;">
+                 <h2 class="section-title" id="regional-performance-title-tab">🌍 지역 성과 (매출액 기준)</h2>
+                 <div class="analytics-grid single-column" id="regional-performance-section-tab">
+                     
+                     <div class="card chart-card">
+                         <div id="regional-performance-chart-container" class="chart-container" style="position: relative; height: 450px; width: 100%;">
+                             <canvas id="regionalPerformanceChartCanvas"></canvas>
+                         </div>
+                     </div>
+                     
+ <div class="card" style="margin-top: 1.5rem;">
+                         <h3>국가별 상세 데이터</h3>
+                         <div id="regional-performance-table-tab" class="table-container">
+                             </div>
+              
+        </div>
+                 </div>
+             </div>
+        </div> </div> </div> <div id="customer-detail-modal" class="modal-overlay">
+  <div class="modal-content large">
+    <div class="modal-header">
+      <h2 class="modal-title" id="customer-modal-title">고객 상세 정보</h2>
+      <button class="modal-close" onclick="closeCustomerModal()">&times;</button>
+     </div>
+    <div class="modal-body" id="customer-modal-body"></div>
+  </div>
+</div>
+<div id="artist-orders-modal" class="modal-overlay">
+  <div class="modal-content large">
+    
+ <div class="modal-header">
+      <h2 class="modal-title" id="artist-modal-title">작가 주문 내역</h2>
+      <button class="modal-close" onclick="closeArtistModal()">&times;</button>
+     </div>
+    <div class="modal-body" id="artist-modal-body"></div>
+  </div>
+</div>
+
+<script>
+  // --- Chart.js 인스턴스 저장 ---
+  let charts = {};
+ // Chart.js 인스턴스
+  // [수정] 로딩 스피너 HTML을 안전하게 변수로 저장 (SyntaxError 해결)
+  const loadingSpinnerHtml = <?!= JSON.stringify(include("loading")) ?>;
+
+  // --- [신규] Datalabels Plugin 등록 ---
+  // page.txt에서 로드한 ChartDataLabels 변수 사용
+  if (typeof ChartDataLabels !== 'undefined') {
+      Chart.register(ChartDataLabels);
+ Chart.defaults.set('plugins.datalabels', { display: false }); // 기본 비활성화
+  } else {
+      console.warn("Chart.js Datalabels 플러그인을 로드하지 못했습니다.");
+ }
+
+
+  // --- 유틸리티 함수 ---
+  function copyToClipboard(text, element) {
+      if (window.event) window.event.stopPropagation();
+ if (navigator.clipboard) {
+          navigator.clipboard.writeText(text).then(() => {
+              const originalText = element.textContent;
+              element.textContent = 'Copied!';
+              element.style.color = 'var(--success-color)';
+              setTimeout(() => { element.textContent = originalText; element.style.color = ''; }, 1500);
+          }, (err) => 
+ { console.error('Copy failed: ', err); alert('ID 복사에 실패했습니다.'); });
+      } else { alert('클립보드 API가 지원되지 않아 복사할 수 없습니다.');
+ }
+  }
+
+  // --- 페이지 초기화 ---
+  document.addEventListener("DOMContentLoaded", function() {
+    applyAnalyticsFilters(); // 데이터 로드 시작
+  });
+ // --- 필터 적용 및 데이터 로드 ---
+  function applyAnalyticsFilters() {
+    const loader = document.getElementById('loader-container');
+ const content = document.getElementById('analytics-content');
+    if (loader) loader.style.display = 'block';
+    if (content) content.classList.add('initially-hidden');
+ // Destroy existing charts
+    Object.values(charts).forEach(chart => { if (chart && typeof chart.destroy === 'function') { chart.destroy(); } });
+ charts = {};
+    const dateRange = document.getElementById('dateRangeFilter')?.value || '30d';
+    const countryFilter = document.getElementById('countryFilter')?.value || 'all';
+ // [신규] 탭 버튼 가시성 제어
+    const regionalTabButton = document.querySelector(`.tab-button[data-tab-id="tab-regional"]`);
+ if (regionalTabButton) {
+        regionalTabButton.style.display = (countryFilter === 'all') ? 'inline-block' : 'none';
+ }
+
+    google.script.run
+      .withSuccessHandler(renderAnalytics)
+      .withFailureHandler(showError)
+      .getAnalyticsData(dateRange, countryFilter);
+ }
+
+  // --- [신규] 클라이언트 측 데이터 변환 헬퍼 ---
+  // Helper: 배열의 배열 -> Chart.js 단일 데이터셋 객체
+  const formatChartData = (dataArray, labelName = 'Data') => {
+      // [수정] 백엔드가 이미 Chart.js 형식을 반환한다고 가정 (이전 답변 내용)
+      // return dataArray;
+ // <-- 이전에 이 부분을 제안했었습니다.
+      
+      // [재수정] 백엔드가 배열의 배열을 반환한다고 가정 (콘솔 오류 기반)
+      if (!Array.isArray(dataArray) || dataArray.length < 2) {
+        return { labels: [], datasets: [{ label: labelName, data: [] }] };
+ }
+      try {
+          const headers = dataArray[0];
+ const labels = dataArray.slice(1).map(row => row[0]);
+          const data = dataArray.slice(1).map(row => row[1]);
+ return {
+            labels: labels,
+            datasets: [{ label: headers[1] ||
+ labelName, data: data }]
+          };
+ } catch (e) {
+          console.error("formatChartData 오류:", e, "원본 데이터:", dataArray);
+ return { labels: [], datasets: [{ label: labelName, data: [] }] };
+      }
+  };
+ // Helper: Acquisition Trend용 다중 데이터셋 변환
+  const formatAcquisitionTrend = (dataArray) => {
+      if (!Array.isArray(dataArray) || dataArray.length < 2) {
+          return { labels: [], datasets: [] };
+ }
+      try {
+          const headers = dataArray[0];
+ const labels = dataArray.slice(1).map(row => row[0]); // Months
+          const signupsData = dataArray.slice(1).map(row => row[1]);
+ // Signups
+          const cvrData = dataArray.slice(1).map(row => row[2]);
+ // CVR
+          return {
+              labels: labels,
+              datasets: [
+                  { label: headers[1], data: signupsData, type: 'bar', yAxisID: 'ySignups' },
+                  { label: headers[2], data: cvrData, type: 'line', yAxisID: 'yCvr' }
+    
+           ]
+          };
+ } catch (e) {
+          console.error("formatAcquisitionTrend 오류:", e, "원본 데이터:", dataArray);
+ return { labels: [], datasets: [] };
+      }
+  };
+ // --- [수정] 데이터 렌더링 ---
+  function renderAnalytics(data) {
+    if (!data || data.error) {
+        showError(data ? data.error : "분석 데이터를 받지 못했습니다.");
+ hideLoaderAndShowContent(true);
+        return;
+    }
+
+    try {
+        // KPI 업데이트 (Safe access)
+        updateKpiCard('total-sales', data.kpis?.totalSales?.value, data.kpis?.totalSales?.change, 'currency');
+ updateKpiCard('aov', data.kpis?.aov?.value, data.kpis?.aov?.change, 'currency');
+        updateKpiCard('order-count', data.kpis?.orderCount?.value, data.kpis?.orderCount?.change, 'number');
+        updateActivityKpiCard('active-users', data.activitySummary?.active);
+        updateActivityKpiCard('inactive-users', data.activitySummary?.inactive);
+        updateActivityKpiCard('churn-users', data.activitySummary?.churnRisk);
+        updateKpiCard('new-users', data.acquisition?.kpis?.totalNewUsers, null, 'number');
+ updateKpiCard('new-ftps', data.acquisition?.kpis?.totalFtps, null, 'number');
+        updateKpiCard('new-cvr', data.acquisition?.kpis?.cvr, null, 'percent');
+
+       // --- [핵심 수정] Chart.js 데이터 변환 ---
+        // 백엔드(code.gs)가 이미 Chart.js 객체로 변환했으므로 , 프론트엔드 변환 제거
+        const lifecycleDistributionChartJs = data.lifecycle?.distribution;
+        const lifecycleRevenueChartJs = data.lifecycle?.revenue;
+        const acquisitionTrendChartJs = data.acquisition?.trend;
+        const newUserCountriesChartJs = data.acquisition?.countries;
+        const platformChartJs = data.charts?.platformChart;
+        const pgChartJs = data.charts?.pgChart;
+        const methodChartJs = data.charts?.methodChart;
+
+        // --- Chart.js 차트 함수 호출 ---
+        drawLifecycleChart_ChartJS(lifecycleDistributionChartJs);
+        drawLifecycleRevenueChart_ChartJS(lifecycleRevenueChartJs);
+ drawAcquisitionTrendChart_ChartJS(acquisitionTrendChartJs);
+        drawNewUserCountryChart_ChartJS(newUserCountriesChartJs);
+        drawPlatformChart_ChartJS(platformChartJs);
+        drawPgChart_ChartJS(pgChartJs);
+        drawMethodChart_ChartJS(methodChartJs);
+
+        // --- 테이블 채우기 ---
+        populateRankingTable('top-products-sales-table', ['작품명', '매출액'], data.rankings?.topProductsBySales);
+ populateRankingTable('top-products-quantity-table', ['작품명', '판매 수량'], data.rankings?.topProductsByQuantity);
+        populateRankingTable('top-artists-sales-table', ['작가명', '매출액'], data.rankings?.topArtistsBySales);
+        populateRankingTable('top-artists-orders-table', ['작가명', '주문 건수'], data.rankings?.topArtistsByOrders);
+        populateRfmTable('top_vips_table', data.rfm?.topVips, 'vip');
+        populateRfmTable('top_potentials_table', data.rfm?.topPotentials, 'potential');
+ populateRfmTable('top_new_customers_table', data.rfm?.topNewCustomers, 'new');
+
+        // --- [수정] 지역 성과 차트 및 테이블 호출 ---
+        const countryFilterVal = document.getElementById('countryFilter')?.value;
+ if (countryFilterVal === 'all') {
+            const regionalData = data.regionalPerformance ||
+ []; // Ensure array
+
+            // [신규] Bar Chart를 위한 데이터 변환 (regionalData는 객체 배열)
+            // (매출액(totalSalesInKrw) 기준 Top 15, 가로막대차트라 reverse)
+            const regionalDataSorted = [...regionalData].sort((a, b) => (b.totalSalesInKrw || 0) - (a.totalSalesInKrw || 0));
+            const regionalChartData = {
+                labels: regionalDataSorted.map(row => row.country || 'N/A').slice(0, 15).reverse(), 
+                datasets: [{
+                    label: '매출액 (KRW)',
+                    data: regionalDataSorted.map(row => Math.round(row.totalSalesInKrw || 0)).slice(0, 15).reverse()
+                }]
+            };
+            
+            // [신규] 새 Bar Chart 함수 호출
+            drawRegionalPerformanceChart_ChartJS(regionalChartData);
+
+            // 상세 테이블 (기존 코드 유지)
+            populateRegionalTable('regional-performance-table-tab', regionalData);
+ }
+
+    } catch (renderError) {
+        console.error("데이터 렌더링 중 오류 발생:", renderError);
+ showError("데이터를 화면에 표시하는 중 오류가 발생했습니다: " + renderError.toString());
+    } finally {
+        hideLoaderAndShowContent();
+ // [수정] 데이터 로드 완료 후 탭 상태 업데이트 및 표시
+        const countryFilterVal = document.getElementById('countryFilter')?.value;
+ const currentActiveButton = document.querySelector('.tab-button.active');
+        const defaultTab = 'tab-overview';
+        let tabToShow = defaultTab;
+ if (currentActiveButton) {
+            tabToShow = currentActiveButton.getAttribute('data-tab-id') || defaultTab;
+ }
+        if (tabToShow === 'tab-regional' && countryFilterVal !== 'all') {
+            tabToShow = defaultTab;
+ }
+        showTab(tabToShow);
+    }
+  }
+
+   // --- [신규] 탭 인터페이스 함수 ---
+  function showTab(tabIdToShow) {
+        document.querySelectorAll('.tab-button').forEach(button => button.classList.remove('active'));
+ document.querySelectorAll('.tab-panel').forEach(panel => { panel.style.display = 'none'; panel.classList.remove('active'); });
+
+        const activeButton = document.querySelector(`.tab-button[data-tab-id="${tabIdToShow}"]`);
+        if (activeButton) activeButton.classList.add('active');
+
+        const activePanel = document.getElementById(tabIdToShow);
+ if (activePanel) {
+            activePanel.style.display = 'block';
+ requestAnimationFrame(() => { activePanel.classList.add('active'); });
+        }
+
+        // 지역 성과 탭 버튼 가시성 제어
+        const regionalTabButton = document.querySelector(`.tab-button[data-tab-id="tab-regional"]`);
+ if (regionalTabButton) {
+            const countryFilterVal = document.getElementById('countryFilter')?.value;
+ regionalTabButton.style.display = (countryFilterVal === 'all') ? 'inline-block' : 'none';
+        }
+  }
+
+  // --- UI 업데이트 함수 ---
+  function updateKpiCard(id, value, change, format) {
+      const valueEl = document.getElementById(`kpi-${id}`);
+ const changeEl = document.getElementById(`kpi-${id}-change`);
+      const displayValue = (value !== null && value !== undefined) ?
+ value : (format === 'currency' || format === 'number' ? 0 : '0.0%');
+ const displayChange = (change !== null && change !== undefined && isFinite(change)) ? change : null;
+ if (valueEl) {
+          if (format === 'currency') valueEl.textContent = `₩${Math.round(displayValue).toLocaleString()}`;
+ else if (format === 'percent') valueEl.textContent = `${(displayValue * 100).toFixed(1)}%`;
+          else valueEl.textContent = displayValue.toLocaleString();
+ }
+      if (changeEl) {
+           if (displayChange !== null) {
+               if (displayChange === Infinity) { changeEl.innerHTML = `<span class="up">▲</span> New`;
+ changeEl.className = 'change-indicator up'; }
+               else if (displayChange >= 0) { changeEl.innerHTML = `<span class="up">▲</span> ${(displayChange * 100).toFixed(1)}% <small>(vs prev)</small>`;
+ changeEl.className = 'change-indicator up'; }
+               else { changeEl.innerHTML = `<span class="down">▼</span> ${(Math.abs(displayChange) * 100).toFixed(1)}% <small>(vs prev)</small>`;
+ changeEl.className = 'change-indicator down'; }
+           } else { changeEl.innerHTML = '';
+ changeEl.className = 'change-indicator'; }
+      }
+  }
+  function updateActivityKpiCard(id, value) {
+      const valueEl = document.getElementById(`kpi-${id}`);
+ const displayValue = (value !== null && value !== undefined) ? value : 0;
+      if (valueEl) { valueEl.textContent = displayValue.toLocaleString();
+ }
+  }
+
+  // --- 테이블 생성 함수 ---
+  function populateRankingTable(elementId, headers, data) {
+      const container = document.getElementById(elementId);
+ if (!container) { console.error("Container not found:", elementId); return; }
+      const tableData = Array.isArray(data) ?
+ data : [];
+      if (tableData.length === 0) { container.innerHTML = '<div class="table-container no-data"><p class="no-data-message">표시할 데이터가 없습니다.</p></div>'; return;
+ }
+      let tableHtml = '<div class="table-container"><table class="table ranking-table"><thead><tr><th style="width: 50px;">순위</th>';
+ headers.forEach((header) => { tableHtml += `<th>${header}</th>`; });
+      tableHtml += '</tr></thead><tbody>';
+      const isQuantityTable = headers.includes('판매 수량'); const isOrdersTable = headers.includes('주문 건수');
+ const isProductTable = elementId.includes('products'); const isArtistTable = elementId.includes('artists');
+      tableData.forEach((row, index) => {
+          if (!Array.isArray(row) || row.length < 2) return;
+          const name = row[0] || 'N/A'; const value = row[1]; let nameHtml = name; let valueFormatted = '-';
+          if (value !== null && value !== undefined) {
+            if (isQuantityTable) valueFormatted = `${parseInt(value).toLocaleString()} <small>개</small>`;
+           
+  else if (isOrdersTable) valueFormatted = `${parseInt(value).toLocaleString()} <small>건</small>`;
+            else valueFormatted = `₩${Math.round(value).toLocaleString()}`;
+          }
+          if (isProductTable && row.length > 2 && row[2] && row[2] !== '#') { const url = row[2]; nameHtml = `<a href="${url}" target="_blank" class="item-link" title="${name} 상품 페이지로 이동">${name}</a>`; }
+          else if (isArtistTable) { const safeName = String(name).replace(/'/g, "\\'"); nameHtml = `<span class="artist-name-link" onclick="openArtistModal('${safeName}')" title="'${name}' 작가의 주문 내역 보기">${name}</span>`; }
+  
+         tableHtml += `<tr><td style="text-align: center;">${index + 1}</td><td class="ranking-name-cell" title="${name}">${nameHtml}</td><td style="text-align: right;">${valueFormatted}</td></tr>`;
+      });
+ tableHtml += '</tbody></table></div>'; container.innerHTML = tableHtml;
+  }
+  function populateRegionalTable(elementId, data) {
+      const container = document.getElementById(elementId);
+ if (!container) { console.error("Container not found:", elementId); return; }
+      const tableData = Array.isArray(data) ?
+ data : [];
+      if (tableData.length === 0) { container.innerHTML = '<div class="table-container no-data"><p class="no-data-message">표시할 데이터가 없습니다.</p></div>'; return;
+ }
+      const headers = ['국가', '총 매출 (USD)', '총 매출 (KRW)', '매출 비중', '주문 건수', '객단가 (KRW)'];
+ let tableHtml = '<div class="table-container"><table class="table"><thead><tr>';
+      headers.forEach(header => tableHtml += `<th>${header}</th>`); tableHtml += '</tr></thead><tbody>';
+ tableData.forEach(row => { tableHtml += `<tr><td>${row.country||'N/A'}</td><td class="col-numeric">$${Math.round(row.totalOriginalSales||0).toLocaleString()}</td><td class="col-numeric">₩${Math.round(row.totalSalesInKrw||0).toLocaleString()}</td><td class="col-numeric">${((row.salesShare||0)*100).toFixed(1)}%</td><td class="col-numeric">${(row.orderCount||0).toLocaleString()}</td><td class="col-numeric">₩${Math.round(row.aovInKrw||0).toLocaleString()}</td></tr>`; });
+      tableHtml += '</tbody></table></div>'; container.innerHTML = tableHtml;
+ }
+  function populateRfmTable(elementId, data, segmentType) {
+      const container = document.getElementById(elementId);
+ if (!container) { console.error('Container element not found:', elementId); return; }
+      const tableData = Array.isArray(data) ?
+ data : [];
+      if (tableData.length === 0) { container.innerHTML = '<div class="table-container no-data"><p class="no-data-message">해당 고객 없음</p></div>'; return;
+ }
+      let headers = []; let tableHtml = '<div class="table-container"><table class="table crm-table"><thead><tr>';
+ const commonHeaders = [ { label: 'User ID', class: 'col-user-id' }, { label: '고객명', class: 'col-name' }, { label: '국가', class: 'col-country' }, { label: '활동 상태', class: 'col-status' } ];
+ if (segmentType === 'vip') { headers = [...commonHeaders, { label: '평생 구매액(M)', class: 'col-numeric col-monetary' }, { label: '주문수(F)', class: 'col-numeric col-frequency' }, { label: '최근 주문일(R)', class: 'col-recency' }];
+ }
+      else if (segmentType === 'potential') { headers = [...commonHeaders, { label: '작가 다양성', class: 'col-numeric col-artist-diversity' }, { label: '평생 구매액(M)', class: 'col-numeric col-monetary' }, { label: '주문수(F)', class: 'col-numeric col-frequency' }];
+ }
+      else if (segmentType === 'new') { headers = [...commonHeaders, { label: '첫 주문 금액', class: 'col-numeric col-first-amount' }, { label: '첫 주문 작품수', class: 'col-numeric col-first-count' }, { label: '첫 주문일', class: 'col-first-date' }];
+ }
+      else { headers = commonHeaders;
+ }
+      headers.forEach(header => { tableHtml += `<th class="${header.class || ''}">${header.label}</th>`; }); tableHtml += '</tr></thead><tbody>';
+ const statusClassMap = { 'Active': 'status-active', 'Inactive': 'status-inactive', 'Churn Risk': 'status-churn', 'N/A': '' };
+ tableData.forEach(row => {
+          const status = row.activityStatus || 'N/A'; const statusClass = statusClassMap[status] || '';
+          const userId = row.userId || 'N/A'; const name = row.name || 'N/A'; const country = row.country || 'N/A';
+          const M = row.M !== undefined ? Math.round(row.M).toLocaleString() : '-'; const F = row.F !== undefined ? `${row.F}회` : '-';
+          const R = row.R !== undefined && row.R !== Infinity ? 
+ `${row.R}일 전` : '-'; const lastOrderDate = row.lastOrderDate || 'N/A';
+          const artistCount = row.artistCount !== undefined ? `${row.artistCount}명` : '-'; const firstAmount = row.firstOrderAmount !== undefined ? `₩${Math.round(row.firstOrderAmount).toLocaleString()}` : '-';
+          const firstCount = row.firstOrderProductCount !== undefined ? `${row.firstOrderProductCount}개` : '-'; const firstDate = row.firstOrderDate || 'N/A';
+          let rowsHtml = `<tr><td class="col-user-id" title="${userId}"><a class="user-id-link" href="javascript:void(0)" onclick="openCustomerModal('${userId}')">${userId}</a><span class="copy-icon" title="ID 복사" onclick="copyToClipboard('${userId}', this)">📋</span></td><td class="col-name" title="${name}">${name}</td><td class="col-country">${country}</td><td class="col-status ${statusClass}">${status}</td>`;
+ if (segmentType === 'vip') { rowsHtml += `<td class="col-numeric col-monetary">₩${M}</td><td class="col-numeric col-frequency">${F}</td><td class="col-recency">${lastOrderDate}<br><small>(${R})</small></td>`;
+ }
+          else if (segmentType === 'potential') { rowsHtml += `<td class="col-numeric col-artist-diversity">${artistCount}</td><td class="col-numeric col-monetary">₩${M}</td><td class="col-numeric col-frequency">${F}</td>`;
+ }
+          else if (segmentType === 'new') { rowsHtml += `<td class="col-numeric col-first-amount">${firstAmount}</td><td class="col-numeric col-first-count">${firstCount}</td><td class="col-first-date">${firstDate}</td>`;
+ }
+          rowsHtml += `</tr>`; tableHtml += rowsHtml;
+      });
+      tableHtml += '</tbody></table></div>';
+ container.innerHTML = tableHtml;
+  }
+
+  // --- 숫자 포맷 헬퍼 ---
+  function formatShortNumber(value) { if (value === null || value === undefined) return '-';
+ if (value >= 1e9) return (value / 1e9).toFixed(1) + 'B'; if (value >= 1e6) return (value / 1e6).toFixed(1) + 'M';
+ if (value >= 1e3) return (value / 1e3).toFixed(1) + 'K'; return value < 1000 ? value.toFixed(0) : value.toLocaleString(undefined, {maximumFractionDigits: 0});
+ }
+  function formatNumber(value) { return (value === null || value === undefined) ?
+ '-' : value.toLocaleString();}
+  function formatCurrency(value) { return (value === null || value === undefined) ?
+ '-' : '₩' + Math.round(value).toLocaleString();}
+
+  // --- Chart.js 차트 그리기 함수들 ---
+  const chartJsDefaultOptions = { 
+      responsive: true, 
+      maintainAspectRatio: false, 
+      animation: { duration: 600, easing: 'easeOutQuart' }, 
+      plugins: { 
+          legend: { 
+              position: 'bottom', 
+              labels: { font: { family: 'Pretendard', size: 11 }, color: '#555', padding: 15 } 
+          }, 
+          // [수정] 툴팁 기본값을 비활성화된 커스텀 툴팁으로 변경
+          tooltip: { 
+              enabled: false, 
+              external: customTooltip,
+              mode: 'index', 
+              intersect: false, 
+              // 툴팁 스타일은 chart_styles.txt의 #chartjs-tooltip에서 관리
+          } 
+      }, 
+      scales: { 
+          x: { 
+              grid: { display: false }, 
+              ticks: { 
+           font: { family: 'Pretendard', size: 11 }, color: '#555' } 
+          }, 
+          y: { 
+              grid: { color: '#eee' }, 
+              ticks: { font: { family: 'Pretendard', size: 11 }, color: '#555' }, 
+              beginAtZero: true 
+          } 
+      }, 
+      layout: { padding: { top: 10, right: 20, bottom: 0, left: 10 } } 
+  };
+ function isChartDataValid(chartData) { return chartData && chartData.labels && Array.isArray(chartData.labels) && chartData.labels.length > 0 && chartData.datasets && Array.isArray(chartData.datasets) && chartData.datasets.length > 0 && chartData.datasets[0].data && Array.isArray(chartData.datasets[0].data) && chartData.datasets[0].data.length > 0;
+ }
+
+  // [개선] Datalabels 적용
+  function drawLifecycleChart_ChartJS(chartData) {
+      const canvasId = 'lifecycleDistChartCanvas';
+ const ctx = document.getElementById(canvasId); if (!ctx) { return; } const container = ctx.closest('.chart-container');
+ if (!isChartDataValid(chartData)) { if (container) container.innerHTML = '<p class="no-data-message">데이터 없음</p>'; if (charts[canvasId]) { charts[canvasId].destroy(); delete charts[canvasId]; } return;
+ }
+      if (charts[canvasId]) charts[canvasId].destroy();
+      const stageColors = { Prospect: '#BDBDBD', New: '#64B5F6', Growing: '#29B6F6', Core: '#0288D1', Dormant: '#FFA726', Churned: '#EF5350' };
+ const backgroundColors = chartData.labels.map(label => stageColors[label] || '#9E9E9E');
+      charts[canvasId] = new Chart(ctx, {
+          type: 'bar',
+          data: { labels: chartData.labels, datasets: [{ ...chartData.datasets[0], backgroundColor: backgroundColors }] },
+          options: {
+              ...chartJsDefaultOptions, indexAxis: 'y',
+              scales: { x: { ...chartJsDefaultOptions.scales.x, title: { display: true, text: '고객 수' }, ticks: { callback: 
+ v => formatNumber(v) } }, y: { ...chartJsDefaultOptions.scales.y, grid: { display: false } } },
+              plugins: {
+                  legend: { display: false },
+                  tooltip: { // [수정] 커스텀 툴팁 사용
+                      enabled: false,
+                      external: customTooltip
+                  },
+                  datalabels: { display: true, color: '#fff', anchor: 'center', align: 'center', font: { 
+ weight: 'bold', size: 10 }, formatter: (value) => value > 0 ? value.toLocaleString() : '' }
+              }, layout: { padding: { left: 20, right: 30, top: 10, bottom: 10 } }
+          }
+      });
+ }
+  function drawLifecycleRevenueChart_ChartJS(chartData) {
+       const canvasId = 'lifecycleRevChartCanvas'; const ctx = document.getElementById(canvasId);
+ if (!ctx) return; const container = ctx.closest('.chart-container');
+       if (!isChartDataValid(chartData)) { if (container) container.innerHTML = '<p class="no-data-message">데이터 없음</p>';
+ if (charts[canvasId]) { charts[canvasId].destroy(); delete charts[canvasId]; } return; }
+       if (charts[canvasId]) charts[canvasId].destroy();
+ const stageColors = { Prospect: '#BDBDBD', New: '#64B5F6', Growing: '#29B6F6', Core: '#0288D1', Dormant: '#FFA726', Churned: '#EF5350' };
+ const backgroundColors = chartData.labels.map(label => stageColors[label] || '#9E9E9E');
+       charts[canvasId] = new Chart(ctx, {
+           type: 'bar', data: { labels: chartData.labels, datasets: [{ ...chartData.datasets[0], backgroundColor: backgroundColors }] },
+           options: { ...chartJsDefaultOptions, indexAxis: 'y', scales: { x: { ...chartJsDefaultOptions.scales.x, title: { display: true, text: '매출액 (KRW)' }, ticks: { callback: value => formatShortNumber(value) } }, y: { ...chartJsDefaultOptions.scales.y, grid: { display: false } } },
+               plugins: { legend: { 
+ display: false }, 
+                   tooltip: { // [수정] 커스텀 툴팁 사용
+                       enabled: false,
+                       external: customTooltip,
+                       callbacks: { // [중요] 기존 콜백 유지
+                           label: ctx => `${ctx.dataset.label}: ${formatCurrency(ctx.raw)}` 
+                       }
+                   },
+                   datalabels: { display: true, color: '#fff', anchor: 'center', align: 'center', font: { weight: 'bold', size: 9 }, formatter: (value) => value > 1000 ? formatShortNumber(value) : '' }
+               }, layout: { padding: { left: 20, right: 30, top: 10, bottom: 10 } }
+           
+ }
+       });
+  }
+  function drawAcquisitionTrendChart_ChartJS(chartData) {
+      const canvasId = 'acquisitionTrendChartCanvas';
+ const ctx = document.getElementById(canvasId); if (!ctx) return; const container = ctx.closest('.chart-container');
+ if (!isChartDataValid(chartData) || !chartData.datasets || chartData.datasets.length < 2) { if (container) container.innerHTML = '<p class="no-data-message">데이터 없음</p>'; if (charts[canvasId]) { charts[canvasId].destroy();
+ delete charts[canvasId]; } return; }
+      if (charts[canvasId]) charts[canvasId].destroy();
+ charts[canvasId] = new Chart(ctx, {
+          data: { labels: chartData.labels, datasets: [ { ...chartData.datasets[0], backgroundColor: '#a1c4fd', borderColor: '#a1c4fd', order: 1 }, { ...chartData.datasets[1], borderColor: '#4A6FA5', tension: 0.1, order: 0, pointRadius: 3 } ] },
+          options: { ...chartJsDefaultOptions,
+              plugins: {
+                  legend: chartJsDefaultOptions.plugins.legend,
+             
+      tooltip: { // [수정] 커스텀 툴팁 사용
+                       enabled: false,
+                       external: customTooltip,
+                       callbacks: { // [중요] 기존 콜백 유지
+                           label: function(context) { let l = context.dataset.label||''; if(l)l+=': '; let v=context.raw; if(context.datasetIndex===1){l+=(v*100).toFixed(1)+'%'}else{l+=formatNumber(v)} return l; } 
+                       }
+                   },
+                  datalabels: { display: false }
+              },
+              scales: { x: { ...chartJsDefaultOptions.scales.x, grid: { display: false }, ticks: { autoSkipPadding: 15 } }, ySignups: { type: 'linear', position: 'left', grid: { 
+ color: '#eee' }, ticks: { font: { family: 'Pretendard', size: 11 }, color: '#555', callback: v => formatNumber(v) }, title: { display: true, text: '신규 가입자 수', font: { family: 'Pretendard', size: 12 }, color: '#333' } }, yCvr: { type: 'linear', position: 'right', grid: { drawOnChartArea: false }, ticks: { font: { family: 'Pretendard', size: 11 }, color: '#4A6FA5', callback: v => (v * 100).toFixed(0) + '%' }, title: { display: true, text: '첫 구매 전환율', font: { family: 'Pretendard', size: 12 }, color: '#333' } } },
+            
+   interaction: { mode: 'index', intersect: false }
+          }
+      });
+ }
+  function drawNewUserCountryChart_ChartJS(chartData) {
+      const canvasId = 'newUserCountryChartCanvas'; const ctx = document.getElementById(canvasId);
+ if (!ctx) return; const container = ctx.closest('.chart-container');
+      if (!isChartDataValid(chartData)) { if (container) container.innerHTML = '<p class="no-data-message">데이터 없음</p>';
+ if (charts[canvasId]) { charts[canvasId].destroy(); delete charts[canvasId]; } return; }
+      if (charts[canvasId]) charts[canvasId].destroy();
+ charts[canvasId] = new Chart(ctx, {
+          type: 'bar', data: { labels: chartData.labels, datasets: [{ ...chartData.datasets[0], backgroundColor: '#6D9886' }] },
+          options: { ...chartJsDefaultOptions, indexAxis: 'y',
+              scales: { x: { ...chartJsDefaultOptions.scales.x, title: { display: true, text: '가입자 수' }, ticks: { callback: v => formatNumber(v) } }, y: { ...chartJsDefaultOptions.scales.y, grid: { display: false }, ticks: { font: { size: 10 } } } },
+        
+       plugins: {
+                  legend: { display: false }, 
+                  tooltip: { // [수정] 커스텀 툴팁 사용
+                      enabled: false,
+                      external: customTooltip
+                  },
+                  datalabels: { display: true, color: '#fff', anchor: 'center', align: 'center', font: { weight: 'bold', size: 9 }, formatter: (value) => value > 0 ? value.toLocaleString() : '' }
+              }, layout: { padding: { left: 20, right: 30, top: 
+ 10, bottom: 10 } }
+          }
+      });
+ }
+  function drawPlatformChart_ChartJS(chartData) {
+      const canvasId = 'platformChartCanvas'; const ctx = document.getElementById(canvasId);
+ if (!ctx) return; const container = ctx.closest('.chart-container');
+      if (!isChartDataValid(chartData)) { if (container) container.innerHTML = '<p class="no-data-message">데이터 없음</p>';
+ if (charts[canvasId]) { charts[canvasId].destroy(); delete charts[canvasId]; } return; }
+      if (charts[canvasId]) charts[canvasId].destroy();
+ charts[canvasId] = new Chart(ctx, {
+          type: 'bar', data: { labels: chartData.labels, datasets: [{ ...chartData.datasets[0], backgroundColor: '#4A6FA5' }] },
+          options: { ...chartJsDefaultOptions, indexAxis: 'y',
+              scales: { x: { ...chartJsDefaultOptions.scales.x, title: { display: true, text: '매출액 (KRW)' }, ticks: { callback: v => formatShortNumber(v) } }, y: { ...chartJsDefaultOptions.scales.y, grid: { display: false } } },
+              plugins: {
+ 
+                  legend: { display: false }, 
+                  tooltip: { // [수정] 커스텀 툴팁 사용
+                      enabled: false,
+                      external: customTooltip,
+                      callbacks: { // [중요] 기존 콜백 유지
+                          label: ctx => `${ctx.dataset.label}: ${formatCurrency(ctx.raw)}` 
+                      }
+                  },
+                  datalabels: { display: true, color: '#fff', anchor: 'center', align: 'center', font: { weight: 'bold', size: 9 }, formatter: (value) => value > 1000 ? formatShortNumber(value) : '' }
+              }, layout: { padding: { left: 20, right: 
+ 30, top: 10, bottom: 10 } }
+          }
+      });
+ }
+  function drawPgChart_ChartJS(chartData) {
+       const canvasId = 'pgChartCanvas'; const ctx = document.getElementById(canvasId);
+ if (!ctx) return; const container = ctx.closest('.chart-container');
+       if (!isChartDataValid(chartData)) { if (container) container.innerHTML = '<p class="no-data-message">데이터 없음</p>';
+ if (charts[canvasId]) { charts[canvasId].destroy(); delete charts[canvasId]; } return; }
+       if (charts[canvasId]) charts[canvasId].destroy();
+ charts[canvasId] = new Chart(ctx, {
+           type: 'bar', data: { labels: chartData.labels, datasets: [{ ...chartData.datasets[0], backgroundColor: '#577590' }] },
+           options: { ...chartJsDefaultOptions, indexAxis: 'y',
+               scales: { x: { ...chartJsDefaultOptions.scales.x, title: { display: true, text: '주문 건수' }, ticks: { callback: v => formatNumber(v) } }, y: { ...chartJsDefaultOptions.scales.y, grid: { display: false } } },
+             
+   plugins: {
+                   legend: { display: false }, 
+                   tooltip: { // [수정] 커스텀 툴팁 사용
+                      enabled: false,
+                      external: customTooltip
+                   },
+                   datalabels: { display: true, color: '#fff', anchor: 'center', align: 'center', font: { weight: 'bold', size: 9 }, formatter: (value) => value > 0 ? value.toLocaleString() : '' }
+               }, layout: { padding: { left: 20, right: 30, top: 10, 
+ bottom: 10 } }
+           }
+       });
+ }
+  function drawMethodChart_ChartJS(chartData) {
+       const canvasId = 'methodChartCanvas'; const ctx = document.getElementById(canvasId);
+ if (!ctx) return; const container = ctx.closest('.chart-container');
+       if (!isChartDataValid(chartData)) { if (container) container.innerHTML = '<p class="no-data-message">데이터 없음</p>';
+ if (charts[canvasId]) { charts[canvasId].destroy(); delete charts[canvasId]; } return; }
+       if (charts[canvasId]) charts[canvasId].destroy();
+ charts[canvasId] = new Chart(ctx, {
+           type: 'bar', data: { labels: chartData.labels, datasets: [{ ...chartData.datasets[0], backgroundColor: '#6D9886' }] },
+           options: { ...chartJsDefaultOptions, indexAxis: 'y',
+               scales: { x: { ...chartJsDefaultOptions.scales.x, title: { display: true, text: '주문 건수' }, ticks: { callback: v => formatNumber(v) } }, y: { ...chartJsDefaultOptions.scales.y, grid: { display: false } } },
+             
+   plugins: {
+                   legend: { display: false }, 
+                   tooltip: { // [수정] 커스텀 툴팁 사용
+                      enabled: false,
+                      external: customTooltip
+                   },
+                   datalabels: { display: true, color: '#fff', anchor: 'center', align: 'center', font: { weight: 'bold', size: 9 }, formatter: (value) => value > 0 ? value.toLocaleString() : '' }
+               }, layout: { padding: { left: 20, right: 30, top: 10, 
+ bottom: 10 } }
+           }
+       });
+ }
+  
+  function drawRegionalPerformanceChart_ChartJS(chartData) {
+      const canvasId = 'regionalPerformanceChartCanvas';
+      const ctx = document.getElementById(canvasId);
+      if (!ctx) return;
+      const container = ctx.closest('.chart-container');
+      
+      if (!isChartDataValid(chartData)) {
+          if (container) container.innerHTML = '<p class="no-data-message">데이터 없음</p>';
+          if (charts[canvasId]) { charts[canvasId].destroy(); delete charts[canvasId]; }
+          return;
+      }
+      if (charts[canvasId]) charts[canvasId].destroy();
+
+      charts[canvasId] = new Chart(ctx, {
+          type: 'bar',
+          data: {
+              labels: chartData.labels,
+              datasets: [{
+                  ...chartData.datasets[0],
+                  label: '매출액 (KRW)',
+                  backgroundColor: '#4A6FA5' // Primary color
+              }]
+          },
+          options: {
+              ...chartJsDefaultOptions,
+              indexAxis: 'y', // 가로 막대 차트
+              scales: {
+                  x: {
+                      ...chartJsDefaultOptions.scales.x,
+                      title: { display: true, text: '매출액 (KRW)' },
+                      ticks: { callback: v => formatShortNumber(v) } // 축약 숫자
+                  },
+                  y: {
+                      ...chartJsDefaultOptions.scales.y,
+                      grid: { display: false },
+                      ticks: { font: { size: 10 } }
+                  }
+              },
+              plugins: {
+                  legend: { display: false },
+                  tooltip: { // [중요] 커스텀 툴팁 적용
+                      enabled: false,
+                      external: customTooltip,
+                      callbacks: { // formatCurrency 콜백 지정
+                           label: function(context) {
+                               return `${context.dataset.label}: ${formatCurrency(context.raw)}`;
+                           }
+                      }
+                  },
+                  datalabels: { // Datalabels 플러그인 설정
+                      display: true,
+                      color: '#fff',
+                      anchor: 'center',
+                      align: 'center',
+                      font: { weight: 'bold', size: 9 },
+                      formatter: (value) => value > 1000 ? formatShortNumber(value) : ''
+                  }
+              },
+              layout: { padding: { left: 20, right: 30, top: 10, bottom: 10 } }
+          }
+      });
+  }
+
+  function customTooltip(context) {
+        // 툴팁 엘리먼트 가져오기
+        let tooltipEl = document.getElementById('chartjs-tooltip');
+
+        // 없으면 생성
+        if (!tooltipEl) {
+            tooltipEl = document.createElement('div');
+            tooltipEl.id = 'chartjs-tooltip';
+            document.body.appendChild(tooltipEl);
+        }
+
+        const tooltipModel = context.tooltip;
+        // 툴팁 숨기기
+        if (tooltipModel.opacity === 0) {
+            tooltipEl.style.opacity = 0;
+            return;
+        }
+
+        // 툴팁 내용 설정
+        let innerHtml = '';
+
+        // 제목 (Title)
+        if (tooltipModel.title && tooltipModel.title.length > 0) {
+            const title = tooltipModel.title[0];
+            // 'time' 스케일을 사용하는 경우 (예: acquisitionTrendChart)
+            if (context.chart.options.scales.x.type === 'time') {
+                 innerHtml += '<strong>' + moment(title).format('YYYY-MM-DD (ddd)') + '</strong><br>';
+            } else {
+                 innerHtml += '<strong>' + title + '</strong><br>';
+            }
+            innerHtml += '<hr>'; //
+        }
+
+        // 본문 (Body)
+        if (tooltipModel.body) {
+            const bodyLines = tooltipModel.body.map(b => b.lines);
+            bodyLines.forEach((body, i) => {
+                const dataPoint = tooltipModel.dataPoints[i];
+                const colors = tooltipModel.labelColors[i];
+                
+                // 툴팁 콜백이 있는지 확인 (label)
+                const labelCallback = context.chart.options.plugins.tooltip.callbacks.label;
+                let labelText = '';
+                
+                if (labelCallback) {
+                    // 개별 차트에 정의된 콜백 실행 (예: formatCurrency, CVR 포맷팅 등)
+                    labelText = labelCallback(dataPoint);
+                } else {
+                    // 콜백이 없으면 기본 동작
+                    let label = dataPoint.dataset.label || '';
+                    if (label) { label += ': '; }
+                    if (dataPoint.formattedValue !== null) {
+                        label += dataPoint.formattedValue;
+                    }
+                    labelText = label;
+                }
+                
+                // 컬러 스퀘어
+                let style = 'background:' + colors.backgroundColor;
+                style += '; border-color:' + colors.borderColor;
+                style += '; border-width: 2px; display: inline-block; width: 10px; height: 10px; margin-right: 6px; vertical-align: middle;';
+                const span = '<span style="' + style + '"></span> ';
+                
+                innerHtml += '<div>' + span + labelText + '</div>';
+            });
+        }
+
+        tooltipEl.innerHTML = innerHtml || '(데이터 없음)'; // 내용이 없을 경우 대비
+
+        // 툴팁 위치 계산
+        const position = context.chart.canvas.getBoundingClientRect();
+        tooltipEl.style.opacity = 1;
+        
+        let left = position.left + window.pageXOffset + tooltipModel.caretX;
+        let top = position.top + window.pageYOffset + tooltipModel.caretY;
+
+        // 화면 밖으로 나가지 않도록 조정
+         if (left + tooltipEl.offsetWidth > window.innerWidth - 10) {
+           left = window.innerWidth - tooltipEl.offsetWidth - 10;
+         }
+         if (left < 10) {
+           left = 10;
+         }
+        if (tooltipModel.yAlign === 'above' || top + tooltipEl.offsetHeight > window.innerHeight - 10) {
+          top -= tooltipEl.offsetHeight + 10; // 커서 위로
+        } else {
+          top += 10; // 커서 아래로
+        }
+         if (top < 10) {
+           top = 10;
+         }
+
+        tooltipEl.style.left = left + 'px';
+        tooltipEl.style.top = top + 'px';
+    }
+
+  // --- 모달 함수 ---
+  function openCustomerModal(userId) {
+      if (window.event) window.event.stopPropagation();
+ const m = document.getElementById('customer-detail-modal'); const b = document.getElementById('customer-modal-body'); const t = document.getElementById('customer-modal-title');
+      if(!m || !b || !t) return;
+ t.textContent = `고객 상세 정보 (ID: ${userId})`;
+      b.innerHTML = loadingSpinnerHtml; // [수정] SyntaxError 해결
+      m.style.display = 'flex';
+      google.script.run.withSuccessHandler(populateCustomerModal).withFailureHandler(showCustomerModalError).getCustomerDetail(userId);
+ }
+  function populateCustomerModal(data){
+      const b = document.getElementById('customer-modal-body'); if(!b) return;
+ if (data === null || data === undefined) { showCustomerModalError("서버로부터 고객 상세 정보를 받지 못했습니다. (null 반환)"); return;
+ }
+      if (data.error) { showCustomerModalError(data.error); return;
+ }
+      const p = data.profile ||
+ { name: 'N/A', email: 'N/A', country: 'N/A', createdAt: 'N/A' };
+ const pHtml = `<div class="modal-section" style="background-color:var(--hover-color);padding:16px;border-radius:8px;margin-bottom:24px"><h4 style="margin-top:0">고객 프로필</h4><p><strong>고객명:</strong> ${p.name||'N/A'}</p><p><strong>이메일:</strong> ${p.email||'N/A'}</p><p><strong>국가:</strong> ${p.country||'N/A'}</p><p><strong>가입일:</strong> ${p.createdAt||'N/A'}</p></div>`;
+      const stats = data.stats ||
+ { R: 'N/A', F: 0, M: 0, ArtistDiversity: 0 };
+      const rDisplay = stats.R !== 'N/A' ?
+ `${stats.R}<small>일 전</small>` : 'N/A'; const fDisplay = `${stats.F}<small>회</small>`; const mDisplay = `₩${Math.round(stats.M).toLocaleString()}`; const aDisplay = `${stats.ArtistDiversity}<small>명</small>`;
+ const rfmHtml = `<div class="kpi-grid" style="margin-bottom:24px;grid-template-columns:repeat(auto-fit,minmax(150px,1fr));gap:1rem"><div class="card" style="padding:16px;text-align:center"><h3 style="font-size:13px">최근 구매일 (R)</h3><p class="value" style="font-size:24px">${rDisplay}</p></div><div class="card" style="padding:16px;text-align:center"><h3 style="font-size:13px">구매 빈도 (F)</h3><p class="value" style="font-size:24px">${fDisplay}</p></div><div class="card" style="padding:16px;text-align:center"><h3 style="font-size:13px">총 구매액 (M)</h3><p class="value" style="font-size:24px">${mDisplay}</p></div><div class="card" style="padding:16px;text-align:center"><h3 style="font-size:13px">작가 다양성</h3><p class="value" style="font-size:24px">${aDisplay}</p></div></div>`;
+ const orders = Array.isArray(data.orders) ? data.orders : []; const artists = Array.isArray(data.artistList) ? data.artistList : [];
+ const oHtml = orders.length > 0 ? orders.map(o => `<li>${o.dateFormatted || 'N/A'}: ${o.orderCode || 'N/A'} (작품 ${o.productCount || 0}개, ₩${Math.round(o.amount || 0).toLocaleString()})</li>`).join('') : '<li>주문 내역 없음</li>';
+ const aHtml = artists.length > 0 ? artists.map(a => `<li>${a}</li>`).join('') : '<li>구매 작가 없음</li>';
+ const gHtml = `<div class="modal-grid"><div class="modal-section"><h4>주문 내역 (최근순)</h4><div class="item-list-container" style="max-height:200px;"><ul class="item-list">${oHtml}</ul></div></div><div class="modal-section"><h4>구매 작가 목록 (Unique)</h4><div class="item-list-container" style="max-height:200px;"><ul class="item-list">${aHtml}</ul></div></div></div>`;
+ b.innerHTML = pHtml + rfmHtml + gHtml;
+  }
+  function showCustomerModalError(error){ const b = document.getElementById('customer-modal-body');
+ if(b) b.innerHTML = `<p class="error-message">오류: ${error.toString()}</p>`; }
+  function closeCustomerModal(){ const m = document.getElementById('customer-detail-modal'); if(m) m.style.display = 'none';
+ }
+  function openArtistModal(artistName){
+      if (window.event) window.event.stopPropagation();
+      const m=document.getElementById('artist-orders-modal'),b=document.getElementById('artist-modal-body'),t=document.getElementById('artist-modal-title');if(!m||!b||!t)return;
+ const d=document.getElementById('dateRangeFilter').value;t.textContent=`'${artistName}' 작가 주문 내역 (${d} 기준)`;
+      b.innerHTML=loadingSpinnerHtml; // [수정] SyntaxError 해결
+      m.style.display='flex';
+      google.script.run.withSuccessHandler(populateArtistModal).withFailureHandler(showArtistModalError).getOrdersByArtist(artistName,d);
+ }
+  function populateArtistModal(data){
+      const b=document.getElementById('artist-modal-body');if(!b)return;if(data.error){showArtistModalError(data.error);return}
+      if(!data.orders||data.orders.length===0){b.innerHTML='<p class="no-data-message">해당 기간 동안 이 작가의 주문 내역이 없습니다.</p>';return}
+      let h=`<div class="table-container" style="max-height:400px;overflow-y:auto"><table class="table ranking-table"><thead><tr><th>주문일</th><th>주문번호</th><th>작품명</th><th>수량</th><th>판매액 (KRW)</th></tr></thead><tbody>`;
+ data.orders.forEach(o=>{o.items.forEach(i=>{h+=`<tr><td>${o.date||'N/A'}</td><td>${o.orderCode}</td><td title="${i.productName}"><a href="${i.productUrl||'#'}" target="_blank" class="item-link">${i.productName}</a></td><td style="text-align:right">${i.quantity||'N/A'}</td><td style="text-align:right">₩${Math.round(i.amount).toLocaleString()}</td></tr>`});h+=`<tr class="subtotal-row"><td colspan="4"><strong>'${o.orderCode}' 소계:</strong></td><td style="text-align:right"><strong>₩${Math.round(o.artistTotalAmount).toLocaleString()}</strong></td></tr>`});
+      h+='</tbody></table></div>';b.innerHTML=h;
+  }
+  function showArtistModalError(error){ const b = document.getElementById('artist-modal-body');
+ if(b) b.innerHTML = `<p class="error-message">오류: ${error.toString()}</p>`; }
+  function closeArtistModal(){ const m = document.getElementById('artist-orders-modal'); if(m) m.style.display = 'none';
+ }
+
+  // --- CSV 다운로드 함수 ---
+  function downloadActivityList(status, cardElement) {
+      const originalHtml = cardElement.innerHTML;
+ cardElement.innerHTML = '<h3>데이터 생성 중...</h3><div class="loader-small" style="margin: 1rem auto;"></div>';
+      const countryFilter = document.getElementById('countryFilter').value;
+      const dateRange = document.getElementById('dateRangeFilter').value;
+ google.script.run
+          .withSuccessHandler(csvData => {
+              cardElement.innerHTML = originalHtml;
+              // [수정] exportCustomerListByStatus 함수가 code.gs에 없으면 오류 발생
+              if (typeof csvData === 'undefined') {
+                  showError("CSV export function not found or failed silently.");
+       
+        } else if (csvData.startsWith('Error:')) {
+                  showError(csvData);
+              } else {
+                  const fileName = `${status.toLowerCase().replace(' ', '_')}_users_${countryFilter}_${dateRange}.csv`;
+                  triggerCsvDownload(csvData, fileName);
+             
+  }
+          })
+          .withFailureHandler(error => { cardElement.innerHTML = originalHtml; showError(error); })
+          .exportCustomerListByStatus(status, countryFilter);
+ }
+  function triggerCsvDownload(csvData, fileName) {
+      const bom = new Uint8Array([0xEF, 0xBB, 0xBF]);
+ const blob = new Blob([bom, csvData], { type: 'text/csv;charset=utf-8;' });
+      const link = document.createElement("a");
+ if (link.download !== undefined) {
+          const url = URL.createObjectURL(blob);
+          link.setAttribute("href", url);
+ link.setAttribute("download", fileName);
+          link.style.visibility = 'hidden';
+          document.body.appendChild(link);
+          link.click();
+          document.body.removeChild(link);
+      } else { navigator.msSaveBlob(blob, fileName);
+ }
+  }
+
+  // --- 로더 숨기기 및 오류 처리 함수 ---
+  function hideLoaderAndShowContent(contentHiddenOnError = false) {
+      const loader = document.getElementById('loader-container');
+ const content = document.getElementById('analytics-content');
+      if (loader) loader.style.display = 'none';
+      if (content) {
+          if (contentHiddenOnError && !document.querySelector('.error-card')) {
+              content.classList.add('initially-hidden');
+ } else {
+              content.classList.remove('initially-hidden');
+ }
+      }
+  }
+
+  function showError(error) {
+      console.error('분석 페이지 오류:', error);
+ hideLoaderAndShowContent(true); // 오류 카드 표시를 위해 콘텐츠 영역 보이기
+      const content = document.getElementById('analytics-content');
+ if (content) {
+          content.classList.remove('initially-hidden');
+ // Ensure content area is visible
+          content.innerHTML = `<div class="card error-card" style="margin-top: 1rem;">
+                                <h3><span style="color:var(--danger-color); margin-right: 0.5em;">⚠️</span> 분석 데이터 로딩 실패</h3>
+                                <p>데이터를 불러오거나 처리하는 중 문제가 발생했습니다.</p>
+   
+                              <p class="error-details">${error.toString()}</p>
+                               </div>`;
+ } else {
+          const loaderContainer = document.getElementById('loader-container');
+ if (loaderContainer) {
+              loaderContainer.innerHTML = `<p class="error-message">페이지 로드 실패: ${error.toString()}</p>`;
+ }
+      }
+  }
+</script>
+
+<style>
+    /* Tab Styles */
+    .tab-buttons {
+        border-bottom: 1px solid var(--border-color);
+ background-color: transparent;
+        box-shadow: none; border: none; padding: 0 !important;
+        margin-bottom: 1.5rem; display: flex; flex-wrap: wrap; gap: 0.5rem;
+ }
+    .tab-button {
+        padding: 0.75rem 1.25rem; border: none; background-color: transparent;
+ color: var(--text-muted-color); font-size: 1rem; font-weight: 500;
+        cursor: pointer; border-bottom: 3px solid transparent;
+        transition: color 0.2s ease, border-bottom-color 0.2s ease;
+ white-space: nowrap;
+    }
+    .tab-button:hover { color: var(--secondary-color);
+ }
+    .tab-button.active {
+        color: var(--primary-color);
+        font-weight: 600;
+        border-bottom-color: var(--primary-color);
+ }
+    .tab-panel { display: none; } /* JS로 제어 */
+    .tab-panel.active { display: block;
+ animation: fadeIn 0.4s ease-out; }
+    @keyframes fadeIn { from { opacity: 0; transform: translateY(10px);
+ } to { opacity: 1; transform: translateY(0); } }
+
+    /* Ranking table specific styles (Allow wrapping for name) */
+    .ranking-table {
+        table-layout: auto;
+ /* [개선] 자동 레이아웃 */
+        width: 100%;
+        min-width: 0;
+ /* [개선] 최소 너비 제거 */
+    }
+    .ranking-table th:first-child, .ranking-table td:first-child { width: 50px;
+ text-align: center; white-space: nowrap; } /* Rank */
+    /* [개선] 이름 컬럼 스타일 */
+    .ranking-table th:nth-child(2),
+    .ranking-table td:nth-child(2) {
+        white-space: normal;
+ /* 줄바꿈 허용 */
+        word-break: break-word;
+        vertical-align: top;
+        width: auto;
+ /* 자동 너비 */
+        min-width: 150px;
+        overflow: visible;
+ /* Prevent clipping */
+        text-overflow: clip;
+ /* No ellipsis needed */
+    }
+    /* [개선] 값 컬럼 스타일 */
+    .ranking-table th:last-child,
+    .ranking-table td:last-child {
+        width: 130px;
+ text-align: right;
+        white-space: nowrap;
+        vertical-align: top; /* [개선] 상단 정렬 */
+    }
+    .ranking-table td small { font-size: 0.8em;
+ color: var(--text-muted-color); margin-left: 2px; }
+    .ranking-split-container {
+        margin-top: 1rem;
+ display: grid;
+        grid-template-columns: repeat(auto-fit, minmax(300px, 1fr));
+        gap: 1.5rem 2rem;
+    }
+    .ranking-name-cell { /* Class added in populateRankingTable for consistency */ }
+    
+    /* [삭제] GeoChart 관련 스타일 제거 */
+
+
+    /* Responsive Adjustments */
+    @media (max-width: 768px) {
+        .kpi-grid { grid-template-columns: repeat(auto-fit, minmax(150px, 1fr));
+ }
+        .analytics-grid { grid-template-columns: 1fr; gap: 1rem;
+ }
+        .ranking-split-container { grid-template-columns: 1fr;
+ }
+        .chart-container { height: 250px !important;
+ }
+        /* [수정] regional chart 높이 모바일 대응 */
+        #regional-performance-chart-container { height: 350px !important; }
+        
+        .card h3 { font-size: 1rem;
+ }
+        .card .value { font-size: 1.5rem;
+ }
+        .crm-table .col-recency small { display: none;
+ } /* R (일 전) 숨기기 */
+        .modal-grid { grid-template-columns: 1fr;
+ } /* 모달 그리드 1열 */
+    }
+    @media (max-width: 480px) {
+        .container { padding: 0 var(--spacing-sm);
+ }
+        .page-content { padding: var(--spacing-md);
+ }
+        .section-title { font-size: 1.25rem; margin-bottom: 1rem;
+ }
+        .tab-button { padding: 0.5rem 0.75rem; font-size: 0.9rem;
+ }
+        .kpi-grid { grid-template-columns: 1fr 1fr;
+ }
+        .card { padding: var(--spacing-md);
+ }
+        .table th, .table td { padding: 0.5rem 0.6rem; font-size: var(--font-size-xs);
+ }
+        .table th { font-size: 10px;
+ }
+        .ranking-table th:last-child, .ranking-table td:last-child { width: 100px;
+ }
+        /* CRM 테이블 모바일 가독성 개선 (예: 일부 컬럼 숨기기) */
+        .crm-table .col-country, .crm-table .col-artist-diversity, .crm-table .col-first-count { display: none;
+ }
+        .crm-table .col-user-id { width: 25%;
+ }
+        .crm-table .col-name { width: 30%;
+ }
+        .crm-table .col-status { width: 20%;
+ }
+        .crm-table .col-monetary, .crm-table .col-frequency, .crm-table .col-recency, .crm-table .col-first-amount, .crm-table .col-first-date { width: 25%;
+ }
+    }
+</style>
+</body>
+</html>

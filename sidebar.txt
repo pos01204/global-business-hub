@@ -1,0 +1,43 @@
+<nav class="sidebar">
+  <div class="sidebar-header">
+    <a href="<?= ScriptApp.getService().getUrl() ?>?page=index" class="sidebar-brand">
+      <i class="fa-solid fa-globe" style="font-size: 22px; color: var(--primary-color);"></i>
+      <span class="sidebar-brand-text">글로벌 비즈니스 통합 허브</span>
+    </a>
+  </div>
+  <ul class="sidebar-nav">
+    <li class="nav-item">
+      <a href="<?= ScriptApp.getService().getUrl() ?>?page=index" class="nav-link <?= activePage === 'index' ? 'active' : '' ?>">
+        <i class="fa-solid fa-house fa-fw"></i> 메인
+      </a>
+    </li>
+    <li class="nav-item">
+      <a href="<?= ScriptApp.getService().getUrl() ?>?page=start" class="nav-link <?= activePage === 'start' ? 'active' : '' ?>">
+        <i class="fa-solid fa-exclamation-triangle fa-fw"></i> 미입고 관리
+      </a>
+    </li>
+    <li class="nav-category">
+      🚚 물류 관리
+    </li>
+    <li class="nav-item sub-item">
+      <a href="<?= ScriptApp.getService().getUrl() ?>?page=logistics" class="nav-link <?= activePage === 'logistics' ? 'active' : '' ?>">
+        <i class="fa-solid fa-truck fa-fw"></i> L 물류 추적
+      </a>
+    </li>
+    <li class="nav-item sub-item">
+      <a href="<?= ScriptApp.getService().getUrl() ?>?page=control_tower" class="nav-link <?= activePage === 'control_tower' ? 'active' : '' ?>">
+        <i class="fa-solid fa-tower-broadcast fa-fw"></i> L 물류 관제 센터
+      </a>
+    </li>
+    <li class="nav-item">
+      <a href="<?= ScriptApp.getService().getUrl() ?>?page=analytics" class="nav-link <?= activePage === 'analytics' ? 'active' : '' ?>">
+        <i class="fa-solid fa-chart-line fa-fw"></i> 성과 분석
+      </a>
+    </li>
+    <li class="nav-item">
+      <a href="<?= ScriptApp.getService().getUrl() ?>?page=lookup" class="nav-link <?= activePage === 'lookup' ? 'active' : '' ?>">
+        <i class="fa-solid fa-search fa-fw"></i> 통합 검색
+      </a>
+    </li>
+  </ul>
+</nav>

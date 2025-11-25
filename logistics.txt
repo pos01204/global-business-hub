@@ -1,0 +1,429 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <title>글로벌 물류 추적</title>
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css">
+</head>
+<body>
+<div class="container">
+  <h1><i class="fa-solid fa-truck-fast" style="margin-right: 8px; color: var(--primary-color);"></i> 글로벌 물류 추적 (진행 중인 모든 주문)</h1>
+
+  <div class="global-filters card">
+  
+  <div class="filter-group" style="flex-grow: 1;"> <label for="searchInput">주문번호</label>
+    <input type="text" id="searchInput" onkeyup="applyFilters()" placeholder="주문번호로 검색...">
+  </div>
+
+  <div class="filter-group">
+    <label for="countryFilter">국가</label>
+    <select id="countryFilter" onchange="applyFilters()"></select>
+  </div>
+
+  <div class="filter-group">
+    <label for="statusFilter">상태</label>
+    <select id="statusFilter" onchange="applyFilters()"></select>
+  </div>
+
+</div>
+
+  <div id="loader-container"><?!= include('loading'); ?></div>
+
+  <div id="logistics-content" class="table-container initially-hidden">
+    <table id="logistics-table" class="table" style="border-spacing: 0; min-width: 900px;"> <thead>
+        <tr>
+          <th style="min-width: 140px;">주문번호</th>
+          <th style="min-width: 250px;">작품 목록</th>
+          <th style="min-width: 60px; text-align: center;">국가</th>
+          <th style="min-width: 120px;">종합 상태</th>
+          <th style="min-width: 130px;">국내배송 (작가)</th>
+          <th 
+ 
+ style="min-width: 130px;">국제배송</th>
+          <th style="min-width: 90px; text-align: right;">최종 업데이트</th>
+        </tr>
+      </thead>
+      <tbody>
+        </tbody>
+    </table>
+  </div>
+</div>
+
+<style>
+ 
+   /* Ensure consistent top alignment */
+  #logistics-table td {
+    vertical-align: top;
+    padding-top: var(--spacing-md); /* Add more vertical padding */
+    padding-bottom: var(--spacing-md);
+  }
+  #logistics-table th {
+      padding-bottom: var(--spacing-sm); /* Adjust header padding */
+  }
+
+  /* Item List Styling */
+  .item-list-cell { line-height: 1.4; position: relative; } /* Added relative for absolute positioning if needed */
+  .item-list-short { display: flex; align-items: flex-start; gap: var(--spacing-sm); }
+  .item-list-short .item-link {
+     flex-grow: 1; /* Allow link to take space */
+     display: block; white-space: nowrap; overflow: hidden;
+     text-overflow: ellipsis;
+     max-width: 100%; /* Use max-width */
+     font-weight: 500;
+  }
+  .toggle-items-btn { /* Icon button style */
+    background: none; border: none; color: var(--primary-color); cursor: pointer;
+    font-size: var(--font-size-xs); /* 12px */
+    padding: 0 4px; /* Minimal padding */
+    margin-left: auto; /* Push to the right */
+    flex-shrink: 0; /* Prevent shrinking */
+    line-height: 1.4; /* Match cell line-height */
+    transition: transform 0.2s ease;
+    margin-top: 1px; /* [리팩토링] 시각적 정렬 보정 */
+  }
+   .toggle-items-btn.expanded i { transform: rotate(180deg); } /* Rotate icon when expanded */
+  .toggle-items-btn:hover { color: var(--secondary-color); }
+
+  .item-list-full {
+    max-height: 0;
+    overflow: hidden;
+    transition: max-height 0.3s ease-out;
+    margin-top: var(--spacing-sm);
+    padding-left: 0; /* No extra indent needed */
+    list-style: none; /* Remove bullets */
+  }
+  .item-list-full.expanded {
+      max-height: 200px; /* Allow scrolling after this height */
+      overflow-y: auto;
+  }
+  .item-list-full::-webkit-scrollbar { width: 5px; }
+  .item-list-full::-webkit-scrollbar-track { background: #f1f1f1; border-radius: 5px; }
+  .item-list-full::-webkit-scrollbar-thumb { background: #ccc; border-radius: 5px; }
+  .item-list-full::-webkit-scrollbar-thumb:hover { background: #aaa; }
+
+  .item-list-full li {
+      padding: var(--spacing-xs) 0 var(--spacing-xs) 10px; /* Indent list items */
+      border-left: 2px solid var(--border-color); /* Add a subtle left border */
+      margin-bottom: var(--spacing-xs);
+  }
+  .item-list-full li .item-link {
+     display: block; white-space: nowrap; overflow: hidden;
+     text-overflow: ellipsis; max-width: 95%;
+     font-size: var(--font-size-xs); /* Slightly smaller font */
+     color: var(--text-muted-color); /* Dimmer color for secondary items */
+  }
+   .item-list-full li .item-link:hover {
+       color: var(--primary-color);
+   }
+
+  /* Status Badge Styling */
+  .status-badge {
+    display: inline-block;
+    padding: 3px 10px;
+    font-size: var(--font-size-xs);
+    font-weight: 600;
+    border-radius: 12px; /* Pill shape */
+    white-space: nowrap;
+    color: #fff; /* Default text color */
+    background-color: var(--text-muted-color); /* Default background */
+    text-align: center;
+    min-width: 70px; /* Ensure minimum width */
+  }
+  /* Define colors for specific statuses */
+  .status-badge[data-status="결제 완료"] { background-color: var(--info-color); }
+  .status-badge[data-status="작가 발송"] { background-color: #fd7e14; } /* Orange */
+  .status-badge[data-status="작가 송장 입력"] { background-color: #fd7e14; } /* Orange */
+  .status-badge[data-status="검수 대기"] { background-color: var(--warning-color); color: #333; } /* Yellow */
+  .status-badge[data-status="검수 완료"] { background-color: var(--success-color); } /* Green */
+  .status-badge[data-status="국제배송 시작"] { background-color: #6f42c1; } /* Purple */
+  .status-badge[data-status="배송중"] { background-color: #6f42c1; } /* Purple */
+  /* Add more status colors as needed */
+
+  /* Tracking Link Enhancements */
+  .tracking-link {
+      display: inline-flex; /* Align icon and text */
+      align-items: center;
+      gap: 4px;
+      font-weight: 500;
+  }
+  .tracking-link i { /* Optional icon */
+      font-size: 0.9em;
+      color: var(--text-muted-color);
+  }
+
+  /* ▼▼▼▼▼ [추가] 복사 가능한 텍스트 스타일 ▼▼▼▼▼ */
+  .copyable-text {
+      cursor: pointer;
+      font-weight: 500;
+      color: var(--primary-color);
+      text-decoration: none; /* 링크처럼 보이지 않게 */
+      transition: color 0.2s ease, font-weight 0.2s ease;
+      /* [추가] 셀 너비를 넘어가도 잘리지 않도록 */
+      display: inline-block;
+      max-width: 100%;
+      white-space: nowrap;
+      overflow: hidden;
+      text-overflow: ellipsis;
+      vertical-align: top; /* 정렬 맞춤 */
+  }
+  .copyable-text:hover {
+      text-decoration: underline;
+      color: var(--secondary-color);
+  }
+  /* ▲▲▲▲▲ [추가] 여기까지 ▲▲▲▲▲ */
+
+  /* [삭제됨] Active Row Highlighting (모달용) */
+  
+  /* [삭제됨] 모달 섹션 스타일 (모달 내 타임라인용) */
+
+</style>
+
+<script>
+  const loadingSpinnerHtml = <?!= JSON.stringify(include("loading")) ?>;
+
+  let allLogisticsData = [];
+  const PRESET_FILTER = "<?!= presetFilter ?>";
+  const PRESET_SEARCH = "<?!= presetSearch ?>";
+  document.addEventListener("DOMContentLoaded", function() {
+    google.script.run
+      .withSuccessHandler(initializePage)
+      .withFailureHandler(showError)
+      .getLogisticsTrackingData();
+  });
+  function initializePage(data) {
+    if (!data || data.error) {
+      showError(data ? data.error : "백엔드로부터 데이터를 받지 못했습니다.");
+      return;
+    }
+    allLogisticsData = Array.isArray(data) ? data : [];
+    try {
+        populateFilterDropdowns(allLogisticsData);
+        populateTable(allLogisticsData);
+        let filtersApplied = false;
+        if (PRESET_FILTER && PRESET_FILTER !== 'null') {
+          const statusFilter = document.getElementById('statusFilter');
+          if (statusFilter) statusFilter.value = PRESET_FILTER;
+          filtersApplied = true;
+        }
+        if (PRESET_SEARCH && PRESET_SEARCH !== 'null') {
+          const searchInput = document.getElementById('searchInput');
+          if (searchInput) searchInput.value = PRESET_SEARCH;
+          filtersApplied = true;
+        }
+        if (filtersApplied) { applyFilters(); }
+    } catch (e) {
+        showError("페이지 초기화 중 오류 발생: " + e.toString());
+    } finally {
+        hideLoader();
+    }
+  }
+
+  function populateFilterDropdowns(data) {
+    const countryFilter = document.getElementById('countryFilter');
+    const statusFilter = document.getElementById('statusFilter');
+    if (!countryFilter || !statusFilter) return;
+    try {
+        const countries = ['모든 국가', ...new Set(data.map(item => item.country || 'N/A').sort())];
+        const statuses = ['모든 상태', ...new Set(data.map(item => item.logisticsStatus || 'N/A').sort())];
+        countryFilter.innerHTML = countries.map(c => `<option value="${c}">${c}</option>`).join('');
+        statusFilter.innerHTML = statuses.map(s => `<option value="${s}">${s}</option>`).join('');
+    } catch (e) { console.error("필터 생성 오류:", e); }
+  }
+
+  function applyFilters() {
+    try {
+        const searchTerm = document.getElementById('searchInput')?.value.toLowerCase() || '';
+        const selectedCountry = document.getElementById('countryFilter')?.value || '모든 국가';
+        const selectedStatus = document.getElementById('statusFilter')?.value || '모든 상태';
+        let filteredData = allLogisticsData;
+        if (searchTerm) { filteredData = filteredData.filter(item => item.orderCode && item.orderCode.toLowerCase().includes(searchTerm)); }
+        if (selectedCountry !== '모든 국가') { filteredData = filteredData.filter(item => (item.country || 'N/A') === selectedCountry); }
+        if (selectedStatus !== '모든 상태') { filteredData = filteredData.filter(item => (item.logisticsStatus || 'N/A') === selectedStatus); }
+        
+        // [삭제됨] 필터 적용 시, 열려있는 모달이 있다면 닫기
+        populateTable(filteredData);
+    } catch (e) {
+        showError("필터 적용 중 오류 발생: " + e.toString());
+    }
+  }
+
+  function populateTable(data) {
+    const tableBody = document.getElementById('logistics-table')?.getElementsByTagName('tbody')[0];
+    if (!tableBody) { console.error("테이블 tbody 요소를 찾을 수 없습니다."); return; }
+    tableBody.innerHTML = '';
+    if (!Array.isArray(data) || data.length === 0) {
+      tableBody.innerHTML = '<tr><td colspan="7" style="text-align:center; padding: 2rem;">표시할 데이터가 없습니다.</td></tr>';
+      return;
+    }
+    data.sort((a, b) => (b.orderCode || '').localeCompare(a.orderCode || ''));
+    data.forEach(row => {
+      try {
+        let newRow = tableBody.insertRow();
+        newRow.className = 'data-row';
+        
+        // [삭제됨] newRow.onclick (모달 열기) 핸들러
+
+        // --- Item List Cell Generation (Refined with Icon Button) ---
+        let itemsHtml = '<div class="item-list-short">';
+        const items = Array.isArray(row.items) ? row.items : [];
+        let expandButtonHtml = ''; // Initialize button HTML
+
+        if (items.length > 0) {
+          const firstItem = items[0];
+          const itemName = firstItem.name || 'N/A';
+          const itemQty = firstItem.quantity || 'N/A';
+          const itemUrl = firstItem.url || '#';
+          const fullItemName = `${itemName} (수량: ${itemQty})`;
+          itemsHtml += `<a href="${itemUrl}" target="_blank" class="item-link" title="${fullItemName.replace(/"/g, '&quot;')}">${fullItemName}</a>`;
+          // [수정] 아이콘 버튼 생성 (items.length > 1 조건)
+          if (items.length > 1) {
+            expandButtonHtml = `<button class="toggle-items-btn" onclick="toggleItems(event, this)" title="전체 목록 보기"><i class="fa-solid fa-chevron-down"></i></button>`; // Down arrow icon
+          }
+        } else {
+          itemsHtml += '<span style="color: var(--text-muted-color);">작품 정보 없음</span>';
+        }
+        // [수정] 아이콘 버튼을 short 리스트 div 안에 추가
+        itemsHtml += expandButtonHtml;
+        itemsHtml += '</div>'; // End item-list-short
+
+        // [수정] 전체 목록 ul 생성 (items.length > 1 조건)
+        if (items.length > 1) {
+          itemsHtml += '<ul class="item-list-full">'; // Add scrollable, hidden list with transition
+           items.forEach(item => {
+             const itemName = item.name || 'N/A';
+             const itemQty = item.quantity || 'N/A';
+             const itemUrl = item.url || '#';
+             const fullItemName = `${itemName} (수량: ${itemQty})`;
+             itemsHtml += `<li><a href="${itemUrl}" target="_blank" class="item-link" title="${fullItemName.replace(/"/g, '&quot;')}">${fullItemName}</a></li>`;
+          });
+          itemsHtml += '</ul>';
+          // [삭제] 별도의 텍스트 버튼 제거
+        }
+        // --- End Item List Refinement ---
+
+        // Cell data preparation
+        // ▼▼▼▼▼ [수정] 주문번호를 클릭 시 복사 기능이 있는 span으로 변경 ▼▼▼▼▼
+        const orderCode = row.orderCode || 'N/A';
+        const elementId = `order-code-${orderCode}`; // 고유 ID 생성
+        // 따옴표 문제를 피하기 위해 JSON.stringify를 사용합니다.
+        const orderCodeDisplay = `<span id="${elementId}" class="copyable-text" onclick='copyToClipboard(${JSON.stringify(orderCode)}, "${elementId}")' title="클릭하여 복사">${orderCode}</span>`;
+        // ▲▲▲▲▲ [수정] 여기까지 ▲▲▲▲▲
+
+
+        const countryDisplay = (row.country && typeof row.country === 'string' ? row.country : 'N/A');
+        const statusDisplay = row.logisticsStatus || 'N/A';
+        const artistTrackingNum = row.artistTracking?.number || 'N/A';
+        const artistTrackingUrl = row.artistTracking?.url || '#';
+        const intlTrackingNum = row.internationalTracking?.number || 'N/A';
+        const intlTrackingUrl = row.internationalTracking?.url || '#';
+        const lastUpdateDisplay = row.lastUpdate || 'N/A';
+    
+        // Row HTML insertion
+        newRow.innerHTML = `
+          <td>${orderCodeDisplay}</td> <td class="item-list-cell">${itemsHtml}</td>
+          <td style="text-align: center;">${countryDisplay}</td>
+          <td><span class="status-badge" data-status="${statusDisplay}">${statusDisplay}</span></td>
+          <td><a href="${artistTrackingUrl}" target="_blank" class="tracking-link" title="${artistTrackingNum}"><i class="fa-solid fa-box"></i> ${artistTrackingNum}</a></td>
+          <td><a href="${intlTrackingUrl}" target="_blank" class="tracking-link" title="${intlTrackingNum}"><i class="fa-solid fa-plane-departure"></i> ${intlTrackingNum}</a></td>
+    
+         
+           <td style="text-align: right;">${lastUpdateDisplay}</td>
+        `;
+      } catch (e) {
+          console.error(`행 처리 오류 (Order: ${row.orderCode}):`, e);
+          let errorRow = tableBody.insertRow();
+          errorRow.innerHTML = `<td colspan="7" style="color: red; font-size: 0.8em;">데이터 처리 오류 (주문: ${row.orderCode || 'N/A'})</td>`;
+      }
+    });
+  }
+
+  function toggleItems(event, button) {
+      event.stopPropagation();
+      const cell = button.closest('.item-list-cell');
+      if (!cell) return;
+      const fullList = cell.querySelector('.item-list-full');
+      const icon = button.querySelector('i'); // Get the icon element
+
+      if (fullList && icon) {
+          const isExpanding = !fullList.classList.contains('expanded');
+          fullList.classList.toggle('expanded'); // Toggle class for max-height transition
+
+          // Toggle icon direction
+          icon.classList.toggle('fa-chevron-down', !isExpanding);
+          icon.classList.toggle('fa-chevron-up', isExpanding);
+          button.setAttribute('title', isExpanding ? '숨기기' : '전체 목록 보기');
+      }
+  }
+
+  // ▼▼▼▼▼ [추가] 클립보드 복사 함수 ▼▼▼▼▼
+  /**
+   * 텍스트를 클립보드에 복사하고 사용자 피드백을 제공합니다.
+   * @param {string} text - 복사할 텍스트
+   * @param {string} elementId - 피드백을 표시할 요소의 ID
+   */
+  function copyToClipboard(text, elementId) {
+    if (window.event) window.event.stopPropagation(); // 행의 다른 이벤트 전파 방지
+    
+    // navigator.clipboard.writeText는 HTTPS 또는 localhost 환경에서만 작동합니다.
+    // Google Apps Script 환경(https)이므로 사용 가능합니다.
+    navigator.clipboard.writeText(text).then(function() {
+      // 성공 시 피드백
+      const element = document.getElementById(elementId);
+      if (element) {
+        const originalText = element.innerText;
+        element.innerText = '복사됨!';
+        element.style.color = 'var(--success-color)';
+        element.style.fontWeight = '700';
+        
+        // 1.5초 후에 원래 텍스트와 스타일로 복원
+        setTimeout(() => {
+          if (document.getElementById(elementId)) { // 요소가 여전히 존재하는지 확인
+            element.innerText = originalText;
+            element.style.color = ''; // 기본 .copyable-text 스타일로 복원
+            element.style.fontWeight = ''; // 기본 .copyable-text 스타일로 복원
+          }
+        }, 1500);
+      }
+    }, function(err) {
+      // 실패 시
+      console.error('클립보드 복사 실패: ', err);
+      alert('복사에 실패했습니다.');
+    });
+  }
+  // ▲▲▲▲▲ [추가] 여기까지 ▲▲▲▲▲
+
+
+  // [삭제됨] toggleTimeline 함수
+  
+  // [삭제됨] Modal Functions (openModal, populateModal, showModalError, closeModal)
+
+
+  function hideLoader() {
+      const loader = document.getElementById('loader-container');
+      if (loader) loader.style.display = 'none';
+      const content = document.getElementById('logistics-content');
+      if (content) content.classList.remove('initially-hidden');
+  }
+
+  function showError(error) {
+    console.error('오류 발생:', error);
+    hideLoader();
+    const content = document.getElementById('logistics-content');
+    if (content) {
+        content.innerHTML = `<div class="card error-card" style="margin-top: 1rem;">
+                              <h3><span style="color:var(--danger-color); margin-right: 0.5em;">⚠️</span> 오류 발생</h3>
+                              <p>데이터를 불러오거나 표시하는 중 문제가 발생했습니다.</p>
+              
+ 
+                               <p class="error-details">${error.toString()}</p>
+                             </div>`;
+    } else {
+        const loaderContainer = document.getElementById('loader-container');
+        if (loaderContainer) {
+            loaderContainer.innerHTML = `<p class="error-message">페이지 로드 실패: ${error.toString()}</p>`;
+        }
+    }
+  }
+</script>
+
+</body>
+</html>

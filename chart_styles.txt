@@ -1,0 +1,72 @@
+<style>
+/* ====================
+   Chart Styles (Enhanced)
+   ==================== */
+.chart-container {
+  position: relative;
+  width: 100%; /* Ensure container takes full width of parent */
+}
+/* Height is applied inline in HTML */
+
+/* Chart messages */
+.no-data-message {
+  text-align: center;
+  color: var(--text-muted-color);
+  padding: 2rem;
+  font-size: var(--font-size-sm); /* Consistent font size */
+}
+.no-data-message.error, .error-message { /* Combined error styles */
+  color: var(--danger-color);
+  font-weight: bold;
+}
+
+/* [테마] Chart.js Custom Tooltip (Theme-aware) */
+#chartjs-tooltip {
+    opacity: 0;
+    pointer-events: none;
+    position: absolute;
+    background: var(--card-background-color); /* Use variable */
+    border: 1px solid var(--border-color); /* Use variable */
+    border-radius: 4px;
+    box-shadow: 1px 1px 3px rgba(0,0,0,0.1);
+    color: var(--text-color); /* Use variable */
+    font-family: Pretendard, sans-serif;
+    font-size: 11px;
+    min-width: 150px;
+    padding: 10px;
+    transition: opacity .1s ease;
+    z-index: 10;
+}
+/* [테마] Custom tooltip hr for dark mode */
+#chartjs-tooltip hr {
+    border: 0;
+    border-top: 1px solid var(--border-color); /* Use variable */
+    margin: 4px 0;
+}
+
+
+/* [삭제] Unused Google Chart Tooltip Styles */
+/* .google-visualization-tooltip { ... } */
+/* .google-visualization-tooltip strong { ... } */
+
+
+/* Custom CSS class for Google Chart Tooltips (GeoChart fallback) */
+.chart-tooltip {
+  padding: 12px;
+  min-width: 220px;
+  font-family: 'Inter', 'Noto Sans KR', sans-serif;
+  background-color: rgba(0, 0, 0, 0.8);
+  color: white;
+  border-radius: 8px;
+}
+.chart-tooltip hr { border: 0; border-top: 1px solid #555; margin: 8px 0; }
+.chart-tooltip strong { font-size: 16px; color: #fff; }
+.chart-tooltip ul { list-style: none; padding: 0; margin: 8px 0; }
+.chart-tooltip li { display: flex; align-items: center; margin-bottom: 4px; font-size: 13px; }
+.chart-tooltip p { margin: 4px 0 0 0; font-size: 13px; color: #ddd; }
+.chart-tooltip b { color: #fff; }
+.tooltip-dot { width: 10px; height: 10px; border-radius: 50%; margin-right: 8px; flex-shrink: 0; }
+.tooltip-dot.green { background-color: var(--success-color); }
+.tooltip-dot.orange { background-color: var(--warning-color); }
+.tooltip-dot.red { background-color: var(--danger-color); }
+</style>
