@@ -358,7 +358,7 @@ export default function MarketerPage() {
                     </div>
                     <p className="text-sm text-gray-600 mb-3 line-clamp-2">{item.metadata.description}</p>
                     <div className="flex flex-wrap gap-1 mb-3">
-                      {item.metadata.tags.slice(0, 3).map((tag, idx) => (
+                      {item.metadata.tags.slice(0, 3).map((tag: string, idx: number) => (
                         <span key={idx} className="text-xs bg-gray-100 px-2 py-1 rounded">
                           {tag}
                         </span>
@@ -422,7 +422,7 @@ export default function MarketerPage() {
                     )}
                     {selectedDiscovery.metadata?.tags && selectedDiscovery.metadata.tags.length > 0 && (
                       <div className="flex flex-wrap gap-1 mt-2">
-                        {selectedDiscovery.metadata.tags.slice(0, 5).map((tag, idx) => (
+                        {selectedDiscovery.metadata.tags.slice(0, 5).map((tag: string, idx: number) => (
                           <span key={idx} className="text-xs bg-gray-100 px-2 py-0.5 rounded">
                             {tag}
                           </span>
@@ -667,7 +667,7 @@ export default function MarketerPage() {
                   <div>
                     <h4 className="font-medium mb-2">해시태그</h4>
                     <div className="flex flex-wrap gap-2">
-                      {generatedContent.metadata.hashtags.map((tag, idx) => (
+                      {generatedContent.metadata.hashtags.map((tag: string, idx: number) => (
                         <span key={idx} className="text-sm bg-primary/10 text-primary px-3 py-1 rounded">
                           {tag.startsWith('#') ? tag : `#${tag}`}
                         </span>
@@ -679,7 +679,7 @@ export default function MarketerPage() {
                   <div>
                     <h4 className="font-medium mb-2">SEO 키워드</h4>
                     <div className="flex flex-wrap gap-2">
-                      {generatedContent.metadata.seoKeywords.map((keyword, idx) => (
+                      {generatedContent.metadata.seoKeywords.map((keyword: string, idx: number) => (
                         <span key={idx} className="text-sm bg-gray-100 px-3 py-1 rounded">
                           {keyword}
                         </span>
