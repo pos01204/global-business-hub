@@ -63,7 +63,15 @@ export default function MarketerPage() {
 
   // 캠페인 생성
   const createCampaignMutation = useMutation({
-    mutationFn: (campaign: { name: string; contentIds: string[] }) => marketerApi.createCampaign(campaign),
+    mutationFn: (campaign: { 
+      name: string
+      contentIds: string[]
+      schedule?: {
+        publishDate: string
+        platforms: string[]
+        timezone: string
+      }
+    }) => marketerApi.createCampaign(campaign),
     onSuccess: () => {
       alert('캠페인이 생성되었습니다.')
       setNewCampaignName('')
