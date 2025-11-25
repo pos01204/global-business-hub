@@ -375,7 +375,7 @@ export default function AnalyticsPage() {
           </div>
         )}
 
-        {activeTab === 'customer' && data && (
+      {activeTab === 'customer' && data && (
           <div className="space-y-6">
             {/* 고객 생애주기 분석 차트 */}
             <div className="card">
@@ -726,7 +726,7 @@ export default function AnalyticsPage() {
           </div>
         )}
 
-        {activeTab === 'channel' && data && (
+      {activeTab === 'channel' && data && (
           <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
             <div className="card">
               <h2 className="text-xl font-semibold mb-4">플랫폼별 매출</h2>
@@ -769,7 +769,7 @@ export default function AnalyticsPage() {
           </div>
         )}
 
-        {activeTab === 'regional' && data && data.regionalPerformance && (
+      {activeTab === 'regional' && data && data.regionalPerformance && (
           <div className="space-y-6">
             {/* 지역 성과 차트 */}
             <div className="card">
@@ -807,7 +807,8 @@ export default function AnalyticsPage() {
                           tooltip: {
                             callbacks: {
                               label: function (context) {
-                                return `매출액: ₩${context.parsed.x.toLocaleString()}`
+                                const value = context.parsed.x
+                                return `매출액: ₩${value != null ? value.toLocaleString() : '0'}`
                               },
                             },
                           },
@@ -878,17 +879,16 @@ export default function AnalyticsPage() {
           </div>
         )}
 
-        {/* 모달 */}
-        {selectedCustomerId && (
-          <CustomerDetailModal userId={selectedCustomerId} onClose={closeCustomerDetailModal} />
-        )}
-        {isOrderDetailModalOpen && selectedOrderCode && (
-          <OrderDetailModal orderCode={selectedOrderCode} onClose={closeOrderDetailModal} />
-        )}
-        {isArtistOrdersModalOpen && selectedArtistName && (
-          <ArtistOrdersModal artistName={selectedArtistName} onClose={closeArtistOrdersModal} />
-        )}
-      </div>
+      {/* 모달 */}
+      {selectedCustomerId && (
+        <CustomerDetailModal userId={selectedCustomerId} onClose={closeCustomerDetailModal} />
+      )}
+      {isOrderDetailModalOpen && selectedOrderCode && (
+        <OrderDetailModal orderCode={selectedOrderCode} onClose={closeOrderDetailModal} />
+      )}
+      {isArtistOrdersModalOpen && selectedArtistName && (
+        <ArtistOrdersModal artistName={selectedArtistName} onClose={closeArtistOrdersModal} />
+      )}
     </div>
   )
 }
