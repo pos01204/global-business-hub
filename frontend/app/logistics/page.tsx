@@ -3,6 +3,7 @@
 import { useQuery } from '@tanstack/react-query'
 import { logisticsApi } from '@/lib/api'
 import { useState, useMemo } from 'react'
+import Link from 'next/link'
 import OrderDetailModal from '@/components/OrderDetailModal'
 
 interface LogisticsItem {
@@ -153,8 +154,8 @@ export default function LogisticsPage() {
         <p className="text-gray-600">진행 중인 모든 주문의 물류 현황을 추적합니다.</p>
       </div>
 
-        {/* 필터 */}
-        <div className="card mb-6">
+      {/* 필터 */}
+      <div className="card mb-6">
           <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
             <div>
               <label className="block text-sm font-medium mb-1">주문번호</label>
@@ -197,8 +198,8 @@ export default function LogisticsPage() {
           </div>
         </div>
 
-        {/* 테이블 */}
-        <div className="card overflow-x-auto">
+      {/* 테이블 */}
+      <div className="card overflow-x-auto">
           <table className="w-full min-w-[900px]">
             <thead>
               <tr className="border-b">
@@ -334,7 +335,6 @@ export default function LogisticsPage() {
             </tbody>
           </table>
         </div>
-      </div>
 
       {/* 주문 상세 모달 */}
       {isOrderDetailModalOpen && selectedOrderCode && (
