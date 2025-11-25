@@ -308,70 +308,70 @@ export default function AnalyticsPage() {
           </div>
 
           {/* Top 상품 */}
-            <div className="card">
-              <h2 className="text-xl font-semibold mb-4">Top 10 상품 (매출 기준)</h2>
-              <div className="overflow-x-auto">
-                <table className="w-full">
-                  <thead>
-                    <tr className="border-b">
-                      <th className="text-left py-2 px-4">순위</th>
-                      <th className="text-left py-2 px-4">상품명</th>
-                      <th className="text-right py-2 px-4">매출</th>
+          <div className="card">
+            <h2 className="text-xl font-semibold mb-4">Top 10 상품 (매출 기준)</h2>
+            <div className="overflow-x-auto">
+              <table className="w-full">
+                <thead>
+                  <tr className="border-b">
+                    <th className="text-left py-2 px-4">순위</th>
+                    <th className="text-left py-2 px-4">상품명</th>
+                    <th className="text-right py-2 px-4">매출</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {data.rankings.topProductsBySales.map((product: any[], index: number) => (
+                    <tr key={index} className="border-b hover:bg-gray-50">
+                      <td className="py-2 px-4">{index + 1}</td>
+                      <td className="py-2 px-4">
+                        <a
+                          href={product[2]}
+                          target="_blank"
+                          rel="noopener noreferrer"
+                          className="text-primary hover:underline"
+                        >
+                          {product[0]}
+                        </a>
+                      </td>
+                      <td className="py-2 px-4 text-right">{formatCurrency(product[1])}</td>
                     </tr>
-                  </thead>
-                  <tbody>
-                    {data.rankings.topProductsBySales.map((product: any[], index: number) => (
-                      <tr key={index} className="border-b hover:bg-gray-50">
-                        <td className="py-2 px-4">{index + 1}</td>
-                        <td className="py-2 px-4">
-                          <a
-                            href={product[2]}
-                            target="_blank"
-                            rel="noopener noreferrer"
-                            className="text-primary hover:underline"
-                          >
-                            {product[0]}
-                          </a>
-                        </td>
-                        <td className="py-2 px-4 text-right">{formatCurrency(product[1])}</td>
-                      </tr>
-                    ))}
-                  </tbody>
-                </table>
-              </div>
+                  ))}
+                </tbody>
+              </table>
             </div>
+          </div>
 
-            {/* Top 작가 */}
-            <div className="card">
-              <h2 className="text-xl font-semibold mb-4">Top 10 작가 (매출 기준)</h2>
-              <div className="overflow-x-auto">
-                <table className="w-full">
-                  <thead>
-                    <tr className="border-b">
-                      <th className="text-left py-2 px-4">순위</th>
-                      <th className="text-left py-2 px-4">작가명</th>
-                      <th className="text-right py-2 px-4">매출</th>
+          {/* Top 작가 */}
+          <div className="card">
+            <h2 className="text-xl font-semibold mb-4">Top 10 작가 (매출 기준)</h2>
+            <div className="overflow-x-auto">
+              <table className="w-full">
+                <thead>
+                  <tr className="border-b">
+                    <th className="text-left py-2 px-4">순위</th>
+                    <th className="text-left py-2 px-4">작가명</th>
+                    <th className="text-right py-2 px-4">매출</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {data.rankings.topArtistsBySales.map((artist: any[], index: number) => (
+                    <tr key={index} className="border-b hover:bg-gray-50">
+                      <td className="py-2 px-4">{index + 1}</td>
+                      <td className="py-2 px-4">
+                        <button
+                          onClick={() => openArtistOrdersModal(artist[0])}
+                          className="text-primary hover:underline"
+                        >
+                          {artist[0]}
+                        </button>
+                      </td>
+                      <td className="py-2 px-4 text-right">{formatCurrency(artist[1])}</td>
                     </tr>
-                  </thead>
-                  <tbody>
-                    {data.rankings.topArtistsBySales.map((artist: any[], index: number) => (
-                      <tr key={index} className="border-b hover:bg-gray-50">
-                        <td className="py-2 px-4">{index + 1}</td>
-                        <td className="py-2 px-4">
-                          <button
-                            onClick={() => openArtistOrdersModal(artist[0])}
-                            className="text-primary hover:underline"
-                          >
-                            {artist[0]}
-                          </button>
-                        </td>
-                        <td className="py-2 px-4 text-right">{formatCurrency(artist[1])}</td>
-                      </tr>
-                    ))}
-                  </tbody>
-                </table>
-              </div>
+                  ))}
+                </tbody>
+              </table>
             </div>
+          </div>
           </div>
         )}
 
