@@ -988,6 +988,24 @@ router.put('/:type/:id/status', async (req, res) => {
       item.completedAt = new Date();
     }
 
+    // 승인(approved) 시 아카이브로 이동
+    if (status === 'approved') {
+      console.log(`[QC] 승인 처리 - 아카이브로 이동: ${id}`);
+      
+      // 아카이브로 이동
+      item.status = 'archived';
+      qcDataStore.archive.set(id, item);
+      store.delete(id);
+      
+      // Google Sheets 아카이브에 저장 (비동기)
+      saveToArchiveSheet(item).catch((error) => {
+        console.error('[QC] 아카이브 시트 저장 실패:', error);
+      });
+      
+      res.json({ success: true, item, archived: true, message: 'QC 승인 및 아카이브 완료' });
+      return;
+    }
+
     store.set(id, item);
 
     // Google Sheets에 상태 저장 (비동기, 실패해도 메모리 업데이트는 유지)
