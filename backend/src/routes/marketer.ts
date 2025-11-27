@@ -3,6 +3,7 @@ import { idusCrawler } from '../services/idusCrawler'
 import { contentGenerator } from '../services/contentGenerator'
 import { openaiService } from '../services/openaiService'
 import { aiProductParser } from '../services/aiProductParser'
+import { trendAnalysisService } from '../services/trendAnalysisService'
 import { DiscoveryQuery, ContentGenerationRequest } from '../types/marketer'
 
 const router = express.Router()
@@ -123,6 +124,33 @@ router.post('/discovery/analyze', async (req, res) => {
   }
 })
 
+// 트렌딩 키워드 분석
+router.post('/trends/analyze', async (req, res) => {
+  try {
+    const { keyword } = req.body
+
+    if (!keyword || !keyword.trim()) {
+      return res.status(400).json({
+        success: false,
+        error: '키워드가 필요합니다.',
+      })
+    }
+
+    const analysisResult = await trendAnalysisService.analyzeKeyword(keyword.trim())
+
+    res.json({
+      success: true,
+      data: analysisResult,
+    })
+  } catch (error) {
+    console.error('트렌드 분석 오류:', error)
+    res.status(500).json({
+      success: false,
+      error: error instanceof Error ? error.message : '트렌드 분석 중 오류가 발생했습니다.',
+    })
+  }
+})
+
 // 콘텐츠 생성
 router.post('/content/generate', async (req, res) => {
   try {
@@ -157,5 +185,58 @@ router.post('/content/generate', async (req, res) => {
   }
 })
 
-export default router
+// 트렌딩 키워드 분석
+router.post('/trend/analyze', async (req, res) => {
+  try {
+    const { keyword } = req.body
 
+    if (!keyword || typeof keyword !== 'string' || !keyword.trim()) {
+      return res.status(400).json({
+        success: false,
+        error: '키워드가 필요합니다.',
+      })
+    }
+
+    const result = await trendAnalysisService.analyzeKeyword(keyword.trim())
+
+    res.json({
+      success: true,
+      data: result,
+    })
+  } catch (error: any) {
+    console.error('트렌딩 키워드 분석 오류:', error)
+    res.status(500).json({
+      success: false,
+      error: error.message || '트렌딩 키워드 분석 중 오류가 발생했습니다.',
+    })
+  }
+})
+
+// 다국어 트렌딩 키워드 분석
+router.post('/trend/analyze-multi', async (req, res) => {
+  try {
+    const { keyword } = req.body
+
+    if (!keyword || typeof keyword !== 'string' || !keyword.trim()) {
+      return res.status(400).json({
+        success: false,
+        error: '키워드가 필요합니다.',
+      })
+    }
+
+    const result = await trendAnalysisService.analyzeKeywordMultiLanguage(keyword.trim())
+
+    res.json({
+      success: true,
+      data: result,
+    })
+  } catch (error: any) {
+    console.error('다국어 트렌딩 키워드 분석 오류:', error)
+    res.status(500).json({
+      success: false,
+      error: error.message || '트렌딩 키워드 분석 중 오류가 발생했습니다.',
+    })
+  }
+})
+
+export default router

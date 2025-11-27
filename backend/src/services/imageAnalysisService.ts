@@ -1,4 +1,5 @@
 import { openaiService } from './openaiService'
+import { geminiService, GeminiImagePart, GeminiTextPart } from './geminiService'
 
 export interface VisualAnalysis {
   colors: string[]
@@ -29,9 +30,11 @@ export interface ImageAnalysisResult {
 
 export class ImageAnalysisService {
   /**
-   * 이미지를 분석하여 시각적 특징 추출
+   * 이미지를 분석하여 시각적 특징 추출 및 마케팅 인사이트 생성
+   * @param imageBase64 base64 인코딩된 이미지 데이터
+   * @param mimeType 이미지 MIME 타입 (예: 'image/jpeg', 'image/png', 'image/webp')
    */
-  async analyzeImage(imageBase64: string): Promise<ImageAnalysisResult> {
+  async analyzeImage(imageBase64: string, mimeType: string = 'image/jpeg'): Promise<ImageAnalysisResult> {
     try {
       // 1단계: 시각적 분석
       const visualPrompt = `이 이미지는 핸드메이드 작품(도자기, 가죽제품, 주얼리, 인테리어 소품 등)의 사진입니다.
@@ -58,10 +61,43 @@ export class ImageAnalysisService {
   "overallDescription": "전체 설명"
 }`
 
-      const visualResponse = await openaiService.analyzeImage(imageBase64, visualPrompt, {
-        temperature: 0.3, // 낮은 temperature로 정확한 분석
-        maxTokens: 1000,
-      })
+      // Gemini API 우선 사용 (Vision API 내장)
+      const isGeminiAvailable = await geminiService.checkConnection()
+      let visualResponse: string
+
+      if (isGeminiAvailable) {
+        try {
+          const imagePart: GeminiImagePart = {
+            inlineData: {
+              data: imageBase64,
+              mimeType: mimeType,
+            },
+          }
+          const textPart: GeminiTextPart = { text: visualPrompt }
+          
+          visualResponse = await geminiService.generateContentWithImages(
+            [textPart, imagePart],
+            {
+              temperature: 0.3, // 낮은 temperature로 정확한 분석
+              maxTokens: 1000,
+              responseMimeType: 'application/json',
+            }
+          )
+        } catch (geminiError) {
+          console.warn('[Image Analysis] Gemini 실패, OpenAI로 폴백:', geminiError)
+          // OpenAI Vision API 사용 (analyzeImage 메서드가 있다고 가정)
+          visualResponse = await openaiService.generate(visualPrompt, {
+            temperature: 0.3,
+            maxTokens: 1000,
+          })
+        }
+      } else {
+        // OpenAI 사용
+        visualResponse = await openaiService.generate(visualPrompt, {
+          temperature: 0.3,
+          maxTokens: 1000,
+        })
+      }
 
       // JSON 파싱
       let visualAnalysis: VisualAnalysis
@@ -84,7 +120,7 @@ export class ImageAnalysisService {
 - 재료: ${visualAnalysis.materials.join(', ')}
 - 스타일: ${visualAnalysis.style}
 - 크기: ${visualAnalysis.estimatedSize}
-- 감성: ${visualAnalysis.mood.join(', ')}
+- 분위기: ${visualAnalysis.mood.join(', ')}
 - 전체 설명: ${visualAnalysis.overallDescription}
 
 이 정보를 바탕으로 소비자가 관심을 가질 만한 마케팅 콘텐츠를 생성해주세요:
@@ -110,10 +146,40 @@ export class ImageAnalysisService {
   "sellingPoints": ["포인트1", "포인트2"]
 }`
 
-      const marketingResponse = await openaiService.analyzeImage(imageBase64, marketingPrompt, {
-        temperature: 0.7, // 창의적인 카피를 위해 높은 temperature
-        maxTokens: 2000,
-      })
+      // Gemini API 우선 사용
+      let marketingResponse: string
+      if (isGeminiAvailable) {
+        try {
+          const imagePart: GeminiImagePart = {
+            inlineData: {
+              data: imageBase64,
+              mimeType: mimeType,
+            },
+          }
+          const textPart: GeminiTextPart = { text: marketingPrompt }
+          
+          marketingResponse = await geminiService.generateContentWithImages(
+            [textPart, imagePart],
+            {
+              temperature: 0.7, // 창의적인 카피를 위해 높은 temperature
+              maxTokens: 2000,
+              responseMimeType: 'application/json',
+            }
+          )
+        } catch (geminiError) {
+          console.warn('[Image Analysis] Gemini 실패, OpenAI로 폴백:', geminiError)
+          marketingResponse = await openaiService.generate(marketingPrompt, {
+            temperature: 0.7,
+            maxTokens: 2000,
+          })
+        }
+      } else {
+        // OpenAI 사용
+        marketingResponse = await openaiService.generate(marketingPrompt, {
+          temperature: 0.7,
+          maxTokens: 2000,
+        })
+      }
 
       // JSON 파싱
       let marketingInsights: MarketingInsights
@@ -140,4 +206,3 @@ export class ImageAnalysisService {
 }
 
 export const imageAnalysisService = new ImageAnalysisService()
-

@@ -282,6 +282,48 @@ export const marketerApi = {
     const response = await api.get('/api/marketer/performance/report/summary', { params })
     return response.data
   },
+  // 이미지 분석 및 콘텐츠 생성
+  analyzeImage: async (imageFile: File) => {
+    const formData = new FormData()
+    formData.append('image', imageFile)
+    const response = await api.post('/api/marketer/materials/analyze-image', formData, {
+      headers: {
+        'Content-Type': 'multipart/form-data',
+      },
+    })
+    return response.data
+  },
+  generateContentFromImage: async (imageFiles: File[], options: {
+    platforms?: string[]
+    languages?: string[]
+    tone?: string
+    includeReasoning?: boolean
+  }) => {
+    const formData = new FormData()
+    imageFiles.forEach((file) => {
+      formData.append('images', file)
+    })
+    formData.append('platforms', JSON.stringify(options.platforms || ['meta', 'x']))
+    formData.append('languages', JSON.stringify(options.languages || ['korean', 'english', 'japanese']))
+    formData.append('tone', options.tone || '따뜻하고 감성적인')
+    formData.append('includeReasoning', String(options.includeReasoning || false))
+    
+    const response = await api.post('/api/marketer/materials/generate-from-image', formData, {
+      headers: {
+        'Content-Type': 'multipart/form-data',
+      },
+    })
+    return response.data
+  },
+  // 트렌딩 키워드 분석
+  analyzeTrendKeyword: async (keyword: string) => {
+    const response = await api.post('/api/marketer/trend/analyze', { keyword })
+    return response.data
+  },
+  analyzeTrendKeywordMultiLanguage: async (keyword: string) => {
+    const response = await api.post('/api/marketer/trend/analyze-multi', { keyword })
+    return response.data
+  },
 }
 
 // 챗봇 API
