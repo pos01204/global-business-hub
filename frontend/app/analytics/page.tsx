@@ -329,6 +329,545 @@ function LogisticsPerformanceTab({
   )
 }
 
+// 비교 분석 탭 컴포넌트
+function ComparisonTab({
+  dateRange,
+  countryFilter,
+}: {
+  dateRange: string
+  countryFilter: string
+}) {
+  const [comparisonType, setComparisonType] = useState<'period' | 'artist' | 'country'>('period')
+  const [periods, setPeriods] = useState(3)
+  const [selectedArtists, setSelectedArtists] = useState<string[]>([])
+  const [artistInput, setArtistInput] = useState('')
+  const [selectedCountries, setSelectedCountries] = useState<string[]>(['JP', 'US'])
+  const [countryInput, setCountryInput] = useState('JP,US')
+
+  // 기간 비교 데이터
+  const { data: periodData, isLoading: periodLoading } = useQuery({
+    queryKey: ['comparison', 'period', periods, dateRange, countryFilter],
+    queryFn: () => comparisonApi.comparePeriods(periods, dateRange, countryFilter),
+    enabled: comparisonType === 'period',
+  })
+
+  // 작가 비교 데이터
+  const { data: artistData, isLoading: artistLoading } = useQuery({
+    queryKey: ['comparison', 'artist', selectedArtists.join(','), dateRange, countryFilter],
+    queryFn: () => comparisonApi.compareArtists(selectedArtists, dateRange, countryFilter),
+    enabled: comparisonType === 'artist' && selectedArtists.length > 0,
+  })
+
+  // 국가 비교 데이터
+  const { data: countryData, isLoading: countryLoading } = useQuery({
+    queryKey: ['comparison', 'country', selectedCountries.join(','), dateRange],
+    queryFn: () => comparisonApi.compareCountries(selectedCountries, dateRange),
+    enabled: comparisonType === 'country' && selectedCountries.length > 0,
+  })
+
+  const isLoading = periodLoading || artistLoading || countryLoading
+  const formatCurrency = (value: number | null | undefined): string => {
+    if (value === null || value === undefined || isNaN(value)) {
+      return '₩0'
+    }
+    return `₩${Math.round(value).toLocaleString()}`
+  }
+
+  const handleAddArtist = () => {
+    if (artistInput.trim() && !selectedArtists.includes(artistInput.trim())) {
+      setSelectedArtists([...selectedArtists, artistInput.trim()])
+      setArtistInput('')
+    }
+  }
+
+  const handleRemoveArtist = (artist: string) => {
+    setSelectedArtists(selectedArtists.filter((a) => a !== artist))
+  }
+
+  const handleUpdateCountries = () => {
+    const countries = countryInput
+      .split(',')
+      .map((c) => c.trim().toUpperCase())
+      .filter((c) => c.length > 0)
+    setSelectedCountries(countries)
+  }
+
+  return (
+    <div className="space-y-6">
+      {/* 비교 유형 선택 */}
+      <div className="card">
+        <h2 className="text-xl font-semibold mb-4">📊 비교 분석</h2>
+        <div className="flex gap-4 mb-6">
+          <button
+            onClick={() => setComparisonType('period')}
+            className={`px-4 py-2 rounded-lg font-medium transition-colors ${
+              comparisonType === 'period'
+                ? 'bg-primary text-white'
+                : 'bg-gray-100 text-gray-700 hover:bg-gray-200'
+            }`}
+          >
+            기간 비교
+          </button>
+          <button
+            onClick={() => setComparisonType('artist')}
+            className={`px-4 py-2 rounded-lg font-medium transition-colors ${
+              comparisonType === 'artist'
+                ? 'bg-primary text-white'
+                : 'bg-gray-100 text-gray-700 hover:bg-gray-200'
+            }`}
+          >
+            작가 비교
+          </button>
+          <button
+            onClick={() => setComparisonType('country')}
+            className={`px-4 py-2 rounded-lg font-medium transition-colors ${
+              comparisonType === 'country'
+                ? 'bg-primary text-white'
+                : 'bg-gray-100 text-gray-700 hover:bg-gray-200'
+            }`}
+          >
+            국가 비교
+          </button>
+        </div>
+
+        {/* 기간 비교 설정 */}
+        {comparisonType === 'period' && (
+          <div className="flex items-center gap-4">
+            <label className="text-sm font-medium">비교 기간 수:</label>
+            <select
+              value={periods}
+              onChange={(e) => setPeriods(parseInt(e.target.value))}
+              className="border border-gray-300 rounded px-3 py-2"
+            >
+              <option value="2">2개 기간</option>
+              <option value="3">3개 기간</option>
+              <option value="4">4개 기간</option>
+              <option value="6">6개 기간</option>
+            </select>
+          </div>
+        )}
+
+        {/* 작가 비교 설정 */}
+        {comparisonType === 'artist' && (
+          <div className="space-y-4">
+            <div className="flex gap-2">
+              <input
+                type="text"
+                value={artistInput}
+                onChange={(e) => setArtistInput(e.target.value)}
+                onKeyPress={(e) => e.key === 'Enter' && handleAddArtist()}
+                placeholder="작가명 입력 후 Enter"
+                className="flex-1 border border-gray-300 rounded px-3 py-2"
+              />
+              <button
+                onClick={handleAddArtist}
+                className="btn btn-primary px-4"
+              >
+                추가
+              </button>
+            </div>
+            {selectedArtists.length > 0 && (
+              <div className="flex flex-wrap gap-2">
+                {selectedArtists.map((artist) => (
+                  <span
+                    key={artist}
+                    className="inline-flex items-center gap-2 bg-primary/10 text-primary px-3 py-1 rounded-full text-sm"
+                  >
+                    {artist}
+                    <button
+                      onClick={() => handleRemoveArtist(artist)}
+                      className="hover:text-red-600"
+                    >
+                      ×
+                    </button>
+                  </span>
+                ))}
+              </div>
+            )}
+          </div>
+        )}
+
+        {/* 국가 비교 설정 */}
+        {comparisonType === 'country' && (
+          <div className="flex gap-2">
+            <input
+              type="text"
+              value={countryInput}
+              onChange={(e) => setCountryInput(e.target.value)}
+              placeholder="국가 코드 (쉼표 구분, 예: JP,US,KR)"
+              className="flex-1 border border-gray-300 rounded px-3 py-2"
+            />
+            <button
+              onClick={handleUpdateCountries}
+              className="btn btn-primary px-4"
+            >
+              적용
+            </button>
+          </div>
+        )}
+      </div>
+
+      {/* 로딩 상태 */}
+      {isLoading && (
+        <div className="flex items-center justify-center py-12">
+          <div className="text-center">
+            <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-primary mx-auto mb-4"></div>
+            <p>데이터를 불러오는 중...</p>
+          </div>
+        </div>
+      )}
+
+      {/* 기간 비교 결과 */}
+      {comparisonType === 'period' && periodData && (
+        <div className="space-y-6">
+          <div className="card">
+            <h3 className="text-lg font-semibold mb-4">📅 기간별 성과 비교</h3>
+            <div className="overflow-x-auto">
+              <table className="w-full">
+                <thead>
+                  <tr className="border-b">
+                    <th className="text-left py-2 px-4">기간</th>
+                    <th className="text-right py-2 px-4">매출 (GMV)</th>
+                    <th className="text-right py-2 px-4">객단가 (AOV)</th>
+                    <th className="text-right py-2 px-4">주문 건수</th>
+                    <th className="text-right py-2 px-4">판매 작품 수</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {periodData.periods.map((period: any, index: number) => (
+                    <tr
+                      key={index}
+                      className={`border-b ${index === 0 ? 'bg-primary/5 font-semibold' : 'hover:bg-gray-50'}`}
+                    >
+                      <td className="py-2 px-4">{period.period}</td>
+                      <td className="py-2 px-4 text-right">{formatCurrency(period.kpis.gmv)}</td>
+                      <td className="py-2 px-4 text-right">{formatCurrency(period.kpis.aov)}</td>
+                      <td className="py-2 px-4 text-right">{period.kpis.orderCount.toLocaleString()}</td>
+                      <td className="py-2 px-4 text-right">{period.kpis.itemCount.toLocaleString()}</td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
+          </div>
+
+          {/* 변화율 차트 */}
+          {periodData.changes && periodData.changes.length > 0 && (
+            <div className="card">
+              <h3 className="text-lg font-semibold mb-4">📈 변화율 비교</h3>
+              <div style={{ position: 'relative', height: '300px' }}>
+                <Bar
+                  data={{
+                    labels: periodData.changes[0].changes.map((c: any) => c.period),
+                    datasets: periodData.changes.map((change: any) => ({
+                      label:
+                        change.metric === 'gmv'
+                          ? '매출'
+                          : change.metric === 'aov'
+                            ? '객단가'
+                            : change.metric === 'orderCount'
+                              ? '주문 건수'
+                              : '판매 작품 수',
+                      data: change.changes.map((c: any) => c.change),
+                      backgroundColor:
+                        change.metric === 'gmv'
+                          ? 'rgba(74, 111, 165, 0.6)'
+                          : change.metric === 'aov'
+                            ? 'rgba(247, 159, 121, 0.6)'
+                            : change.metric === 'orderCount'
+                              ? 'rgba(39, 174, 96, 0.6)'
+                              : 'rgba(156, 39, 176, 0.6)',
+                    })),
+                  }}
+                  options={{
+                    responsive: true,
+                    maintainAspectRatio: false,
+                    plugins: {
+                      legend: {
+                        display: true,
+                      },
+                      tooltip: {
+                        callbacks: {
+                          label: function (context) {
+                            const value = context.parsed.y
+                            if (value === null || value === undefined) return `${context.dataset.label}: 0%`
+                            return `${context.dataset.label}: ${value >= 0 ? '+' : ''}${value.toFixed(1)}%`
+                          },
+                        },
+                      },
+                    },
+                    scales: {
+                      y: {
+                        grid: { color: '#eee' },
+                        ticks: {
+                          callback: function (value) {
+                            const num = typeof value === 'number' ? value : 0
+                            return num + '%'
+                          },
+                        },
+                      },
+                    },
+                  }}
+                />
+              </div>
+            </div>
+          )}
+        </div>
+      )}
+
+      {/* 작가 비교 결과 */}
+      {comparisonType === 'artist' && artistData && (
+        <div className="space-y-6">
+          <div className="card">
+            <h3 className="text-lg font-semibold mb-4">👨‍🎨 작가별 성과 비교</h3>
+            <div className="overflow-x-auto">
+              <table className="w-full">
+                <thead>
+                  <tr className="border-b">
+                    <th className="text-left py-2 px-4">작가명</th>
+                    <th className="text-right py-2 px-4">매출 (GMV)</th>
+                    <th className="text-right py-2 px-4">객단가 (AOV)</th>
+                    <th className="text-right py-2 px-4">주문 건수</th>
+                    <th className="text-right py-2 px-4">판매 작품 수</th>
+                    <th className="text-right py-2 px-4">작품 종류</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {artistData.artists.map((artist: any, index: number) => (
+                    <tr key={index} className="border-b hover:bg-gray-50">
+                      <td className="py-2 px-4 font-medium">{artist.artistName}</td>
+                      <td className="py-2 px-4 text-right">{formatCurrency(artist.gmv)}</td>
+                      <td className="py-2 px-4 text-right">{formatCurrency(artist.aov)}</td>
+                      <td className="py-2 px-4 text-right">{artist.orderCount}</td>
+                      <td className="py-2 px-4 text-right">{artist.itemCount}</td>
+                      <td className="py-2 px-4 text-right">{artist.productCount}</td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
+          </div>
+
+          {/* 작가별 비교 차트 */}
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+            <div className="card">
+              <h3 className="text-lg font-semibold mb-4">매출 비교</h3>
+              <div style={{ position: 'relative', height: '250px' }}>
+                <Bar
+                  data={{
+                    labels: artistData.artists.map((a: any) => a.artistName),
+                    datasets: [
+                      {
+                        label: '매출 (KRW)',
+                        data: artistData.artists.map((a: any) => a.gmv),
+                        backgroundColor: 'rgba(74, 111, 165, 0.6)',
+                      },
+                    ],
+                  }}
+                  options={{
+                    responsive: true,
+                    maintainAspectRatio: false,
+                    plugins: {
+                      legend: {
+                        display: false,
+                      },
+                      tooltip: {
+                        callbacks: {
+                          label: function (context) {
+                            const value = context.parsed.y
+                            if (value === null || value === undefined) return '매출: ₩0'
+                            return `매출: ${formatCurrency(value)}`
+                          },
+                        },
+                      },
+                    },
+                    scales: {
+                      y: {
+                        beginAtZero: true,
+                        grid: { color: '#eee' },
+                      },
+                    },
+                  }}
+                />
+              </div>
+            </div>
+
+            <div className="card">
+              <h3 className="text-lg font-semibold mb-4">주문 건수 비교</h3>
+              <div style={{ position: 'relative', height: '250px' }}>
+                <Bar
+                  data={{
+                    labels: artistData.artists.map((a: any) => a.artistName),
+                    datasets: [
+                      {
+                        label: '주문 건수',
+                        data: artistData.artists.map((a: any) => a.orderCount),
+                        backgroundColor: 'rgba(247, 159, 121, 0.6)',
+                      },
+                    ],
+                  }}
+                  options={{
+                    responsive: true,
+                    maintainAspectRatio: false,
+                    plugins: {
+                      legend: {
+                        display: false,
+                      },
+                      tooltip: {
+                        callbacks: {
+                          label: function (context) {
+                            const value = context.parsed.y
+                            if (value === null || value === undefined) return '주문 건수: 0건'
+                            return `주문 건수: ${value}건`
+                          },
+                        },
+                      },
+                    },
+                    scales: {
+                      y: {
+                        beginAtZero: true,
+                        grid: { color: '#eee' },
+                        ticks: {
+                          stepSize: 1,
+                        },
+                      },
+                    },
+                  }}
+                />
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* 국가 비교 결과 */}
+      {comparisonType === 'country' && countryData && (
+        <div className="space-y-6">
+          <div className="card">
+            <h3 className="text-lg font-semibold mb-4">🌍 국가별 성과 비교</h3>
+            <div className="overflow-x-auto">
+              <table className="w-full">
+                <thead>
+                  <tr className="border-b">
+                    <th className="text-left py-2 px-4">국가</th>
+                    <th className="text-right py-2 px-4">매출 (GMV)</th>
+                    <th className="text-right py-2 px-4">객단가 (AOV)</th>
+                    <th className="text-right py-2 px-4">주문 건수</th>
+                    <th className="text-right py-2 px-4">판매 작품 수</th>
+                    <th className="text-right py-2 px-4">고객 수</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {countryData.countries.map((country: any, index: number) => (
+                    <tr key={index} className="border-b hover:bg-gray-50">
+                      <td className="py-2 px-4 font-medium">{country.country}</td>
+                      <td className="py-2 px-4 text-right">{formatCurrency(country.gmv)}</td>
+                      <td className="py-2 px-4 text-right">{formatCurrency(country.aov)}</td>
+                      <td className="py-2 px-4 text-right">{country.orderCount}</td>
+                      <td className="py-2 px-4 text-right">{country.itemCount}</td>
+                      <td className="py-2 px-4 text-right">{country.customerCount}</td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
+          </div>
+
+          {/* 국가별 비교 차트 */}
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+            <div className="card">
+              <h3 className="text-lg font-semibold mb-4">매출 비교</h3>
+              <div style={{ position: 'relative', height: '250px' }}>
+                <Bar
+                  data={{
+                    labels: countryData.countries.map((c: any) => c.country),
+                    datasets: [
+                      {
+                        label: '매출 (KRW)',
+                        data: countryData.countries.map((c: any) => c.gmv),
+                        backgroundColor: 'rgba(74, 111, 165, 0.6)',
+                      },
+                    ],
+                  }}
+                  options={{
+                    responsive: true,
+                    maintainAspectRatio: false,
+                    plugins: {
+                      legend: {
+                        display: false,
+                      },
+                      tooltip: {
+                        callbacks: {
+                          label: function (context) {
+                            const value = context.parsed.y
+                            if (value === null || value === undefined) return '매출: ₩0'
+                            return `매출: ${formatCurrency(value)}`
+                          },
+                        },
+                      },
+                    },
+                    scales: {
+                      y: {
+                        beginAtZero: true,
+                        grid: { color: '#eee' },
+                      },
+                    },
+                  }}
+                />
+              </div>
+            </div>
+
+            <div className="card">
+              <h3 className="text-lg font-semibold mb-4">고객 수 비교</h3>
+              <div style={{ position: 'relative', height: '250px' }}>
+                <Bar
+                  data={{
+                    labels: countryData.countries.map((c: any) => c.country),
+                    datasets: [
+                      {
+                        label: '고객 수',
+                        data: countryData.countries.map((c: any) => c.customerCount),
+                        backgroundColor: 'rgba(39, 174, 96, 0.6)',
+                      },
+                    ],
+                  }}
+                  options={{
+                    responsive: true,
+                    maintainAspectRatio: false,
+                    plugins: {
+                      legend: {
+                        display: false,
+                      },
+                      tooltip: {
+                        callbacks: {
+                          label: function (context) {
+                            const value = context.parsed.y
+                            if (value === null || value === undefined) return '고객 수: 0명'
+                            return `고객 수: ${value}명`
+                          },
+                        },
+                      },
+                    },
+                    scales: {
+                      y: {
+                        beginAtZero: true,
+                        grid: { color: '#eee' },
+                        ticks: {
+                          stepSize: 1,
+                        },
+                      },
+                    },
+                  }}
+                />
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
+    </div>
+  )
+}
+
 export default function AnalyticsPage() {
   const [dateRange, setDateRange] = useState('30d')
   const [countryFilter, setCountryFilter] = useState('all')
