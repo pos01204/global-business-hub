@@ -180,14 +180,23 @@ JSON 형식으로만 응답하세요.`
   private normalizeDateRange(
     dateRange: any,
     query: string
-  ): { start: string; end: string; type: string } {
+  ): { start: string; end: string; type: 'absolute' | 'relative' | 'month' | 'year' | 'quarter' } {
     const today = new Date()
     const endDate = new Date(today)
     endDate.setHours(23, 59, 59, 999)
 
     // 이미 정규화된 경우
     if (dateRange.start && dateRange.end && dateRange.start.match(/^\d{4}-\d{2}-\d{2}$/)) {
-      return dateRange
+      // 타입이 이미 올바른 경우 그대로 반환, 아니면 기본값 설정
+      if (dateRange.type && ['absolute', 'relative', 'month', 'year', 'quarter'].includes(dateRange.type)) {
+        return dateRange as { start: string; end: string; type: 'absolute' | 'relative' | 'month' | 'year' | 'quarter' }
+      }
+      // 타입이 없거나 잘못된 경우 absolute로 설정
+      return {
+        start: dateRange.start,
+        end: dateRange.end,
+        type: 'absolute' as const,
+      }
     }
 
     // 상대적 날짜 파싱
@@ -203,7 +212,7 @@ JSON 형식으로만 응답하세요.`
       return {
         start: startDate.toISOString().split('T')[0],
         end: endDate.toISOString().split('T')[0],
-        type: 'relative',
+        type: 'relative' as const,
       }
     }
 
@@ -220,7 +229,7 @@ JSON 형식으로만 응답하세요.`
       return {
         start: startDate.toISOString().split('T')[0],
         end: endDateForMonth.toISOString().split('T')[0],
-        type: 'month',
+        type: 'month' as const,
       }
     }
 
@@ -232,7 +241,7 @@ JSON 형식으로만 응답하세요.`
     return {
       start: startDate.toISOString().split('T')[0],
       end: endDate.toISOString().split('T')[0],
-      type: 'relative',
+      type: 'relative' as const,
     }
   }
 }
