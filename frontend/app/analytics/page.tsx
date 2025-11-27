@@ -11,9 +11,11 @@ import {
   CategoryScale,
   LinearScale,
   BarElement,
+  BarController,
   ArcElement,
   PointElement,
   LineElement,
+  LineController,
   Title,
   Tooltip,
   Legend
@@ -24,9 +26,11 @@ ChartJS.register(
   CategoryScale,
   LinearScale,
   BarElement,
+  BarController,
   ArcElement,
   PointElement,
   LineElement,
+  LineController,
   Title,
   Tooltip,
   Legend
