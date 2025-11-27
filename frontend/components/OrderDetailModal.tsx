@@ -106,7 +106,16 @@ export default function OrderDetailModal({ orderCode, onClose }: OrderDetailModa
                       <tbody>
                         {data.items.map((item: any, index: number) => (
                           <tr key={index} className="border-b">
-                            <td className="py-2 px-4">{item.artistName}</td>
+                            <td className="py-2 px-4">
+                              <div>
+                                <div className="font-medium">{item.artistName}</div>
+                                {item.artistEmail && (
+                                  <div className="text-xs text-blue-600 mt-1">
+                                    📧 {item.artistEmail}
+                                  </div>
+                                )}
+                              </div>
+                            </td>
                             <td className="py-2 px-4">
                               <a
                                 href={item.url}

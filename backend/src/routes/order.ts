@@ -7,6 +7,26 @@ const router = Router();
 const sheetsService = new GoogleSheetsService(sheetsConfig);
 
 /**
+ * 작가 정보 조회 헬퍼 함수 (메일 주소 포함)
+ */
+function getArtistInfoWithEmail(artistName: string, artistsData: any[]): { name: string; email?: string; artistId?: string } | null {
+  const artist = artistsData.find((a: any) => 
+    a['artist_name (kr)'] === artistName ||
+    a.artist_name_kr === artistName ||
+    a.name_kr === artistName ||
+    a.name === artistName
+  );
+  
+  if (!artist) return null;
+  
+  return {
+    name: artist['artist_name (kr)'] || artist.artist_name_kr || artist.name_kr || artist.name || artistName,
+    email: artist.mail || artist.email || artist.artist_email || artist['artist_email'] || undefined,
+    artistId: artist.artist_id || artist.global_artist_id || undefined,
+  };
+}
+
+/**
  * 주문 상세 정보 조회
  * GET /api/order/:orderCode
  */
@@ -20,6 +40,7 @@ router.get('/:orderCode', async (req, res) => {
     const logisticsData = await sheetsService.getSheetDataAsJson(SHEET_NAMES.LOGISTICS, true);
     const orderData = await sheetsService.getSheetDataAsJson(SHEET_NAMES.ORDER, false);
     const usersData = await sheetsService.getSheetDataAsJson(SHEET_NAMES.USERS, false);
+    const artistsData = await sheetsService.getSheetDataAsJson(SHEET_NAMES.ARTISTS, false);
 
     // 사용자 맵 생성
     const userMap = new Map<number, any>();
@@ -119,9 +140,10 @@ router.get('/:orderCode', async (req, res) => {
       });
     }
 
-    // 아이템 목록 생성
+    // 아이템 목록 생성 (작가 메일 주소 포함)
     const items = orderRows.map((row: any) => {
       const artistName = row['artist_name (kr)'] || '정보 없음';
+      const artistInfo = getArtistInfoWithEmail(artistName, artistsData);
       const itemLogisticsStatus = (row.logistics || '').trim();
       const isReceived = itemLogisticsStatus !== '결제 완료' && itemLogisticsStatus !== '작가 송장 입력';
       const itemStatus = isReceived ? '입고완료' : '미입고';
@@ -129,6 +151,8 @@ router.get('/:orderCode', async (req, res) => {
       return {
         name: row['product_name'] || '작품 정보 없음',
         artistName: artistName,
+        artistEmail: artistInfo?.email, // 작가 메일 주소 추가
+        artistId: artistInfo?.artistId, // 작가 ID 추가
         quantity: row['구매수량'] || 'N/A',
         url: getProductUrl(row.country, row.product_id),
         status: itemStatus,

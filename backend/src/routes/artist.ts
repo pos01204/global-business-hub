@@ -7,6 +7,26 @@ const router = Router();
 const sheetsService = new GoogleSheetsService(sheetsConfig);
 
 /**
+ * 작가 정보 조회 헬퍼 함수
+ */
+function getArtistInfo(artistName: string, artistsData: any[]): { name: string; email?: string; artistId?: string } | null {
+  const artist = artistsData.find((a: any) => 
+    a['artist_name (kr)'] === artistName ||
+    a.artist_name_kr === artistName ||
+    a.name_kr === artistName ||
+    a.name === artistName
+  );
+  
+  if (!artist) return null;
+  
+  return {
+    name: artist['artist_name (kr)'] || artist.artist_name_kr || artist.name_kr || artist.name || artistName,
+    email: artist.mail || artist.email || artist.artist_email || artist['artist_email'] || undefined,
+    artistId: artist.artist_id || artist.global_artist_id || undefined,
+  };
+}
+
+/**
  * 작가별 주문 내역 조회
  * GET /api/artist/:artistName/orders?dateRange=30d
  */
@@ -31,6 +51,10 @@ router.get('/:artistName/orders', async (req, res) => {
 
     const logisticsData = await sheetsService.getSheetDataAsJson(SHEET_NAMES.LOGISTICS, true);
     const orderData = await sheetsService.getSheetDataAsJson(SHEET_NAMES.ORDER, false);
+    const artistsData = await sheetsService.getSheetDataAsJson(SHEET_NAMES.ARTISTS, false);
+    
+    // 작가 정보 조회
+    const artistInfo = getArtistInfo(artistName, artistsData);
 
     // 기간 및 작가 이름으로 필터링
     const filteredLogistics = logisticsData.filter((row: any) => {
@@ -116,7 +140,14 @@ router.get('/:artistName/orders', async (req, res) => {
       }
     });
 
-    res.json({ orders: ordersArray });
+    res.json({ 
+      orders: ordersArray,
+      artistInfo: artistInfo || {
+        name: artistName,
+        email: undefined,
+        artistId: undefined,
+      },
+    });
   } catch (error) {
     console.error('Error fetching artist orders:', error);
     res.status(500).json({ error: '작가 주문 내역 조회 중 오류 발생' });

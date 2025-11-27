@@ -162,7 +162,17 @@ export default function ArtistsNotificationTab() {
                   <h3 className="text-lg font-semibold text-gray-900 mb-1">
                     {artist.artistName}
                   </h3>
-                  <p className="text-sm text-gray-500">작가 ID: {artist.artistId}</p>
+                  <div className="space-y-1">
+                    <p className="text-sm text-gray-500">작가 ID: {artist.artistId}</p>
+                    {artist.artistEmail && (
+                      <p className="text-sm text-blue-600">
+                        📧 {artist.artistEmail}
+                      </p>
+                    )}
+                    {!artist.artistEmail && (
+                      <p className="text-sm text-gray-400 italic">메일 주소 없음</p>
+                    )}
+                  </div>
                 </div>
                 <div className="flex gap-3">
                   {artist.textQCItems > 0 && (
@@ -223,8 +233,30 @@ export default function ArtistsNotificationTab() {
                     : `알람 발송 (${artist.items.length}개 항목)`}
                 </button>
                 {notifyMutation.isSuccess && notifyMutation.variables?.artistId === artist.artistId && (
-                  <div className="mt-2 text-sm text-green-600 bg-green-50 p-2 rounded">
-                    ✓ 알람이 성공적으로 발송되었습니다.
+                  <div className="mt-2 space-y-1">
+                    <div className="text-sm text-green-600 bg-green-50 p-2 rounded">
+                      ✓ 알람이 성공적으로 발송되었습니다.
+                    </div>
+                    {notifyMutation.data?.emailSent && (
+                      <div className="text-xs text-blue-600 bg-blue-50 p-2 rounded">
+                        📧 이메일 발송 완료 {notifyMutation.data.emailMessageId && `(ID: ${notifyMutation.data.emailMessageId})`}
+                      </div>
+                    )}
+                    {notifyMutation.data?.emailError && (
+                      <div className="text-xs text-yellow-600 bg-yellow-50 p-2 rounded">
+                        ⚠️ 이메일 발송 실패: {notifyMutation.data.emailError}
+                      </div>
+                    )}
+                    {!notifyMutation.data?.emailSent && !notifyMutation.data?.emailError && artist.artistEmail && (
+                      <div className="text-xs text-gray-500 bg-gray-50 p-2 rounded">
+                        ℹ️ 이메일 발송 기능이 비활성화되어 있습니다.
+                      </div>
+                    )}
+                    {!artist.artistEmail && (
+                      <div className="text-xs text-gray-500 bg-gray-50 p-2 rounded">
+                        ℹ️ 작가 메일 주소가 없어 이메일을 발송할 수 없습니다.
+                      </div>
+                    )}
                   </div>
                 )}
                 {notifyMutation.isError && notifyMutation.variables?.artistId === artist.artistId && (

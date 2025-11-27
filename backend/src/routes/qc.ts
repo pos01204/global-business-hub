@@ -3,9 +3,16 @@ import multer from 'multer';
 import { parse } from 'csv-parse/sync';
 import GoogleSheetsService from '../services/googleSheets';
 import { sheetsConfig, SHEET_NAMES } from '../config/sheets';
+import GmailService from '../services/gmailService';
+import EmailTemplateService from '../services/emailTemplateService';
+import { gmailConfig, isGmailConfigured } from '../config/gmail';
 
 const router = Router();
 const sheetsService = new GoogleSheetsService(sheetsConfig);
+
+// Gmail 서비스 및 이메일 템플릿 서비스 초기화
+const gmailService = isGmailConfigured ? new GmailService(gmailConfig) : null;
+const emailTemplateService = new EmailTemplateService();
 
 // Multer 설정: 메모리 스토리지 사용
 const upload = multer({
@@ -36,6 +43,7 @@ interface QCItem {
 interface ArtistNotification {
   artistId: string;
   artistName: string;
+  artistEmail?: string; // 작가 메일 주소 추가
   textQCItems: number;
   imageQCItems: number;
   items: Array<{
@@ -368,6 +376,47 @@ function getArtistName(artistId: string | number): string {
     );
   }
   return `작가 ID: ${artistId}`;
+}
+
+/**
+ * 작가 메일 주소 조회 헬퍼 함수
+ */
+function getArtistEmail(artistId: string | number): string | undefined {
+  const artist = qcDataStore.artists.get(String(artistId));
+  if (artist) {
+    // 다양한 컬럼명 시도 (mail, email, artist_email 등)
+    return (
+      artist.mail ||
+      artist.email ||
+      artist.artist_email ||
+      artist['artist_email'] ||
+      undefined
+    );
+  }
+  return undefined;
+}
+
+/**
+ * 작가 정보 전체 조회 헬퍼 함수
+ */
+function getArtistInfo(artistId: string | number): { name: string; email?: string } {
+  const artist = qcDataStore.artists.get(String(artistId));
+  if (artist) {
+    return {
+      name: (
+        artist['artist_name (kr)'] ||
+        artist.artist_name_kr ||
+        artist.name_kr ||
+        artist.name ||
+        `작가 ID: ${artistId}`
+      ),
+      email: artist.mail || artist.email || artist.artist_email || artist['artist_email'] || undefined,
+    };
+  }
+  return {
+    name: `작가 ID: ${artistId}`,
+    email: undefined,
+  };
 }
 
 /**
@@ -1008,9 +1057,11 @@ router.get('/artists/notifications', async (req, res) => {
 
         const artistIdStr = String(artistId);
         if (!artistMap.has(artistIdStr)) {
+          const artistInfo = getArtistInfo(artistId);
           artistMap.set(artistIdStr, {
             artistId: artistIdStr,
-            artistName: getArtistName(artistId),
+            artistName: artistInfo.name,
+            artistEmail: artistInfo.email,
             textQCItems: 0,
             imageQCItems: 0,
             items: [],
@@ -1036,9 +1087,11 @@ router.get('/artists/notifications', async (req, res) => {
 
         const artistIdStr = String(artistId);
         if (!artistMap.has(artistIdStr)) {
+          const artistInfo = getArtistInfo(artistId);
           artistMap.set(artistIdStr, {
             artistId: artistIdStr,
-            artistName: getArtistName(artistId),
+            artistName: artistInfo.name,
+            artistEmail: artistInfo.email,
             textQCItems: 0,
             imageQCItems: 0,
             items: [],
@@ -1234,10 +1287,9 @@ router.post('/artists/notify', async (req, res) => {
 
     // 작가 정보 확인
     await loadArtists();
-    const artist = qcDataStore.artists.get(String(artistId));
-    const artistName = artist
-      ? artist['artist_name (kr)'] || artist.artist_name_kr || artist.name_kr || artist.name || `작가 ID: ${artistId}`
-      : `작가 ID: ${artistId}`;
+    const artistInfo = getArtistInfo(artistId);
+    const artistName = artistInfo.name;
+    const artistEmail = artistInfo.email;
 
     // 알람 발송할 항목 검증
     const validItems: Array<{ id: string; type: 'text' | 'image'; productName: string }> = [];
@@ -1293,20 +1345,69 @@ router.post('/artists/notify', async (req, res) => {
       status: 'sent' as const,
     };
 
-    // TODO: 실제 알람 발송 시스템 연동 (이메일, SMS, 푸시 등)
-    // 예시: await emailService.sendNotification(artistId, validItems);
-    // 예시: await smsService.sendNotification(artistId, validItems);
+    // 이메일 발송 시도
+    let emailSent = false;
+    let emailError: string | undefined = undefined;
+    let emailMessageId: string | undefined = undefined;
 
-    console.log(`[QC] 작가 알람 발송: ${artistName} (${artistId})에게 ${validItems.length}개 항목 알람 발송`);
+    if (artistEmail && gmailService) {
+      try {
+        // 이메일 템플릿 생성
+        const emailTemplate = emailTemplateService.generateQCNotificationEmail({
+          artistName,
+          textQCItems: validItems.filter((item) => item.type === 'text').length,
+          imageQCItems: validItems.filter((item) => item.type === 'image').length,
+          items: validItems,
+        });
+
+        // 이메일 발송
+        const emailResult = await gmailService.sendEmail(
+          artistEmail,
+          emailTemplate.subject,
+          emailTemplate.htmlBody,
+          emailTemplate.textBody
+        );
+
+        if (emailResult.success) {
+          emailSent = true;
+          emailMessageId = emailResult.messageId;
+          console.log(`[QC] 이메일 발송 성공: ${artistName} (${artistEmail}) - Message ID: ${emailMessageId}`);
+        } else {
+          emailError = emailResult.error;
+          console.warn(`[QC] 이메일 발송 실패: ${artistName} (${artistEmail}) - ${emailError}`);
+        }
+      } catch (error: any) {
+        emailError = error.message || '이메일 발송 중 오류 발생';
+        console.error(`[QC] 이메일 발송 오류: ${artistName} (${artistEmail}) -`, error);
+      }
+    } else if (!artistEmail) {
+      emailError = '작가 메일 주소가 없습니다.';
+      console.warn(`[QC] 이메일 발송 불가: ${artistName} - 메일 주소 없음`);
+    } else if (!gmailService) {
+      emailError = 'Gmail 서비스가 설정되지 않았습니다.';
+      console.warn(`[QC] 이메일 발송 불가: Gmail 서비스 미설정`);
+    }
+
+    console.log(`[QC] 작가 알람 발송: ${artistName} (${artistId})에게 ${validItems.length}개 항목 알람 발송${emailSent ? ' (이메일 발송 완료)' : emailError ? ` (이메일 발송 실패: ${emailError})` : ''}`);
 
     res.json({
       success: true,
       artistId: String(artistId),
       artistName,
+      artistEmail, // 작가 메일 주소 포함
       sentItems: validItems,
       invalidItems: invalidItems.length > 0 ? invalidItems : undefined,
       sentAt: notificationHistory.sentAt,
-      message: `${artistName} 작가에게 ${validItems.length}개 항목에 대한 알람이 발송되었습니다.`,
+      emailSent, // 이메일 발송 성공 여부
+      emailMessageId, // Gmail Message ID
+      emailError, // 이메일 발송 오류 (있는 경우)
+      message: `${artistName} 작가에게 ${validItems.length}개 항목에 대한 알람이 발송되었습니다.${
+        emailSent
+          ? ` (이메일 발송 완료: ${artistEmail})`
+          : artistEmail
+            ? ` (이메일 발송 실패: ${emailError || '알 수 없는 오류'})`
+            : ' (메일 주소 없음)'
+      }`,
     });
   } catch (error: any) {
     console.error('[QC] 작가 알람 발송 오류:', error);
