@@ -27,7 +27,7 @@ interface QCItem {
   id: string;
   type: 'text' | 'image';
   data: any;
-  status: 'pending' | 'approved' | 'needs_revision' | 'excluded';
+  status: 'pending' | 'approved' | 'needs_revision' | 'excluded' | 'archived';
   needsRevision: boolean;
   createdAt: Date;
   completedAt?: Date;
@@ -98,7 +98,7 @@ async function loadTextQCData() {
       const id = generateId('text', record);
       
       // 상태 확인 (status 컬럼이 있으면 사용, 없으면 'pending')
-      const status = (record.status as 'pending' | 'approved' | 'needs_revision' | 'excluded') || 'pending';
+      const status = (record.status as 'pending' | 'approved' | 'needs_revision' | 'excluded' | 'archived') || 'pending';
       
       // 아카이브된 항목은 아카이브 저장소에만 저장
       if (status === 'archived' || record.archived === true) {
@@ -157,7 +157,7 @@ async function loadImageQCData() {
       const id = generateId('image', record);
       
       // 상태 확인 (status 컬럼이 있으면 사용, 없으면 'pending')
-      const status = (record.status as 'pending' | 'approved' | 'needs_revision' | 'excluded') || 'pending';
+      const status = (record.status as 'pending' | 'approved' | 'needs_revision' | 'excluded' | 'archived') || 'pending';
       
       // 아카이브된 항목은 아카이브 저장소에만 저장
       if (status === 'archived' || record.archived === true) {
