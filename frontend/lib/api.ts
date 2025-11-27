@@ -473,6 +473,14 @@ export const qcApi = {
     const response = await api.get('/api/qc/archive', { params })
     return response.data
   },
+  // 작가 알람 발송
+  notifyArtist: async (artistId: string, items: string[]) => {
+    const response = await api.post('/api/qc/artists/notify', {
+      artistId,
+      items,
+    })
+    return response.data
+  },
 }
 
 export default api

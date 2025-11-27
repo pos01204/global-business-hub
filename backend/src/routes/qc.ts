@@ -811,6 +811,107 @@ router.get('/archive', async (req, res) => {
 });
 
 /**
+ * 작가 알람 발송
+ * POST /api/qc/artists/notify
+ */
+router.post('/artists/notify', async (req, res) => {
+  try {
+    const { artistId, items } = req.body;
+
+    if (!artistId) {
+      return res.status(400).json({ error: '작가 ID가 필요합니다.' });
+    }
+
+    if (!items || !Array.isArray(items) || items.length === 0) {
+      return res.status(400).json({ error: '알람을 발송할 항목이 필요합니다.' });
+    }
+
+    // 작가 정보 확인
+    await loadArtists();
+    const artist = qcDataStore.artists.get(String(artistId));
+    const artistName = artist
+      ? artist['artist_name (kr)'] || artist.artist_name_kr || artist.name_kr || artist.name || `작가 ID: ${artistId}`
+      : `작가 ID: ${artistId}`;
+
+    // 알람 발송할 항목 검증
+    const validItems: Array<{ id: string; type: 'text' | 'image'; productName: string }> = [];
+    const invalidItems: string[] = [];
+
+    for (const itemId of items) {
+      // 텍스트 QC에서 찾기
+      let item = qcDataStore.text.get(itemId);
+      if (item) {
+        if (item.needsRevision || item.status === 'needs_revision') {
+          validItems.push({
+            id: item.id,
+            type: 'text',
+            productName: item.data.product_name || item.data.name || '제품명 없음',
+          });
+        } else {
+          invalidItems.push(itemId);
+        }
+        continue;
+      }
+
+      // 이미지 QC에서 찾기
+      item = qcDataStore.image.get(itemId);
+      if (item) {
+        if (item.needsRevision || item.status === 'needs_revision') {
+          validItems.push({
+            id: item.id,
+            type: 'image',
+            productName: item.data.product_name || '제품명 없음',
+          });
+        } else {
+          invalidItems.push(itemId);
+        }
+        continue;
+      }
+
+      invalidItems.push(itemId);
+    }
+
+    if (validItems.length === 0) {
+      return res.status(400).json({
+        error: '유효한 수정 필요 항목이 없습니다.',
+        invalidItems,
+      });
+    }
+
+    // 알람 발송 이력 저장 (메모리 저장소, 실제로는 Google Sheets나 DB에 저장 권장)
+    const notificationHistory = {
+      artistId: String(artistId),
+      artistName,
+      items: validItems,
+      sentAt: new Date(),
+      status: 'sent' as const,
+    };
+
+    // TODO: 실제 알람 발송 시스템 연동 (이메일, SMS, 푸시 등)
+    // 예시: await emailService.sendNotification(artistId, validItems);
+    // 예시: await smsService.sendNotification(artistId, validItems);
+
+    console.log(`[QC] 작가 알람 발송: ${artistName} (${artistId})에게 ${validItems.length}개 항목 알람 발송`);
+
+    res.json({
+      success: true,
+      artistId: String(artistId),
+      artistName,
+      sentItems: validItems,
+      invalidItems: invalidItems.length > 0 ? invalidItems : undefined,
+      sentAt: notificationHistory.sentAt,
+      message: `${artistName} 작가에게 ${validItems.length}개 항목에 대한 알람이 발송되었습니다.`,
+    });
+  } catch (error: any) {
+    console.error('[QC] 작가 알람 발송 오류:', error);
+    res.status(500).json({
+      error: '알람 발송 중 오류가 발생했습니다.',
+      message: error.message,
+    });
+  }
+});
+
+/**
  * 중복 검사
  * GET /api/qc/check-duplicates
  */
