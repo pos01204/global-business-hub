@@ -83,8 +83,143 @@ async function loadArtists() {
   }
 }
 
-// 서버 시작 시 작가 정보 로드
-loadArtists();
+/**
+ * 텍스트 QC 데이터 로드 (Google Sheets에서)
+ */
+async function loadTextQCData() {
+  try {
+    const textData = await sheetsService.getSheetDataAsJson(SHEET_NAMES.QC_TEXT_PROCESS, false);
+    let imported = 0;
+    let skipped = 0;
+
+    for (const record of textData) {
+      const id = generateId('text', record);
+      
+      // 이미 존재하는 경우 스킵
+      if (qcDataStore.text.has(id) || qcDataStore.archive.has(id)) {
+        skipped++;
+        continue;
+      }
+
+      const qcItem: QCItem = {
+        id,
+        type: 'text',
+        data: record,
+        status: (record.status as 'pending' | 'approved' | 'needs_revision') || 'pending',
+        needsRevision: record.needsRevision === true || record.needs_revision === true,
+        createdAt: record.createdAt ? new Date(record.createdAt) : new Date(),
+        completedAt: record.completedAt ? new Date(record.completedAt) : undefined,
+      };
+
+      qcDataStore.text.set(id, qcItem);
+      imported++;
+    }
+
+    console.log(`[QC] 텍스트 QC 데이터 로드 완료: ${imported}개 가져옴, ${skipped}개 스킵`);
+  } catch (error) {
+    console.error('[QC] 텍스트 QC 데이터 로드 실패:', error);
+  }
+}
+
+/**
+ * 이미지 QC 데이터 로드 (Google Sheets에서)
+ */
+async function loadImageQCData() {
+  try {
+    // 먼저 원본 데이터 시트에서 로드 시도
+    let imageData: any[] = [];
+    
+    try {
+      imageData = await sheetsService.getSheetDataAsJson(SHEET_NAMES.QC_IMAGE_RAW, false);
+    } catch (error) {
+      console.warn('[QC] 이미지 QC 원본 시트를 찾을 수 없습니다. 처리 시트에서 로드 시도합니다.');
+      // 원본 시트가 없으면 처리 시트에서 로드 시도
+      try {
+        const processData = await sheetsService.getSheetDataAsJson(SHEET_NAMES.QC_IMAGE_PROCESS, false);
+        // 이미지 QC 데이터만 필터링 (타입 구분이 필요한 경우)
+        imageData = processData.filter((item: any) => 
+          item.image_url || item.detected_text || item.page_name
+        );
+      } catch (processError) {
+        console.error('[QC] 이미지 QC 처리 시트도 찾을 수 없습니다.');
+        return;
+      }
+    }
+
+    let imported = 0;
+    let skipped = 0;
+
+    for (const record of imageData) {
+      const id = generateId('image', record);
+      
+      // 이미 존재하는 경우 스킵
+      if (qcDataStore.image.has(id) || qcDataStore.archive.has(id)) {
+        skipped++;
+        continue;
+      }
+
+      const qcItem: QCItem = {
+        id,
+        type: 'image',
+        data: record,
+        status: (record.status as 'pending' | 'approved' | 'needs_revision') || 'pending',
+        needsRevision: record.needsRevision === true || record.needs_revision === true,
+        createdAt: record.createdAt ? new Date(record.createdAt) : new Date(),
+        completedAt: record.completedAt ? new Date(record.completedAt) : undefined,
+      };
+
+      qcDataStore.image.set(id, qcItem);
+      imported++;
+    }
+
+    console.log(`[QC] 이미지 QC 데이터 로드 완료: ${imported}개 가져옴, ${skipped}개 스킵`);
+  } catch (error) {
+    console.error('[QC] 이미지 QC 데이터 로드 실패:', error);
+  }
+}
+
+/**
+ * 아카이브 데이터 로드 (Google Sheets에서)
+ */
+async function loadArchiveData() {
+  try {
+    const archiveData = await sheetsService.getSheetDataAsJson(SHEET_NAMES.QC_ARCHIVE, false);
+    let imported = 0;
+
+    for (const record of archiveData) {
+      const id = generateId(record.type || 'text', record);
+      
+      const qcItem: QCItem = {
+        id,
+        type: (record.type as 'text' | 'image') || 'text',
+        data: record,
+        status: 'approved',
+        needsRevision: false,
+        createdAt: record.createdAt ? new Date(record.createdAt) : new Date(),
+        completedAt: record.completedAt ? new Date(record.completedAt) : new Date(),
+      };
+
+      qcDataStore.archive.set(id, qcItem);
+      imported++;
+    }
+
+    console.log(`[QC] 아카이브 데이터 로드 완료: ${imported}개`);
+  } catch (error) {
+    console.error('[QC] 아카이브 데이터 로드 실패:', error);
+  }
+}
+
+// 서버 시작 시 데이터 로드
+async function initializeQCData() {
+  console.log('[QC] QC 데이터 초기화 시작...');
+  await loadArtists();
+  await loadTextQCData();
+  await loadImageQCData();
+  await loadArchiveData();
+  console.log('[QC] QC 데이터 초기화 완료');
+}
+
+initializeQCData();
 
 /**
  * 작가명 조회 헬퍼 함수
@@ -113,6 +248,14 @@ function generateId(prefix: string, data: any): string {
   }
   if (data.product_id && data.description_id) {
     return `${prefix}_${data.product_id}_${data.description_id}`;
+  }
+  // 이미지 QC의 경우 product_id만 있는 경우 처리
+  if (data.product_id) {
+    // page_name이나 cmd_type이 있으면 함께 사용하여 고유성 확보
+    if (data.page_name || data.cmd_type) {
+      return `${prefix}_${data.product_id}_${data.page_name || ''}_${data.cmd_type || ''}`;
+    }
+    return `${prefix}_${data.product_id}`;
   }
   return `${prefix}_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`;
 }

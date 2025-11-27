@@ -255,9 +255,17 @@ export default function ImageQCTab() {
     return (
       <div className="card bg-red-50 border-red-200">
         <h3 className="text-lg font-semibold text-red-800 mb-2">오류 발생</h3>
-        <p className="text-red-600">
+        <p className="text-red-600 mb-4">
           {error instanceof Error ? error.message : '데이터를 불러오는 중 문제가 발생했습니다.'}
         </p>
+        <div className="text-sm text-red-700">
+          <p className="mb-2">가능한 원인:</p>
+          <ul className="list-disc list-inside space-y-1">
+            <li>백엔드 서버가 실행 중인지 확인하세요</li>
+            <li>Google Sheets 접근 권한을 확인하세요</li>
+            <li>CSV 파일을 업로드했는지 확인하세요</li>
+          </ul>
+        </div>
       </div>
     )
   }
@@ -394,8 +402,22 @@ export default function ImageQCTab() {
           ))}
         </div>
       ) : (
-        <div className="card text-center py-12 text-gray-500">
-          QC 항목이 없습니다.
+        <div className="card text-center py-12">
+          <div className="text-gray-500 mb-4">
+            <div className="text-4xl mb-4">📷</div>
+            <h3 className="text-lg font-semibold mb-2">이미지 QC 항목이 없습니다</h3>
+            <p className="text-sm mb-6">
+              이미지 QC 데이터를 표시하려면 CSV 파일을 업로드해주세요.
+            </p>
+            <div className="bg-blue-50 border border-blue-200 rounded-lg p-4 text-left max-w-md mx-auto">
+              <p className="text-sm text-blue-800 font-medium mb-2">📋 사용 방법:</p>
+              <ol className="text-sm text-blue-700 list-decimal list-inside space-y-1">
+                <li>CSV 업로드 탭으로 이동</li>
+                <li>이미지 QC CSV 파일 선택</li>
+                <li>파일 업로드 후 이 페이지로 돌아오기</li>
+              </ol>
+            </div>
+          </div>
         </div>
       )}
 

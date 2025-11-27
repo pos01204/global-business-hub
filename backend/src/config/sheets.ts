@@ -47,5 +47,11 @@ export const SHEET_NAMES = {
   USERS: 'users',
   ARTISTS: 'artists',
   MARKETER_CONTENT: 'marketer_content', // 퍼포먼스 마케터 콘텐츠 저장
+  // QC 관련 시트
+  QC_TEXT_RAW: '1.설명글_한글_raw', // 텍스트 QC 원본 데이터
+  QC_IMAGE_RAW: '1.OCR_결과_raw', // 이미지 QC 원본 데이터
+  QC_TEXT_PROCESS: '텍스트 QC & 이미지 QC', // 활성 QC 처리 시트
+  QC_IMAGE_PROCESS: '텍스트 QC & 이미지 QC', // 활성 QC 처리 시트 (동일)
+  QC_ARCHIVE: '3.QC 완료 / 작가푸시', // 완료된 QC 아카이브
 } as const;
 
