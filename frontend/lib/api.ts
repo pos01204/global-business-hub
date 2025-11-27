@@ -328,15 +328,26 @@ export const marketerApi = {
 
 // 챗봇 API
 export const chatApi = {
-  sendMessage: async (message: string, history: Array<{ role: 'user' | 'assistant'; content: string }> = []) => {
+  sendMessage: async (
+    message: string,
+    history: Array<{ role: 'user' | 'assistant'; content: string }> = [],
+    agentType: 'data_analyst' | 'performance_marketer' | 'business_manager' | 'auto' = 'auto',
+    sessionId?: string
+  ) => {
     const response = await api.post('/api/chat/message', {
       message,
       history,
+      agentType,
+      sessionId,
     })
     return response.data
   },
   checkHealth: async () => {
     const response = await api.get('/api/chat/health')
+    return response.data
+  },
+  getAgents: async () => {
+    const response = await api.get('/api/chat/agents')
     return response.data
   },
 }

@@ -1,5 +1,6 @@
 import express from 'express'
 import { openaiService } from '../services/openaiService'
+import { AgentRouter, AgentType } from '../services/agents/AgentRouter'
 
 const router = express.Router()
 
@@ -8,22 +9,10 @@ interface ChatMessage {
   content: string
 }
 
-// 시스템 프롬프트: 비즈니스 데이터 분석 어시스턴트
-const SYSTEM_PROMPT = `당신은 글로벌 비즈니스 통합 허브의 AI 어시스턴트입니다.
-주요 기능:
-1. 대시보드 데이터 분석 및 인사이트 제공
-2. 주문, 고객, 물류 관련 질의응답
-3. 비즈니스 성과 분석 및 리포트 생성
-
-사용자가 비즈니스 데이터에 대해 질문하면, 친절하고 전문적으로 답변해주세요.
-데이터가 없는 경우, 일반적인 비즈니스 인사이트를 제공하거나 다른 기능을 안내해주세요.
-
-답변은 한국어로 작성해주세요.`
-
-// 챗봇 메시지 전송
+// 챗봇 메시지 전송 (고도화된 Agent 기반)
 router.post('/message', async (req, res) => {
   try {
-    const { message, history = [] } = req.body
+    const { message, history = [], agentType = 'auto', sessionId } = req.body
 
     if (!message || typeof message !== 'string') {
       return res.status(400).json({
@@ -46,23 +35,26 @@ router.post('/message', async (req, res) => {
       })
     }
 
-    // 대화 히스토리 구성
-    const messages: ChatMessage[] = [
-      { role: 'system', content: SYSTEM_PROMPT },
-      ...history.slice(-10), // 최근 10개 메시지만 사용 (컨텍스트 제한)
-      { role: 'user', content: message },
-    ]
+    // Agent Router 초기화
+    const router = new AgentRouter({
+      sessionId,
+      history: history.slice(-10), // 최근 10개 메시지만 사용
+    })
 
-    // OpenAI API 호출
-    const response = await openaiService.generateChat(messages, {
-      temperature: 0.7,
-      maxTokens: 1000,
+    // Agent를 통한 처리
+    const result = await router.route(message, agentType as AgentType, {
+      sessionId,
+      history: history.slice(-10),
     })
 
     res.json({
       success: true,
       data: {
-        message: response,
+        message: result.response,
+        agent: result.agent,
+        data: result.data,
+        charts: result.charts,
+        actions: result.actions,
         timestamp: new Date().toISOString(),
       },
     })
@@ -80,6 +72,8 @@ router.get('/health', async (req, res) => {
   try {
     const isConnected = await openaiService.checkConnection()
     const models = await openaiService.listModels()
+    const agentRouter = new AgentRouter()
+    const availableAgents = agentRouter.getAvailableAgents()
 
     res.json({
       success: true,
@@ -87,6 +81,7 @@ router.get('/health', async (req, res) => {
         connected: isConnected,
         model: process.env.OPENAI_MODEL || 'gpt-4o-mini',
         availableModels: models,
+        availableAgents,
         message: isConnected
           ? 'AI 어시스턴트가 정상적으로 작동 중입니다.'
           : 'OpenAI 서비스에 연결할 수 없습니다.',
@@ -96,6 +91,25 @@ router.get('/health', async (req, res) => {
     res.status(500).json({
       success: false,
       error: '상태 확인 중 오류가 발생했습니다.',
+      message: error.message,
+    })
+  }
+})
+
+// 사용 가능한 Agent 목록 조회
+router.get('/agents', async (req, res) => {
+  try {
+    const agentRouter = new AgentRouter()
+    const agents = agentRouter.getAvailableAgents()
+
+    res.json({
+      success: true,
+      data: agents,
+    })
+  } catch (error: any) {
+    res.status(500).json({
+      success: false,
+      error: 'Agent 목록 조회 중 오류가 발생했습니다.',
       message: error.message,
     })
   }
