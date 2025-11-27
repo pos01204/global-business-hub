@@ -806,6 +806,7 @@ router.put('/:type/:id/status', async (req, res) => {
  */
 async function saveQCStatusToSheets(type: 'text' | 'image', item: QCItem) {
   try {
+    console.log(`[QC] Google Sheets 상태 저장 시작: ${type} QC, ID: ${item.id}, Status: ${item.status}`);
     const sheetName = type === 'text' ? SHEET_NAMES.QC_TEXT_RAW : SHEET_NAMES.QC_IMAGE_RAW;
     
     // ID 컬럼 찾기 (여러 가능한 컬럼명 시도)
@@ -815,20 +816,34 @@ async function saveQCStatusToSheets(type: 'text' | 'image', item: QCItem) {
     
     let rowIndex: number | null = null;
     let itemId: string | null = null;
+    let foundIdColumn: string | null = null;
     
     for (const idColumn of possibleIdColumns) {
       const idValue = item.data[idColumn];
       if (idValue) {
         itemId = String(idValue);
+        console.log(`[QC] ID 컬럼 시도: ${idColumn} = ${itemId}`);
         rowIndex = await sheetsService.findRowByColumn(sheetName, idColumn, itemId);
-        if (rowIndex) break;
+        if (rowIndex) {
+          foundIdColumn = idColumn;
+          console.log(`[QC] 행 찾기 성공: ${sheetName} 행 ${rowIndex} (${idColumn}=${itemId})`);
+          break;
+        }
       }
     }
 
     if (!rowIndex || !itemId) {
-      console.warn(`[QC] 시트에서 항목을 찾을 수 없습니다: ${JSON.stringify(item.data)}`);
+      console.error(`[QC] 시트에서 항목을 찾을 수 없습니다.`);
+      console.error(`[QC] 시트: ${sheetName}`);
+      console.error(`[QC] 시도한 ID 컬럼: ${possibleIdColumns.join(', ')}`);
+      console.error(`[QC] 항목 데이터:`, JSON.stringify(item.data, null, 2));
       return;
     }
+
+    // 상태 컬럼이 없으면 자동으로 추가
+    await sheetsService.ensureColumnExists(sheetName, 'status');
+    await sheetsService.ensureColumnExists(sheetName, 'needsRevision');
+    await sheetsService.ensureColumnExists(sheetName, 'completedAt');
 
     // 상태 컬럼 동적으로 찾기
     const statusRange = await sheetsService.getCellRange(sheetName, 'status', rowIndex);
@@ -837,18 +852,25 @@ async function saveQCStatusToSheets(type: 'text' | 'image', item: QCItem) {
     const completedAtRange = await sheetsService.getCellRange(sheetName, 'completedAt', rowIndex);
     const completedAtRange2 = await sheetsService.getCellRange(sheetName, 'completed_at', rowIndex);
 
-    // 상태 업데이트
+    console.log(`[QC] 컬럼 찾기 결과:`);
+    console.log(`[QC]   status: ${statusRange || '없음'}`);
+    console.log(`[QC]   needsRevision: ${needsRevisionRange || needsRevisionRange2 || '없음'}`);
+    console.log(`[QC]   completedAt: ${completedAtRange || completedAtRange2 || '없음'}`);
+
+    // 상태 업데이트 (컬럼이 없으면 추가했으므로 반드시 있어야 함)
     if (statusRange) {
       await sheetsService.updateCell(sheetName, statusRange, item.status);
+      console.log(`[QC] ✅ 상태 업데이트 성공: ${statusRange} = ${item.status}`);
     } else {
-      // status 컬럼이 없으면 마지막 컬럼 다음에 추가 (헤더 먼저 확인 필요)
-      console.warn(`[QC] 'status' 컬럼을 찾을 수 없습니다. 시트에 'status' 컬럼을 추가해주세요.`);
+      console.error(`[QC] ❌ 'status' 컬럼을 찾을 수 없습니다. (자동 추가 실패)`);
+      console.error(`[QC] 시트: ${sheetName}, 행: ${rowIndex}`);
     }
 
     // needsRevision 업데이트
     const revisionRange = needsRevisionRange || needsRevisionRange2;
     if (revisionRange) {
       await sheetsService.updateCell(sheetName, revisionRange, item.needsRevision ? 'TRUE' : 'FALSE');
+      console.log(`[QC] needsRevision 업데이트 성공: ${revisionRange} = ${item.needsRevision}`);
     }
 
     // completedAt 업데이트
@@ -856,13 +878,16 @@ async function saveQCStatusToSheets(type: 'text' | 'image', item: QCItem) {
       const completedRange = completedAtRange || completedAtRange2;
       if (completedRange) {
         await sheetsService.updateCell(sheetName, completedRange, item.completedAt.toISOString());
+        console.log(`[QC] completedAt 업데이트 성공: ${completedRange} = ${item.completedAt.toISOString()}`);
       }
     }
 
-    console.log(`[QC] 상태 업데이트 완료: ${sheetName} 행 ${rowIndex} (${itemId})`);
-  } catch (error) {
+    console.log(`[QC] ✅ 상태 업데이트 완료: ${sheetName} 행 ${rowIndex} (${foundIdColumn}=${itemId})`);
+  } catch (error: any) {
     // Google Sheets 저장 실패해도 메모리 업데이트는 유지
-    console.error('[QC] Google Sheets 상태 저장 실패:', error);
+    console.error('[QC] ❌ Google Sheets 상태 저장 실패:', error);
+    console.error('[QC] 오류 상세:', error.message);
+    console.error('[QC] 스택:', error.stack);
   }
 }
 

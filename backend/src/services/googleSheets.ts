@@ -451,6 +451,49 @@ class GoogleSheetsService {
     const columnLetter = this.numberToColumnLetter(colIndex);
     return `${columnLetter}${rowIndex}`;
   }
+
+  /**
+   * 시트에 컬럼이 없으면 추가
+   */
+  async ensureColumnExists(sheetName: string, columnName: string): Promise<number | null> {
+    if (!this.isConfigured || !this.sheets) {
+      return null;
+    }
+
+    try {
+      // 먼저 컬럼이 있는지 확인
+      const existingIndex = await this.getColumnIndex(sheetName, columnName);
+      if (existingIndex) {
+        return existingIndex;
+      }
+
+      // 헤더 행 읽기
+      const response = await this.sheets.spreadsheets.values.get({
+        spreadsheetId: this.spreadsheetId,
+        range: `${sheetName}!1:1`,
+      });
+
+      const headers = response.data.values?.[0] || [];
+      const nextColumnIndex = headers.length + 1;
+      const nextColumnLetter = this.numberToColumnLetter(nextColumnIndex);
+
+      // 새 컬럼 추가 (헤더에 추가)
+      await this.sheets.spreadsheets.values.update({
+        spreadsheetId: this.spreadsheetId,
+        range: `${sheetName}!${nextColumnLetter}1`,
+        valueInputOption: 'RAW',
+        resource: {
+          values: [[columnName]],
+        },
+      });
+
+      console.log(`[Google Sheets] 컬럼 추가 완료: ${sheetName}!${nextColumnLetter}1 = ${columnName}`);
+      return nextColumnIndex;
+    } catch (error) {
+      console.error(`Error ensuring column exists in ${sheetName}:`, error);
+      return null;
+    }
+  }
 }
 
 export default GoogleSheetsService;
