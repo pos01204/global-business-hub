@@ -301,13 +301,15 @@ function LogisticsPerformanceTab({
                   legend: {
                     display: false,
                   },
-                  tooltip: {
-                    callbacks: {
-                      label: function (context) {
-                        return `${context.parsed.y}건`
-                      },
-                    },
-                  },
+                        tooltip: {
+                          callbacks: {
+                            label: function (context) {
+                              const value = context.parsed.y
+                              if (value === null || value === undefined) return '0건'
+                              return `${value}건`
+                            },
+                          },
+                        },
                 },
                 scales: {
                   y: {
@@ -370,7 +372,10 @@ export default function AnalyticsPage() {
     queryFn: () => analyticsApi.getData(dateRange, countryFilter),
   })
 
-  const formatCurrency = (value: number) => {
+  const formatCurrency = (value: number | null | undefined): string => {
+    if (value === null || value === undefined || isNaN(value)) {
+      return '₩0'
+    }
     return `₩${Math.round(value).toLocaleString()}`
   }
 
@@ -1121,9 +1126,13 @@ export default function AnalyticsPage() {
                         tooltip: {
                           callbacks: {
                             label: function (context) {
-                              const total = context.dataset.data.reduce((a: any, b: any) => a + b, 0)
-                              const percentage = ((context.parsed / total) * 100).toFixed(1)
-                              return `${context.label}: ${context.parsed}건 (${percentage}%)`
+                              const parsed = context.parsed
+                              if (parsed === null || parsed === undefined) {
+                                return `${context.label}: 0건 (0%)`
+                              }
+                              const total = context.dataset.data.reduce((a: any, b: any) => (a || 0) + (b || 0), 0)
+                              const percentage = total > 0 ? ((parsed / total) * 100).toFixed(1) : '0'
+                              return `${context.label}: ${parsed}건 (${percentage}%)`
                             },
                           },
                         },
@@ -1144,9 +1153,13 @@ export default function AnalyticsPage() {
                         tooltip: {
                           callbacks: {
                             label: function (context) {
-                              const total = context.dataset.data.reduce((a: any, b: any) => a + b, 0)
-                              const percentage = ((context.parsed / total) * 100).toFixed(1)
-                              return `${context.label}: ${context.parsed}건 (${percentage}%)`
+                              const parsed = context.parsed
+                              if (parsed === null || parsed === undefined) {
+                                return `${context.label}: 0건 (0%)`
+                              }
+                              const total = context.dataset.data.reduce((a: any, b: any) => (a || 0) + (b || 0), 0)
+                              const percentage = total > 0 ? ((parsed / total) * 100).toFixed(1) : '0'
+                              return `${context.label}: ${parsed}건 (${percentage}%)`
                             },
                           },
                         },
@@ -1228,7 +1241,9 @@ export default function AnalyticsPage() {
                         tooltip: {
                           callbacks: {
                             label: function (context) {
-                              return `고객 수: ${context.parsed.y}명`
+                              const value = context.parsed.y
+                              if (value === null || value === undefined) return '고객 수: 0명'
+                              return `고객 수: ${value}명`
                             },
                           },
                         },

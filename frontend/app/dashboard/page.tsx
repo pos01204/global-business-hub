@@ -62,7 +62,10 @@ export default function DashboardPage() {
     // 쿼리 자동 재실행됨
   }
 
-  const formatCurrency = (value: number) => {
+  const formatCurrency = (value: number | null | undefined): string => {
+    if (value === null || value === undefined || isNaN(value)) {
+      return '₩0'
+    }
     return `₩${Math.round(value).toLocaleString()}`
   }
 
