@@ -120,38 +120,65 @@ export default function DashboardPage() {
           return (
             <div>
               <div className="mb-6">
-                <h1 className="text-3xl font-bold text-gray-900 mb-2">📊 메인 대시보드</h1>
-                <p className="text-gray-600">핵심 성과 지표 및 트렌드 분석</p>
+                <div className="flex items-center gap-3 mb-2">
+                  <div className="w-12 h-12 bg-gradient-to-br from-blue-500 to-purple-500 rounded-lg flex items-center justify-center shadow-lg">
+                    <span className="text-white text-2xl">📊</span>
+                  </div>
+                  <div>
+                    <h1 className="text-3xl font-bold text-gray-900">메인 대시보드</h1>
+                    <p className="text-gray-600 text-sm mt-1">핵심 성과 지표 및 트렌드 분석</p>
+                  </div>
+                </div>
               </div>
 
         {/* 날짜 필터 */}
         <div className="card mb-6">
+          <div className="flex items-center gap-2 mb-4">
+            <span className="text-lg">📅</span>
+            <h2 className="text-lg font-semibold">분석 기간 설정</h2>
+          </div>
           <div className="flex gap-4 items-end">
-            <div>
-              <label className="block text-sm font-medium mb-1">시작일</label>
+            <div className="flex-1">
+              <label className="block text-sm font-medium mb-2 flex items-center gap-2">
+                <span>시작일</span>
+                <span className="text-xs text-gray-500 font-normal">(분석 시작 날짜)</span>
+              </label>
               <input
                 type="date"
                 value={startDate}
                 onChange={(e) => setStartDate(e.target.value)}
-                className="border border-gray-300 rounded px-3 py-2"
+                className="w-full border border-gray-300 rounded-lg px-4 py-2.5 focus:ring-2 focus:ring-primary focus:border-primary transition-all"
               />
             </div>
-            <div>
-              <label className="block text-sm font-medium mb-1">종료일</label>
+            <div className="flex-1">
+              <label className="block text-sm font-medium mb-2 flex items-center gap-2">
+                <span>종료일</span>
+                <span className="text-xs text-gray-500 font-normal">(분석 종료 날짜)</span>
+              </label>
               <input
                 type="date"
                 value={endDate}
                 onChange={(e) => setEndDate(e.target.value)}
-                className="border border-gray-300 rounded px-3 py-2"
+                className="w-full border border-gray-300 rounded-lg px-4 py-2.5 focus:ring-2 focus:ring-primary focus:border-primary transition-all"
               />
             </div>
             <button
               onClick={handleApply}
-              className="btn btn-primary"
+              className="btn btn-primary px-6 py-2.5"
             >
               조회
             </button>
           </div>
+          {startDate && endDate && (
+            <div className="mt-3 pt-3 border-t border-gray-200">
+              <p className="text-sm text-gray-600">
+                <span className="font-semibold">선택된 기간:</span> {startDate} ~ {endDate} 
+                <span className="ml-2 text-gray-500">
+                  (총 {Math.round((new Date(endDate).getTime() - new Date(startDate).getTime()) / (1000 * 60 * 60 * 24)) + 1}일)
+                </span>
+              </p>
+            </div>
+          )}
         </div>
 
         {/* KPI 카드 */}

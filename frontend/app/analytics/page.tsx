@@ -373,6 +373,41 @@ function ComparisonTab({
     return `₩${Math.round(value).toLocaleString()}`
   }
 
+  // 날짜 포맷팅 함수
+  const formatDateRange = (startDate: string, endDate: string): string => {
+    try {
+      const start = new Date(startDate)
+      const end = new Date(endDate)
+      const startFormatted = `${start.getFullYear()}년 ${start.getMonth() + 1}월 ${start.getDate()}일`
+      const endFormatted = `${end.getFullYear()}년 ${end.getMonth() + 1}월 ${end.getDate()}일`
+      
+      // 같은 달이면 간단하게 표시
+      if (start.getFullYear() === end.getFullYear() && start.getMonth() === end.getMonth()) {
+        if (start.getDate() === end.getDate()) {
+          return startFormatted
+        }
+        return `${start.getFullYear()}년 ${start.getMonth() + 1}월 ${start.getDate()}일 ~ ${end.getDate()}일`
+      }
+      
+      return `${startFormatted} ~ ${endFormatted}`
+    } catch (e) {
+      return `${startDate} ~ ${endDate}`
+    }
+  }
+
+  // 기간 라벨 생성 함수
+  const getPeriodLabel = (period: any, index: number, total: number): string => {
+    if (period.period === '현재 기간') {
+      return `현재 기간 (${formatDateRange(period.startDate, period.endDate)})`
+    } else if (period.period === '이전 기간') {
+      return `이전 기간 (${formatDateRange(period.startDate, period.endDate)})`
+    } else {
+      // "N기간 전" 형식인 경우
+      const periodNum = total - index
+      return `${periodNum}기간 전 (${formatDateRange(period.startDate, period.endDate)})`
+    }
+  }
+
   const handleAddArtist = () => {
     if (artistInput.trim() && !selectedArtists.includes(artistInput.trim())) {
       setSelectedArtists([...selectedArtists, artistInput.trim()])
@@ -432,18 +467,29 @@ function ComparisonTab({
 
         {/* 기간 비교 설정 */}
         {comparisonType === 'period' && (
-          <div className="flex items-center gap-4">
-            <label className="text-sm font-medium">비교 기간 수:</label>
-            <select
-              value={periods}
-              onChange={(e) => setPeriods(parseInt(e.target.value))}
-              className="border border-gray-300 rounded px-3 py-2"
-            >
-              <option value="2">2개 기간</option>
-              <option value="3">3개 기간</option>
-              <option value="4">4개 기간</option>
-              <option value="6">6개 기간</option>
-            </select>
+          <div className="space-y-3">
+            <div className="flex items-center gap-4">
+              <label className="text-sm font-medium flex items-center gap-2">
+                <span>📅</span>
+                <span>비교 기간 수:</span>
+              </label>
+              <select
+                value={periods}
+                onChange={(e) => setPeriods(parseInt(e.target.value))}
+                className="border border-gray-300 rounded-lg px-4 py-2 focus:ring-2 focus:ring-primary focus:border-primary transition-all"
+              >
+                <option value="2">2개 기간</option>
+                <option value="3">3개 기간</option>
+                <option value="4">4개 기간</option>
+                <option value="6">6개 기간</option>
+              </select>
+            </div>
+            <div className="bg-blue-50 border border-blue-200 rounded-lg p-3">
+              <p className="text-sm text-blue-800">
+                <span className="font-semibold">💡 안내:</span> 각 기간은 선택한 기간 길이(예: 30일)로 나뉩니다. 
+                현재 기간은 가장 최근 기간이며, 숫자가 클수록 더 이전 기간을 의미합니다.
+              </p>
+            </div>
           </div>
         )}
 
@@ -489,20 +535,44 @@ function ComparisonTab({
 
         {/* 국가 비교 설정 */}
         {comparisonType === 'country' && (
-          <div className="flex gap-2">
-            <input
-              type="text"
-              value={countryInput}
-              onChange={(e) => setCountryInput(e.target.value)}
-              placeholder="국가 코드 (쉼표 구분, 예: JP,US,KR)"
-              className="flex-1 border border-gray-300 rounded px-3 py-2"
-            />
-            <button
-              onClick={handleUpdateCountries}
-              className="btn btn-primary px-4"
-            >
-              적용
-            </button>
+          <div className="space-y-3">
+            <div className="bg-green-50 border border-green-200 rounded-lg p-3">
+              <p className="text-sm text-green-800">
+                <span className="font-semibold">💡 안내:</span> 비교하고 싶은 국가 코드를 쉼표로 구분하여 입력하세요. 
+                예: JP,US,KR (일본, 미국, 한국)
+              </p>
+            </div>
+            <div className="flex gap-2">
+              <input
+                type="text"
+                value={countryInput}
+                onChange={(e) => setCountryInput(e.target.value)}
+                placeholder="국가 코드 입력 (쉼표 구분, 예: JP,US,KR)"
+                className="flex-1 border border-gray-300 rounded-lg px-4 py-2.5 focus:ring-2 focus:ring-primary focus:border-primary transition-all"
+              />
+              <button
+                onClick={handleUpdateCountries}
+                className="btn btn-primary px-6"
+              >
+                적용
+              </button>
+            </div>
+            {selectedCountries.length > 0 && (
+              <div>
+                <p className="text-sm text-gray-600 mb-2">선택된 국가 ({selectedCountries.length}개):</p>
+                <div className="flex flex-wrap gap-2">
+                  {selectedCountries.map((country) => (
+                    <span
+                      key={country}
+                      className="inline-flex items-center gap-2 bg-green-100 text-green-800 px-4 py-2 rounded-full text-sm font-medium shadow-sm"
+                    >
+                      <span>🌍</span>
+                      <span>{country}</span>
+                    </span>
+                  ))}
+                </div>
+              </div>
+            )}
           </div>
         )}
       </div>
@@ -520,32 +590,136 @@ function ComparisonTab({
       {/* 기간 비교 결과 */}
       {comparisonType === 'period' && periodData && (
         <div className="space-y-6">
+          {/* 안내 문구 */}
+          <div className="card bg-blue-50 border-blue-200">
+            <div className="flex items-start gap-3">
+              <div className="text-2xl">💡</div>
+              <div className="flex-1">
+                <h3 className="font-semibold text-blue-900 mb-1">기간 비교 안내</h3>
+                <p className="text-sm text-blue-700">
+                  각 기간은 선택한 기간 길이(예: 30일)로 나뉘어 비교됩니다. 
+                  현재 기간은 가장 최근 기간이며, 숫자가 클수록 더 이전 기간을 의미합니다.
+                </p>
+              </div>
+            </div>
+          </div>
+
           <div className="card">
-            <h3 className="text-lg font-semibold mb-4">📅 기간별 성과 비교</h3>
+            <div className="flex items-center justify-between mb-4">
+              <h3 className="text-lg font-semibold">📅 기간별 성과 비교</h3>
+              <div className="text-sm text-gray-500">
+                기간 길이: {dateRange === '7d' ? '7일' : dateRange === '30d' ? '30일' : dateRange === '90d' ? '90일' : '365일'}
+              </div>
+            </div>
             <div className="overflow-x-auto">
               <table className="w-full">
                 <thead>
-                  <tr className="border-b">
-                    <th className="text-left py-2 px-4">기간</th>
-                    <th className="text-right py-2 px-4">매출 (GMV)</th>
-                    <th className="text-right py-2 px-4">객단가 (AOV)</th>
-                    <th className="text-right py-2 px-4">주문 건수</th>
-                    <th className="text-right py-2 px-4">판매 작품 수</th>
+                  <tr className="border-b bg-gray-50">
+                    <th className="text-left py-3 px-4 font-semibold">기간</th>
+                    <th className="text-right py-3 px-4 font-semibold">매출 (GMV)</th>
+                    <th className="text-right py-3 px-4 font-semibold">객단가 (AOV)</th>
+                    <th className="text-right py-3 px-4 font-semibold">주문 건수</th>
+                    <th className="text-right py-3 px-4 font-semibold">판매 작품 수</th>
                   </tr>
                 </thead>
                 <tbody>
-                  {periodData.periods.map((period: any, index: number) => (
-                    <tr
-                      key={index}
-                      className={`border-b ${index === 0 ? 'bg-primary/5 font-semibold' : 'hover:bg-gray-50'}`}
-                    >
-                      <td className="py-2 px-4">{period.period}</td>
-                      <td className="py-2 px-4 text-right">{formatCurrency(period.kpis.gmv)}</td>
-                      <td className="py-2 px-4 text-right">{formatCurrency(period.kpis.aov)}</td>
-                      <td className="py-2 px-4 text-right">{period.kpis.orderCount.toLocaleString()}</td>
-                      <td className="py-2 px-4 text-right">{period.kpis.itemCount.toLocaleString()}</td>
-                    </tr>
-                  ))}
+                  {periodData.periods.map((period: any, index: number) => {
+                    const isCurrentPeriod = index === periodData.periods.length - 1
+                    const isPreviousPeriod = index === periodData.periods.length - 2
+                    const periodNum = periodData.periods.length - index
+                    
+                    return (
+                      <tr
+                        key={index}
+                        className={`border-b transition-colors ${
+                          isCurrentPeriod
+                            ? 'bg-primary/5 font-semibold hover:bg-primary/10' 
+                            : 'hover:bg-gray-50'
+                        }`}
+                      >
+                        <td className="py-3 px-4">
+                          <div className="flex flex-col">
+                            <span className="font-medium text-gray-900">
+                              {isCurrentPeriod ? '✅ 현재 기간' : 
+                               isPreviousPeriod ? '이전 기간' :
+                               `${periodNum}기간 전`}
+                            </span>
+                            <span className="text-xs text-gray-500 mt-1">
+                              {formatDateRange(period.startDate, period.endDate)}
+                            </span>
+                          </div>
+                        </td>
+                        <td className="py-3 px-4 text-right">
+                          <div className="flex flex-col items-end">
+                            <span className="font-semibold">{formatCurrency(period.kpis.gmv)}</span>
+                            {index > 0 && (
+                              <span className={`text-xs mt-1 ${
+                                period.kpis.gmv > periodData.periods[index - 1].kpis.gmv 
+                                  ? 'text-green-600' 
+                                  : period.kpis.gmv < periodData.periods[index - 1].kpis.gmv
+                                    ? 'text-red-600'
+                                    : 'text-gray-500'
+                              }`}>
+                                {period.kpis.gmv > periodData.periods[index - 1].kpis.gmv ? '↑' : 
+                                 period.kpis.gmv < periodData.periods[index - 1].kpis.gmv ? '↓' : '→'}
+                              </span>
+                            )}
+                          </div>
+                        </td>
+                        <td className="py-3 px-4 text-right">
+                          <div className="flex flex-col items-end">
+                            <span className="font-semibold">{formatCurrency(period.kpis.aov)}</span>
+                            {index > 0 && (
+                              <span className={`text-xs mt-1 ${
+                                period.kpis.aov > periodData.periods[index - 1].kpis.aov 
+                                  ? 'text-green-600' 
+                                  : period.kpis.aov < periodData.periods[index - 1].kpis.aov
+                                    ? 'text-red-600'
+                                    : 'text-gray-500'
+                              }`}>
+                                {period.kpis.aov > periodData.periods[index - 1].kpis.aov ? '↑' : 
+                                 period.kpis.aov < periodData.periods[index - 1].kpis.aov ? '↓' : '→'}
+                              </span>
+                            )}
+                          </div>
+                        </td>
+                        <td className="py-3 px-4 text-right">
+                          <div className="flex flex-col items-end">
+                            <span className="font-semibold">{period.kpis.orderCount.toLocaleString()}</span>
+                            {index > 0 && (
+                              <span className={`text-xs mt-1 ${
+                                period.kpis.orderCount > periodData.periods[index - 1].kpis.orderCount 
+                                  ? 'text-green-600' 
+                                  : period.kpis.orderCount < periodData.periods[index - 1].kpis.orderCount
+                                    ? 'text-red-600'
+                                    : 'text-gray-500'
+                              }`}>
+                                {period.kpis.orderCount > periodData.periods[index - 1].kpis.orderCount ? '↑' : 
+                                 period.kpis.orderCount < periodData.periods[index - 1].kpis.orderCount ? '↓' : '→'}
+                              </span>
+                            )}
+                          </div>
+                        </td>
+                        <td className="py-3 px-4 text-right">
+                          <div className="flex flex-col items-end">
+                            <span className="font-semibold">{period.kpis.itemCount.toLocaleString()}</span>
+                            {index > 0 && (
+                              <span className={`text-xs mt-1 ${
+                                period.kpis.itemCount > periodData.periods[index - 1].kpis.itemCount 
+                                  ? 'text-green-600' 
+                                  : period.kpis.itemCount < periodData.periods[index - 1].kpis.itemCount
+                                    ? 'text-red-600'
+                                    : 'text-gray-500'
+                              }`}>
+                                {period.kpis.itemCount > periodData.periods[index - 1].kpis.itemCount ? '↑' : 
+                                 period.kpis.itemCount < periodData.periods[index - 1].kpis.itemCount ? '↓' : '→'}
+                              </span>
+                            )}
+                          </div>
+                        </td>
+                      </tr>
+                    )
+                  })}
                 </tbody>
               </table>
             </div>
@@ -978,37 +1152,67 @@ export default function AnalyticsPage() {
   return (
     <div>
       <div className="mb-6">
-        <h1 className="text-3xl font-bold text-gray-900 mb-2">📈 성과 분석</h1>
-        <p className="text-gray-600">상세한 성과 분석 및 리포트를 확인하세요.</p>
+        <div className="flex items-center gap-3 mb-2">
+          <div className="w-12 h-12 bg-gradient-to-br from-blue-500 to-purple-500 rounded-lg flex items-center justify-center shadow-lg">
+            <span className="text-white text-2xl">📈</span>
+          </div>
+          <div>
+            <h1 className="text-3xl font-bold text-gray-900">성과 분석</h1>
+            <p className="text-gray-600 text-sm mt-1">상세한 성과 분석 및 리포트를 확인하세요</p>
+          </div>
+        </div>
       </div>
 
       {/* 필터 */}
       <div className="card mb-6">
+        <div className="flex items-center gap-2 mb-4">
+          <span className="text-lg">🔍</span>
+          <h2 className="text-lg font-semibold">분석 조건 설정</h2>
+        </div>
         <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
           <div>
-            <label className="block text-sm font-medium mb-1">기간</label>
+            <label className="block text-sm font-medium mb-2 flex items-center gap-2">
+              <span>📅</span>
+              <span>기간</span>
+              <span className="text-xs text-gray-500 font-normal">(분석할 기간을 선택하세요)</span>
+            </label>
             <select
               value={dateRange}
               onChange={(e) => setDateRange(e.target.value)}
-              className="w-full border border-gray-300 rounded px-3 py-2"
+              className="w-full border border-gray-300 rounded-lg px-4 py-2.5 focus:ring-2 focus:ring-primary focus:border-primary transition-all"
             >
               <option value="7d">최근 7일</option>
               <option value="30d">최근 30일</option>
               <option value="90d">최근 90일</option>
               <option value="365d">최근 365일</option>
             </select>
+            <p className="text-xs text-gray-500 mt-1.5">
+              {dateRange === '7d' && '지난 7일간의 데이터를 분석합니다'}
+              {dateRange === '30d' && '지난 30일간의 데이터를 분석합니다'}
+              {dateRange === '90d' && '지난 90일간의 데이터를 분석합니다'}
+              {dateRange === '365d' && '지난 1년간의 데이터를 분석합니다'}
+            </p>
           </div>
           <div>
-            <label className="block text-sm font-medium mb-1">국가</label>
+            <label className="block text-sm font-medium mb-2 flex items-center gap-2">
+              <span>🌍</span>
+              <span>국가</span>
+              <span className="text-xs text-gray-500 font-normal">(분석할 국가를 선택하세요)</span>
+            </label>
             <select
               value={countryFilter}
               onChange={(e) => setCountryFilter(e.target.value)}
-              className="w-full border border-gray-300 rounded px-3 py-2"
+              className="w-full border border-gray-300 rounded-lg px-4 py-2.5 focus:ring-2 focus:ring-primary focus:border-primary transition-all"
             >
               <option value="all">전체 국가</option>
               <option value="jp">일본</option>
               <option value="non_jp">일본 외</option>
             </select>
+            <p className="text-xs text-gray-500 mt-1.5">
+              {countryFilter === 'all' && '모든 국가의 데이터를 포함합니다'}
+              {countryFilter === 'jp' && '일본 고객의 데이터만 분석합니다'}
+              {countryFilter === 'non_jp' && '일본을 제외한 모든 국가의 데이터를 분석합니다'}
+            </p>
           </div>
         </div>
       </div>
