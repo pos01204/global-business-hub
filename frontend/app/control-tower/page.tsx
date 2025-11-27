@@ -139,87 +139,46 @@ export default function ControlTowerPage() {
     <div>
       {/* 페이지 헤더 */}
       <div className="mb-6">
-        <div className="flex items-center gap-3 mb-2">
-          <div className="w-12 h-12 bg-gradient-to-br from-green-500 to-emerald-500 rounded-xl flex items-center justify-center shadow-lg">
-            <span className="text-white text-2xl">📡</span>
-          </div>
-          <div>
-            <h1 className="text-3xl font-bold text-gray-900">실시간 물류 관제 센터</h1>
-            <p className="text-gray-600 text-sm mt-0.5">
-              5단계 물류 파이프라인의 실시간 현황을 모니터링합니다.
-            </p>
-          </div>
-        </div>
+        <h1 className="text-2xl font-bold text-gray-900 mb-1">실시간 물류 관제 센터</h1>
+        <p className="text-gray-600 text-sm">5단계 물류 파이프라인의 실시간 현황을 모니터링합니다.</p>
       </div>
 
       {/* 전체 요약 카드 */}
-      <div className="grid grid-cols-2 md:grid-cols-4 gap-4 mb-8">
-        <div className="card bg-gradient-to-br from-slate-800 to-slate-900 text-white">
-          <div className="flex items-center gap-3">
-            <div className="w-10 h-10 bg-white/20 rounded-lg flex items-center justify-center">
-              <span className="text-xl">📊</span>
-            </div>
-            <div>
-              <p className="text-sm text-slate-300">전체 주문</p>
-              <p className="text-2xl font-bold">{totalOrders}</p>
-            </div>
-          </div>
+      <div className="grid grid-cols-2 md:grid-cols-4 gap-4 mb-6">
+        <div className="card">
+          <p className="text-sm text-gray-500 mb-1">전체 주문</p>
+          <p className="text-2xl font-bold text-gray-900">{totalOrders} <span className="text-sm font-normal text-gray-500">건</span></p>
         </div>
-        
-        <div className="card bg-gradient-to-br from-blue-600 to-blue-700 text-white">
-          <div className="flex items-center gap-3">
-            <div className="w-10 h-10 bg-white/20 rounded-lg flex items-center justify-center">
-              <span className="text-xl">📦</span>
-            </div>
-            <div>
-              <p className="text-sm text-blue-200">전체 작품</p>
-              <p className="text-2xl font-bold">{totalItems}</p>
-            </div>
-          </div>
+        <div className="card">
+          <p className="text-sm text-gray-500 mb-1">전체 작품</p>
+          <p className="text-2xl font-bold text-gray-900">{totalItems} <span className="text-sm font-normal text-gray-500">개</span></p>
         </div>
-        
-        <div className={`card ${totalCriticals > 0 ? 'bg-gradient-to-br from-red-500 to-red-600' : 'bg-gradient-to-br from-green-500 to-green-600'} text-white`}>
-          <div className="flex items-center gap-3">
-            <div className="w-10 h-10 bg-white/20 rounded-lg flex items-center justify-center">
-              <span className="text-xl">{totalCriticals > 0 ? '⚠️' : '✅'}</span>
-            </div>
-            <div>
-              <p className="text-sm text-white/80">위험 건수</p>
-              <p className="text-2xl font-bold">{totalCriticals}</p>
-            </div>
-          </div>
+        <div className={`card ${totalCriticals > 0 ? 'bg-red-50 border-red-200' : ''}`}>
+          <p className={`text-sm mb-1 ${totalCriticals > 0 ? 'text-red-600' : 'text-gray-500'}`}>위험 건수</p>
+          <p className={`text-2xl font-bold ${totalCriticals > 0 ? 'text-red-700' : 'text-gray-900'}`}>{totalCriticals}</p>
         </div>
-        
-        <div className={`card ${maxDelayDays >= 14 ? 'bg-gradient-to-br from-orange-500 to-red-500' : maxDelayDays >= 7 ? 'bg-gradient-to-br from-yellow-500 to-orange-500' : 'bg-gradient-to-br from-gray-500 to-gray-600'} text-white`}>
-          <div className="flex items-center gap-3">
-            <div className="w-10 h-10 bg-white/20 rounded-lg flex items-center justify-center">
-              <span className="text-xl">⏰</span>
-            </div>
-            <div>
-              <p className="text-sm text-white/80">최장 지연</p>
-              <p className="text-2xl font-bold">{maxDelayDays}일</p>
-            </div>
-          </div>
+        <div className={`card ${maxDelayDays >= 14 ? 'bg-orange-50 border-orange-200' : ''}`}>
+          <p className={`text-sm mb-1 ${maxDelayDays >= 7 ? 'text-orange-600' : 'text-gray-500'}`}>최장 지연</p>
+          <p className={`text-2xl font-bold ${maxDelayDays >= 14 ? 'text-orange-700' : maxDelayDays >= 7 ? 'text-orange-600' : 'text-gray-900'}`}>{maxDelayDays}일</p>
         </div>
       </div>
 
       {/* 파이프라인 진행 표시 */}
-      <div className="mb-6">
-        <div className="flex items-center justify-between bg-gray-100 rounded-full p-1 overflow-hidden">
+      <div className="mb-6 overflow-x-auto">
+        <div className="flex items-center gap-1 min-w-max">
           {stages.map(([stageKey, stage], index) => {
             const meta = STAGE_META[stageKey as keyof typeof STAGE_META]
-            const isActive = stage.orderCount > 0
+            const hasIssue = stage.criticalCount > 0
             return (
-              <div key={stageKey} className="flex-1 flex items-center">
+              <div key={stageKey} className="flex items-center">
                 <div className={`
-                  flex-1 py-2 px-3 text-center text-xs font-medium rounded-full transition-all
-                  ${isActive ? `bg-gradient-to-r ${meta.bgFrom} ${meta.bgTo} text-white shadow-md` : 'text-gray-400'}
+                  py-1.5 px-3 text-xs font-medium rounded whitespace-nowrap
+                  ${hasIssue ? 'bg-red-100 text-red-700' : 'bg-gray-100 text-gray-700'}
                 `}>
-                  <span className="mr-1">{meta.icon}</span>
-                  <span className="hidden md:inline">{stage.orderCount}건</span>
+                  {meta.icon} {stage.orderCount}건
                 </div>
                 {index < stages.length - 1 && (
-                  <div className="w-4 h-0.5 bg-gray-300 mx-1"></div>
+                  <div className="w-4 text-gray-400 text-center">→</div>
                 )}
               </div>
             )
@@ -239,56 +198,43 @@ export default function ControlTowerPage() {
           return (
             <div
               key={stageKey}
-              className={`card relative overflow-hidden ${
-                stage.criticalCount > 0 ? 'ring-2 ring-red-200' : ''
-              }`}
+              className={`card ${stage.criticalCount > 0 ? 'border-l-4 border-l-red-500' : 'border-l-4 border-l-green-500'}`}
             >
-              {/* 상단 그라데이션 바 */}
-              <div className={`absolute top-0 left-0 right-0 h-1 bg-gradient-to-r ${meta.bgFrom} ${meta.bgTo}`}></div>
-              
               {/* 헤더 */}
-              <div className="flex items-center gap-3 mb-4 pt-2">
-                <div className={`w-12 h-12 rounded-xl bg-gradient-to-br ${meta.bgFrom} ${meta.bgTo} flex items-center justify-center shadow-lg`}>
-                  <span className="text-2xl text-white">{meta.icon}</span>
-                </div>
+              <div className="flex items-center gap-2 mb-4">
+                <span className="text-xl">{meta.icon}</span>
                 <div className="flex-1 min-w-0">
-                  <h3 className="font-bold text-gray-900 truncate">{stage.title}</h3>
+                  <h3 className="font-semibold text-gray-900 text-sm truncate">{stage.title}</h3>
                   <p className="text-xs text-gray-500">
                     {stage.criticalCount > 0 ? (
-                      <span className="text-red-600 font-medium">⚠️ {stage.criticalCount}건 위험</span>
+                      <span className="text-red-600">{stage.criticalCount}건 위험</span>
                     ) : (
-                      <span className="text-green-600">✓ 정상</span>
+                      <span className="text-green-600">정상</span>
                     )}
                   </p>
                 </div>
               </div>
 
               {/* 메트릭 */}
-              <div className="grid grid-cols-2 gap-3 mb-4">
-                <div className="bg-gray-50 rounded-lg p-3 text-center">
-                  <div className="text-2xl font-bold text-gray-900">{stage.orderCount}</div>
+              <div className="grid grid-cols-2 gap-2 mb-4">
+                <div className="text-center">
+                  <div className="text-xl font-bold text-gray-900">{stage.orderCount}</div>
                   <div className="text-xs text-gray-500">주문</div>
                 </div>
-                <div className="bg-gray-50 rounded-lg p-3 text-center">
-                  <div className="text-2xl font-bold text-gray-900">{stage.itemCount}</div>
+                <div className="text-center">
+                  <div className="text-xl font-bold text-gray-900">{stage.itemCount}</div>
                   <div className="text-xs text-gray-500">작품</div>
                 </div>
               </div>
 
-              {/* 헬스 바 */}
-              <div className="mb-4">
-                <div className="flex justify-between text-xs mb-1">
-                  <span className="text-gray-500">위험도</span>
-                  <span className={criticalPercentage > 50 ? 'text-red-600 font-medium' : 'text-gray-500'}>
-                    {criticalPercentage.toFixed(0)}%
-                  </span>
-                </div>
-                <div className="h-2 bg-gray-200 rounded-full overflow-hidden">
+              {/* 위험도 바 */}
+              <div className="mb-3">
+                <div className="h-1.5 bg-gray-200 rounded-full overflow-hidden">
                   <div
                     className={`h-full transition-all duration-500 ${
-                      criticalPercentage > 50 ? 'bg-red-500' : criticalPercentage > 20 ? 'bg-orange-500' : 'bg-green-500'
+                      criticalPercentage > 50 ? 'bg-red-500' : criticalPercentage > 20 ? 'bg-orange-400' : 'bg-green-500'
                     }`}
-                    style={{ width: `${Math.max(criticalPercentage, 5)}%` }}
+                    style={{ width: `${criticalPercentage}%` }}
                   ></div>
                 </div>
               </div>
@@ -296,23 +242,20 @@ export default function ControlTowerPage() {
               {/* 위험 주문 목록 */}
               {stage.criticals.length > 0 && (
                 <div className="border-t pt-3">
-                  <p className="text-xs font-semibold text-gray-500 mb-2">
-                    시급한 주문
-                  </p>
-                  <ul className={`space-y-1.5 ${isExpanded ? 'max-h-40 overflow-y-auto' : ''}`}>
+                  <ul className={`space-y-1 ${isExpanded ? 'max-h-32 overflow-y-auto' : ''}`}>
                     {stage.criticals.slice(0, isExpanded ? undefined : 2).map((critical, idx) => (
                       <li
                         key={idx}
-                        className="flex items-center justify-between bg-red-50 rounded-lg px-2.5 py-1.5"
+                        className="flex items-center justify-between text-xs"
                       >
                         <button
                           onClick={() => openOrderDetailModal(critical.orderCode)}
-                          className="text-xs font-medium text-gray-700 hover:text-primary hover:underline truncate flex-1 text-left"
+                          className="text-gray-600 hover:text-primary hover:underline truncate flex-1 text-left"
                           title={critical.orderCode}
                         >
-                          {critical.orderCode.slice(0, 20)}...
+                          {critical.orderCode.slice(0, 18)}...
                         </button>
-                        <span className="ml-2 px-2 py-0.5 bg-red-500 text-white text-xs font-bold rounded-full flex-shrink-0">
+                        <span className="ml-2 px-1.5 py-0.5 bg-red-100 text-red-700 text-xs font-medium rounded whitespace-nowrap">
                           {critical.days}일
                         </span>
                       </li>
@@ -321,28 +264,25 @@ export default function ControlTowerPage() {
                   {showMoreButton && (
                     <button
                       onClick={() => toggleCriticalList(stageKey)}
-                      className="w-full mt-2 py-1.5 text-xs font-medium text-gray-600 bg-gray-100 rounded-lg hover:bg-gray-200 transition-colors"
+                      className="w-full mt-2 py-1 text-xs text-gray-500 hover:text-gray-700"
                     >
-                      {isExpanded ? '접기' : `+${stage.criticals.length - 2}개 더보기`}
+                      {isExpanded ? '접기' : `+${stage.criticals.length - 2}개`}
                     </button>
                   )}
                 </div>
               )}
 
               {/* 푸터 */}
-              <div className="mt-4 pt-3 border-t flex items-center justify-between">
-                <div className="text-xs text-gray-500">
+              <div className="mt-3 pt-3 border-t flex items-center justify-between text-xs">
+                <span className="text-gray-500">
                   {stage.maxDays > 0 ? (
-                    <>최장 <span className={`font-bold ${stage.maxDays >= 14 ? 'text-red-600' : stage.maxDays >= 7 ? 'text-orange-600' : 'text-gray-700'}`}>{stage.maxDays}일</span></>
+                    <>최장 <span className={stage.maxDays >= 7 ? 'text-red-600 font-medium' : 'text-gray-700'}>{stage.maxDays}일</span></>
                   ) : (
-                    <span className="text-green-600">지연 없음</span>
+                    '지연 없음'
                   )}
-                </div>
-                <Link
-                  href={meta.link}
-                  className="text-xs font-semibold text-primary hover:underline flex items-center gap-1"
-                >
-                  상세 <span>→</span>
+                </span>
+                <Link href={meta.link} className="text-primary hover:underline">
+                  상세 →
                 </Link>
               </div>
             </div>
@@ -351,27 +291,14 @@ export default function ControlTowerPage() {
       </div>
 
       {/* 범례 */}
-      <div className="mt-8 card bg-gray-50">
-        <h3 className="font-semibold text-gray-700 mb-3">📋 파이프라인 단계 설명</h3>
-        <div className="grid grid-cols-1 md:grid-cols-5 gap-4 text-sm">
-          {stages.map(([stageKey, stage]) => {
-            const meta = STAGE_META[stageKey as keyof typeof STAGE_META]
-            return (
-              <div key={stageKey} className="flex items-start gap-2">
-                <span className="text-xl">{meta.icon}</span>
-                <div>
-                  <p className="font-medium text-gray-800">{stage.title}</p>
-                  <p className="text-xs text-gray-500">
-                    {stageKey === 'unreceived' && '결제 완료 후 미입고 상태'}
-                    {stageKey === 'artistShipping' && '작가가 작품을 발송 중'}
-                    {stageKey === 'awaitingInspection' && '물류센터 입고 대기'}
-                    {stageKey === 'inspectionComplete' && '검수 완료, 포장 대기'}
-                    {stageKey === 'internationalShipping' && '해외 배송 진행 중'}
-                  </p>
-                </div>
-              </div>
-            )
-          })}
+      <div className="mt-6 card bg-gray-50 border-gray-200">
+        <p className="text-xs text-gray-500 mb-2 font-medium">단계 설명</p>
+        <div className="flex flex-wrap gap-x-6 gap-y-1 text-xs text-gray-600">
+          <span>📦 미입고: 결제 후 미입고</span>
+          <span>🚚 국내배송: 작가 발송</span>
+          <span>🔍 검수대기: 입고 대기</span>
+          <span>✅ 검수완료: 포장 대기</span>
+          <span>✈️ 국제배송: 해외 배송중</span>
         </div>
       </div>
 

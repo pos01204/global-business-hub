@@ -5,33 +5,33 @@ import { unreceivedApi } from '@/lib/api'
 import { useState } from 'react'
 import OrderDetailModal from '@/components/OrderDetailModal'
 
-// 경과일에 따른 위험도 배지
+// 경과일에 따른 위험도 배지 (한 줄로 표시)
 function DelayBadge({ days }: { days: number }) {
   if (days >= 14) {
     return (
-      <span className="inline-flex items-center gap-1 px-2.5 py-1 rounded-full text-xs font-bold bg-red-100 text-red-700 border border-red-200">
-        <span className="w-2 h-2 bg-red-500 rounded-full animate-pulse"></span>
+      <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded text-xs font-bold bg-red-100 text-red-700 whitespace-nowrap">
+        <span className="w-1.5 h-1.5 bg-red-500 rounded-full"></span>
         {days}일
       </span>
     )
   }
   if (days >= 7) {
     return (
-      <span className="inline-flex items-center gap-1 px-2.5 py-1 rounded-full text-xs font-bold bg-orange-100 text-orange-700 border border-orange-200">
-        <span className="w-2 h-2 bg-orange-500 rounded-full"></span>
+      <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded text-xs font-bold bg-orange-100 text-orange-700 whitespace-nowrap">
+        <span className="w-1.5 h-1.5 bg-orange-500 rounded-full"></span>
         {days}일
       </span>
     )
   }
   if (days >= 3) {
     return (
-      <span className="inline-flex items-center gap-1 px-2.5 py-1 rounded-full text-xs font-medium bg-yellow-100 text-yellow-700 border border-yellow-200">
+      <span className="px-2 py-0.5 rounded text-xs font-medium bg-yellow-100 text-yellow-700 whitespace-nowrap">
         {days}일
       </span>
     )
   }
   return (
-    <span className="inline-flex items-center gap-1 px-2.5 py-1 rounded-full text-xs font-medium bg-gray-100 text-gray-600">
+    <span className="px-2 py-0.5 rounded text-xs font-medium bg-gray-100 text-gray-600 whitespace-nowrap">
       {days}일
     </span>
   )
@@ -143,39 +143,29 @@ export default function UnreceivedPage() {
     <div>
       {/* 페이지 헤더 */}
       <div className="mb-6">
-        <div className="flex items-center gap-3 mb-2">
-          <div className="w-12 h-12 bg-gradient-to-br from-red-500 to-orange-500 rounded-xl flex items-center justify-center shadow-lg">
-            <span className="text-white text-2xl">🚨</span>
-          </div>
-          <div>
-            <h1 className="text-3xl font-bold text-gray-900">미입고 관리</h1>
-            <p className="text-gray-600 text-sm mt-0.5">
-              '결제 완료' 상태의 주문 중 '처리완료'되지 않은 개별 작품 목록입니다.
-            </p>
-          </div>
-        </div>
+        <h1 className="text-2xl font-bold text-gray-900 mb-1">미입고 관리</h1>
+        <p className="text-gray-600 text-sm">'결제 완료' 상태의 주문 중 '처리완료'되지 않은 개별 작품 목록입니다.</p>
       </div>
 
       {/* 긴급 알림 배너 */}
       {criticalCount > 0 && (
-        <div className="mb-6 bg-gradient-to-r from-red-500 to-red-600 rounded-xl p-4 text-white shadow-lg">
+        <div className="mb-6 bg-red-50 border border-red-200 rounded-lg p-4">
           <div className="flex items-center justify-between">
             <div className="flex items-center gap-3">
-              <div className="w-10 h-10 bg-white/20 rounded-full flex items-center justify-center">
-                <span className="text-2xl">⚠️</span>
+              <div className="w-8 h-8 bg-red-100 rounded-full flex items-center justify-center text-red-600 font-bold text-sm">
+                !
               </div>
               <div>
-                <h3 className="font-bold text-lg">긴급 처리 필요</h3>
-                <p className="text-red-100 text-sm">
-                  14일 이상 지연된 항목이 <span className="font-bold text-white">{criticalCount}건</span> 있습니다. 즉시 확인이 필요합니다.
+                <p className="text-red-800 font-medium">
+                  14일 이상 지연된 항목이 <span className="font-bold">{criticalCount}건</span> 있습니다.
                 </p>
               </div>
             </div>
             <button
               onClick={() => setDelayFilter('critical')}
-              className="px-4 py-2 bg-white text-red-600 rounded-lg font-medium hover:bg-red-50 transition-colors"
+              className="px-3 py-1.5 bg-red-600 text-white rounded text-sm font-medium hover:bg-red-700 transition-colors"
             >
-              바로 확인 →
+              확인하기
             </button>
           </div>
         </div>
@@ -183,61 +173,24 @@ export default function UnreceivedPage() {
 
       {/* KPI 카드 */}
       {data && (
-        <div className="grid grid-cols-1 md:grid-cols-4 gap-4 mb-6">
-          <div className="card bg-gradient-to-br from-blue-50 to-blue-100 border-blue-200">
-            <div className="flex items-center justify-between">
-              <div>
-                <h3 className="text-sm font-medium text-blue-600 mb-1">총 미입고 작품</h3>
-                <p className="text-3xl font-bold text-blue-900">{data.kpis.total.toLocaleString()}</p>
-                <p className="text-xs text-blue-500 mt-1">개</p>
-              </div>
-              <div className="w-12 h-12 bg-blue-200 rounded-xl flex items-center justify-center">
-                <span className="text-2xl">📦</span>
-              </div>
-            </div>
+        <div className="grid grid-cols-2 md:grid-cols-4 gap-4 mb-6">
+          <div className="card">
+            <p className="text-sm text-gray-500 mb-1">총 미입고 작품</p>
+            <p className="text-2xl font-bold text-gray-900">{data.kpis.total.toLocaleString()} <span className="text-sm font-normal text-gray-500">개</span></p>
           </div>
-
-          <div className="card bg-gradient-to-br from-purple-50 to-purple-100 border-purple-200">
-            <div className="flex items-center justify-between">
-              <div>
-                <h3 className="text-sm font-medium text-purple-600 mb-1">관련 주문</h3>
-                <p className="text-3xl font-bold text-purple-900">{data.kpis.orders.toLocaleString()}</p>
-                <p className="text-xs text-purple-500 mt-1">건</p>
-              </div>
-              <div className="w-12 h-12 bg-purple-200 rounded-xl flex items-center justify-center">
-                <span className="text-2xl">📋</span>
-              </div>
-            </div>
+          <div className="card">
+            <p className="text-sm text-gray-500 mb-1">관련 주문</p>
+            <p className="text-2xl font-bold text-gray-900">{data.kpis.orders.toLocaleString()} <span className="text-sm font-normal text-gray-500">건</span></p>
           </div>
-
-          <div className="card bg-gradient-to-br from-green-50 to-green-100 border-green-200">
-            <div className="flex items-center justify-between">
-              <div>
-                <h3 className="text-sm font-medium text-green-600 mb-1">관련 작가</h3>
-                <p className="text-3xl font-bold text-green-900">{data.kpis.artists.toLocaleString()}</p>
-                <p className="text-xs text-green-500 mt-1">명</p>
-              </div>
-              <div className="w-12 h-12 bg-green-200 rounded-xl flex items-center justify-center">
-                <span className="text-2xl">👩‍🎨</span>
-              </div>
-            </div>
+          <div className="card">
+            <p className="text-sm text-gray-500 mb-1">관련 작가</p>
+            <p className="text-2xl font-bold text-gray-900">{data.kpis.artists.toLocaleString()} <span className="text-sm font-normal text-gray-500">명</span></p>
           </div>
-
-          <div className={`card ${delayedCount > 0 ? 'bg-gradient-to-br from-red-50 to-red-100 border-red-300' : 'bg-gradient-to-br from-gray-50 to-gray-100 border-gray-200'}`}>
-            <div className="flex items-center justify-between">
-              <div>
-                <h3 className={`text-sm font-medium mb-1 ${delayedCount > 0 ? 'text-red-600' : 'text-gray-600'}`}>
-                  7일 이상 지연
-                </h3>
-                <p className={`text-3xl font-bold ${delayedCount > 0 ? 'text-red-700' : 'text-gray-700'}`}>
-                  {delayedCount.toLocaleString()}
-                </p>
-                <p className={`text-xs mt-1 ${delayedCount > 0 ? 'text-red-500' : 'text-gray-500'}`}>개</p>
-              </div>
-              <div className={`w-12 h-12 rounded-xl flex items-center justify-center ${delayedCount > 0 ? 'bg-red-200' : 'bg-gray-200'}`}>
-                <span className="text-2xl">{delayedCount > 0 ? '🔥' : '✅'}</span>
-              </div>
-            </div>
+          <div className={`card ${delayedCount > 0 ? 'bg-red-50 border-red-200' : ''}`}>
+            <p className={`text-sm mb-1 ${delayedCount > 0 ? 'text-red-600' : 'text-gray-500'}`}>7일+ 지연</p>
+            <p className={`text-2xl font-bold ${delayedCount > 0 ? 'text-red-700' : 'text-gray-900'}`}>
+              {delayedCount.toLocaleString()} <span className="text-sm font-normal">개</span>
+            </p>
           </div>
         </div>
       )}
@@ -246,9 +199,9 @@ export default function UnreceivedPage() {
       <div className="flex gap-2 mb-4 flex-wrap">
         <button
           onClick={() => setDelayFilter('all')}
-          className={`px-4 py-2 rounded-full text-sm font-medium transition-all ${
+          className={`px-3 py-1.5 rounded text-sm font-medium transition-all ${
             delayFilter === 'all'
-              ? 'bg-gray-900 text-white shadow-md'
+              ? 'bg-gray-900 text-white'
               : 'bg-gray-100 text-gray-600 hover:bg-gray-200'
           }`}
         >
@@ -256,33 +209,33 @@ export default function UnreceivedPage() {
         </button>
         <button
           onClick={() => setDelayFilter('critical')}
-          className={`px-4 py-2 rounded-full text-sm font-medium transition-all ${
+          className={`px-3 py-1.5 rounded text-sm font-medium transition-all ${
             delayFilter === 'critical'
-              ? 'bg-red-600 text-white shadow-md'
+              ? 'bg-red-600 text-white'
               : 'bg-red-50 text-red-600 hover:bg-red-100'
           }`}
         >
-          🔴 14일+ 위험 ({criticalCount})
+          14일+ ({criticalCount})
         </button>
         <button
           onClick={() => setDelayFilter('delayed')}
-          className={`px-4 py-2 rounded-full text-sm font-medium transition-all ${
+          className={`px-3 py-1.5 rounded text-sm font-medium transition-all ${
             delayFilter === 'delayed'
-              ? 'bg-orange-600 text-white shadow-md'
+              ? 'bg-orange-600 text-white'
               : 'bg-orange-50 text-orange-600 hover:bg-orange-100'
           }`}
         >
-          🟠 7일+ 지연 ({delayedCount})
+          7일+ ({delayedCount})
         </button>
         <button
           onClick={() => setDelayFilter('warning')}
-          className={`px-4 py-2 rounded-full text-sm font-medium transition-all ${
+          className={`px-3 py-1.5 rounded text-sm font-medium transition-all ${
             delayFilter === 'warning'
-              ? 'bg-yellow-600 text-white shadow-md'
+              ? 'bg-yellow-600 text-white'
               : 'bg-yellow-50 text-yellow-700 hover:bg-yellow-100'
           }`}
         >
-          🟡 3-7일 주의
+          3-7일
         </button>
       </div>
 
@@ -290,38 +243,38 @@ export default function UnreceivedPage() {
       <div className="card mb-6">
         <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
           <div>
-            <label className="block text-sm font-medium text-gray-700 mb-2">🔍 검색</label>
+            <label className="block text-sm font-medium text-gray-700 mb-1.5">검색</label>
             <input
               type="text"
               value={searchTerm}
               onChange={(e) => setSearchTerm(e.target.value)}
-              placeholder="주문번호, 작가명, 작품명으로 검색..."
-              className="w-full border border-gray-300 rounded-lg px-4 py-2.5 focus:ring-2 focus:ring-primary focus:border-primary transition-all"
+              placeholder="주문번호, 작가명, 작품명..."
+              className="w-full border border-gray-300 rounded px-3 py-2 text-sm focus:ring-2 focus:ring-primary focus:border-primary"
             />
           </div>
           <div>
-            <label className="block text-sm font-medium text-gray-700 mb-2">📊 지연 상태</label>
+            <label className="block text-sm font-medium text-gray-700 mb-1.5">지연 상태</label>
             <select
               value={delayFilter}
               onChange={(e) => setDelayFilter(e.target.value)}
-              className="w-full border border-gray-300 rounded-lg px-4 py-2.5 focus:ring-2 focus:ring-primary focus:border-primary transition-all"
+              className="w-full border border-gray-300 rounded px-3 py-2 text-sm focus:ring-2 focus:ring-primary focus:border-primary"
             >
-              <option value="all">모든 지연 상태</option>
-              <option value="critical">14일 이상 (위험)</option>
-              <option value="delayed">7일 이상 (지연)</option>
-              <option value="warning">3-7일 (주의)</option>
+              <option value="all">전체</option>
+              <option value="critical">14일 이상</option>
+              <option value="delayed">7일 이상</option>
+              <option value="warning">3-7일</option>
             </select>
           </div>
           <div>
-            <label className="block text-sm font-medium text-gray-700 mb-2">📦 주문 유형</label>
+            <label className="block text-sm font-medium text-gray-700 mb-1.5">주문 유형</label>
             <select
               value={bundleFilter}
               onChange={(e) => setBundleFilter(e.target.value)}
-              className="w-full border border-gray-300 rounded-lg px-4 py-2.5 focus:ring-2 focus:ring-primary focus:border-primary transition-all"
+              className="w-full border border-gray-300 rounded px-3 py-2 text-sm focus:ring-2 focus:ring-primary focus:border-primary"
             >
-              <option value="all">모든 주문 유형</option>
-              <option value="bundle">묶음 주문 (2명 이상 작가)</option>
-              <option value="single">단일 주문 (작가 1명)</option>
+              <option value="all">전체</option>
+              <option value="bundle">묶음 주문</option>
+              <option value="single">단일 주문</option>
             </select>
           </div>
         </div>
@@ -400,13 +353,12 @@ export default function UnreceivedPage() {
                         )}
                       </span>
                     </td>
-                    <td className="py-4 px-4 text-center">
+                    <td className="py-3 px-4 text-center">
                       <button
                         onClick={() => handleOpenModal(item.orderCode, item.currentStatus || '')}
-                        className="inline-flex items-center gap-1 px-3 py-1.5 text-sm font-medium text-white bg-primary hover:bg-primary/90 rounded-lg transition-colors"
+                        className="px-3 py-1 text-sm font-medium text-white bg-primary hover:bg-primary/90 rounded transition-colors whitespace-nowrap"
                       >
-                        <span>✏️</span>
-                        <span>수정</span>
+                        수정
                       </button>
                     </td>
                   </tr>

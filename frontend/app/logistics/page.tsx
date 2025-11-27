@@ -81,47 +81,38 @@ const countryMap: Record<string, { flag: string; name: string }> = {
 function CountryBadge({ code }: { code: string }) {
   const country = countryMap[code] || { flag: '🌐', name: code }
   return (
-    <div className="inline-flex items-center gap-1.5 px-2 py-1 bg-gray-100 rounded-lg">
-      <span className="text-lg">{country.flag}</span>
-      <span className="text-sm font-medium text-gray-700">{code}</span>
-    </div>
+    <span className="inline-flex items-center gap-1 text-sm text-gray-700 whitespace-nowrap">
+      <span>{country.flag}</span>
+      <span className="font-medium">{code}</span>
+    </span>
   )
 }
 
-// 상태별 스타일 및 아이콘
+// 상태별 스타일
 function StatusBadge({ status }: { status: string }) {
   const statusLower = status.toLowerCase()
   
-  let style = 'bg-gray-100 text-gray-700 border-gray-200'
-  let icon = '📋'
+  let style = 'bg-gray-100 text-gray-700'
   
   if (statusLower.includes('결제 완료')) {
-    style = 'bg-blue-100 text-blue-700 border-blue-200'
-    icon = '💳'
+    style = 'bg-blue-100 text-blue-700'
   } else if (statusLower.includes('작가') && statusLower.includes('송장')) {
-    style = 'bg-orange-100 text-orange-700 border-orange-200'
-    icon = '📝'
+    style = 'bg-orange-100 text-orange-700'
   } else if (statusLower.includes('작가') && statusLower.includes('발송')) {
-    style = 'bg-amber-100 text-amber-700 border-amber-200'
-    icon = '📦'
+    style = 'bg-amber-100 text-amber-700'
   } else if (statusLower.includes('검수 대기') || statusLower.includes('입고')) {
-    style = 'bg-yellow-100 text-yellow-700 border-yellow-200'
-    icon = '🔍'
+    style = 'bg-yellow-100 text-yellow-700'
   } else if (statusLower.includes('검수완료') || statusLower.includes('검수 완료')) {
-    style = 'bg-green-100 text-green-700 border-green-200'
-    icon = '✅'
+    style = 'bg-green-100 text-green-700'
   } else if (statusLower.includes('국제배송') || statusLower.includes('배송중') || statusLower.includes('배송 중')) {
-    style = 'bg-purple-100 text-purple-700 border-purple-200'
-    icon = '✈️'
+    style = 'bg-purple-100 text-purple-700'
   } else if (statusLower.includes('완료') || statusLower.includes('도착')) {
-    style = 'bg-emerald-100 text-emerald-700 border-emerald-200'
-    icon = '🎉'
+    style = 'bg-emerald-100 text-emerald-700'
   }
   
   return (
-    <span className={`inline-flex items-center gap-1.5 px-3 py-1.5 rounded-full text-xs font-semibold border ${style}`}>
-      <span>{icon}</span>
-      <span>{status}</span>
+    <span className={`px-2 py-0.5 rounded text-xs font-medium whitespace-nowrap ${style}`}>
+      {status}
     </span>
   )
 }
@@ -242,71 +233,31 @@ export default function LogisticsPage() {
     <div>
       {/* 페이지 헤더 */}
       <div className="mb-6">
-        <div className="flex items-center gap-3 mb-2">
-          <div className="w-12 h-12 bg-gradient-to-br from-orange-500 to-amber-500 rounded-xl flex items-center justify-center shadow-lg">
-            <span className="text-white text-2xl">🚚</span>
-          </div>
-          <div>
-            <h1 className="text-3xl font-bold text-gray-900">글로벌 물류 추적</h1>
-            <p className="text-gray-600 text-sm mt-0.5">
-              진행 중인 모든 주문의 물류 현황을 추적합니다.
-            </p>
-          </div>
-        </div>
+        <h1 className="text-2xl font-bold text-gray-900 mb-1">글로벌 물류 추적</h1>
+        <p className="text-gray-600 text-sm">진행 중인 모든 주문의 물류 현황을 추적합니다.</p>
       </div>
 
       {/* 통계 카드 */}
       <div className="grid grid-cols-2 md:grid-cols-4 gap-4 mb-6">
-        <div className="card bg-gradient-to-br from-blue-50 to-blue-100 border-blue-200">
-          <div className="flex items-center gap-3">
-            <div className="w-10 h-10 bg-blue-200 rounded-lg flex items-center justify-center">
-              <span className="text-xl">📦</span>
-            </div>
-            <div>
-              <p className="text-sm text-blue-600">전체 주문</p>
-              <p className="text-2xl font-bold text-blue-900">{stats.total}</p>
-            </div>
-          </div>
+        <div className="card">
+          <p className="text-sm text-gray-500 mb-1">전체 주문</p>
+          <p className="text-2xl font-bold text-gray-900">{stats.total}</p>
         </div>
-        
-        <div className="card bg-gradient-to-br from-orange-50 to-orange-100 border-orange-200">
-          <div className="flex items-center gap-3">
-            <div className="w-10 h-10 bg-orange-200 rounded-lg flex items-center justify-center">
-              <span className="text-xl">📝</span>
-            </div>
-            <div>
-              <p className="text-sm text-orange-600">송장 입력 대기</p>
-              <p className="text-2xl font-bold text-orange-900">
-                {Object.entries(stats.byStatus).filter(([k]) => k.includes('송장')).reduce((a, [, v]) => a + v, 0)}
-              </p>
-            </div>
-          </div>
+        <div className="card">
+          <p className="text-sm text-gray-500 mb-1">송장 입력 대기</p>
+          <p className="text-2xl font-bold text-orange-600">
+            {Object.entries(stats.byStatus).filter(([k]) => k.includes('송장')).reduce((a, [, v]) => a + v, 0)}
+          </p>
         </div>
-        
-        <div className="card bg-gradient-to-br from-purple-50 to-purple-100 border-purple-200">
-          <div className="flex items-center gap-3">
-            <div className="w-10 h-10 bg-purple-200 rounded-lg flex items-center justify-center">
-              <span className="text-xl">✈️</span>
-            </div>
-            <div>
-              <p className="text-sm text-purple-600">국제 배송중</p>
-              <p className="text-2xl font-bold text-purple-900">
-                {Object.entries(stats.byStatus).filter(([k]) => k.includes('배송')).reduce((a, [, v]) => a + v, 0)}
-              </p>
-            </div>
-          </div>
+        <div className="card">
+          <p className="text-sm text-gray-500 mb-1">국제 배송중</p>
+          <p className="text-2xl font-bold text-purple-600">
+            {Object.entries(stats.byStatus).filter(([k]) => k.includes('배송')).reduce((a, [, v]) => a + v, 0)}
+          </p>
         </div>
-        
-        <div className="card bg-gradient-to-br from-green-50 to-green-100 border-green-200">
-          <div className="flex items-center gap-3">
-            <div className="w-10 h-10 bg-green-200 rounded-lg flex items-center justify-center">
-              <span className="text-xl">🌍</span>
-            </div>
-            <div>
-              <p className="text-sm text-green-600">배송 국가</p>
-              <p className="text-2xl font-bold text-green-900">{Object.keys(stats.byCountry).length}</p>
-            </div>
-          </div>
+        <div className="card">
+          <p className="text-sm text-gray-500 mb-1">배송 국가</p>
+          <p className="text-2xl font-bold text-gray-900">{Object.keys(stats.byCountry).length}</p>
         </div>
       </div>
 
@@ -314,38 +265,38 @@ export default function LogisticsPage() {
       <div className="card mb-6">
         <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
           <div>
-            <label className="block text-sm font-medium text-gray-700 mb-2">🔍 주문번호</label>
+            <label className="block text-sm font-medium text-gray-700 mb-1.5">주문번호</label>
             <input
               type="text"
               value={searchTerm}
               onChange={(e) => setSearchTerm(e.target.value)}
               placeholder="주문번호로 검색..."
-              className="w-full border border-gray-300 rounded-lg px-4 py-2.5 focus:ring-2 focus:ring-primary focus:border-primary transition-all"
+              className="w-full border border-gray-300 rounded px-3 py-2 text-sm focus:ring-2 focus:ring-primary focus:border-primary"
             />
           </div>
           <div>
-            <label className="block text-sm font-medium text-gray-700 mb-2">🌍 국가</label>
+            <label className="block text-sm font-medium text-gray-700 mb-1.5">국가</label>
             <select
               value={selectedCountry}
               onChange={(e) => setSelectedCountry(e.target.value)}
-              className="w-full border border-gray-300 rounded-lg px-4 py-2.5 focus:ring-2 focus:ring-primary focus:border-primary transition-all"
+              className="w-full border border-gray-300 rounded px-3 py-2 text-sm focus:ring-2 focus:ring-primary focus:border-primary"
             >
               {countries.map((country) => {
                 const countryInfo = countryMap[country]
                 return (
                   <option key={country} value={country}>
-                    {countryInfo ? `${countryInfo.flag} ${country} (${countryInfo.name})` : country}
+                    {countryInfo ? `${countryInfo.flag} ${country}` : country}
                   </option>
                 )
               })}
             </select>
           </div>
           <div>
-            <label className="block text-sm font-medium text-gray-700 mb-2">📊 상태</label>
+            <label className="block text-sm font-medium text-gray-700 mb-1.5">상태</label>
             <select
               value={selectedStatus}
               onChange={(e) => setSelectedStatus(e.target.value)}
-              className="w-full border border-gray-300 rounded-lg px-4 py-2.5 focus:ring-2 focus:ring-primary focus:border-primary transition-all"
+              className="w-full border border-gray-300 rounded px-3 py-2 text-sm focus:ring-2 focus:ring-primary focus:border-primary"
             >
               {statuses.map((status) => (
                 <option key={status} value={status}>
