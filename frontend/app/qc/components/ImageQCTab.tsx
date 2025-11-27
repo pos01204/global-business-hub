@@ -223,6 +223,39 @@ export default function ImageQCTab() {
     }
   }, [updateStatusMutation])
 
+  const handleApproveFromThumbnail = useCallback((id: string, e: React.MouseEvent) => {
+    e.stopPropagation() // 이미지 클릭 이벤트 방지
+    if (confirm('이 항목을 승인하시겠습니까?')) {
+      updateStatusMutation.mutate({
+        id,
+        status: 'approved',
+        needsRevision: false,
+      })
+    }
+  }, [updateStatusMutation])
+
+  const handleNeedsRevisionFromThumbnail = useCallback((id: string, e: React.MouseEvent) => {
+    e.stopPropagation() // 이미지 클릭 이벤트 방지
+    if (confirm('이 항목을 수정 필요로 표시하시겠습니까?')) {
+      updateStatusMutation.mutate({
+        id,
+        status: 'needs_revision',
+        needsRevision: true,
+      })
+    }
+  }, [updateStatusMutation])
+
+  const handleExcludeFromThumbnail = useCallback((id: string, e: React.MouseEvent) => {
+    e.stopPropagation() // 이미지 클릭 이벤트 방지
+    if (confirm('이 항목을 QC 비대상으로 표시하시겠습니까?')) {
+      updateStatusMutation.mutate({
+        id,
+        status: 'excluded',
+        needsRevision: false,
+      })
+    }
+  }, [updateStatusMutation])
+
   const handleImageClick = (item: any, index: number) => {
     setSelectedImage(item)
     setSelectedIndex(index)
@@ -429,9 +462,62 @@ export default function ImageQCTab() {
               </p>
 
               {/* 페이지 유형 */}
-              <p className="text-xs text-gray-500 mt-1">
+              <p className="text-xs text-gray-500 mt-1 mb-3">
                 {item.data.page_name || 'N/A'}
               </p>
+
+              {/* 액션 버튼 */}
+              <div className="mt-3 pt-3 border-t border-gray-200 flex gap-1 flex-wrap">
+                {item.status !== 'approved' && item.status !== 'excluded' && (
+                  <button
+                    onClick={(e) => handleApproveFromThumbnail(item.id, e)}
+                    disabled={updateStatusMutation.isPending}
+                    className="flex-1 px-2 py-1.5 text-xs font-medium bg-green-500 hover:bg-green-600 text-white rounded transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+                    title="승인"
+                  >
+                    ✓ 승인
+                  </button>
+                )}
+                {item.status !== 'needs_revision' && item.status !== 'excluded' && (
+                  <button
+                    onClick={(e) => handleNeedsRevisionFromThumbnail(item.id, e)}
+                    disabled={updateStatusMutation.isPending}
+                    className="flex-1 px-2 py-1.5 text-xs font-medium bg-red-500 hover:bg-red-600 text-white rounded transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+                    title="수정 필요"
+                  >
+                    ✗ 수정
+                  </button>
+                )}
+                {item.status !== 'excluded' && (
+                  <button
+                    onClick={(e) => handleExcludeFromThumbnail(item.id, e)}
+                    disabled={updateStatusMutation.isPending}
+                    className="flex-1 px-2 py-1.5 text-xs font-medium bg-gray-500 hover:bg-gray-600 text-white rounded transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+                    title="비대상"
+                  >
+                    ⊘ 비대상
+                  </button>
+                )}
+                {item.status === 'excluded' && (
+                  <button
+                    onClick={(e) => {
+                      e.stopPropagation()
+                      if (confirm('이 항목을 QC 대상으로 복원하시겠습니까?')) {
+                        updateStatusMutation.mutate({
+                          id: item.id,
+                          status: 'pending',
+                          needsRevision: false,
+                        })
+                      }
+                    }}
+                    disabled={updateStatusMutation.isPending}
+                    className="w-full px-2 py-1.5 text-xs font-medium bg-blue-500 hover:bg-blue-600 text-white rounded transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+                    title="QC 대상으로 복원"
+                  >
+                    복원
+                  </button>
+                )}
+              </div>
             </div>
           ))}
         </div>
