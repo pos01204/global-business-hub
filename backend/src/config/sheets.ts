@@ -57,5 +57,9 @@ export const SHEET_NAMES = {
   // 물류비 정산 관련 시트
   SETTLEMENT_RECORDS: 'Settlement_records', // 정산서 건별 상세 데이터
   SETTLEMENT_MONTHLY: 'Settlement_monthly', // 월별 요약 데이터
+  // 표준 요금표 시트
+  RATE_LOTTE: 'Rate_LotteGlobal', // 롯데글로벌 요금표
+  RATE_EMS: 'Rate_EMS', // EMS 요금표
+  RATE_KPACKET: 'Rate_KPacket', // K-Packet 요금표
 } as const;
 

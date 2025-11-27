@@ -3,6 +3,7 @@ import multer from 'multer';
 import { parse } from 'csv-parse/sync';
 import GoogleSheetsService from '../services/googleSheets';
 import { sheetsConfig, SHEET_NAMES } from '../config/sheets';
+import { rateService, RateValidationResult } from '../services/rateService';
 
 const router = Router();
 const sheetsService = new GoogleSheetsService(sheetsConfig);
@@ -281,7 +282,33 @@ router.post('/upload', upload.single('file'), async (req, res) => {
 
     // 요약 통계 계산
     const totalShippingFee = processedRows.reduce((sum, row) => sum + (row[19] || 0), 0);
-    const totalCost = processedRows.reduce((sum, row) => sum + (row[26] || 0), 0);
+    const totalCost = processedRows.reduce((sum, row) => sum + (row[27] || 0), 0);
+
+    // ======== 요금 검증 (자동) ========
+    const validationRecords = processedRows.map(row => ({
+      id: row[0],
+      carrier: row[4],
+      country: row[13], // country_code
+      charged_weight: row[18],
+      total_cost: row[27],
+    }));
+
+    const validationResult = rateService.validateBatch(validationRecords);
+    console.log(`[Settlement] 요금 검증 완료: 정상 ${validationResult.summary.normal}, 경고 ${validationResult.summary.warning}, 오류 ${validationResult.summary.error}`);
+
+    // 검증 결과 중 경고/오류 건만 추출
+    const validationIssues = validationResult.results
+      .filter(r => r.status === 'warning' || r.status === 'error')
+      .map(r => ({
+        recordId: r.recordId,
+        status: r.status,
+        message: r.message,
+        expectedRate: r.expectedRate,
+        actualRate: r.actualRate,
+        difference: r.difference,
+        differencePercent: Math.round(r.differencePercent * 10) / 10,
+        details: r.details,
+      }));
 
     res.json({
       success: true,
@@ -297,7 +324,17 @@ router.post('/upload', upload.single('file'), async (req, res) => {
           totalCost,
           avgCostPerShipment: processedRows.length > 0 ? Math.round(totalCost / processedRows.length) : 0,
         },
-        message: `${processedRows.length}건의 정산 데이터가 저장되었습니다.`,
+        // 검증 결과 추가
+        validation: {
+          summary: validationResult.summary,
+          issues: validationIssues.slice(0, 20), // 상위 20건만
+          hasIssues: validationIssues.length > 0,
+        },
+        message: `${processedRows.length}건의 정산 데이터가 저장되었습니다.${
+          validationIssues.length > 0 
+            ? ` (검증 경고/오류 ${validationIssues.length}건 발견)` 
+            : ''
+        }`,
       },
     });
 
@@ -705,6 +742,285 @@ router.get('/shipment/:shipmentId', async (req, res) => {
     res.status(500).json({
       success: false,
       error: error.message || '조회 중 오류가 발생했습니다.',
+    });
+  }
+});
+
+/**
+ * POST /api/settlement/validate
+ * 저장된 정산 데이터 검증 (기간별)
+ */
+router.post('/validate', async (req, res) => {
+  try {
+    const { period } = req.body;
+
+    const allData = await sheetsService.getSheetDataAsJson(
+      SHEET_NAMES.SETTLEMENT_RECORDS, 
+      false
+    );
+
+    let filteredData = allData;
+    if (period) {
+      filteredData = filteredData.filter(row => row.period === period);
+    }
+
+    if (filteredData.length === 0) {
+      return res.json({
+        success: true,
+        data: {
+          summary: {
+            total: 0, normal: 0, warning: 0, error: 0, unknown: 0,
+            totalExpectedCost: 0, totalActualCost: 0, totalDifference: 0,
+          },
+          issues: [],
+        },
+      });
+    }
+
+    // 검증 데이터 준비
+    const validationRecords = filteredData.map(row => ({
+      id: row.id,
+      carrier: row.carrier,
+      country: row.country_code,
+      charged_weight: parseFloat(row.charged_weight || 0),
+      total_cost: parseFloat(row.total_cost || 0),
+    }));
+
+    const result = rateService.validateBatch(validationRecords);
+
+    // 검증 결과 중 이슈 있는 건만 추출
+    const issues = result.results
+      .filter(r => r.status === 'warning' || r.status === 'error')
+      .map(r => ({
+        recordId: r.recordId,
+        status: r.status,
+        message: r.message,
+        expectedRate: r.expectedRate,
+        actualRate: r.actualRate,
+        difference: r.difference,
+        differencePercent: Math.round(r.differencePercent * 10) / 10,
+        details: r.details,
+      }))
+      .sort((a, b) => Math.abs(b.difference) - Math.abs(a.difference));
+
+    res.json({
+      success: true,
+      data: {
+        period: period || '전체',
+        summary: result.summary,
+        issues,
+      },
+    });
+
+  } catch (error: any) {
+    console.error('[Settlement] 검증 오류:', error);
+    res.status(500).json({
+      success: false,
+      error: error.message || '검증 중 오류가 발생했습니다.',
+    });
+  }
+});
+
+/**
+ * GET /api/settlement/rates/expected
+ * 예상 요금 조회
+ */
+router.get('/rates/expected', async (req, res) => {
+  try {
+    const { carrier, country, weight } = req.query;
+
+    if (!carrier || !country || !weight) {
+      return res.status(400).json({
+        success: false,
+        error: '운송사(carrier), 국가(country), 중량(weight)은 필수입니다.',
+      });
+    }
+
+    const weightNum = parseFloat(weight as string);
+    const carrierStr = (carrier as string).toUpperCase();
+    const countryStr = country as string;
+
+    let expectedRate: number | null = null;
+    let service: string | undefined;
+
+    if (carrierStr === 'LOTTEGLOBAL' || carrierStr === 'LOTTE') {
+      const lotteRate = rateService.getExpectedLotteRate(countryStr, weightNum);
+      if (lotteRate) {
+        expectedRate = lotteRate.rate;
+        service = lotteRate.service;
+      }
+    } else if (carrierStr === 'KPACKET' || carrierStr === 'K-PACKET') {
+      expectedRate = rateService.getExpectedKPacketRate(countryStr, weightNum);
+      service = 'K-Packet';
+    } else if (carrierStr === 'EMS') {
+      expectedRate = rateService.getExpectedEmsRate(countryStr, weightNum);
+      service = 'EMS';
+    }
+
+    res.json({
+      success: true,
+      data: {
+        carrier: carrierStr,
+        country: countryStr,
+        weight: weightNum,
+        expectedRate,
+        service,
+        found: expectedRate !== null,
+      },
+    });
+
+  } catch (error: any) {
+    console.error('[Settlement] 예상 요금 조회 오류:', error);
+    res.status(500).json({
+      success: false,
+      error: error.message || '조회 중 오류가 발생했습니다.',
+    });
+  }
+});
+
+/**
+ * GET /api/settlement/rates/countries
+ * 지원 국가 목록 조회
+ */
+router.get('/rates/countries', async (req, res) => {
+  try {
+    const countries = rateService.getSupportedCountries();
+
+    res.json({
+      success: true,
+      data: countries,
+    });
+
+  } catch (error: any) {
+    console.error('[Settlement] 국가 목록 오류:', error);
+    res.status(500).json({
+      success: false,
+      error: error.message || '조회 중 오류가 발생했습니다.',
+    });
+  }
+});
+
+/**
+ * GET /api/settlement/analysis/trend
+ * 월별 물류비 트렌드 분석
+ */
+router.get('/analysis/trend', async (req, res) => {
+  try {
+    const allData = await sheetsService.getSheetDataAsJson(
+      SHEET_NAMES.SETTLEMENT_RECORDS, 
+      false
+    );
+
+    // 기간별 집계
+    const periodStats: Record<string, {
+      count: number;
+      totalCost: number;
+      totalShippingFee: number;
+      totalSurcharge: number;
+      avgCost: number;
+      avgWeight: number;
+      totalWeight: number;
+      byCarrier: Record<string, { count: number; cost: number }>;
+      byCountry: Record<string, { count: number; cost: number }>;
+    }> = {};
+
+    allData.forEach(row => {
+      const period = row.period || 'Unknown';
+      const cost = parseFloat(row.total_cost || 0);
+      const shippingFee = parseFloat(row.shipping_fee || 0);
+      const surcharge = 
+        parseFloat(row.surcharge1 || 0) + 
+        parseFloat(row.surcharge2 || 0) + 
+        parseFloat(row.surcharge3 || 0);
+      const weight = parseFloat(row.charged_weight || 0);
+      const carrier = row.carrier || 'Unknown';
+      const country = row.country_code || 'Unknown';
+
+      if (!periodStats[period]) {
+        periodStats[period] = {
+          count: 0,
+          totalCost: 0,
+          totalShippingFee: 0,
+          totalSurcharge: 0,
+          avgCost: 0,
+          avgWeight: 0,
+          totalWeight: 0,
+          byCarrier: {},
+          byCountry: {},
+        };
+      }
+
+      periodStats[period].count++;
+      periodStats[period].totalCost += cost;
+      periodStats[period].totalShippingFee += shippingFee;
+      periodStats[period].totalSurcharge += surcharge;
+      periodStats[period].totalWeight += weight;
+
+      // 운송사별
+      if (!periodStats[period].byCarrier[carrier]) {
+        periodStats[period].byCarrier[carrier] = { count: 0, cost: 0 };
+      }
+      periodStats[period].byCarrier[carrier].count++;
+      periodStats[period].byCarrier[carrier].cost += cost;
+
+      // 국가별
+      if (!periodStats[period].byCountry[country]) {
+        periodStats[period].byCountry[country] = { count: 0, cost: 0 };
+      }
+      periodStats[period].byCountry[country].count++;
+      periodStats[period].byCountry[country].cost += cost;
+    });
+
+    // 평균 계산 및 정렬
+    const trendData = Object.entries(periodStats)
+      .map(([period, stats]) => ({
+        period,
+        count: stats.count,
+        totalCost: Math.round(stats.totalCost),
+        totalShippingFee: Math.round(stats.totalShippingFee),
+        totalSurcharge: Math.round(stats.totalSurcharge),
+        avgCost: stats.count > 0 ? Math.round(stats.totalCost / stats.count) : 0,
+        avgWeight: stats.count > 0 ? Math.round(stats.totalWeight / stats.count * 100) / 100 : 0,
+        surchargeRate: stats.totalCost > 0 
+          ? Math.round((stats.totalSurcharge / stats.totalCost) * 1000) / 10 
+          : 0,
+        byCarrier: Object.entries(stats.byCarrier)
+          .map(([carrier, data]) => ({ carrier, ...data }))
+          .sort((a, b) => b.cost - a.cost),
+        byCountry: Object.entries(stats.byCountry)
+          .map(([country, data]) => ({ country, ...data }))
+          .sort((a, b) => b.cost - a.cost)
+          .slice(0, 5), // 상위 5개국만
+      }))
+      .filter(item => item.period !== 'Unknown')
+      .sort((a, b) => a.period.localeCompare(b.period));
+
+    // 전체 요약
+    const overallSummary = {
+      totalPeriods: trendData.length,
+      totalRecords: trendData.reduce((sum, p) => sum + p.count, 0),
+      totalCost: trendData.reduce((sum, p) => sum + p.totalCost, 0),
+      avgMonthlyCost: trendData.length > 0 
+        ? Math.round(trendData.reduce((sum, p) => sum + p.totalCost, 0) / trendData.length)
+        : 0,
+      avgMonthlyCount: trendData.length > 0
+        ? Math.round(trendData.reduce((sum, p) => sum + p.count, 0) / trendData.length)
+        : 0,
+    };
+
+    res.json({
+      success: true,
+      data: {
+        trend: trendData,
+        summary: overallSummary,
+      },
+    });
+
+  } catch (error: any) {
+    console.error('[Settlement] 트렌드 분석 오류:', error);
+    res.status(500).json({
+      success: false,
+      error: error.message || '분석 중 오류가 발생했습니다.',
     });
   }
 });

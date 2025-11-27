@@ -5,7 +5,7 @@ import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
 import { settlementApi } from '@/lib/api'
 
 // 탭 타입
-type SettlementTab = 'upload' | 'list' | 'country' | 'carrier' | 'weight'
+type SettlementTab = 'upload' | 'list' | 'country' | 'carrier' | 'weight' | 'trend' | 'validate'
 
 // 국가 플래그 매핑
 const countryFlags: Record<string, string> = {
@@ -66,6 +66,18 @@ export default function SettlementPage() {
     queryKey: ['settlement', 'weight', selectedPeriod],
     queryFn: () => settlementApi.getWeightAnalysis(selectedPeriod || undefined),
     enabled: activeTab === 'weight',
+  })
+
+  // 트렌드 분석
+  const { data: trendData, isLoading: isTrendLoading } = useQuery({
+    queryKey: ['settlement', 'trend'],
+    queryFn: settlementApi.getTrendAnalysis,
+    enabled: activeTab === 'trend',
+  })
+
+  // 요금 검증
+  const validateMutation = useMutation({
+    mutationFn: (period?: string) => settlementApi.validate(period),
   })
 
   // 파일 업로드 mutation
@@ -198,6 +210,28 @@ export default function SettlementPage() {
             <span>⚖️</span>
             <span>중량 최적화</span>
           </button>
+          <button
+            onClick={() => setActiveTab('trend')}
+            className={`px-4 py-2.5 rounded-lg font-medium transition-all flex items-center gap-2 ${
+              activeTab === 'trend'
+                ? 'bg-primary text-white shadow-md'
+                : 'bg-gray-100 text-gray-700 hover:bg-gray-200'
+            }`}
+          >
+            <span>📈</span>
+            <span>월별 트렌드</span>
+          </button>
+          <button
+            onClick={() => setActiveTab('validate')}
+            className={`px-4 py-2.5 rounded-lg font-medium transition-all flex items-center gap-2 ${
+              activeTab === 'validate'
+                ? 'bg-primary text-white shadow-md'
+                : 'bg-gray-100 text-gray-700 hover:bg-gray-200'
+            }`}
+          >
+            <span>🔍</span>
+            <span>요금 검증</span>
+          </button>
         </div>
       </div>
 
@@ -262,32 +296,141 @@ export default function SettlementPage() {
 
               {/* 업로드 성공 */}
               {uploadResult?.success && (
-                <div className="mt-6 p-4 bg-green-50 rounded-lg">
-                  <h3 className="font-semibold text-green-800 mb-3">
-                    ✅ 업로드 완료
-                  </h3>
-                  <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
-                    <div className="bg-white rounded-lg p-3 shadow-sm">
-                      <p className="text-sm text-gray-500">파일명</p>
-                      <p className="font-medium">{uploadResult.data.fileName}</p>
+                <div className="mt-6 space-y-4">
+                  <div className="p-4 bg-green-50 rounded-lg">
+                    <h3 className="font-semibold text-green-800 mb-3">
+                      ✅ 업로드 완료
+                    </h3>
+                    <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
+                      <div className="bg-white rounded-lg p-3 shadow-sm">
+                        <p className="text-sm text-gray-500">파일명</p>
+                        <p className="font-medium">{uploadResult.data.fileName}</p>
+                      </div>
+                      <div className="bg-white rounded-lg p-3 shadow-sm">
+                        <p className="text-sm text-gray-500">처리된 건수</p>
+                        <p className="font-medium text-green-600">{uploadResult.data.processedRows}건</p>
+                      </div>
+                      <div className="bg-white rounded-lg p-3 shadow-sm">
+                        <p className="text-sm text-gray-500">총 운송료</p>
+                        <p className="font-medium">{formatCurrency(uploadResult.data.summary.totalCost)}</p>
+                      </div>
+                      <div className="bg-white rounded-lg p-3 shadow-sm">
+                        <p className="text-sm text-gray-500">건당 평균</p>
+                        <p className="font-medium">{formatCurrency(uploadResult.data.summary.avgCostPerShipment)}</p>
+                      </div>
                     </div>
-                    <div className="bg-white rounded-lg p-3 shadow-sm">
-                      <p className="text-sm text-gray-500">처리된 건수</p>
-                      <p className="font-medium text-green-600">{uploadResult.data.processedRows}건</p>
-                    </div>
-                    <div className="bg-white rounded-lg p-3 shadow-sm">
-                      <p className="text-sm text-gray-500">총 운송료</p>
-                      <p className="font-medium">{formatCurrency(uploadResult.data.summary.totalCost)}</p>
-                    </div>
-                    <div className="bg-white rounded-lg p-3 shadow-sm">
-                      <p className="text-sm text-gray-500">건당 평균</p>
-                      <p className="font-medium">{formatCurrency(uploadResult.data.summary.avgCostPerShipment)}</p>
-                    </div>
+                    {uploadResult.data.skippedRows > 0 && (
+                      <p className="mt-3 text-sm text-yellow-700">
+                        ⚠️ {uploadResult.data.skippedRows}건의 행이 스킵되었습니다 (헤더/합계 행)
+                      </p>
+                    )}
                   </div>
-                  {uploadResult.data.skippedRows > 0 && (
-                    <p className="mt-3 text-sm text-yellow-700">
-                      ⚠️ {uploadResult.data.skippedRows}건의 행이 스킵되었습니다 (헤더/합계 행)
-                    </p>
+
+                  {/* 검증 결과 */}
+                  {uploadResult.data.validation && (
+                    <div className={`p-4 rounded-lg ${
+                      uploadResult.data.validation.summary.error > 0 
+                        ? 'bg-red-50' 
+                        : uploadResult.data.validation.summary.warning > 0 
+                          ? 'bg-yellow-50' 
+                          : 'bg-blue-50'
+                    }`}>
+                      <h3 className={`font-semibold mb-3 flex items-center gap-2 ${
+                        uploadResult.data.validation.summary.error > 0 
+                          ? 'text-red-800' 
+                          : uploadResult.data.validation.summary.warning > 0 
+                            ? 'text-yellow-800' 
+                            : 'text-blue-800'
+                      }`}>
+                        {uploadResult.data.validation.summary.error > 0 
+                          ? '❌ 요금 검증 오류 발견' 
+                          : uploadResult.data.validation.summary.warning > 0 
+                            ? '⚠️ 요금 검증 경고' 
+                            : '✅ 요금 검증 완료'}
+                      </h3>
+                      
+                      <div className="grid grid-cols-2 md:grid-cols-5 gap-3 mb-4">
+                        <div className="bg-white rounded-lg p-3 shadow-sm">
+                          <p className="text-xs text-gray-500">총 검증</p>
+                          <p className="font-bold">{uploadResult.data.validation.summary.total}건</p>
+                        </div>
+                        <div className="bg-white rounded-lg p-3 shadow-sm">
+                          <p className="text-xs text-green-600">정상</p>
+                          <p className="font-bold text-green-600">{uploadResult.data.validation.summary.normal}건</p>
+                        </div>
+                        <div className="bg-white rounded-lg p-3 shadow-sm">
+                          <p className="text-xs text-yellow-600">경고</p>
+                          <p className="font-bold text-yellow-600">{uploadResult.data.validation.summary.warning}건</p>
+                        </div>
+                        <div className="bg-white rounded-lg p-3 shadow-sm">
+                          <p className="text-xs text-red-600">오류</p>
+                          <p className="font-bold text-red-600">{uploadResult.data.validation.summary.error}건</p>
+                        </div>
+                        <div className="bg-white rounded-lg p-3 shadow-sm">
+                          <p className="text-xs text-gray-500">미검증</p>
+                          <p className="font-bold text-gray-500">{uploadResult.data.validation.summary.unknown}건</p>
+                        </div>
+                      </div>
+
+                      {/* 비용 차이 요약 */}
+                      {uploadResult.data.validation.summary.totalDifference !== 0 && (
+                        <div className={`p-3 rounded-lg ${
+                          uploadResult.data.validation.summary.totalDifference > 0 ? 'bg-red-100' : 'bg-green-100'
+                        }`}>
+                          <p className="text-sm">
+                            {uploadResult.data.validation.summary.totalDifference > 0 
+                              ? `📈 예상보다 ${formatCurrency(uploadResult.data.validation.summary.totalDifference)} 더 청구됨`
+                              : `📉 예상보다 ${formatCurrency(Math.abs(uploadResult.data.validation.summary.totalDifference))} 적게 청구됨`
+                            }
+                          </p>
+                        </div>
+                      )}
+
+                      {/* 이슈 목록 */}
+                      {uploadResult.data.validation.issues?.length > 0 && (
+                        <div className="mt-4">
+                          <p className="text-sm font-medium mb-2">주요 이슈 건:</p>
+                          <div className="overflow-x-auto">
+                            <table className="w-full text-xs">
+                              <thead>
+                                <tr className="border-b">
+                                  <th className="text-left p-2">상태</th>
+                                  <th className="text-left p-2">국가</th>
+                                  <th className="text-left p-2">운송사</th>
+                                  <th className="text-right p-2">중량</th>
+                                  <th className="text-right p-2">예상요금</th>
+                                  <th className="text-right p-2">실제요금</th>
+                                  <th className="text-right p-2">차이</th>
+                                </tr>
+                              </thead>
+                              <tbody>
+                                {uploadResult.data.validation.issues.slice(0, 10).map((issue: any, idx: number) => (
+                                  <tr key={idx} className="border-b hover:bg-white/50">
+                                    <td className="p-2">
+                                      <span className={`px-2 py-0.5 rounded text-xs font-medium ${
+                                        issue.status === 'error' ? 'bg-red-200 text-red-800' : 'bg-yellow-200 text-yellow-800'
+                                      }`}>
+                                        {issue.status === 'error' ? '오류' : '경고'}
+                                      </span>
+                                    </td>
+                                    <td className="p-2">{countryFlags[issue.details?.countryCode] || '🌐'} {issue.details?.countryCode}</td>
+                                    <td className="p-2">{issue.details?.carrier}</td>
+                                    <td className="p-2 text-right">{issue.details?.weight}kg</td>
+                                    <td className="p-2 text-right">{issue.expectedRate ? formatCurrency(issue.expectedRate) : '-'}</td>
+                                    <td className="p-2 text-right">{formatCurrency(issue.actualRate)}</td>
+                                    <td className={`p-2 text-right font-medium ${
+                                      issue.difference > 0 ? 'text-red-600' : 'text-green-600'
+                                    }`}>
+                                      {issue.difference > 0 ? '+' : ''}{formatCurrency(issue.difference)} ({issue.differencePercent}%)
+                                    </td>
+                                  </tr>
+                                ))}
+                              </tbody>
+                            </table>
+                          </div>
+                        </div>
+                      )}
+                    </div>
                   )}
                 </div>
               )}
@@ -639,6 +782,315 @@ export default function SettlementPage() {
                 분석 실패
               </div>
             )}
+          </div>
+        )}
+
+        {/* 월별 트렌드 탭 */}
+        {activeTab === 'trend' && (
+          <div>
+            {isTrendLoading ? (
+              <div className="card text-center py-12">
+                <div className="animate-spin rounded-full h-10 w-10 border-b-2 border-primary mx-auto mb-4"></div>
+                <p>분석 중...</p>
+              </div>
+            ) : trendData?.success ? (
+              <>
+                {/* 전체 요약 */}
+                <div className="grid grid-cols-1 md:grid-cols-4 gap-4 mb-6">
+                  <div className="card">
+                    <p className="text-sm text-gray-500">데이터 기간</p>
+                    <p className="text-2xl font-bold">{trendData.data.summary.totalPeriods}개월</p>
+                  </div>
+                  <div className="card">
+                    <p className="text-sm text-gray-500">총 발송 건수</p>
+                    <p className="text-2xl font-bold">{trendData.data.summary.totalRecords.toLocaleString()}건</p>
+                  </div>
+                  <div className="card">
+                    <p className="text-sm text-gray-500">총 물류비</p>
+                    <p className="text-2xl font-bold">{formatCurrency(trendData.data.summary.totalCost)}</p>
+                  </div>
+                  <div className="card">
+                    <p className="text-sm text-gray-500">월평균 물류비</p>
+                    <p className="text-2xl font-bold">{formatCurrency(trendData.data.summary.avgMonthlyCost)}</p>
+                  </div>
+                </div>
+
+                {/* 월별 트렌드 차트 (텍스트 기반) */}
+                <div className="card mb-6">
+                  <h2 className="text-xl font-semibold mb-4 flex items-center gap-2">
+                    <span>📈</span>
+                    월별 물류비 추이
+                  </h2>
+                  
+                  <div className="space-y-4">
+                    {trendData.data.trend.map((item: any) => {
+                      const maxCost = Math.max(...trendData.data.trend.map((d: any) => d.totalCost));
+                      const widthPercent = maxCost > 0 ? (item.totalCost / maxCost) * 100 : 0;
+                      
+                      return (
+                        <div key={item.period}>
+                          <div className="flex items-center justify-between mb-1">
+                            <div className="flex items-center gap-2">
+                              <span className="font-medium w-20">{item.period}</span>
+                              <span className="text-gray-500 text-sm">({item.count}건)</span>
+                            </div>
+                            <div className="text-right">
+                              <span className="font-bold">{formatCurrency(item.totalCost)}</span>
+                              <span className="text-sm text-gray-500 ml-2">
+                                (평균 {formatCurrency(item.avgCost)}/건)
+                              </span>
+                            </div>
+                          </div>
+                          <div className="h-8 bg-gray-100 rounded-lg overflow-hidden">
+                            <div 
+                              className="h-full bg-gradient-to-r from-primary to-blue-400 rounded-lg transition-all duration-500 flex items-center justify-end pr-2"
+                              style={{ width: `${widthPercent}%` }}
+                            >
+                              {item.surchargeRate > 0 && (
+                                <span className="text-xs text-white font-medium">
+                                  +{item.surchargeRate}% 추가운임
+                                </span>
+                              )}
+                            </div>
+                          </div>
+                          
+                          {/* 국가별 세부 정보 */}
+                          <div className="flex gap-2 mt-2 flex-wrap">
+                            {item.byCountry.slice(0, 5).map((c: any) => (
+                              <span key={c.country} className="text-xs bg-gray-100 px-2 py-1 rounded">
+                                {countryFlags[c.country] || '🌐'} {c.country}: {c.count}건
+                              </span>
+                            ))}
+                          </div>
+                        </div>
+                      );
+                    })}
+                  </div>
+
+                  {trendData.data.trend.length === 0 && (
+                    <div className="text-center py-8 text-gray-500">
+                      데이터가 없습니다.
+                    </div>
+                  )}
+                </div>
+
+                {/* 인사이트 */}
+                {trendData.data.trend.length >= 2 && (
+                  <div className="card bg-gradient-to-r from-blue-50 to-indigo-50">
+                    <h3 className="font-semibold mb-3 flex items-center gap-2">
+                      <span>💡</span>
+                      인사이트
+                    </h3>
+                    <ul className="text-sm text-gray-700 space-y-2">
+                      <li>• 월평균 <strong>{trendData.data.summary.avgMonthlyCount.toLocaleString()}건</strong> 발송</li>
+                      <li>• 월평균 물류비 <strong>{formatCurrency(trendData.data.summary.avgMonthlyCost)}</strong></li>
+                      {(() => {
+                        const latest = trendData.data.trend[trendData.data.trend.length - 1];
+                        const previous = trendData.data.trend[trendData.data.trend.length - 2];
+                        if (latest && previous) {
+                          const diff = latest.totalCost - previous.totalCost;
+                          const diffPercent = ((diff / previous.totalCost) * 100).toFixed(1);
+                          return (
+                            <li>• 최근 월({latest.period}) vs 이전 월({previous.period}): 
+                              <span className={diff > 0 ? 'text-red-600 font-medium' : 'text-green-600 font-medium'}>
+                                {' '}{diff > 0 ? '+' : ''}{formatCurrency(diff)} ({diffPercent}%)
+                              </span>
+                            </li>
+                          );
+                        }
+                        return null;
+                      })()}
+                    </ul>
+                  </div>
+                )}
+              </>
+            ) : (
+              <div className="card text-center py-8 text-red-500">
+                분석 실패
+              </div>
+            )}
+          </div>
+        )}
+
+        {/* 요금 검증 탭 */}
+        {activeTab === 'validate' && (
+          <div>
+            <div className="card mb-6">
+              <h2 className="text-xl font-semibold mb-4 flex items-center gap-2">
+                <span>🔍</span>
+                표준 요금표 대비 검증
+              </h2>
+              <p className="text-gray-600 mb-4">
+                업로드된 정산서를 표준 요금표와 비교하여 이상 요금을 확인합니다.
+              </p>
+              
+              <div className="flex items-center gap-4">
+                <select
+                  value={selectedPeriod}
+                  onChange={(e) => setSelectedPeriod(e.target.value)}
+                  className="border border-gray-300 rounded-lg px-4 py-2 focus:ring-2 focus:ring-primary focus:border-primary"
+                >
+                  <option value="">전체 기간</option>
+                  {periodsData?.data?.map((p: any) => (
+                    <option key={p.period} value={p.period}>
+                      {p.period} ({p.count}건)
+                    </option>
+                  ))}
+                </select>
+                
+                <button
+                  onClick={() => validateMutation.mutate(selectedPeriod || undefined)}
+                  disabled={validateMutation.isPending}
+                  className="btn btn-primary flex items-center gap-2"
+                >
+                  {validateMutation.isPending ? (
+                    <>
+                      <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-white"></div>
+                      검증 중...
+                    </>
+                  ) : (
+                    <>
+                      <span>🔍</span>
+                      검증 실행
+                    </>
+                  )}
+                </button>
+              </div>
+            </div>
+
+            {/* 검증 결과 */}
+            {validateMutation.data?.success && (
+              <div className="space-y-6">
+                {/* 요약 */}
+                <div className="grid grid-cols-1 md:grid-cols-5 gap-4">
+                  <div className="card">
+                    <p className="text-sm text-gray-500">총 검증</p>
+                    <p className="text-2xl font-bold">{validateMutation.data.data.summary.total}건</p>
+                  </div>
+                  <div className="card bg-green-50">
+                    <p className="text-sm text-green-700">정상</p>
+                    <p className="text-2xl font-bold text-green-700">{validateMutation.data.data.summary.normal}건</p>
+                  </div>
+                  <div className="card bg-yellow-50">
+                    <p className="text-sm text-yellow-700">경고 (5~15%)</p>
+                    <p className="text-2xl font-bold text-yellow-700">{validateMutation.data.data.summary.warning}건</p>
+                  </div>
+                  <div className="card bg-red-50">
+                    <p className="text-sm text-red-700">오류 (15%+)</p>
+                    <p className="text-2xl font-bold text-red-700">{validateMutation.data.data.summary.error}건</p>
+                  </div>
+                  <div className="card">
+                    <p className="text-sm text-gray-500">미검증</p>
+                    <p className="text-2xl font-bold text-gray-500">{validateMutation.data.data.summary.unknown}건</p>
+                  </div>
+                </div>
+
+                {/* 비용 비교 */}
+                <div className="card">
+                  <h3 className="font-semibold mb-4">비용 비교</h3>
+                  <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+                    <div className="bg-gray-50 rounded-lg p-4">
+                      <p className="text-sm text-gray-500">예상 총 비용</p>
+                      <p className="text-xl font-bold">{formatCurrency(validateMutation.data.data.summary.totalExpectedCost)}</p>
+                    </div>
+                    <div className="bg-gray-50 rounded-lg p-4">
+                      <p className="text-sm text-gray-500">실제 총 비용</p>
+                      <p className="text-xl font-bold">{formatCurrency(validateMutation.data.data.summary.totalActualCost)}</p>
+                    </div>
+                    <div className={`rounded-lg p-4 ${
+                      validateMutation.data.data.summary.totalDifference > 0 ? 'bg-red-50' : 'bg-green-50'
+                    }`}>
+                      <p className={`text-sm ${
+                        validateMutation.data.data.summary.totalDifference > 0 ? 'text-red-700' : 'text-green-700'
+                      }`}>차이</p>
+                      <p className={`text-xl font-bold ${
+                        validateMutation.data.data.summary.totalDifference > 0 ? 'text-red-700' : 'text-green-700'
+                      }`}>
+                        {validateMutation.data.data.summary.totalDifference > 0 ? '+' : ''}
+                        {formatCurrency(validateMutation.data.data.summary.totalDifference)}
+                      </p>
+                    </div>
+                  </div>
+                </div>
+
+                {/* 이슈 목록 */}
+                {validateMutation.data.data.issues?.length > 0 && (
+                  <div className="card">
+                    <h3 className="font-semibold mb-4">이슈 건 목록 ({validateMutation.data.data.issues.length}건)</h3>
+                    <div className="overflow-x-auto">
+                      <table className="w-full text-sm">
+                        <thead>
+                          <tr className="border-b bg-gray-50">
+                            <th className="text-left p-3">상태</th>
+                            <th className="text-left p-3">국가</th>
+                            <th className="text-left p-3">운송사</th>
+                            <th className="text-right p-3">중량</th>
+                            <th className="text-right p-3">예상요금</th>
+                            <th className="text-right p-3">실제요금</th>
+                            <th className="text-right p-3">차이</th>
+                            <th className="text-left p-3">메시지</th>
+                          </tr>
+                        </thead>
+                        <tbody>
+                          {validateMutation.data.data.issues.map((issue: any, idx: number) => (
+                            <tr key={idx} className="border-b hover:bg-gray-50">
+                              <td className="p-3">
+                                <span className={`px-2 py-1 rounded text-xs font-medium ${
+                                  issue.status === 'error' 
+                                    ? 'bg-red-100 text-red-800' 
+                                    : 'bg-yellow-100 text-yellow-800'
+                                }`}>
+                                  {issue.status === 'error' ? '오류' : '경고'}
+                                </span>
+                              </td>
+                              <td className="p-3">{countryFlags[issue.details?.countryCode] || '🌐'} {issue.details?.country}</td>
+                              <td className="p-3">{issue.details?.carrier}</td>
+                              <td className="p-3 text-right">{issue.details?.weight}kg</td>
+                              <td className="p-3 text-right">{issue.expectedRate ? formatCurrency(issue.expectedRate) : '-'}</td>
+                              <td className="p-3 text-right">{formatCurrency(issue.actualRate)}</td>
+                              <td className={`p-3 text-right font-medium ${
+                                issue.difference > 0 ? 'text-red-600' : 'text-green-600'
+                              }`}>
+                                {issue.difference > 0 ? '+' : ''}{formatCurrency(issue.difference)}
+                                <br />
+                                <span className="text-xs">({issue.differencePercent}%)</span>
+                              </td>
+                              <td className="p-3 text-xs text-gray-600 max-w-xs truncate">{issue.message}</td>
+                            </tr>
+                          ))}
+                        </tbody>
+                      </table>
+                    </div>
+                  </div>
+                )}
+
+                {validateMutation.data.data.issues?.length === 0 && (
+                  <div className="card bg-green-50 text-center py-8">
+                    <span className="text-4xl">✅</span>
+                    <p className="text-green-800 font-medium mt-4">모든 정산 건이 정상 범위입니다!</p>
+                  </div>
+                )}
+              </div>
+            )}
+
+            {/* 안내 */}
+            <div className="card mt-6 bg-gray-50">
+              <h3 className="font-semibold mb-3 flex items-center gap-2">
+                <span>💡</span>
+                검증 기준
+              </h3>
+              <ul className="text-sm text-gray-600 space-y-2">
+                <li>• <span className="text-green-600 font-medium">정상</span>: 예상 요금 대비 ±5% 이내</li>
+                <li>• <span className="text-yellow-600 font-medium">경고</span>: 예상 요금 대비 5~15% 차이</li>
+                <li>• <span className="text-red-600 font-medium">오류</span>: 예상 요금 대비 15% 이상 차이</li>
+                <li>• <span className="text-gray-500 font-medium">미검증</span>: 요금표에 없는 국가/운송사 조합</li>
+              </ul>
+              <div className="mt-4 p-3 bg-white rounded-lg">
+                <p className="text-xs text-gray-500">
+                  * 표준 요금표: 롯데글로벌(YAMATO, USPS, CXC, CJ Logistics, Skynet, HCT, AusPost, CanadaPost), K-Packet, EMS
+                </p>
+              </div>
+            </div>
           </div>
         )}
       </div>

@@ -442,6 +442,12 @@ export const settlementApi = {
     return response.data
   },
 
+  // 트렌드 분석 (월별)
+  getTrendAnalysis: async () => {
+    const response = await api.get('/api/settlement/analysis/trend')
+    return response.data
+  },
+
   // 업로드된 기간 목록
   getPeriods: async () => {
     const response = await api.get('/api/settlement/periods')
@@ -451,6 +457,26 @@ export const settlementApi = {
   // shipment_id로 정산 데이터 조회
   getByShipmentId: async (shipmentId: string) => {
     const response = await api.get(`/api/settlement/shipment/${shipmentId}`)
+    return response.data
+  },
+
+  // 정산 데이터 검증
+  validate: async (period?: string) => {
+    const response = await api.post('/api/settlement/validate', { period })
+    return response.data
+  },
+
+  // 예상 요금 조회
+  getExpectedRate: async (carrier: string, country: string, weight: number) => {
+    const response = await api.get('/api/settlement/rates/expected', {
+      params: { carrier, country, weight },
+    })
+    return response.data
+  },
+
+  // 지원 국가 목록
+  getSupportedCountries: async () => {
+    const response = await api.get('/api/settlement/rates/countries')
     return response.data
   },
 }
