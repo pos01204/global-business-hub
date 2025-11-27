@@ -9,18 +9,56 @@ interface NavItem {
   label: string
   icon: string
   badge?: number
+  external?: boolean
 }
 
-const navItems: NavItem[] = [
-  { href: '/dashboard', label: '메인 대시보드', icon: '📊' },
-  { href: '/unreceived', label: '미입고 관리', icon: '🚨' },
-  { href: '/logistics', label: '물류 추적', icon: '🚚' },
-  { href: '/control-tower', label: '물류 관제 센터', icon: '📡' },
-  { href: '/analytics', label: '성과 분석', icon: '📈' },
-  { href: '/qc', label: 'QC 관리', icon: '✅' },
-  { href: '/lookup', label: '통합 검색', icon: '🔍' },
-  { href: '/marketer', label: '퍼포먼스 마케터', icon: '📝' },
-  { href: '/chat', label: 'AI 어시스턴트', icon: '💬' },
+interface NavGroup {
+  title: string
+  icon: string
+  items: NavItem[]
+}
+
+// 그룹화된 네비게이션 구조
+const navGroups: NavGroup[] = [
+  {
+    title: '홈',
+    icon: '🏠',
+    items: [
+      { href: '/dashboard', label: '대시보드', icon: '📊' },
+    ],
+  },
+  {
+    title: '물류 운영',
+    icon: '📦',
+    items: [
+      { href: '/unreceived', label: '미입고 관리', icon: '🚨' },
+      { href: '/logistics', label: '물류 추적', icon: '🚚' },
+      { href: '/control-tower', label: '물류 관제 센터', icon: '📡' },
+    ],
+  },
+  {
+    title: '업무 지원',
+    icon: '🔧',
+    items: [
+      { href: '/qc', label: 'QC 관리', icon: '✅' },
+      { href: '/lookup', label: '통합 검색', icon: '🔍' },
+    ],
+  },
+  {
+    title: '분석 & 전략',
+    icon: '📊',
+    items: [
+      { href: '/analytics', label: '성과 분석', icon: '📈' },
+    ],
+  },
+  {
+    title: '외부 도구',
+    icon: '🔗',
+    items: [
+      { href: '/marketer', label: '퍼포먼스 마케터', icon: '📝', external: true },
+      { href: '/chat', label: 'AI 어시스턴트', icon: '💬' },
+    ],
+  },
 ]
 
 export default function Sidebar() {
@@ -73,40 +111,60 @@ export default function Sidebar() {
           </div>
 
           {/* 네비게이션 */}
-          <nav className="flex-1 overflow-y-auto p-4">
-            <ul className="space-y-1">
-              {navItems.map((item) => {
-                const isActive = pathname === item.href || pathname?.startsWith(item.href + '/')
-                return (
-                  <li key={item.href}>
-                    <Link
-                      href={item.href}
-                      className={`
-                        flex items-center gap-3 px-4 py-3 rounded-lg
-                        transition-all duration-200
-                        ${
-                          isActive
-                            ? 'bg-gradient-to-r from-primary/10 to-accent/10 text-primary font-semibold shadow-sm'
-                            : 'text-gray-700 hover:bg-gray-50 hover:text-primary'
-                        }
-                      `}
-                    >
-                      <span className="text-xl flex-shrink-0">{item.icon}</span>
-                      {!isCollapsed && (
-                        <>
-                          <span className="flex-1">{item.label}</span>
-                          {item.badge && (
-                            <span className="bg-red-500 text-white text-xs px-2 py-0.5 rounded-full">
-                              {item.badge}
-                            </span>
+          <nav className="flex-1 overflow-y-auto py-4">
+            {navGroups.map((group, groupIndex) => (
+              <div key={group.title} className={groupIndex > 0 ? 'mt-4' : ''}>
+                {/* 그룹 헤더 */}
+                {!isCollapsed && (
+                  <div className="px-4 mb-2">
+                    <h2 className="text-xs font-semibold text-gray-400 uppercase tracking-wider flex items-center gap-2">
+                      <span>{group.icon}</span>
+                      <span>{group.title}</span>
+                    </h2>
+                  </div>
+                )}
+                
+                {/* 그룹 아이템 */}
+                <ul className="space-y-0.5 px-2">
+                  {group.items.map((item) => {
+                    const isActive = pathname === item.href || pathname?.startsWith(item.href + '/')
+                    return (
+                      <li key={item.href}>
+                        <Link
+                          href={item.href}
+                          className={`
+                            flex items-center gap-3 px-3 py-2.5 rounded-lg
+                            transition-all duration-200
+                            ${
+                              isActive
+                                ? 'bg-gradient-to-r from-primary/10 to-accent/10 text-primary font-semibold shadow-sm'
+                                : 'text-gray-600 hover:bg-gray-50 hover:text-primary'
+                            }
+                          `}
+                        >
+                          <span className="text-lg flex-shrink-0">{item.icon}</span>
+                          {!isCollapsed && (
+                            <>
+                              <span className="flex-1 text-sm">{item.label}</span>
+                              {item.external && (
+                                <svg className="w-3.5 h-3.5 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M10 6H6a2 2 0 00-2 2v10a2 2 0 002 2h10a2 2 0 002-2v-4M14 4h6m0 0v6m0-6L10 14" />
+                                </svg>
+                              )}
+                              {item.badge && (
+                                <span className="bg-red-500 text-white text-xs px-2 py-0.5 rounded-full">
+                                  {item.badge}
+                                </span>
+                              )}
+                            </>
                           )}
-                        </>
-                      )}
-                    </Link>
-                  </li>
-                )
-              })}
-            </ul>
+                        </Link>
+                      </li>
+                    )
+                  })}
+                </ul>
+              </div>
+            ))}
           </nav>
 
           {/* 하단 정보 */}
@@ -136,5 +194,3 @@ export default function Sidebar() {
     </>
   )
 }
-
-
