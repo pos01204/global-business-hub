@@ -22,11 +22,14 @@ class GoogleSheetsService {
     this.isConfigured = !!(config.spreadsheetId && config.clientEmail && config.privateKey);
     
     if (this.isConfigured) {
-      // JWT 인증 설정
+      // JWT 인증 설정 (읽기/쓰기 권한)
       this.auth = new JWT({
         email: config.clientEmail,
         key: config.privateKey.replace(/\\n/g, '\n'),
-        scopes: ['https://www.googleapis.com/auth/spreadsheets.readonly'],
+        scopes: [
+          'https://www.googleapis.com/auth/spreadsheets.readonly',
+          'https://www.googleapis.com/auth/spreadsheets',
+        ],
       });
 
       this.sheets = google.sheets({ version: 'v4', auth: this.auth });
@@ -296,6 +299,93 @@ class GoogleSheetsService {
     } catch (error) {
       console.error(`Error updating cells in ${sheetName}:`, error);
       throw error;
+    }
+  }
+
+  /**
+   * 시트에 행 추가
+   */
+  async appendRow(sheetName: string, values: any[]): Promise<void> {
+    if (!this.isConfigured || !this.sheets) {
+      console.warn(`Google Sheets Service: 환경 변수가 설정되지 않아 행 추가를 건너뜁니다. (${sheetName})`);
+      return;
+    }
+
+    try {
+      await this.sheets.spreadsheets.values.append({
+        spreadsheetId: this.spreadsheetId,
+        range: `${sheetName}!A:ZZ`,
+        valueInputOption: 'RAW',
+        insertDataOption: 'INSERT_ROWS',
+        resource: {
+          values: [values],
+        },
+      });
+    } catch (error) {
+      console.error(`Error appending row to ${sheetName}:`, error);
+      throw error;
+    }
+  }
+
+  /**
+   * 시트에 여러 행 추가
+   */
+  async appendRows(sheetName: string, rows: any[][]): Promise<void> {
+    if (!this.isConfigured || !this.sheets) {
+      console.warn(`Google Sheets Service: 환경 변수가 설정되지 않아 행 추가를 건너뜁니다. (${sheetName})`);
+      return;
+    }
+
+    if (rows.length === 0) return;
+
+    try {
+      await this.sheets.spreadsheets.values.append({
+        spreadsheetId: this.spreadsheetId,
+        range: `${sheetName}!A:ZZ`,
+        valueInputOption: 'RAW',
+        insertDataOption: 'INSERT_ROWS',
+        resource: {
+          values: rows,
+        },
+      });
+    } catch (error) {
+      console.error(`Error appending rows to ${sheetName}:`, error);
+      throw error;
+    }
+  }
+
+  /**
+   * 시트에서 특정 행 찾기 (ID 기반)
+   */
+  async findRowByColumn(
+    sheetName: string,
+    searchColumn: string,
+    searchValue: string
+  ): Promise<number | null> {
+    if (!this.isConfigured || !this.sheets) {
+      return null;
+    }
+
+    try {
+      const data = await this.getSheetDataAsJson(sheetName, false);
+      const headers = Object.keys(data[0] || {});
+      const columnIndex = headers.indexOf(searchColumn);
+
+      if (columnIndex === -1) return null;
+
+      // 헤더 행을 고려하여 +2 (헤더 + 1-based index)
+      for (let i = 0; i < data.length; i++) {
+        const row = data[i];
+        const cellValue = String(row[searchColumn] || '');
+        if (cellValue === String(searchValue)) {
+          return i + 2; // 1-based index + 헤더 행
+        }
+      }
+
+      return null;
+    } catch (error) {
+      console.error(`Error finding row in ${sheetName}:`, error);
+      return null;
     }
   }
 }
