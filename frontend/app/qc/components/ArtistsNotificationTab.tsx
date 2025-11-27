@@ -253,17 +253,22 @@ export default function ArtistsNotificationTab() {
                     <div className="text-sm text-green-600 bg-green-50 p-2 rounded">
                       ✓ 알람이 성공적으로 발송되었습니다.
                     </div>
-                    {notifyMutation.data?.emailSent && (
+                    {notifyMutation.data?.emailSent === 'pending' && (
+                      <div className="text-xs text-blue-600 bg-blue-50 p-2 rounded">
+                        📧 이메일 발송 중... (백그라운드 처리)
+                      </div>
+                    )}
+                    {notifyMutation.data?.emailSent === true && (
                       <div className="text-xs text-blue-600 bg-blue-50 p-2 rounded">
                         📧 이메일 발송 완료 {notifyMutation.data.emailMessageId && `(ID: ${notifyMutation.data.emailMessageId})`}
                       </div>
                     )}
-                    {notifyMutation.data?.emailError && (
+                    {notifyMutation.data?.emailSent === false && notifyMutation.data?.emailError && (
                       <div className="text-xs text-yellow-600 bg-yellow-50 p-2 rounded">
-                        ⚠️ 이메일 발송 실패: {notifyMutation.data.emailError}
+                        ⚠️ 이메일 발송 불가: {notifyMutation.data.emailError}
                       </div>
                     )}
-                    {!notifyMutation.data?.emailSent && !notifyMutation.data?.emailError && artist.artistEmail && (
+                    {notifyMutation.data?.emailSent === false && !notifyMutation.data?.emailError && (
                       <div className="text-xs text-gray-500 bg-gray-50 p-2 rounded">
                         ℹ️ 이메일 발송 기능이 비활성화되어 있습니다.
                       </div>
