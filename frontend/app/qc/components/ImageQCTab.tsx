@@ -15,6 +15,7 @@ interface ImageModalProps {
   onApprove?: () => void
   onNeedsRevision?: () => void
   onComplete?: () => void
+  onExclude?: () => void
   isUpdating?: boolean
 }
 
@@ -29,6 +30,7 @@ function ImageModal({
   onApprove,
   onNeedsRevision,
   onComplete,
+  onExclude,
   isUpdating,
 }: ImageModalProps) {
   if (!isOpen || !item) return null
@@ -121,8 +123,8 @@ function ImageModal({
           </div>
 
           {/* 액션 버튼 */}
-          <div className="mt-6 pt-6 border-t border-gray-200 flex gap-2">
-            {item.status !== 'approved' && onApprove && (
+          <div className="mt-6 pt-6 border-t border-gray-200 flex gap-2 flex-wrap">
+            {item.status !== 'approved' && item.status !== 'excluded' && onApprove && (
               <button
                 onClick={onApprove}
                 disabled={isUpdating}
@@ -131,13 +133,22 @@ function ImageModal({
                 승인
               </button>
             )}
-            {item.status !== 'needs_revision' && onNeedsRevision && (
+            {item.status !== 'needs_revision' && item.status !== 'excluded' && onNeedsRevision && (
               <button
                 onClick={onNeedsRevision}
                 disabled={isUpdating}
                 className="btn flex-1 bg-red-500 hover:bg-red-600 text-white disabled:opacity-50"
               >
                 수정 필요
+              </button>
+            )}
+            {item.status !== 'excluded' && onExclude && (
+              <button
+                onClick={onExclude}
+                disabled={isUpdating}
+                className="btn flex-1 bg-gray-500 hover:bg-gray-600 text-white disabled:opacity-50"
+              >
+                비대상으로 표시
               </button>
             )}
             {(item.status === 'approved' || item.status === 'needs_revision') && onComplete && (
@@ -201,6 +212,16 @@ export default function ImageQCTab() {
       }
     },
   })
+
+  const handleExclude = useCallback((id: string) => {
+    if (confirm('이 항목을 QC 비대상으로 표시하시겠습니까?')) {
+      updateStatusMutation.mutate({
+        id,
+        status: 'excluded',
+        needsRevision: false,
+      })
+    }
+  }, [updateStatusMutation])
 
   const handleImageClick = (item: any, index: number) => {
     setSelectedImage(item)
@@ -291,6 +312,7 @@ export default function ImageQCTab() {
               <option value="pending">미검수</option>
               <option value="needs_revision">수정 필요</option>
               <option value="approved">승인 완료</option>
+              <option value="excluded">비대상</option>
             </select>
           </div>
           <div className="flex items-center gap-2 pt-8">
@@ -313,7 +335,7 @@ export default function ImageQCTab() {
 
       {/* 통계 */}
       {data && (
-        <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+        <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
           <div className="card bg-blue-50">
             <div className="text-sm text-gray-600">전체 항목</div>
             <div className="text-2xl font-bold text-blue-700">
@@ -332,6 +354,12 @@ export default function ImageQCTab() {
               {items.filter((item: any) => item.needsRevision || item.status === 'needs_revision').length}
             </div>
           </div>
+          <div className="card bg-gray-50">
+            <div className="text-sm text-gray-600">비대상</div>
+            <div className="text-2xl font-bold text-gray-600">
+              {items.filter((item: any) => item.status === 'excluded').length}
+            </div>
+          </div>
         </div>
       )}
 
@@ -342,11 +370,13 @@ export default function ImageQCTab() {
             <div
               key={item.id}
               className={`card cursor-pointer hover:shadow-lg transition-all border-l-4 ${
-                item.status === 'approved'
-                  ? 'border-green-500'
-                  : item.needsRevision || item.status === 'needs_revision'
-                    ? 'border-red-500'
-                    : 'border-gray-300'
+                item.status === 'excluded'
+                  ? 'border-gray-400 bg-gray-50 opacity-60'
+                  : item.status === 'approved'
+                    ? 'border-green-500'
+                    : item.needsRevision || item.status === 'needs_revision'
+                      ? 'border-red-500'
+                      : 'border-gray-300'
               }`}
               onClick={() => handleImageClick(item, index)}
             >
@@ -365,18 +395,22 @@ export default function ImageQCTab() {
                 <div className="absolute top-2 right-2">
                   <span
                     className={`px-2 py-1 rounded-full text-xs font-medium ${
-                      item.status === 'approved'
-                        ? 'bg-green-500 text-white'
-                        : item.needsRevision || item.status === 'needs_revision'
-                          ? 'bg-red-500 text-white'
-                          : 'bg-gray-500 text-white'
+                      item.status === 'excluded'
+                        ? 'bg-gray-400 text-white'
+                        : item.status === 'approved'
+                          ? 'bg-green-500 text-white'
+                          : item.needsRevision || item.status === 'needs_revision'
+                            ? 'bg-red-500 text-white'
+                            : 'bg-gray-500 text-white'
                     }`}
                   >
-                    {item.status === 'approved'
-                      ? '✓'
-                      : item.needsRevision || item.status === 'needs_revision'
-                        ? '✗'
-                        : '○'}
+                    {item.status === 'excluded'
+                      ? '⊘'
+                      : item.status === 'approved'
+                        ? '✓'
+                        : item.needsRevision || item.status === 'needs_revision'
+                          ? '✗'
+                          : '○'}
                   </span>
                 </div>
               </div>
@@ -486,6 +520,11 @@ export default function ImageQCTab() {
                   completeMutation.mutate(selectedImage.id)
                 }
               }
+            : undefined
+        }
+        onExclude={
+          selectedImage
+            ? () => handleExclude(selectedImage.id)
             : undefined
         }
         isUpdating={updateStatusMutation.isPending || completeMutation.isPending}

@@ -27,7 +27,7 @@ interface QCItem {
   id: string;
   type: 'text' | 'image';
   data: any;
-  status: 'pending' | 'approved' | 'needs_revision';
+  status: 'pending' | 'approved' | 'needs_revision' | 'excluded';
   needsRevision: boolean;
   createdAt: Date;
   completedAt?: Date;
@@ -105,7 +105,7 @@ async function loadTextQCData() {
         id,
         type: 'text',
         data: record,
-        status: (record.status as 'pending' | 'approved' | 'needs_revision') || 'pending',
+        status: (record.status as 'pending' | 'approved' | 'needs_revision' | 'excluded') || 'pending',
         needsRevision: record.needsRevision === true || record.needs_revision === true,
         createdAt: record.createdAt ? new Date(record.createdAt) : new Date(),
         completedAt: record.completedAt ? new Date(record.completedAt) : undefined,
@@ -162,7 +162,7 @@ async function loadImageQCData() {
         id,
         type: 'image',
         data: record,
-        status: (record.status as 'pending' | 'approved' | 'needs_revision') || 'pending',
+        status: (record.status as 'pending' | 'approved' | 'needs_revision' | 'excluded') || 'pending',
         needsRevision: record.needsRevision === true || record.needs_revision === true,
         createdAt: record.createdAt ? new Date(record.createdAt) : new Date(),
         completedAt: record.completedAt ? new Date(record.completedAt) : undefined,
@@ -517,7 +517,12 @@ router.put('/:type/:id/status', async (req, res) => {
     item.status = status || item.status;
     item.needsRevision = needsRevision !== undefined ? needsRevision : item.needsRevision;
 
-    if (status === 'approved' || status === 'needs_revision') {
+    // excluded 상태는 needsRevision을 false로 설정
+    if (status === 'excluded') {
+      item.needsRevision = false;
+    }
+
+    if (status === 'approved' || status === 'needs_revision' || status === 'excluded') {
       item.completedAt = new Date();
     }
 
@@ -578,8 +583,9 @@ router.get('/artists/notifications', async (req, res) => {
 
     const artistMap = new Map<string, ArtistNotification>();
 
-    // 텍스트 QC에서 수정 필요 항목 수집
+    // 텍스트 QC에서 수정 필요 항목 수집 (비대상 제외)
     for (const item of qcDataStore.text.values()) {
+      if (item.status === 'excluded') continue; // 비대상 제외
       if (item.needsRevision || item.status === 'needs_revision') {
         const artistId = item.data.global_artist_id || item.data.artist_id;
         if (!artistId) continue;
@@ -605,8 +611,9 @@ router.get('/artists/notifications', async (req, res) => {
       }
     }
 
-    // 이미지 QC에서 수정 필요 항목 수집
+    // 이미지 QC에서 수정 필요 항목 수집 (비대상 제외)
     for (const item of qcDataStore.image.values()) {
+      if (item.status === 'excluded') continue; // 비대상 제외
       if (item.needsRevision || item.status === 'needs_revision') {
         const artistId = item.data.artist_id;
         if (!artistId) continue;

@@ -192,6 +192,7 @@ export default function TextQCTab() {
               <option value="pending">미검수</option>
               <option value="needs_revision">수정 필요</option>
               <option value="approved">승인 완료</option>
+              <option value="excluded">비대상</option>
             </select>
           </div>
           <div className="flex items-center gap-2 pt-8">
@@ -214,7 +215,7 @@ export default function TextQCTab() {
 
       {/* 통계 */}
       {data && (
-        <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+        <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
           <div className="card bg-blue-50">
             <div className="text-sm text-gray-600">전체 항목</div>
             <div className="text-2xl font-bold text-blue-700">
@@ -231,6 +232,12 @@ export default function TextQCTab() {
             <div className="text-sm text-gray-600">수정 필요</div>
             <div className="text-2xl font-bold text-red-700">
               {data.items?.filter((item: any) => item.needsRevision || item.status === 'needs_revision').length || 0}
+            </div>
+          </div>
+          <div className="card bg-gray-50">
+            <div className="text-sm text-gray-600">비대상</div>
+            <div className="text-2xl font-bold text-gray-600">
+              {data.items?.filter((item: any) => item.status === 'excluded').length || 0}
             </div>
           </div>
         </div>
@@ -265,11 +272,13 @@ export default function TextQCTab() {
                     ? 'ring-2 ring-primary shadow-lg'
                     : ''
                 } ${
-                  item.status === 'approved'
-                    ? 'border-green-500'
-                    : item.needsRevision || item.status === 'needs_revision'
-                      ? 'border-red-500'
-                      : 'border-gray-300'
+                  item.status === 'excluded'
+                    ? 'border-gray-400 bg-gray-50 opacity-60'
+                    : item.status === 'approved'
+                      ? 'border-green-500'
+                      : item.needsRevision || item.status === 'needs_revision'
+                        ? 'border-red-500'
+                        : 'border-gray-300'
                 }`}
               >
               <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
@@ -310,25 +319,29 @@ export default function TextQCTab() {
                 <div className="flex items-center gap-2">
                   <span
                     className={`px-3 py-1 rounded-full text-xs font-medium ${
-                      item.status === 'approved'
-                        ? 'bg-green-100 text-green-700'
-                        : item.needsRevision || item.status === 'needs_revision'
-                          ? 'bg-red-100 text-red-700'
-                          : 'bg-gray-100 text-gray-700'
+                      item.status === 'excluded'
+                        ? 'bg-gray-200 text-gray-600'
+                        : item.status === 'approved'
+                          ? 'bg-green-100 text-green-700'
+                          : item.needsRevision || item.status === 'needs_revision'
+                            ? 'bg-red-100 text-red-700'
+                            : 'bg-gray-100 text-gray-700'
                     }`}
                   >
-                    {item.status === 'approved'
-                      ? '승인 완료'
-                      : item.needsRevision || item.status === 'needs_revision'
-                        ? '수정 필요'
-                        : '미검수'}
+                    {item.status === 'excluded'
+                      ? '비대상'
+                      : item.status === 'approved'
+                        ? '승인 완료'
+                        : item.needsRevision || item.status === 'needs_revision'
+                          ? '수정 필요'
+                          : '미검수'}
                   </span>
                   <span className="text-xs text-gray-500">
                     제품 ID: {item.data.global_product_id || 'N/A'}
                   </span>
                 </div>
-                <div className="flex gap-2">
-                  {item.status !== 'approved' && (
+                <div className="flex gap-2 flex-wrap">
+                  {item.status !== 'approved' && item.status !== 'excluded' && (
                     <button
                       onClick={() => handleApprove(item.id)}
                       disabled={updateStatusMutation.isPending}
@@ -337,13 +350,22 @@ export default function TextQCTab() {
                       승인
                     </button>
                   )}
-                  {item.status !== 'needs_revision' && (
+                  {item.status !== 'needs_revision' && item.status !== 'excluded' && (
                     <button
                       onClick={() => handleNeedsRevision(item.id)}
                       disabled={updateStatusMutation.isPending}
                       className="btn btn-sm bg-red-500 hover:bg-red-600 text-white"
                     >
                       수정 필요
+                    </button>
+                  )}
+                  {item.status !== 'excluded' && (
+                    <button
+                      onClick={() => handleExclude(item.id)}
+                      disabled={updateStatusMutation.isPending}
+                      className="btn btn-sm bg-gray-500 hover:bg-gray-600 text-white"
+                    >
+                      비대상
                     </button>
                   )}
                   {(item.status === 'approved' || item.status === 'needs_revision') && (
