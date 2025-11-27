@@ -246,20 +246,6 @@ export default function MarketerPage() {
       <div className="flex gap-2 mb-6 border-b border-gray-200 overflow-x-auto">
         <button
           onClick={() => {
-            setActiveTab('image')
-            setShowSavedContents(false)
-            setShowCampaigns(false)
-          }}
-          className={`px-4 py-2 font-medium transition-colors whitespace-nowrap ${
-            activeTab === 'image' && !showSavedContents
-              ? 'text-primary border-b-2 border-primary'
-              : 'text-gray-600 hover:text-primary'
-          }`}
-        >
-          📷 이미지 업로드
-        </button>
-        <button
-          onClick={() => {
             setActiveTab('discovery')
             setShowSavedContents(false)
             setShowCampaigns(false)
