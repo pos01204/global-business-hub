@@ -34,6 +34,7 @@ const navGroups: NavGroup[] = [
       { href: '/unreceived', label: '미입고 관리', icon: '🚨' },
       { href: '/logistics', label: '물류 추적', icon: '🚚' },
       { href: '/control-tower', label: '물류 관제 센터', icon: '📡' },
+      { href: '/settlement', label: '물류비 정산', icon: '💰' },
     ],
   },
   {

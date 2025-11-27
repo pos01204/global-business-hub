@@ -394,6 +394,67 @@ export const chatApi = {
   },
 }
 
+// 물류비 정산 API
+export const settlementApi = {
+  // 정산서 업로드
+  upload: async (file: File) => {
+    const formData = new FormData()
+    formData.append('file', file)
+    const response = await api.post('/api/settlement/upload', formData, {
+      headers: { 'Content-Type': 'multipart/form-data' },
+    })
+    return response.data
+  },
+
+  // 정산 목록 조회
+  getList: async (params?: {
+    period?: string
+    carrier?: string
+    country?: string
+    page?: number
+    limit?: number
+  }) => {
+    const response = await api.get('/api/settlement/list', { params })
+    return response.data
+  },
+
+  // 국가별 분석
+  getCountryAnalysis: async (period?: string) => {
+    const response = await api.get('/api/settlement/analysis/country', {
+      params: { period },
+    })
+    return response.data
+  },
+
+  // 운송사별 분석
+  getCarrierAnalysis: async (period?: string) => {
+    const response = await api.get('/api/settlement/analysis/carrier', {
+      params: { period },
+    })
+    return response.data
+  },
+
+  // 중량 최적화 분석
+  getWeightAnalysis: async (period?: string) => {
+    const response = await api.get('/api/settlement/analysis/weight', {
+      params: { period },
+    })
+    return response.data
+  },
+
+  // 업로드된 기간 목록
+  getPeriods: async () => {
+    const response = await api.get('/api/settlement/periods')
+    return response.data
+  },
+
+  // shipment_id로 정산 데이터 조회
+  getByShipmentId: async (shipmentId: string) => {
+    const response = await api.get(`/api/settlement/shipment/${shipmentId}`)
+    return response.data
+  },
+}
+
 // QC API
 export const qcApi = {
   // CSV 업로드
