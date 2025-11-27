@@ -1098,7 +1098,9 @@ export default function AnalyticsPage() {
                         tooltip: {
                           callbacks: {
                             label: function (context) {
-                              return `매출: ${formatCurrency(context.parsed.y)}`
+                              const value = context.parsed.y
+                              if (value === null || value === undefined) return '매출: N/A'
+                              return `매출: ${formatCurrency(value)}`
                             },
                           },
                         },
@@ -1181,7 +1183,9 @@ export default function AnalyticsPage() {
                         tooltip: {
                           callbacks: {
                             label: function (context) {
-                              return `객단가: ${formatCurrency(context.parsed.y)}`
+                              const value = context.parsed.y
+                              if (value === null || value === undefined) return '객단가: N/A'
+                              return `객단가: ${formatCurrency(value)}`
                             },
                           },
                         },
