@@ -55,7 +55,7 @@ export const SHEET_NAMES = {
   QC_IMAGE_PROCESS: '[QC] OCR_결과_raw', // 이미지 QC 처리 시트 (원본 시트에 상태 컬럼 추가)
   QC_ARCHIVE: '[QC] archiving', // 완료된 QC 아카이브
   // 물류비 정산 관련 시트
-  SETTLEMENT_RECORDS: '[Settlement] records', // 정산서 건별 상세 데이터
-  SETTLEMENT_MONTHLY: '[Settlement] monthly', // 월별 요약 데이터
+  SETTLEMENT_RECORDS: 'Settlement_records', // 정산서 건별 상세 데이터
+  SETTLEMENT_MONTHLY: 'Settlement_monthly', // 월별 요약 데이터
 } as const;
 

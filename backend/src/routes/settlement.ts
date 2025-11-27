@@ -85,27 +85,31 @@ const STANDARD_HEADERS = [
 ];
 
 /**
- * 시트 헤더 확인 및 생성
+ * 시트 헤더 확인 및 생성 (시트가 없으면 자동 생성)
  */
 async function ensureSheetHeaders(sheetName: string, headers: string[]): Promise<boolean> {
   try {
+    // 1. 시트가 없으면 자동 생성
+    const sheetCreated = await sheetsService.createSheetIfNotExists(sheetName);
+    if (!sheetCreated) {
+      console.error(`[Settlement] 시트 생성 실패: ${sheetName}`);
+      throw new Error(`시트를 생성할 수 없습니다: ${sheetName}`);
+    }
+
+    // 2. 기존 데이터 확인
     const existingData = await sheetsService.getSheetDataAsJson(sheetName, false);
     
+    // 3. 헤더가 없으면 추가
     if (existingData.length === 0) {
       console.log(`[Settlement] 시트 헤더 생성: ${sheetName}`);
       await sheetsService.appendRow(sheetName, headers);
       return true;
     }
+    
     return false;
   } catch (error: any) {
-    console.log(`[Settlement] 시트 확인 실패, 헤더 추가 시도: ${sheetName}`);
-    try {
-      await sheetsService.appendRow(sheetName, headers);
-      return true;
-    } catch (appendError) {
-      console.error(`[Settlement] 헤더 생성 실패:`, appendError);
-      throw appendError;
-    }
+    console.error(`[Settlement] 시트 초기화 실패:`, error.message);
+    throw error;
   }
 }
 

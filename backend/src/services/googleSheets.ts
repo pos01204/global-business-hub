@@ -141,6 +141,48 @@ class GoogleSheetsService {
   }
 
   /**
+   * 시트 생성 (없으면 새로 생성)
+   */
+  async createSheetIfNotExists(sheetName: string): Promise<boolean> {
+    if (!this.isConfigured || !this.sheets) {
+      console.warn(`Google Sheets Service: 환경 변수가 설정되지 않아 시트 생성을 건너뜁니다.`);
+      return false;
+    }
+
+    try {
+      // 시트 존재 여부 확인
+      const exists = await this.checkSheetExists(sheetName);
+      if (exists) {
+        console.log(`[Google Sheets] 시트가 이미 존재합니다: ${sheetName}`);
+        return true;
+      }
+
+      // 시트 생성
+      console.log(`[Google Sheets] 새 시트 생성 중: ${sheetName}`);
+      await this.sheets.spreadsheets.batchUpdate({
+        spreadsheetId: this.spreadsheetId,
+        requestBody: {
+          requests: [
+            {
+              addSheet: {
+                properties: {
+                  title: sheetName,
+                },
+              },
+            },
+          ],
+        },
+      });
+
+      console.log(`[Google Sheets] 시트 생성 완료: ${sheetName}`);
+      return true;
+    } catch (error: any) {
+      console.error(`[Google Sheets] 시트 생성 실패 (${sheetName}):`, error.message);
+      return false;
+    }
+  }
+
+  /**
    * 시트 데이터를 JSON 배열로 가져오기
    * @param sheetName 시트 이름
    * @param enableFillDown order_code 기준으로 빈 셀 채우기 여부
