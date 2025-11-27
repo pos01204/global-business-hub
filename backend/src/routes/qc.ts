@@ -1493,51 +1493,14 @@ router.post('/artists/notify', async (req, res) => {
       status: 'sent' as const,
     };
 
-    // 이메일 발송 시도
-    let emailSent = false;
+    // 이메일 발송 상태 (비동기 발송이므로 초기값)
+    let emailStatus = 'pending';
     let emailError: string | undefined = undefined;
-    let emailMessageId: string | undefined = undefined;
 
-    if (artistEmail && emailService) {
-      try {
-        // 이메일 템플릿 생성
-        const emailTemplate = emailTemplateService.generateQCNotificationEmail({
-          artistName,
-          textQCItems: validItems.filter((item) => item.type === 'text').length,
-          imageQCItems: validItems.filter((item) => item.type === 'image').length,
-          items: validItems,
-        });
+    // 먼저 응답 반환 (타임아웃 방지)
+    console.log(`[QC] 작가 알람 발송: ${artistName} (${artistId})에게 ${validItems.length}개 항목 알람`);
 
-        // 이메일 발송
-        const emailResult = await emailService.sendEmail(
-          artistEmail,
-          emailTemplate.subject,
-          emailTemplate.htmlBody,
-          emailTemplate.textBody
-        );
-
-        if (emailResult.success) {
-          emailSent = true;
-          emailMessageId = emailResult.messageId;
-          console.log(`[QC] 이메일 발송 성공: ${artistName} (${artistEmail}) - Message ID: ${emailMessageId}`);
-        } else {
-          emailError = emailResult.error;
-          console.warn(`[QC] 이메일 발송 실패: ${artistName} (${artistEmail}) - ${emailError}`);
-        }
-      } catch (error: any) {
-        emailError = error.message || '이메일 발송 중 오류 발생';
-        console.error(`[QC] 이메일 발송 오류: ${artistName} (${artistEmail}) -`, error);
-      }
-    } else if (!artistEmail) {
-      emailError = '작가 메일 주소가 없습니다.';
-      console.warn(`[QC] 이메일 발송 불가: ${artistName} - 메일 주소 없음`);
-    } else if (!emailService) {
-      emailError = '이메일 서비스가 설정되지 않았습니다. Gmail 앱 비밀번호를 설정해주세요.';
-      console.warn(`[QC] 이메일 발송 불가: 이메일 서비스 미설정`);
-    }
-
-    console.log(`[QC] 작가 알람 발송: ${artistName} (${artistId})에게 ${validItems.length}개 항목 알람 발송${emailSent ? ' (이메일 발송 완료)' : emailError ? ` (이메일 발송 실패: ${emailError})` : ''}`);
-
+    // 응답 먼저 전송
     res.json({
       success: true,
       artistId: String(artistId),
@@ -1546,17 +1509,53 @@ router.post('/artists/notify', async (req, res) => {
       sentItems: validItems,
       invalidItems: invalidItems.length > 0 ? invalidItems : undefined,
       sentAt: notificationHistory.sentAt,
-      emailSent, // 이메일 발송 성공 여부
-      emailMessageId, // Gmail Message ID
-      emailError, // 이메일 발송 오류 (있는 경우)
+      emailSent: artistEmail && emailService ? 'pending' : false, // 이메일 발송 예정 여부
+      emailError: !artistEmail 
+        ? '작가 메일 주소가 없습니다.' 
+        : !emailService 
+          ? '이메일 서비스가 설정되지 않았습니다.' 
+          : undefined,
       message: `${artistName} 작가에게 ${validItems.length}개 항목에 대한 알람이 발송되었습니다.${
-        emailSent
-          ? ` (이메일 발송 완료: ${artistEmail})`
-          : artistEmail
-            ? ` (이메일 발송 실패: ${emailError || '알 수 없는 오류'})`
-            : ' (메일 주소 없음)'
+        artistEmail && emailService
+          ? ` (이메일 발송 중: ${artistEmail})`
+          : !artistEmail
+            ? ' (메일 주소 없음)'
+            : ' (이메일 서비스 미설정)'
       }`,
     });
+
+    // 응답 후 백그라운드에서 이메일 발송
+    if (artistEmail && emailService) {
+      setImmediate(async () => {
+        try {
+          // 이메일 템플릿 생성
+          const emailTemplate = emailTemplateService.generateQCNotificationEmail({
+            artistName,
+            textQCItems: validItems.filter((item) => item.type === 'text').length,
+            imageQCItems: validItems.filter((item) => item.type === 'image').length,
+            items: validItems,
+          });
+
+          // 이메일 발송
+          const emailResult = await emailService.sendEmail(
+            artistEmail,
+            emailTemplate.subject,
+            emailTemplate.htmlBody,
+            emailTemplate.textBody
+          );
+
+          if (emailResult.success) {
+            console.log(`[QC] 이메일 발송 성공: ${artistName} (${artistEmail}) - Message ID: ${emailResult.messageId}`);
+          } else {
+            console.warn(`[QC] 이메일 발송 실패: ${artistName} (${artistEmail}) - ${emailResult.error}`);
+          }
+        } catch (error: any) {
+          console.error(`[QC] 이메일 발송 오류: ${artistName} (${artistEmail}) -`, error.message);
+        }
+      });
+    }
+    
+    return; // 이미 응답을 보냈으므로 함수 종료
   } catch (error: any) {
     console.error('[QC] 작가 알람 발송 오류:', error);
     res.status(500).json({

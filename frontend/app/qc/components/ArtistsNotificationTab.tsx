@@ -12,6 +12,9 @@ export default function ArtistsNotificationTab() {
     sentAt: Date
     itemCount: number
   }>>([])
+  
+  // 현재 발송 중인 작가 ID 추적
+  const [sendingArtistId, setSendingArtistId] = useState<string | null>(null)
 
   const queryClient = useQueryClient()
 
@@ -23,7 +26,13 @@ export default function ArtistsNotificationTab() {
   const notifyMutation = useMutation({
     mutationFn: ({ artistId, items }: { artistId: string; items: string[] }) =>
       qcApi.notifyArtist(artistId, items),
+    onMutate: (variables) => {
+      // 발송 시작 시 해당 작가 ID 설정
+      setSendingArtistId(variables.artistId)
+    },
     onSuccess: (result) => {
+      // 발송 완료 후 초기화
+      setSendingArtistId(null)
       // 발송 이력에 추가
       setNotificationHistory((prev) => [
         {
@@ -40,6 +49,8 @@ export default function ArtistsNotificationTab() {
       alert(result.message || `${result.artistName} 작가에게 알람이 발송되었습니다.`)
     },
     onError: (error: any) => {
+      // 오류 시 초기화
+      setSendingArtistId(null)
       alert(`알람 발송 실패: ${error.response?.data?.message || error.message || '알 수 없는 오류가 발생했습니다.'}`)
     },
   })
@@ -231,9 +242,9 @@ export default function ArtistsNotificationTab() {
                 <button
                   className="btn btn-primary w-full"
                   onClick={() => handleNotify(artist)}
-                  disabled={notifyMutation.isPending}
+                  disabled={sendingArtistId === artist.artistId}
                 >
-                  {notifyMutation.isPending
+                  {sendingArtistId === artist.artistId
                     ? '알람 발송 중...'
                     : `알람 발송 (${artist.items.length}개 항목)`}
                 </button>
