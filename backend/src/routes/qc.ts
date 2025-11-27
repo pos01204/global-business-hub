@@ -59,26 +59,38 @@ const qcDataStore: {
   image: Map<string, QCItem>;
   archive: Map<string, QCItem>;
   artists: Map<string, any>; // artistId -> artistName 매핑
+  artistsLastLoaded: number; // 마지막 로드 시간
 } = {
   text: new Map(),
   image: new Map(),
   archive: new Map(),
   artists: new Map(),
+  artistsLastLoaded: 0,
 };
+
+// 작가 정보 캐시 유효 시간 (5분)
+const ARTISTS_CACHE_TTL = 5 * 60 * 1000;
 
 /**
  * 작가 정보 로드 (Google Sheets에서)
  * artists 시트와 artists_mail 시트 모두에서 데이터를 읽어 매핑
+ * 캐시가 유효하면 스킵
  */
-async function loadArtists() {
+async function loadArtists(forceReload: boolean = false) {
+  // 캐시가 유효하면 스킵
+  const now = Date.now();
+  if (!forceReload && qcDataStore.artists.size > 0 && (now - qcDataStore.artistsLastLoaded) < ARTISTS_CACHE_TTL) {
+    console.log('[QC] 작가 정보 캐시 사용 (남은 시간:', Math.round((ARTISTS_CACHE_TTL - (now - qcDataStore.artistsLastLoaded)) / 1000), '초)');
+    return;
+  }
+
   try {
     // 1. artists 시트에서 데이터 로드
     const artistsData = await sheetsService.getSheetDataAsJson(SHEET_NAMES.ARTISTS, false);
     
-    // 첫 번째 레코드의 키를 로그로 출력 (디버깅용)
-    if (artistsData.length > 0) {
-      console.log('[QC] Artists 시트 컬럼명:', Object.keys(artistsData[0]));
-      console.log('[QC] 첫 번째 작가 데이터 샘플:', JSON.stringify(artistsData[0], null, 2).substring(0, 500));
+    // 첫 번째 로드 시에만 컬럼명 출력
+    if (artistsData.length > 0 && qcDataStore.artistsLastLoaded === 0) {
+      console.log('[QC] Artists 시트 컬럼명:', Object.keys(artistsData[0]).join(', '));
     }
     
     // 가능한 ID 컬럼명들
@@ -141,8 +153,10 @@ async function loadArtists() {
       const artistsMailData = await sheetsService.getSheetDataAsJson(SHEET_NAMES.ARTISTS_MAIL, false);
       
       if (artistsMailData.length > 0) {
-        console.log('[QC] Artists_mail 시트 컬럼명:', Object.keys(artistsMailData[0]));
-        console.log('[QC] Artists_mail 첫 번째 데이터:', JSON.stringify(artistsMailData[0], null, 2).substring(0, 500));
+        // 첫 번째 로드 시에만 컬럼명 출력
+        if (qcDataStore.artistsLastLoaded === 0) {
+          console.log('[QC] Artists_mail 시트 컬럼명:', Object.keys(artistsMailData[0]).join(', '));
+        }
         
         // artists_mail 시트 구조: A열=ID, E열=email (VLOOKUP 수식 기준)
         // 가능한 컬럼명으로 ID와 이메일 매핑
@@ -188,18 +202,9 @@ async function loadArtists() {
       console.warn('[QC] artists_mail 시트 로드 실패 (무시):', mailError);
     }
     
+    // 캐시 시간 업데이트
+    qcDataStore.artistsLastLoaded = Date.now();
     console.log(`[QC] 작가 정보 로드 완료: 총 ${qcDataStore.artists.size}개 ID 매핑`);
-    
-    // 샘플 ID로 매핑 테스트 (디버깅용)
-    const testIds = ['9341', '1', '100', '41423'];
-    testIds.forEach(id => {
-      const found = qcDataStore.artists.get(id);
-      if (found) {
-        console.log(`[QC] 테스트 ID ${id}: 찾음 (mail: ${found.mail || '없음'})`);
-      } else {
-        console.log(`[QC] 테스트 ID ${id}: 없음`);
-      }
-    });
     
   } catch (error) {
     console.error('[QC] 작가 정보 로드 실패:', error);
@@ -518,14 +523,6 @@ function getArtistInfo(artistId: string | number): { name: string; email?: strin
   const artistIdStr = String(artistId).trim();
   const artist = qcDataStore.artists.get(artistIdStr);
   
-  // 디버깅: 작가 ID로 조회 시도
-  if (!artist) {
-    console.log(`[QC] 작가 조회 실패: ID "${artistIdStr}" - 저장된 ID 수: ${qcDataStore.artists.size}`);
-    // 유사한 ID 검색 (디버깅용)
-    const allIds = Array.from(qcDataStore.artists.keys()).slice(0, 10);
-    console.log(`[QC] 저장된 ID 샘플 (처음 10개): ${allIds.join(', ')}`);
-  }
-  
   if (artist) {
     // 작가명 조회 (다양한 컬럼명 시도)
     const nameColumns = [
@@ -555,8 +552,6 @@ function getArtistInfo(artistId: string | number): { name: string; email?: strin
         break;
       }
     }
-    
-    console.log(`[QC] 작가 조회 성공: ID "${artistIdStr}" -> 이름: ${artistName}, 메일: ${artistEmail || '없음'}`);
     
     return {
       name: artistName,
@@ -1436,11 +1431,13 @@ router.post('/artists/notify', async (req, res) => {
       return res.status(400).json({ error: '알람을 발송할 항목이 필요합니다.' });
     }
 
-    // 작가 정보 확인
-    await loadArtists();
+    // 작가 정보 확인 (캐시 사용)
+    await loadArtists(); // 캐시가 유효하면 스킵됨
     const artistInfo = getArtistInfo(artistId);
     const artistName = artistInfo.name;
     const artistEmail = artistInfo.email;
+    
+    console.log(`[QC] 알람 발송 요청: 작가 ID ${artistId}, 이름: ${artistName}, 메일: ${artistEmail || '없음'}`);
 
     // 알람 발송할 항목 검증
     const validItems: Array<{ id: string; type: 'text' | 'image'; productName: string }> = [];
