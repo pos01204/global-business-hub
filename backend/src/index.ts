@@ -77,6 +77,7 @@ app.use('/api/logistics-performance', logisticsPerformanceRoutes);
 app.use('/api/comparison', comparisonRoutes);
 app.use('/api/trend-analysis', trendAnalysisRoutes);
 app.use('/api/qc', qcRoutes);
+console.log('[Server] QC 라우터 등록 완료: /api/qc');
 
 app.get('/api', (req, res) => {
   res.json({ message: 'Global Business Hub API' });

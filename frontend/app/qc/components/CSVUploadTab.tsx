@@ -28,7 +28,10 @@ export default function CSVUploadTab() {
       window.location.reload()
     },
     onError: (error: any) => {
-      alert(`동기화 실패: ${error.response?.data?.message || error.message}`)
+      console.error('[QC] 동기화 오류:', error);
+      const errorMessage = error.response?.data?.message || error.message || '알 수 없는 오류';
+      const statusCode = error.response?.status;
+      alert(`동기화 실패: ${errorMessage}${statusCode ? ` (${statusCode})` : ''}`)
     },
   })
 

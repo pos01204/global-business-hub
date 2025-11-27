@@ -245,10 +245,13 @@ async function initializeQCData() {
 /**
  * Google Sheets에서 QC 데이터 동기화 (수동 새로고침)
  * POST /api/qc/sync
+ * 
+ * 주의: 이 라우트는 동적 라우트(/:type/:id)보다 앞에 정의되어야 합니다.
  */
 router.post('/sync', async (req, res) => {
   try {
     console.log('[QC] Google Sheets 동기화 시작...');
+    console.log('[QC] 동기화 요청 수신:', req.method, req.path);
     
     // 기존 데이터 백업 (통계용)
     const beforeTextCount = qcDataStore.text.size;
