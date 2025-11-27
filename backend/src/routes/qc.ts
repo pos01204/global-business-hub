@@ -68,24 +68,139 @@ const qcDataStore: {
 
 /**
  * 작가 정보 로드 (Google Sheets에서)
+ * artists 시트와 artists_mail 시트 모두에서 데이터를 읽어 매핑
  */
 async function loadArtists() {
   try {
+    // 1. artists 시트에서 데이터 로드
     const artistsData = await sheetsService.getSheetDataAsJson(SHEET_NAMES.ARTISTS, false);
+    
+    // 첫 번째 레코드의 키를 로그로 출력 (디버깅용)
+    if (artistsData.length > 0) {
+      console.log('[QC] Artists 시트 컬럼명:', Object.keys(artistsData[0]));
+      console.log('[QC] 첫 번째 작가 데이터 샘플:', JSON.stringify(artistsData[0], null, 2).substring(0, 500));
+    }
+    
+    // 가능한 ID 컬럼명들
+    const possibleIdColumns = [
+      '작가 ID (Global)',
+      '작가ID(Global)',
+      '작가 ID(Global)',
+      'artist_id',
+      'global_artist_id',
+      'artistId',
+      'globalArtistId',
+      'ID',
+      'id',
+      '작가 ID',
+      '작가ID',
+      '(Global)',
+      'artist ID',
+    ];
+    
+    // 가능한 KR ID 컬럼명들
+    const possibleKrIdColumns = [
+      '작가 ID (KR)',
+      '작가ID(KR)',
+      '작가 ID(KR)',
+      '(KR)',
+      'kr_artist_id',
+    ];
+    
     artistsData.forEach((artist: any) => {
-      // artist_id 또는 global_artist_id를 키로 사용
-      if (artist.artist_id) {
-        qcDataStore.artists.set(String(artist.artist_id), artist);
+      // Global ID 매핑
+      for (const col of possibleIdColumns) {
+        if (artist[col] !== undefined && artist[col] !== null && artist[col] !== '') {
+          const artistId = String(artist[col]).trim();
+          if (artistId && artistId !== '0') {
+            qcDataStore.artists.set(artistId, artist);
+          }
+        }
       }
-      if (artist.global_artist_id) {
-        qcDataStore.artists.set(String(artist.global_artist_id), artist);
+      
+      // KR ID 매핑
+      for (const col of possibleKrIdColumns) {
+        if (artist[col] !== undefined && artist[col] !== null && artist[col] !== '') {
+          const artistId = String(artist[col]).trim();
+          if (artistId && artistId !== '0') {
+            qcDataStore.artists.set(artistId, artist);
+          }
+        }
       }
-      // UUID도 매핑 (kr_product_uuid 등에서 추출 가능한 경우)
+      
+      // UUID 매핑
       if (artist.uuid) {
         qcDataStore.artists.set(artist.uuid, artist);
       }
     });
-    console.log(`[QC] 작가 정보 로드 완료: ${qcDataStore.artists.size}명`);
+    
+    console.log(`[QC] artists 시트에서 로드: ${qcDataStore.artists.size}개 ID 매핑`);
+    
+    // 2. artists_mail 시트에서 데이터 로드 (VLOOKUP 원본 데이터)
+    try {
+      const artistsMailData = await sheetsService.getSheetDataAsJson(SHEET_NAMES.ARTISTS_MAIL, false);
+      
+      if (artistsMailData.length > 0) {
+        console.log('[QC] Artists_mail 시트 컬럼명:', Object.keys(artistsMailData[0]));
+        console.log('[QC] Artists_mail 첫 번째 데이터:', JSON.stringify(artistsMailData[0], null, 2).substring(0, 500));
+        
+        // artists_mail 시트 구조: A열=ID, E열=email (VLOOKUP 수식 기준)
+        // 가능한 컬럼명으로 ID와 이메일 매핑
+        const mailIdColumns = ['ID', 'id', 'artist_id', '작가 ID', '작가ID', ...possibleIdColumns];
+        const mailEmailColumns = ['email', 'mail', 'Email', 'Mail', 'EMAIL', 'MAIL', 'e-mail', 'E-mail'];
+        
+        artistsMailData.forEach((mailData: any) => {
+          let artistId: string | null = null;
+          let artistEmail: string | null = null;
+          
+          // ID 찾기
+          for (const col of mailIdColumns) {
+            if (mailData[col] !== undefined && mailData[col] !== null && mailData[col] !== '') {
+              artistId = String(mailData[col]).trim();
+              if (artistId && artistId !== '0') break;
+            }
+          }
+          
+          // 이메일 찾기
+          for (const col of mailEmailColumns) {
+            if (mailData[col] !== undefined && mailData[col] !== null && mailData[col] !== '') {
+              artistEmail = String(mailData[col]).trim();
+              if (artistEmail && artistEmail.includes('@')) break;
+            }
+          }
+          
+          // ID와 이메일이 있으면 매핑
+          if (artistId && artistEmail) {
+            // 기존 데이터가 있으면 메일 정보 추가, 없으면 새로 생성
+            const existingArtist = qcDataStore.artists.get(artistId);
+            if (existingArtist) {
+              existingArtist.mail = artistEmail;
+              qcDataStore.artists.set(artistId, existingArtist);
+            } else {
+              qcDataStore.artists.set(artistId, { mail: artistEmail, ...mailData });
+            }
+          }
+        });
+        
+        console.log(`[QC] artists_mail 시트에서 ${artistsMailData.length}개 레코드 로드`);
+      }
+    } catch (mailError) {
+      console.warn('[QC] artists_mail 시트 로드 실패 (무시):', mailError);
+    }
+    
+    console.log(`[QC] 작가 정보 로드 완료: 총 ${qcDataStore.artists.size}개 ID 매핑`);
+    
+    // 샘플 ID로 매핑 테스트 (디버깅용)
+    const testIds = ['9341', '1', '100', '41423'];
+    testIds.forEach(id => {
+      const found = qcDataStore.artists.get(id);
+      if (found) {
+        console.log(`[QC] 테스트 ID ${id}: 찾음 (mail: ${found.mail || '없음'})`);
+      } else {
+        console.log(`[QC] 테스트 ID ${id}: 없음`);
+      }
+    });
+    
   } catch (error) {
     console.error('[QC] 작가 정보 로드 실패:', error);
   }
@@ -400,19 +515,55 @@ function getArtistEmail(artistId: string | number): string | undefined {
  * 작가 정보 전체 조회 헬퍼 함수
  */
 function getArtistInfo(artistId: string | number): { name: string; email?: string } {
-  const artist = qcDataStore.artists.get(String(artistId));
+  const artistIdStr = String(artistId).trim();
+  const artist = qcDataStore.artists.get(artistIdStr);
+  
+  // 디버깅: 작가 ID로 조회 시도
+  if (!artist) {
+    console.log(`[QC] 작가 조회 실패: ID "${artistIdStr}" - 저장된 ID 수: ${qcDataStore.artists.size}`);
+    // 유사한 ID 검색 (디버깅용)
+    const allIds = Array.from(qcDataStore.artists.keys()).slice(0, 10);
+    console.log(`[QC] 저장된 ID 샘플 (처음 10개): ${allIds.join(', ')}`);
+  }
+  
   if (artist) {
+    // 작가명 조회 (다양한 컬럼명 시도)
+    const nameColumns = [
+      'artist_name (kr)',
+      '작가명 (KR)',
+      '(KR)작가명',
+      'artist_name_kr',
+      'name_kr',
+      'name',
+      '작가명',
+    ];
+    
+    let artistName = `작가 ID: ${artistId}`;
+    for (const col of nameColumns) {
+      if (artist[col]) {
+        artistName = artist[col];
+        break;
+      }
+    }
+    
+    // 이메일 조회 (다양한 컬럼명 시도)
+    const emailColumns = ['mail', 'email', 'artist_email', 'Mail', 'Email', 'EMAIL', 'MAIL'];
+    let artistEmail: string | undefined = undefined;
+    for (const col of emailColumns) {
+      if (artist[col]) {
+        artistEmail = String(artist[col]).trim();
+        break;
+      }
+    }
+    
+    console.log(`[QC] 작가 조회 성공: ID "${artistIdStr}" -> 이름: ${artistName}, 메일: ${artistEmail || '없음'}`);
+    
     return {
-      name: (
-        artist['artist_name (kr)'] ||
-        artist.artist_name_kr ||
-        artist.name_kr ||
-        artist.name ||
-        `작가 ID: ${artistId}`
-      ),
-      email: artist.mail || artist.email || artist.artist_email || artist['artist_email'] || undefined,
+      name: artistName,
+      email: artistEmail,
     };
   }
+  
   return {
     name: `작가 ID: ${artistId}`,
     email: undefined,

@@ -46,6 +46,7 @@ export const SHEET_NAMES = {
   LOGISTICS: 'logistics',
   USERS: 'users',
   ARTISTS: 'artists',
+  ARTISTS_MAIL: 'artists_mail', // 작가 메일 정보 (VLOOKUP 원본)
   MARKETER_CONTENT: 'marketer_content', // 퍼포먼스 마케터 콘텐츠 저장
   // QC 관련 시트
   QC_TEXT_RAW: '[QC] 한글_raw', // 텍스트 QC 원본 데이터
