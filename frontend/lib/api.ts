@@ -197,6 +197,48 @@ export const customersApi = {
 }
 
 // 퍼포먼스 마케터 API
+// 물류 처리 시간 분석 API
+export const logisticsPerformanceApi = {
+  getData: async (dateRange: string = '30d', countryFilter: string = 'all') => {
+    const response = await api.get('/api/logistics-performance', {
+      params: { dateRange, countryFilter },
+    })
+    return response.data
+  },
+}
+
+// 시계열 분석 API
+export const trendAnalysisApi = {
+  getData: async (startDate: string, endDate: string, countryFilter: string = 'all') => {
+    const response = await api.get('/api/trend-analysis', {
+      params: { startDate, endDate, countryFilter },
+    })
+    return response.data
+  },
+}
+
+// 비교 분석 API
+export const comparisonApi = {
+  comparePeriods: async (periods: number = 3, dateRange: string = '30d', countryFilter: string = 'all') => {
+    const response = await api.get('/api/comparison', {
+      params: { type: 'period', periods, dateRange, countryFilter },
+    })
+    return response.data
+  },
+  compareArtists: async (artists: string[], dateRange: string = '30d', countryFilter: string = 'all') => {
+    const response = await api.get('/api/comparison', {
+      params: { type: 'artist', artists: artists.join(','), dateRange, countryFilter },
+    })
+    return response.data
+  },
+  compareCountries: async (countries: string[], dateRange: string = '30d') => {
+    const response = await api.get('/api/comparison', {
+      params: { type: 'country', countries: countries.join(','), dateRange },
+    })
+    return response.data
+  },
+}
+
 export const marketerApi = {
   checkHealth: async () => {
     const response = await api.get('/api/marketer/health')

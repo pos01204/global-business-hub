@@ -178,22 +178,80 @@ router.get('/', async (req, res) => {
 
     // 채널 분석
     const currentPeriodOrderData = filterByDate(orderData, startDate, endDate);
+    const previousPeriodOrderData = filterByDate(orderData, prevStartDate, prevEndDate);
+    
     const platformRevenue: Record<string, number> = {};
+    const platformOrderCount: Record<string, Set<string>> = {};
+    const platformCustomers: Record<string, Set<number>> = {};
+    const platformAov: Record<string, number[]> = {};
     const pgCounts: Record<string, number> = {};
     const methodCounts: Record<string, number> = {};
+    
+    // 이전 기간 데이터
+    const prevPlatformRevenue: Record<string, number> = {};
+    const prevPlatformOrderCount: Record<string, Set<string>> = {};
 
     currentPeriodOrderData.forEach((row: any) => {
       const krwValue = cleanAndParseFloat(row['Total GMV']) * USD_TO_KRW_RATE;
       const platform = row.platform || 'N/A';
       const pg = row.PG사 || 'N/A';
       const method = row.method || 'N/A';
+      const userId = parseInt(row.user_id) || 0;
+      const orderCode = row.order_code;
 
       if (!isNaN(krwValue)) {
         platformRevenue[platform] = (platformRevenue[platform] || 0) + krwValue;
+        if (!platformAov[platform]) platformAov[platform] = [];
+        platformAov[platform].push(krwValue);
       }
+      if (!platformOrderCount[platform]) platformOrderCount[platform] = new Set();
+      if (orderCode) platformOrderCount[platform].add(orderCode);
+      if (!platformCustomers[platform]) platformCustomers[platform] = new Set();
+      if (userId > 0) platformCustomers[platform].add(userId);
+      
       pgCounts[pg] = (pgCounts[pg] || 0) + 1;
       methodCounts[method] = (methodCounts[method] || 0) + 1;
     });
+
+    previousPeriodOrderData.forEach((row: any) => {
+      const krwValue = cleanAndParseFloat(row['Total GMV']) * USD_TO_KRW_RATE;
+      const platform = row.platform || 'N/A';
+      const orderCode = row.order_code;
+
+      if (!isNaN(krwValue)) {
+        prevPlatformRevenue[platform] = (prevPlatformRevenue[platform] || 0) + krwValue;
+      }
+      if (!prevPlatformOrderCount[platform]) prevPlatformOrderCount[platform] = new Set();
+      if (orderCode) prevPlatformOrderCount[platform].add(orderCode);
+    });
+
+    // 채널별 상세 통계 계산
+    const channelStats = Object.keys(platformRevenue).map((platform) => {
+      const revenue = platformRevenue[platform];
+      const orderCount = platformOrderCount[platform]?.size || 0;
+      const customerCount = platformCustomers[platform]?.size || 0;
+      const aovValues = platformAov[platform] || [];
+      const avgAov = aovValues.length > 0 
+        ? aovValues.reduce((sum, val) => sum + val, 0) / aovValues.length 
+        : 0;
+      
+      const prevRevenue = prevPlatformRevenue[platform] || 0;
+      const prevOrderCount = prevPlatformOrderCount[platform]?.size || 0;
+      
+      const revenueChange = prevRevenue > 0 ? ((revenue - prevRevenue) / prevRevenue) * 100 : 0;
+      const orderChange = prevOrderCount > 0 ? ((orderCount - prevOrderCount) / prevOrderCount) * 100 : 0;
+      
+      return {
+        platform,
+        revenue: Math.round(revenue),
+        orderCount,
+        customerCount,
+        aov: Math.round(avgAov),
+        revenueChange: Math.round(revenueChange * 10) / 10,
+        orderChange: Math.round(orderChange * 10) / 10,
+        share: currentKpis.totalSales > 0 ? (revenue / currentKpis.totalSales) * 100 : 0,
+      };
+    }).sort((a, b) => b.revenue - a.revenue);
 
     // Chart.js 형식으로 변환
     const formatChartData = (data: Array<[string, number]>, labelName = 'Data') => {
@@ -773,6 +831,10 @@ router.get('/', async (req, res) => {
         platformChart,
         pgChart,
         methodChart,
+      },
+      channelAnalysis: {
+        stats: channelStats,
+        totalChannels: channelStats.length,
       },
       regionalPerformance,
       activitySummary,

@@ -1,7 +1,7 @@
 'use client'
 
 import { useQuery } from '@tanstack/react-query'
-import { analyticsApi, customersApi } from '@/lib/api'
+import { analyticsApi, customersApi, logisticsPerformanceApi, comparisonApi } from '@/lib/api'
 import { useState } from 'react'
 import CustomerDetailModal from '@/components/CustomerDetailModal'
 import OrderDetailModal from '@/components/OrderDetailModal'
@@ -35,6 +35,297 @@ ChartJS.register(
   Tooltip,
   Legend
 )
+
+// 물류 처리 시간 분석 탭 컴포넌트
+function LogisticsPerformanceTab({
+  dateRange,
+  countryFilter,
+}: {
+  dateRange: string
+  countryFilter: string
+}) {
+  const { data, isLoading, error } = useQuery({
+    queryKey: ['logistics-performance', dateRange, countryFilter],
+    queryFn: () => logisticsPerformanceApi.getData(dateRange, countryFilter),
+  })
+
+  if (isLoading) {
+    return (
+      <div className="flex items-center justify-center py-12">
+        <div className="text-center">
+          <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-primary mx-auto mb-4"></div>
+          <p>데이터를 불러오는 중...</p>
+        </div>
+      </div>
+    )
+  }
+
+  if (error) {
+    return (
+      <div className="card bg-red-50 border-red-200">
+        <h2 className="text-xl font-semibold text-red-800 mb-2">오류 발생</h2>
+        <p className="text-red-600">데이터를 불러오는 중 문제가 발생했습니다.</p>
+      </div>
+    )
+  }
+
+  if (!data) {
+    return null
+  }
+
+  const formatDays = (days: number | null) => {
+    if (days === null) return 'N/A'
+    return `${days.toFixed(1)}일`
+  }
+
+  return (
+    <div className="space-y-6">
+      {/* 요약 통계 */}
+      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
+        <div className="card">
+          <h3 className="text-sm font-medium text-muted-color mb-2">주문 → 작가 발송</h3>
+          <p className="text-2xl font-bold">{formatDays(data.summary.orderToShip.avg)}</p>
+          <p className="text-xs text-gray-500 mt-1">
+            평균 (최소: {data.summary.orderToShip.min}일, 최대: {data.summary.orderToShip.max}일)
+          </p>
+          <p className="text-xs text-gray-400 mt-1">
+            중앙값: {data.summary.orderToShip.median}일 | 건수: {data.summary.orderToShip.count}
+          </p>
+        </div>
+
+        <div className="card">
+          <h3 className="text-sm font-medium text-muted-color mb-2">작가 발송 → 검수</h3>
+          <p className="text-2xl font-bold">{formatDays(data.summary.shipToInspection.avg)}</p>
+          <p className="text-xs text-gray-500 mt-1">
+            평균 (최소: {data.summary.shipToInspection.min}일, 최대: {data.summary.shipToInspection.max}일)
+          </p>
+          <p className="text-xs text-gray-400 mt-1">
+            중앙값: {data.summary.shipToInspection.median}일 | 건수: {data.summary.shipToInspection.count}
+          </p>
+        </div>
+
+        <div className="card">
+          <h3 className="text-sm font-medium text-muted-color mb-2">검수 → 배송 시작</h3>
+          <p className="text-2xl font-bold">{formatDays(data.summary.inspectionToShipment.avg)}</p>
+          <p className="text-xs text-gray-500 mt-1">
+            평균 (최소: {data.summary.inspectionToShipment.min}일, 최대: {data.summary.inspectionToShipment.max}일)
+          </p>
+          <p className="text-xs text-gray-400 mt-1">
+            중앙값: {data.summary.inspectionToShipment.median}일 | 건수: {data.summary.inspectionToShipment.count}
+          </p>
+        </div>
+
+        <div className="card bg-gradient-to-br from-primary/10 to-accent/10">
+          <h3 className="text-sm font-medium text-muted-color mb-2">전체 처리 시간</h3>
+          <p className="text-2xl font-bold text-primary">{formatDays(data.summary.total.avg)}</p>
+          <p className="text-xs text-gray-500 mt-1">
+            평균 (최소: {data.summary.total.min}일, 최대: {data.summary.total.max}일)
+          </p>
+          <p className="text-xs text-gray-400 mt-1">
+            중앙값: {data.summary.total.median}일 | 건수: {data.summary.total.count}
+          </p>
+        </div>
+      </div>
+
+      {/* 단계별 처리 시간 비교 차트 */}
+      <div className="card">
+        <h2 className="text-xl font-semibold mb-4">⏱️ 단계별 평균 처리 시간</h2>
+        <div style={{ position: 'relative', height: '300px' }}>
+          <Bar
+            data={{
+              labels: ['주문 → 작가 발송', '작가 발송 → 검수', '검수 → 배송 시작', '전체 처리 시간'],
+              datasets: [
+                {
+                  label: '평균 처리 시간 (일)',
+                  data: [
+                    data.summary.orderToShip.avg,
+                    data.summary.shipToInspection.avg,
+                    data.summary.inspectionToShipment.avg,
+                    data.summary.total.avg,
+                  ],
+                  backgroundColor: [
+                    'rgba(74, 111, 165, 0.6)',
+                    'rgba(247, 159, 121, 0.6)',
+                    'rgba(39, 174, 96, 0.6)',
+                    'rgba(156, 39, 176, 0.6)',
+                  ],
+                },
+              ],
+            }}
+            options={{
+              responsive: true,
+              maintainAspectRatio: false,
+              plugins: {
+                legend: {
+                  display: false,
+                },
+                tooltip: {
+                  callbacks: {
+                    label: function (context) {
+                      const value = context.parsed.y
+                      return `평균: ${value != null ? value.toFixed(1) : '0'}일`
+                    },
+                  },
+                },
+              },
+              scales: {
+                y: {
+                  beginAtZero: true,
+                  grid: { color: '#eee' },
+                  ticks: {
+                    callback: function (value) {
+                      return value + '일'
+                    },
+                  },
+                },
+              },
+            }}
+          />
+        </div>
+      </div>
+
+      {/* 작가별 성과 */}
+      {data.artistStats && data.artistStats.length > 0 && (
+        <div className="card">
+          <h2 className="text-xl font-semibold mb-4">👨‍🎨 작가별 처리 시간 성과 (Top 20)</h2>
+          <div className="overflow-x-auto">
+            <table className="w-full">
+              <thead>
+                <tr className="border-b">
+                  <th className="text-left py-2 px-4">작가명</th>
+                  <th className="text-right py-2 px-4">주문 건수</th>
+                  <th className="text-right py-2 px-4">주문→발송</th>
+                  <th className="text-right py-2 px-4">발송→검수</th>
+                  <th className="text-right py-2 px-4">검수→배송</th>
+                  <th className="text-right py-2 px-4 font-semibold">전체 시간</th>
+                </tr>
+              </thead>
+              <tbody>
+                {data.artistStats.map((artist: any, index: number) => (
+                  <tr key={index} className="border-b hover:bg-gray-50">
+                    <td className="py-2 px-4">{artist.artistName}</td>
+                    <td className="py-2 px-4 text-right">{artist.orderCount}</td>
+                    <td className="py-2 px-4 text-right">{formatDays(artist.avgOrderToShip)}</td>
+                    <td className="py-2 px-4 text-right">{formatDays(artist.avgShipToInspection)}</td>
+                    <td className="py-2 px-4 text-right">{formatDays(artist.avgInspectionToShipment)}</td>
+                    <td className="py-2 px-4 text-right font-semibold text-primary">
+                      {formatDays(artist.avgTotalTime)}
+                    </td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
+        </div>
+      )}
+
+      {/* 국가별 성과 */}
+      {data.countryStats && data.countryStats.length > 0 && (
+        <div className="card">
+          <h2 className="text-xl font-semibold mb-4">🌍 국가별 평균 처리 시간</h2>
+          <div style={{ position: 'relative', height: '300px' }}>
+            <Bar
+              data={{
+                labels: data.countryStats.map((c: any) => c.country),
+                datasets: [
+                  {
+                    label: '평균 처리 시간 (일)',
+                    data: data.countryStats.map((c: any) => c.avgTotalTime),
+                    backgroundColor: 'rgba(74, 111, 165, 0.6)',
+                  },
+                ],
+              }}
+              options={{
+                responsive: true,
+                maintainAspectRatio: false,
+                plugins: {
+                  legend: {
+                    display: false,
+                  },
+                  tooltip: {
+                    callbacks: {
+                      label: function (context) {
+                        const value = context.parsed.y
+                        return `평균: ${value != null ? value.toFixed(1) : '0'}일`
+                      },
+                    },
+                  },
+                },
+                scales: {
+                  y: {
+                    beginAtZero: true,
+                    grid: { color: '#eee' },
+                    ticks: {
+                      callback: function (value) {
+                        return value + '일'
+                      },
+                    },
+                  },
+                },
+              }}
+            />
+          </div>
+        </div>
+      )}
+
+      {/* 처리 시간 분포 */}
+      {data.dailyDistribution && Object.keys(data.dailyDistribution).length > 0 && (
+        <div className="card">
+          <h2 className="text-xl font-semibold mb-4">📊 처리 시간 분포</h2>
+          <div style={{ position: 'relative', height: '300px' }}>
+            <Bar
+              data={{
+                labels: Object.keys(data.dailyDistribution).sort((a, b) => {
+                  const aDays = parseInt(a.replace('일', ''))
+                  const bDays = parseInt(b.replace('일', ''))
+                  return aDays - bDays
+                }),
+                datasets: [
+                  {
+                    label: '주문 건수',
+                    data: Object.keys(data.dailyDistribution)
+                      .sort((a, b) => {
+                        const aDays = parseInt(a.replace('일', ''))
+                        const bDays = parseInt(b.replace('일', ''))
+                        return aDays - bDays
+                      })
+                      .map((key) => data.dailyDistribution[key]),
+                    backgroundColor: 'rgba(247, 159, 121, 0.6)',
+                  },
+                ],
+              }}
+              options={{
+                responsive: true,
+                maintainAspectRatio: false,
+                plugins: {
+                  legend: {
+                    display: false,
+                  },
+                  tooltip: {
+                    callbacks: {
+                      label: function (context) {
+                        return `${context.parsed.y}건`
+                      },
+                    },
+                  },
+                },
+                scales: {
+                  y: {
+                    beginAtZero: true,
+                    grid: { color: '#eee' },
+                    ticks: {
+                      stepSize: 1,
+                    },
+                  },
+                },
+              }}
+            />
+          </div>
+        </div>
+      )}
+    </div>
+  )
+}
 
 export default function AnalyticsPage() {
   const [dateRange, setDateRange] = useState('30d')
@@ -223,6 +514,26 @@ export default function AnalyticsPage() {
               지역 분석
             </button>
           )}
+          <button
+            onClick={() => setActiveTab('logistics-performance')}
+            className={`pb-2 px-4 font-medium ${
+              activeTab === 'logistics-performance'
+                ? 'border-b-2 border-primary text-primary'
+                : 'text-muted-color hover:text-primary'
+            }`}
+          >
+            물류 처리 시간
+          </button>
+          <button
+            onClick={() => setActiveTab('comparison')}
+            className={`pb-2 px-4 font-medium ${
+              activeTab === 'comparison'
+                ? 'border-b-2 border-primary text-primary'
+                : 'text-muted-color hover:text-primary'
+            }`}
+          >
+            비교 분석
+          </button>
         </div>
       </div>
 
@@ -731,45 +1042,207 @@ export default function AnalyticsPage() {
         )}
 
       {activeTab === 'channel' && data && (
-          <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
-            <div className="card">
-              <h2 className="text-xl font-semibold mb-4">플랫폼별 매출</h2>
-              {data.charts.platformChart && (
-                <Bar
-                  data={data.charts.platformChart}
-                  options={{
-                    responsive: true,
-                    plugins: {
-                      legend: { display: false },
-                    },
-                  }}
-                />
-              )}
+          <div className="space-y-6">
+            {/* 채널별 상세 통계 */}
+            {data.channelAnalysis && data.channelAnalysis.stats && (
+              <div className="card">
+                <h2 className="text-xl font-semibold mb-4">📊 채널별 상세 성과</h2>
+                <div className="overflow-x-auto">
+                  <table className="w-full">
+                    <thead>
+                      <tr className="border-b">
+                        <th className="text-left py-2 px-4">플랫폼</th>
+                        <th className="text-right py-2 px-4">매출 (GMV)</th>
+                        <th className="text-right py-2 px-4">객단가 (AOV)</th>
+                        <th className="text-right py-2 px-4">주문 건수</th>
+                        <th className="text-right py-2 px-4">고객 수</th>
+                        <th className="text-right py-2 px-4">점유율</th>
+                        <th className="text-right py-2 px-4">매출 변화율</th>
+                        <th className="text-right py-2 px-4">주문 변화율</th>
+                      </tr>
+                    </thead>
+                    <tbody>
+                      {data.channelAnalysis.stats.map((channel: any, index: number) => (
+                        <tr key={index} className="border-b hover:bg-gray-50">
+                          <td className="py-2 px-4 font-medium">{channel.platform}</td>
+                          <td className="py-2 px-4 text-right">{formatCurrency(channel.revenue)}</td>
+                          <td className="py-2 px-4 text-right">{formatCurrency(channel.aov)}</td>
+                          <td className="py-2 px-4 text-right">{channel.orderCount.toLocaleString()}</td>
+                          <td className="py-2 px-4 text-right">{channel.customerCount.toLocaleString()}</td>
+                          <td className="py-2 px-4 text-right">{channel.share.toFixed(1)}%</td>
+                          <td className={`py-2 px-4 text-right ${channel.revenueChange >= 0 ? 'text-green-600' : 'text-red-600'}`}>
+                            {channel.revenueChange >= 0 ? '+' : ''}{channel.revenueChange.toFixed(1)}%
+                          </td>
+                          <td className={`py-2 px-4 text-right ${channel.orderChange >= 0 ? 'text-green-600' : 'text-red-600'}`}>
+                            {channel.orderChange >= 0 ? '+' : ''}{channel.orderChange.toFixed(1)}%
+                          </td>
+                        </tr>
+                      ))}
+                    </tbody>
+                  </table>
+                </div>
+              </div>
+            )}
+
+            {/* 기존 차트 */}
+            <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
+              <div className="card">
+                <h2 className="text-xl font-semibold mb-4">플랫폼별 매출</h2>
+                {data.charts.platformChart && (
+                  <Bar
+                    data={data.charts.platformChart}
+                    options={{
+                      responsive: true,
+                      plugins: {
+                        legend: { display: false },
+                        tooltip: {
+                          callbacks: {
+                            label: function (context) {
+                              return `매출: ${formatCurrency(context.parsed.y)}`
+                            },
+                          },
+                        },
+                      },
+                    }}
+                  />
+                )}
+              </div>
+
+              <div className="card">
+                <h2 className="text-xl font-semibold mb-4">PG사별 주문</h2>
+                {data.charts.pgChart && (
+                  <Doughnut
+                    data={data.charts.pgChart}
+                    options={{
+                      responsive: true,
+                      plugins: {
+                        tooltip: {
+                          callbacks: {
+                            label: function (context) {
+                              const total = context.dataset.data.reduce((a: any, b: any) => a + b, 0)
+                              const percentage = ((context.parsed / total) * 100).toFixed(1)
+                              return `${context.label}: ${context.parsed}건 (${percentage}%)`
+                            },
+                          },
+                        },
+                      },
+                    }}
+                  />
+                )}
+              </div>
+
+              <div className="card">
+                <h2 className="text-xl font-semibold mb-4">결제수단별 주문</h2>
+                {data.charts.methodChart && (
+                  <Pie
+                    data={data.charts.methodChart}
+                    options={{
+                      responsive: true,
+                      plugins: {
+                        tooltip: {
+                          callbacks: {
+                            label: function (context) {
+                              const total = context.dataset.data.reduce((a: any, b: any) => a + b, 0)
+                              const percentage = ((context.parsed / total) * 100).toFixed(1)
+                              return `${context.label}: ${context.parsed}건 (${percentage}%)`
+                            },
+                          },
+                        },
+                      },
+                    }}
+                  />
+                )}
+              </div>
             </div>
 
-            <div className="card">
-              <h2 className="text-xl font-semibold mb-4">PG사별 주문</h2>
-              {data.charts.pgChart && (
-                <Doughnut
-                  data={data.charts.pgChart}
-                  options={{
-                    responsive: true,
-                  }}
-                />
-              )}
-            </div>
+            {/* 채널별 AOV 비교 */}
+            {data.channelAnalysis && data.channelAnalysis.stats && (
+              <div className="card">
+                <h2 className="text-xl font-semibold mb-4">💰 채널별 객단가 (AOV) 비교</h2>
+                <div style={{ position: 'relative', height: '300px' }}>
+                  <Bar
+                    data={{
+                      labels: data.channelAnalysis.stats.map((c: any) => c.platform),
+                      datasets: [
+                        {
+                          label: '객단가 (KRW)',
+                          data: data.channelAnalysis.stats.map((c: any) => c.aov),
+                          backgroundColor: 'rgba(247, 159, 121, 0.6)',
+                        },
+                      ],
+                    }}
+                    options={{
+                      responsive: true,
+                      maintainAspectRatio: false,
+                      plugins: {
+                        legend: {
+                          display: false,
+                        },
+                        tooltip: {
+                          callbacks: {
+                            label: function (context) {
+                              return `객단가: ${formatCurrency(context.parsed.y)}`
+                            },
+                          },
+                        },
+                      },
+                      scales: {
+                        y: {
+                          beginAtZero: true,
+                          grid: { color: '#eee' },
+                        },
+                      },
+                    }}
+                  />
+                </div>
+              </div>
+            )}
 
-            <div className="card">
-              <h2 className="text-xl font-semibold mb-4">결제수단별 주문</h2>
-              {data.charts.methodChart && (
-                <Pie
-                  data={data.charts.methodChart}
-                  options={{
-                    responsive: true,
-                  }}
-                />
-              )}
-            </div>
+            {/* 채널별 고객 수 비교 */}
+            {data.channelAnalysis && data.channelAnalysis.stats && (
+              <div className="card">
+                <h2 className="text-xl font-semibold mb-4">👥 채널별 고객 수 비교</h2>
+                <div style={{ position: 'relative', height: '300px' }}>
+                  <Bar
+                    data={{
+                      labels: data.channelAnalysis.stats.map((c: any) => c.platform),
+                      datasets: [
+                        {
+                          label: '고객 수',
+                          data: data.channelAnalysis.stats.map((c: any) => c.customerCount),
+                          backgroundColor: 'rgba(39, 174, 96, 0.6)',
+                        },
+                      ],
+                    }}
+                    options={{
+                      responsive: true,
+                      maintainAspectRatio: false,
+                      plugins: {
+                        legend: {
+                          display: false,
+                        },
+                        tooltip: {
+                          callbacks: {
+                            label: function (context) {
+                              return `고객 수: ${context.parsed.y}명`
+                            },
+                          },
+                        },
+                      },
+                      scales: {
+                        y: {
+                          beginAtZero: true,
+                          grid: { color: '#eee' },
+                          ticks: {
+                            stepSize: 1,
+                          },
+                        },
+                      },
+                    }}
+                  />
+                </div>
+              </div>
+            )}
           </div>
         )}
 
@@ -881,6 +1354,16 @@ export default function AnalyticsPage() {
               </div>
             </div>
           </div>
+        )}
+
+        {/* 물류 처리 시간 분석 탭 */}
+        {activeTab === 'logistics-performance' && (
+          <LogisticsPerformanceTab dateRange={dateRange} countryFilter={countryFilter} />
+        )}
+
+        {/* 비교 분석 탭 */}
+        {activeTab === 'comparison' && (
+          <ComparisonTab dateRange={dateRange} countryFilter={countryFilter} />
         )}
 
       {/* 모달 */}

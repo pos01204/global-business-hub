@@ -1,7 +1,7 @@
 'use client'
 
 import { useQuery } from '@tanstack/react-query'
-import { dashboardApi } from '@/lib/api'
+import { dashboardApi, trendAnalysisApi } from '@/lib/api'
 import { useState, useEffect, useRef } from 'react'
 import { format } from 'date-fns'
 import {
@@ -48,6 +48,13 @@ export default function DashboardPage() {
   const { data, isLoading, error } = useQuery({
     queryKey: ['dashboard', 'main', startDate, endDate],
     queryFn: () => dashboardApi.getMain(startDate, endDate),
+    enabled: !!startDate && !!endDate,
+  })
+
+  // 시계열 분석 고도화 데이터
+  const { data: trendData } = useQuery({
+    queryKey: ['trend-analysis', startDate, endDate],
+    queryFn: () => trendAnalysisApi.getData(startDate, endDate, 'all'),
     enabled: !!startDate && !!endDate,
   })
 

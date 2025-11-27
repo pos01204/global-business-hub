@@ -19,6 +19,9 @@ import marketerPerformanceRoutes from './routes/marketer-performance';
 import marketerTestRoutes from './routes/marketer-test';
 import marketerMaterialsRoutes from './routes/marketer-materials';
 import chatRoutes from './routes/chat';
+import logisticsPerformanceRoutes from './routes/logistics-performance';
+import comparisonRoutes from './routes/comparison';
+import trendAnalysisRoutes from './routes/trend-analysis';
 
 // .env 파일 로드 (backend 폴더 기준)
 let envPath: string;
@@ -69,6 +72,9 @@ app.use('/api/marketer/performance', marketerPerformanceRoutes);
 app.use('/api/marketer', marketerTestRoutes); // 테스트 라우트
 app.use('/api/marketer/materials', marketerMaterialsRoutes);
 app.use('/api/chat', chatRoutes);
+app.use('/api/logistics-performance', logisticsPerformanceRoutes);
+app.use('/api/comparison', comparisonRoutes);
+app.use('/api/trend-analysis', trendAnalysisRoutes);
 
 app.get('/api', (req, res) => {
   res.json({ message: 'Global Business Hub API' });
