@@ -245,10 +245,62 @@ async function initializeQCData() {
 /**
  * Google Sheets에서 QC 데이터 동기화 (수동 새로고침)
  * POST /api/qc/sync
+ * GET /api/qc/sync (브라우저 호환성)
  * 
  * 주의: 이 라우트는 동적 라우트(/:type/:id)보다 앞에 정의되어야 합니다.
  */
 router.post('/sync', async (req, res) => {
+  try {
+    console.log('[QC] Google Sheets 동기화 시작...');
+    console.log('[QC] 동기화 요청 수신:', req.method, req.path);
+    
+    // 기존 데이터 백업 (통계용)
+    const beforeTextCount = qcDataStore.text.size;
+    const beforeImageCount = qcDataStore.image.size;
+    const beforeArchiveCount = qcDataStore.archive.size;
+
+    // 데이터 다시 로드
+    await loadArtists();
+    await loadTextQCData();
+    await loadImageQCData();
+    await loadArchiveData();
+
+    const afterTextCount = qcDataStore.text.size;
+    const afterImageCount = qcDataStore.image.size;
+    const afterArchiveCount = qcDataStore.archive.size;
+
+    res.json({
+      success: true,
+      message: 'Google Sheets 동기화 완료',
+      stats: {
+        text: {
+          before: beforeTextCount,
+          after: afterTextCount,
+          added: afterTextCount - beforeTextCount,
+        },
+        image: {
+          before: beforeImageCount,
+          after: afterImageCount,
+          added: afterImageCount - beforeImageCount,
+        },
+        archive: {
+          before: beforeArchiveCount,
+          after: afterArchiveCount,
+          added: afterArchiveCount - beforeArchiveCount,
+        },
+      },
+    });
+  } catch (error: any) {
+    console.error('[QC] 동기화 오류:', error);
+    res.status(500).json({
+      error: '동기화 중 오류가 발생했습니다.',
+      message: error.message,
+    });
+  }
+});
+
+// GET 요청도 지원 (브라우저 호환성)
+router.get('/sync', async (req, res) => {
   try {
     console.log('[QC] Google Sheets 동기화 시작...');
     console.log('[QC] 동기화 요청 수신:', req.method, req.path);
