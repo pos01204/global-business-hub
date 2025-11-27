@@ -1,13 +1,100 @@
-import axios from 'axios'
+import axios, { AxiosError } from 'axios'
 
-const API_URL = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:3001'
+// 환경 변수 검증
+const getApiUrl = () => {
+  const apiUrl = process.env.NEXT_PUBLIC_API_URL
+  
+  // 프로덕션 환경에서 API URL이 설정되지 않은 경우 경고
+  if (typeof window !== 'undefined' && !apiUrl && process.env.NODE_ENV === 'production') {
+    console.error('⚠️ NEXT_PUBLIC_API_URL 환경 변수가 설정되지 않았습니다.')
+  }
+  
+  return apiUrl || 'http://localhost:3001'
+}
+
+const API_URL = getApiUrl()
 
 const api = axios.create({
   baseURL: API_URL,
   headers: {
     'Content-Type': 'application/json',
   },
+  timeout: 30000, // 30초 타임아웃
 })
+
+// 요청 인터셉터
+api.interceptors.request.use(
+  (config) => {
+    // 요청 전 로깅 (개발 환경에서만)
+    if (process.env.NODE_ENV === 'development') {
+      console.log(`[API Request] ${config.method?.toUpperCase()} ${config.url}`)
+    }
+    return config
+  },
+  (error) => {
+    console.error('[API Request Error]', error)
+    return Promise.reject(error)
+  }
+)
+
+// 응답 인터셉터 - 에러 핸들링
+api.interceptors.response.use(
+  (response) => {
+    return response
+  },
+  (error: AxiosError) => {
+    // 네트워크 오류 처리
+    if (!error.response) {
+      const networkError = new Error(
+        error.code === 'ECONNABORTED'
+          ? '요청 시간이 초과되었습니다. 서버가 응답하지 않습니다.'
+          : '네트워크 오류가 발생했습니다. 백엔드 서버가 실행 중인지 확인하세요.'
+      )
+      networkError.name = 'NetworkError'
+      return Promise.reject(networkError)
+    }
+
+    // HTTP 오류 처리
+    const status = error.response.status
+    let errorMessage = '알 수 없는 오류가 발생했습니다.'
+
+    switch (status) {
+      case 400:
+        errorMessage = '잘못된 요청입니다.'
+        break
+      case 401:
+        errorMessage = '인증이 필요합니다.'
+        break
+      case 403:
+        errorMessage = '접근 권한이 없습니다.'
+        break
+      case 404:
+        errorMessage = '요청한 리소스를 찾을 수 없습니다.'
+        break
+      case 500:
+        errorMessage = '서버 내부 오류가 발생했습니다.'
+        break
+      case 502:
+        errorMessage = '게이트웨이 오류가 발생했습니다.'
+        break
+      case 503:
+        errorMessage = '서비스를 사용할 수 없습니다.'
+        break
+      default:
+        errorMessage = `서버 오류가 발생했습니다. (${status})`
+    }
+
+    // 서버에서 제공한 에러 메시지가 있으면 사용
+    const serverMessage = (error.response.data as any)?.message || (error.response.data as any)?.error
+    if (serverMessage) {
+      errorMessage = serverMessage
+    }
+
+    const apiError = new Error(errorMessage)
+    apiError.name = `HTTP${status}Error`
+    return Promise.reject(apiError)
+  }
+)
 
 // 대시보드 API
 export const dashboardApi = {
@@ -193,6 +280,21 @@ export const marketerApi = {
   },
   getPerformanceReport: async (params?: { startDate?: string; endDate?: string }) => {
     const response = await api.get('/api/marketer/performance/report/summary', { params })
+    return response.data
+  },
+}
+
+// 챗봇 API
+export const chatApi = {
+  sendMessage: async (message: string, history: Array<{ role: 'user' | 'assistant'; content: string }> = []) => {
+    const response = await api.post('/api/chat/message', {
+      message,
+      history,
+    })
+    return response.data
+  },
+  checkHealth: async () => {
+    const response = await api.get('/api/chat/health')
     return response.data
   },
 }
