@@ -14,6 +14,24 @@ export default function CSVUploadTab() {
     result?: any
   }>>([])
 
+  const syncMutation = useMutation({
+    mutationFn: () => qcApi.sync(),
+    onSuccess: (data) => {
+      const stats = data.stats
+      alert(
+        `Google Sheets 동기화 완료!\n\n` +
+        `텍스트 QC: ${stats.text.added > 0 ? `+${stats.text.added}개 추가` : '변경 없음'}\n` +
+        `이미지 QC: ${stats.image.added > 0 ? `+${stats.image.added}개 추가` : '변경 없음'}\n` +
+        `아카이브: ${stats.archive.added > 0 ? `+${stats.archive.added}개 추가` : '변경 없음'}`
+      )
+      // 페이지 새로고침하여 최신 데이터 반영
+      window.location.reload()
+    },
+    onError: (error: any) => {
+      alert(`동기화 실패: ${error.response?.data?.message || error.message}`)
+    },
+  })
+
   const textUploadMutation = useMutation({
     mutationFn: (file: File) => qcApi.uploadText(file),
     onSuccess: (data, file) => {
@@ -75,6 +93,29 @@ export default function CSVUploadTab() {
 
   return (
     <div className="space-y-6">
+      {/* Google Sheets 동기화 */}
+      <div className="card bg-blue-50 border-blue-200">
+        <div className="flex items-center justify-between">
+          <div>
+            <div className="flex items-center gap-2 mb-2">
+              <span className="text-2xl">🔄</span>
+              <h3 className="text-lg font-semibold">Google Sheets 동기화</h3>
+            </div>
+            <p className="text-sm text-gray-600">
+              Google Sheets에 직접 업데이트한 데이터를 허브에 동기화합니다. 
+              CSV 업로드 대신 Google Sheets를 사용하는 것을 권장합니다.
+            </p>
+          </div>
+          <button
+            onClick={() => syncMutation.mutate()}
+            disabled={syncMutation.isPending}
+            className="btn btn-primary px-6 disabled:opacity-50 disabled:cursor-not-allowed whitespace-nowrap"
+          >
+            {syncMutation.isPending ? '동기화 중...' : '🔄 동기화'}
+          </button>
+        </div>
+      </div>
+
       {/* 텍스트 QC CSV 업로드 */}
       <div className="card">
         <div className="flex items-center gap-2 mb-4">
@@ -82,7 +123,8 @@ export default function CSVUploadTab() {
           <h3 className="text-lg font-semibold">텍스트 QC 데이터</h3>
         </div>
         <p className="text-sm text-gray-600 mb-4">
-          텍스트 QC용 한글 포함 결과 CSV 파일을 업로드하세요.
+          텍스트 QC용 한글 포함 결과 CSV 파일을 업로드하세요. 
+          <span className="text-orange-600 font-medium"> (대용량 파일의 경우 Google Sheets 동기화를 권장합니다)</span>
         </p>
         <div className="space-y-4">
           <div className="flex items-center gap-4">
@@ -117,7 +159,8 @@ export default function CSVUploadTab() {
           <h3 className="text-lg font-semibold">이미지 QC 데이터</h3>
         </div>
         <p className="text-sm text-gray-600 mb-4">
-          이미지 QC용 한글 OCR 결과 CSV 파일을 업로드하세요.
+          이미지 QC용 한글 OCR 결과 CSV 파일을 업로드하세요. 
+          <span className="text-orange-600 font-medium"> (대용량 파일의 경우 Google Sheets 동기화를 권장합니다)</span>
         </p>
         <div className="space-y-4">
           <div className="flex items-center gap-4">

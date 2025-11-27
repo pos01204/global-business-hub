@@ -84,19 +84,40 @@ async function loadArtists() {
 }
 
 /**
- * 텍스트 QC 데이터 로드 (Google Sheets에서)
+ * 텍스트 QC 데이터 로드 (Google Sheets 원본 시트에서)
  */
 async function loadTextQCData() {
   try {
-    const textData = await sheetsService.getSheetDataAsJson(SHEET_NAMES.QC_TEXT_PROCESS, false);
+    // 원본 시트에서 데이터 로드
+    const textData = await sheetsService.getSheetDataAsJson(SHEET_NAMES.QC_TEXT_RAW, false);
     let imported = 0;
     let skipped = 0;
+    let archived = 0;
 
     for (const record of textData) {
       const id = generateId('text', record);
       
+      // 상태 확인 (status 컬럼이 있으면 사용, 없으면 'pending')
+      const status = (record.status as 'pending' | 'approved' | 'needs_revision' | 'excluded') || 'pending';
+      
+      // 아카이브된 항목은 아카이브 저장소에만 저장
+      if (status === 'archived' || record.archived === true) {
+        const qcItem: QCItem = {
+          id,
+          type: 'text',
+          data: record,
+          status: 'approved', // 아카이브는 완료된 것으로 간주
+          needsRevision: false,
+          createdAt: record.createdAt ? new Date(record.createdAt) : new Date(),
+          completedAt: record.completedAt ? new Date(record.completedAt) : new Date(),
+        };
+        qcDataStore.archive.set(id, qcItem);
+        archived++;
+        continue;
+      }
+      
       // 이미 존재하는 경우 스킵
-      if (qcDataStore.text.has(id) || qcDataStore.archive.has(id)) {
+      if (qcDataStore.text.has(id)) {
         skipped++;
         continue;
       }
@@ -105,7 +126,7 @@ async function loadTextQCData() {
         id,
         type: 'text',
         data: record,
-        status: (record.status as 'pending' | 'approved' | 'needs_revision' | 'excluded') || 'pending',
+        status,
         needsRevision: record.needsRevision === true || record.needs_revision === true,
         createdAt: record.createdAt ? new Date(record.createdAt) : new Date(),
         completedAt: record.completedAt ? new Date(record.completedAt) : undefined,
@@ -115,45 +136,47 @@ async function loadTextQCData() {
       imported++;
     }
 
-    console.log(`[QC] 텍스트 QC 데이터 로드 완료: ${imported}개 가져옴, ${skipped}개 스킵`);
+    console.log(`[QC] 텍스트 QC 데이터 로드 완료: ${imported}개 가져옴, ${archived}개 아카이브, ${skipped}개 스킵`);
   } catch (error) {
     console.error('[QC] 텍스트 QC 데이터 로드 실패:', error);
   }
 }
 
 /**
- * 이미지 QC 데이터 로드 (Google Sheets에서)
+ * 이미지 QC 데이터 로드 (Google Sheets 원본 시트에서)
  */
 async function loadImageQCData() {
   try {
-    // 먼저 원본 데이터 시트에서 로드 시도
-    let imageData: any[] = [];
-    
-    try {
-      imageData = await sheetsService.getSheetDataAsJson(SHEET_NAMES.QC_IMAGE_RAW, false);
-    } catch (error) {
-      console.warn('[QC] 이미지 QC 원본 시트를 찾을 수 없습니다. 처리 시트에서 로드 시도합니다.');
-      // 원본 시트가 없으면 처리 시트에서 로드 시도
-      try {
-        const processData = await sheetsService.getSheetDataAsJson(SHEET_NAMES.QC_IMAGE_PROCESS, false);
-        // 이미지 QC 데이터만 필터링 (타입 구분이 필요한 경우)
-        imageData = processData.filter((item: any) => 
-          item.image_url || item.detected_text || item.page_name
-        );
-      } catch (processError) {
-        console.error('[QC] 이미지 QC 처리 시트도 찾을 수 없습니다.');
-        return;
-      }
-    }
-
+    // 원본 시트에서 데이터 로드
+    const imageData = await sheetsService.getSheetDataAsJson(SHEET_NAMES.QC_IMAGE_RAW, false);
     let imported = 0;
     let skipped = 0;
+    let archived = 0;
 
     for (const record of imageData) {
       const id = generateId('image', record);
       
+      // 상태 확인 (status 컬럼이 있으면 사용, 없으면 'pending')
+      const status = (record.status as 'pending' | 'approved' | 'needs_revision' | 'excluded') || 'pending';
+      
+      // 아카이브된 항목은 아카이브 저장소에만 저장
+      if (status === 'archived' || record.archived === true) {
+        const qcItem: QCItem = {
+          id,
+          type: 'image',
+          data: record,
+          status: 'approved', // 아카이브는 완료된 것으로 간주
+          needsRevision: false,
+          createdAt: record.createdAt ? new Date(record.createdAt) : new Date(),
+          completedAt: record.completedAt ? new Date(record.completedAt) : new Date(),
+        };
+        qcDataStore.archive.set(id, qcItem);
+        archived++;
+        continue;
+      }
+      
       // 이미 존재하는 경우 스킵
-      if (qcDataStore.image.has(id) || qcDataStore.archive.has(id)) {
+      if (qcDataStore.image.has(id)) {
         skipped++;
         continue;
       }
@@ -162,7 +185,7 @@ async function loadImageQCData() {
         id,
         type: 'image',
         data: record,
-        status: (record.status as 'pending' | 'approved' | 'needs_revision' | 'excluded') || 'pending',
+        status,
         needsRevision: record.needsRevision === true || record.needs_revision === true,
         createdAt: record.createdAt ? new Date(record.createdAt) : new Date(),
         completedAt: record.completedAt ? new Date(record.completedAt) : undefined,
@@ -172,7 +195,7 @@ async function loadImageQCData() {
       imported++;
     }
 
-    console.log(`[QC] 이미지 QC 데이터 로드 완료: ${imported}개 가져옴, ${skipped}개 스킵`);
+    console.log(`[QC] 이미지 QC 데이터 로드 완료: ${imported}개 가져옴, ${archived}개 아카이브, ${skipped}개 스킵`);
   } catch (error) {
     console.error('[QC] 이미지 QC 데이터 로드 실패:', error);
   }
@@ -218,6 +241,59 @@ async function initializeQCData() {
   await loadArchiveData();
   console.log('[QC] QC 데이터 초기화 완료');
 }
+
+/**
+ * Google Sheets에서 QC 데이터 동기화 (수동 새로고침)
+ * POST /api/qc/sync
+ */
+router.post('/sync', async (req, res) => {
+  try {
+    console.log('[QC] Google Sheets 동기화 시작...');
+    
+    // 기존 데이터 백업 (통계용)
+    const beforeTextCount = qcDataStore.text.size;
+    const beforeImageCount = qcDataStore.image.size;
+    const beforeArchiveCount = qcDataStore.archive.size;
+
+    // 데이터 다시 로드
+    await loadArtists();
+    await loadTextQCData();
+    await loadImageQCData();
+    await loadArchiveData();
+
+    const afterTextCount = qcDataStore.text.size;
+    const afterImageCount = qcDataStore.image.size;
+    const afterArchiveCount = qcDataStore.archive.size;
+
+    res.json({
+      success: true,
+      message: 'Google Sheets 동기화 완료',
+      stats: {
+        text: {
+          before: beforeTextCount,
+          after: afterTextCount,
+          added: afterTextCount - beforeTextCount,
+        },
+        image: {
+          before: beforeImageCount,
+          after: afterImageCount,
+          added: afterImageCount - beforeImageCount,
+        },
+        archive: {
+          before: beforeArchiveCount,
+          after: afterArchiveCount,
+          added: afterArchiveCount - beforeArchiveCount,
+        },
+      },
+    });
+  } catch (error: any) {
+    console.error('[QC] 동기화 오류:', error);
+    res.status(500).json({
+      error: '동기화 중 오류가 발생했습니다.',
+      message: error.message,
+    });
+  }
+});
 
 initializeQCData();
 
@@ -346,13 +422,26 @@ router.post('/upload/text', upload.single('file'), async (req, res) => {
 
       qcDataStore.text.set(id, qcItem);
       imported++;
+    }
 
-      // Google Sheets에 저장 (비동기, 실패해도 메모리 저장은 유지)
+    // 배치로 Google Sheets에 저장 (성능 개선)
+    if (imported > 0) {
       try {
-        const rowData = Object.values(record);
-        await sheetsService.appendRow(SHEET_NAMES.QC_TEXT_PROCESS, rowData);
+        const rowsToAdd: any[][] = [];
+        for (const record of records) {
+          const id = generateId('text', record);
+          if (qcDataStore.text.has(id) && !qcDataStore.archive.has(id)) {
+            const rowData = Object.values(record);
+            rowsToAdd.push(rowData);
+          }
+        }
+        
+        if (rowsToAdd.length > 0) {
+          await sheetsService.appendRows(SHEET_NAMES.QC_TEXT_RAW, rowsToAdd);
+          console.log(`[QC] 텍스트 QC ${rowsToAdd.length}개 행을 Google Sheets 원본 시트에 배치 저장 완료`);
+        }
       } catch (error) {
-        console.warn(`[QC] Google Sheets 저장 실패 (텍스트 QC): ${id}`, error);
+        console.error('[QC] Google Sheets 배치 저장 실패 (텍스트 QC):', error);
         // 저장 실패해도 메모리 저장은 유지
       }
     }
@@ -363,6 +452,9 @@ router.post('/upload/text', upload.single('file'), async (req, res) => {
       skipped,
       duplicates: duplicates.length,
       total: records.length,
+      message: imported > 0 
+        ? `${imported}개 항목이 메모리에 저장되었습니다. Google Sheets 동기화는 백그라운드에서 진행 중입니다.`
+        : '모든 항목이 스킵되었습니다.',
     });
   } catch (error: any) {
     console.error('[QC] 텍스트 CSV 업로드 오류:', error);
@@ -460,13 +552,27 @@ router.post('/upload/image', upload.single('file'), async (req, res) => {
 
       qcDataStore.image.set(id, qcItem);
       imported++;
+    }
 
-      // Google Sheets에 저장 (비동기, 실패해도 메모리 저장은 유지)
+    // 배치로 Google Sheets에 저장 (성능 개선)
+    if (imported > 0) {
       try {
-        const rowData = Object.values(record);
-        await sheetsService.appendRow(SHEET_NAMES.QC_IMAGE_PROCESS, rowData);
+        const rowsToAdd: any[][] = [];
+        for (const record of records) {
+          const id = generateId('image', record);
+          const existingItem = qcDataStore.image.get(id);
+          if (existingItem && !qcDataStore.archive.has(id) && existingItem.status === 'pending') {
+            const rowData = Object.values(record);
+            rowsToAdd.push(rowData);
+          }
+        }
+        
+        if (rowsToAdd.length > 0) {
+          await sheetsService.appendRows(SHEET_NAMES.QC_IMAGE_RAW, rowsToAdd);
+          console.log(`[QC] 이미지 QC ${rowsToAdd.length}개 행을 Google Sheets 원본 시트에 배치 저장 완료`);
+        }
       } catch (error) {
-        console.warn(`[QC] Google Sheets 저장 실패 (이미지 QC): ${id}`, error);
+        console.error('[QC] Google Sheets 배치 저장 실패 (이미지 QC):', error);
         // 저장 실패해도 메모리 저장은 유지
       }
     }
@@ -482,6 +588,9 @@ router.post('/upload/image', upload.single('file'), async (req, res) => {
       duplicates: duplicates.length,
       total: records.length,
       skippedReasons,
+      message: imported > 0 
+        ? `${imported}개 항목이 메모리에 저장되었습니다. Google Sheets 동기화는 백그라운드에서 진행 중입니다.`
+        : '모든 항목이 스킵되었습니다.',
     });
   } catch (error: any) {
     console.error('[QC] 이미지 CSV 업로드 오류:', error);
@@ -642,26 +751,60 @@ router.put('/:type/:id/status', async (req, res) => {
  */
 async function saveQCStatusToSheets(type: 'text' | 'image', item: QCItem) {
   try {
-    const sheetName = SHEET_NAMES.QC_TEXT_PROCESS; // 텍스트와 이미지 모두 같은 시트 사용
-    const idColumn = type === 'text' ? 'global_product_id' : 'product_id';
-    const itemId = item.data[idColumn] || item.id;
-
-    // 시트에서 해당 행 찾기
-    const rowIndex = await sheetsService.findRowByColumn(sheetName, idColumn, itemId);
-
-    if (rowIndex) {
-      // 행이 있으면 상태 업데이트
-      // 상태 컬럼 위치를 찾아서 업데이트 (실제 컬럼 구조에 맞게 조정 필요)
-      // TODO: 실제 시트 구조에 맞게 컬럼 인덱스 조정
-      await sheetsService.updateCell(sheetName, `Z${rowIndex}`, item.status);
-      await sheetsService.updateCell(sheetName, `AA${rowIndex}`, item.needsRevision ? 'TRUE' : 'FALSE');
-      if (item.completedAt) {
-        await sheetsService.updateCell(sheetName, `AB${rowIndex}`, item.completedAt.toISOString());
+    const sheetName = type === 'text' ? SHEET_NAMES.QC_TEXT_RAW : SHEET_NAMES.QC_IMAGE_RAW;
+    
+    // ID 컬럼 찾기 (여러 가능한 컬럼명 시도)
+    const possibleIdColumns = type === 'text' 
+      ? ['global_product_id', 'product_id', 'kr_product_uuid']
+      : ['product_id', 'image_url', 'page_name'];
+    
+    let rowIndex: number | null = null;
+    let itemId: string | null = null;
+    
+    for (const idColumn of possibleIdColumns) {
+      const idValue = item.data[idColumn];
+      if (idValue) {
+        itemId = String(idValue);
+        rowIndex = await sheetsService.findRowByColumn(sheetName, idColumn, itemId);
+        if (rowIndex) break;
       }
-    } else {
-      // 행이 없으면 새로 추가 (CSV 업로드 시 이미 추가되어야 함)
-      console.warn(`[QC] 시트에서 항목을 찾을 수 없습니다: ${itemId}`);
     }
+
+    if (!rowIndex || !itemId) {
+      console.warn(`[QC] 시트에서 항목을 찾을 수 없습니다: ${JSON.stringify(item.data)}`);
+      return;
+    }
+
+    // 상태 컬럼 동적으로 찾기
+    const statusRange = await sheetsService.getCellRange(sheetName, 'status', rowIndex);
+    const needsRevisionRange = await sheetsService.getCellRange(sheetName, 'needsRevision', rowIndex);
+    const needsRevisionRange2 = await sheetsService.getCellRange(sheetName, 'needs_revision', rowIndex);
+    const completedAtRange = await sheetsService.getCellRange(sheetName, 'completedAt', rowIndex);
+    const completedAtRange2 = await sheetsService.getCellRange(sheetName, 'completed_at', rowIndex);
+
+    // 상태 업데이트
+    if (statusRange) {
+      await sheetsService.updateCell(sheetName, statusRange, item.status);
+    } else {
+      // status 컬럼이 없으면 마지막 컬럼 다음에 추가 (헤더 먼저 확인 필요)
+      console.warn(`[QC] 'status' 컬럼을 찾을 수 없습니다. 시트에 'status' 컬럼을 추가해주세요.`);
+    }
+
+    // needsRevision 업데이트
+    const revisionRange = needsRevisionRange || needsRevisionRange2;
+    if (revisionRange) {
+      await sheetsService.updateCell(sheetName, revisionRange, item.needsRevision ? 'TRUE' : 'FALSE');
+    }
+
+    // completedAt 업데이트
+    if (item.completedAt) {
+      const completedRange = completedAtRange || completedAtRange2;
+      if (completedRange) {
+        await sheetsService.updateCell(sheetName, completedRange, item.completedAt.toISOString());
+      }
+    }
+
+    console.log(`[QC] 상태 업데이트 완료: ${sheetName} 행 ${rowIndex} (${itemId})`);
   } catch (error) {
     // Google Sheets 저장 실패해도 메모리 업데이트는 유지
     console.error('[QC] Google Sheets 상태 저장 실패:', error);
@@ -673,6 +816,38 @@ async function saveQCStatusToSheets(type: 'text' | 'image', item: QCItem) {
  */
 async function saveToArchiveSheet(item: QCItem) {
   try {
+    const sheetName = item.type === 'text' ? SHEET_NAMES.QC_TEXT_RAW : SHEET_NAMES.QC_IMAGE_RAW;
+    
+    // 원본 시트에서 해당 행 찾기
+    const possibleIdColumns = item.type === 'text' 
+      ? ['global_product_id', 'product_id', 'kr_product_uuid']
+      : ['product_id', 'image_url', 'page_name'];
+    
+    let rowIndex: number | null = null;
+    
+    for (const idColumn of possibleIdColumns) {
+      const idValue = item.data[idColumn];
+      if (idValue) {
+        rowIndex = await sheetsService.findRowByColumn(sheetName, idColumn, String(idValue));
+        if (rowIndex) break;
+      }
+    }
+
+    // 원본 시트의 상태를 'archived'로 업데이트
+    if (rowIndex) {
+      const statusRange = await sheetsService.getCellRange(sheetName, 'status', rowIndex);
+      if (statusRange) {
+        await sheetsService.updateCell(sheetName, statusRange, 'archived');
+      }
+      
+      const completedAtRange = await sheetsService.getCellRange(sheetName, 'completedAt', rowIndex) ||
+                               await sheetsService.getCellRange(sheetName, 'completed_at', rowIndex);
+      if (completedAtRange && item.completedAt) {
+        await sheetsService.updateCell(sheetName, completedAtRange, item.completedAt.toISOString());
+      }
+    }
+
+    // 아카이브 시트에 전체 데이터 저장
     const archiveData = {
       ...item.data,
       type: item.type,
@@ -682,10 +857,11 @@ async function saveToArchiveSheet(item: QCItem) {
       completedAt: item.completedAt?.toISOString() || new Date().toISOString(),
     };
 
-    // 객체를 배열로 변환 (시트 헤더에 맞게 순서 조정 필요)
-    // TODO: 실제 시트 구조에 맞게 컬럼 순서 조정
+    // 객체를 배열로 변환 (원본 데이터의 모든 필드 포함)
     const values = Object.values(archiveData);
     await sheetsService.appendRow(SHEET_NAMES.QC_ARCHIVE, values);
+    
+    console.log(`[QC] 아카이브 저장 완료: ${item.type} QC 항목 (${item.id})`);
   } catch (error) {
     console.error('[QC] 아카이브 시트 저장 실패:', error);
     throw error;

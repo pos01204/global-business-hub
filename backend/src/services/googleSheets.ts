@@ -328,7 +328,7 @@ class GoogleSheetsService {
   }
 
   /**
-   * 시트에 여러 행 추가
+   * 시트에 여러 행 추가 (배치 처리)
    */
   async appendRows(sheetName: string, rows: any[][]): Promise<void> {
     if (!this.isConfigured || !this.sheets) {
@@ -338,16 +338,30 @@ class GoogleSheetsService {
 
     if (rows.length === 0) return;
 
+    // Google Sheets API는 한 번에 최대 10,000개 행까지 처리 가능
+    // 하지만 안정성을 위해 1000개씩 배치 처리
+    const BATCH_SIZE = 1000;
+    
     try {
-      await this.sheets.spreadsheets.values.append({
-        spreadsheetId: this.spreadsheetId,
-        range: `${sheetName}!A:ZZ`,
-        valueInputOption: 'RAW',
-        insertDataOption: 'INSERT_ROWS',
-        resource: {
-          values: rows,
-        },
-      });
+      for (let i = 0; i < rows.length; i += BATCH_SIZE) {
+        const batch = rows.slice(i, i + BATCH_SIZE);
+        await this.sheets.spreadsheets.values.append({
+          spreadsheetId: this.spreadsheetId,
+          range: `${sheetName}!A:ZZ`,
+          valueInputOption: 'RAW',
+          insertDataOption: 'INSERT_ROWS',
+          resource: {
+            values: batch,
+          },
+        });
+        
+        // API rate limit 방지를 위한 짧은 지연
+        if (i + BATCH_SIZE < rows.length) {
+          await new Promise(resolve => setTimeout(resolve, 100));
+        }
+      }
+      
+      console.log(`[Google Sheets] ${rows.length}개 행 추가 완료: ${sheetName}`);
     } catch (error) {
       console.error(`Error appending rows to ${sheetName}:`, error);
       throw error;
@@ -387,6 +401,55 @@ class GoogleSheetsService {
       console.error(`Error finding row in ${sheetName}:`, error);
       return null;
     }
+  }
+
+  /**
+   * 시트 헤더를 읽어서 컬럼 인덱스 반환 (A=1, B=2, ..., Z=26, AA=27, ...)
+   */
+  async getColumnIndex(sheetName: string, columnName: string): Promise<number | null> {
+    if (!this.isConfigured || !this.sheets) {
+      return null;
+    }
+
+    try {
+      const response = await this.sheets.spreadsheets.values.get({
+        spreadsheetId: this.spreadsheetId,
+        range: `${sheetName}!1:1`, // 첫 번째 행만 읽기
+      });
+
+      const headers = response.data.values?.[0] || [];
+      const columnIndex = headers.findIndex((h: string) => 
+        String(h).toLowerCase().trim() === columnName.toLowerCase().trim()
+      );
+
+      return columnIndex >= 0 ? columnIndex + 1 : null; // 1-based index
+    } catch (error) {
+      console.error(`Error getting column index in ${sheetName}:`, error);
+      return null;
+    }
+  }
+
+  /**
+   * 숫자 인덱스를 Excel 컬럼 문자로 변환 (1=A, 2=B, ..., 27=AA, ...)
+   */
+  private numberToColumnLetter(num: number): string {
+    let result = '';
+    while (num > 0) {
+      num--;
+      result = String.fromCharCode(65 + (num % 26)) + result;
+      num = Math.floor(num / 26);
+    }
+    return result;
+  }
+
+  /**
+   * 컬럼 이름으로 셀 범위 생성 (예: 'status' -> 'Z2')
+   */
+  async getCellRange(sheetName: string, columnName: string, rowIndex: number): Promise<string | null> {
+    const colIndex = await this.getColumnIndex(sheetName, columnName);
+    if (!colIndex) return null;
+    const columnLetter = this.numberToColumnLetter(colIndex);
+    return `${columnLetter}${rowIndex}`;
   }
 }
 
