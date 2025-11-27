@@ -1,4 +1,5 @@
 import nodemailer from 'nodemailer';
+import type SMTPTransport from 'nodemailer/lib/smtp-transport';
 
 interface EmailConfig {
   user: string;
@@ -20,22 +21,21 @@ class NodemailerService {
 
     if (this.isConfigured) {
       try {
-        // Gmail SMTP 설정 (타임아웃 및 연결 최적화)
-        this.transporter = nodemailer.createTransport({
+        // Gmail SMTP 설정
+        const smtpOptions: SMTPTransport.Options = {
           host: 'smtp.gmail.com',
           port: 587,
-          secure: false, // STARTTLS 사용
+          secure: false,
           auth: {
             user: config.user,
             pass: config.pass,
           },
-          // 타임아웃 설정 (밀리초)
-          connectionTimeout: 10000, // 연결 타임아웃 10초
-          greetingTimeout: 10000,   // 인사 타임아웃 10초
-          socketTimeout: 15000,     // 소켓 타임아웃 15초
-          // 연결 풀링 비활성화 (단일 발송용)
-          pool: false,
-        });
+          connectionTimeout: 10000,
+          greetingTimeout: 10000,
+          socketTimeout: 15000,
+        };
+        
+        this.transporter = nodemailer.createTransport(smtpOptions);
         console.log('[Email] Nodemailer 서비스 초기화 완료 (Gmail SMTP)');
       } catch (error) {
         console.error('[Email] Nodemailer 서비스 초기화 실패:', error);
@@ -86,7 +86,7 @@ class NodemailerService {
         setTimeout(() => reject(new Error('이메일 발송 타임아웃 (20초)')), 20000);
       });
 
-      const info = await Promise.race([sendPromise, timeoutPromise]);
+      const info = await Promise.race([sendPromise, timeoutPromise]) as { messageId: string };
       const messageId = info.messageId;
 
       console.log(`[Email] ✅ 이메일 발송 성공: ${to} (Message ID: ${messageId})`);
