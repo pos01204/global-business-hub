@@ -20,14 +20,23 @@ class NodemailerService {
 
     if (this.isConfigured) {
       try {
+        // Gmail SMTP 설정 (타임아웃 및 연결 최적화)
         this.transporter = nodemailer.createTransport({
-          service: 'gmail',
+          host: 'smtp.gmail.com',
+          port: 587,
+          secure: false, // STARTTLS 사용
           auth: {
             user: config.user,
             pass: config.pass,
           },
+          // 타임아웃 설정 (밀리초)
+          connectionTimeout: 10000, // 연결 타임아웃 10초
+          greetingTimeout: 10000,   // 인사 타임아웃 10초
+          socketTimeout: 15000,     // 소켓 타임아웃 15초
+          // 연결 풀링 비활성화 (단일 발송용)
+          pool: false,
         });
-        console.log('[Email] Nodemailer 서비스 초기화 완료');
+        console.log('[Email] Nodemailer 서비스 초기화 완료 (Gmail SMTP)');
       } catch (error) {
         console.error('[Email] Nodemailer 서비스 초기화 실패:', error);
         this.isConfigured = false;
@@ -38,10 +47,13 @@ class NodemailerService {
   }
 
   /**
-   * 이메일 발송
+   * 이메일 발송 (타임아웃 적용)
    */
   async sendEmail(to: string, subject: string, htmlBody: string, textBody?: string): Promise<{ success: boolean; messageId?: string; error?: string }> {
+    console.log(`[Email] sendEmail 시작: ${to}`);
+    
     if (!this.isConfigured || !this.transporter) {
+      console.log('[Email] 서비스 미설정');
       return {
         success: false,
         error: 'Email 서비스가 설정되지 않았습니다.',
@@ -51,6 +63,7 @@ class NodemailerService {
     try {
       // 이메일 주소 유효성 검사
       if (!to || !to.includes('@')) {
+        console.log('[Email] 유효하지 않은 이메일 주소');
         return {
           success: false,
           error: '유효하지 않은 이메일 주소입니다.',
@@ -65,17 +78,25 @@ class NodemailerService {
         html: htmlBody,
       };
 
-      const info = await this.transporter.sendMail(mailOptions);
+      console.log(`[Email] sendMail 호출 중...`);
+      
+      // 타임아웃 Promise와 함께 실행
+      const sendPromise = this.transporter.sendMail(mailOptions);
+      const timeoutPromise = new Promise<never>((_, reject) => {
+        setTimeout(() => reject(new Error('이메일 발송 타임아웃 (20초)')), 20000);
+      });
+
+      const info = await Promise.race([sendPromise, timeoutPromise]);
       const messageId = info.messageId;
 
-      console.log(`[Email] 이메일 발송 성공: ${to} (Message ID: ${messageId})`);
+      console.log(`[Email] ✅ 이메일 발송 성공: ${to} (Message ID: ${messageId})`);
 
       return {
         success: true,
         messageId,
       };
     } catch (error: any) {
-      console.error('[Email] 이메일 발송 실패:', error);
+      console.error(`[Email] ❌ 이메일 발송 실패: ${error.message}`);
       return {
         success: false,
         error: error.message || '이메일 발송 중 오류가 발생했습니다.',
@@ -107,4 +128,3 @@ class NodemailerService {
 }
 
 export default NodemailerService;
-
