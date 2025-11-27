@@ -144,7 +144,6 @@ export default function TextQCTab() {
 
     window.addEventListener('keydown', handleKeyPress)
     return () => window.removeEventListener('keydown', handleKeyPress)
-  // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [selectedIndex])
 
   // 데이터 변경 시 selectedIndex 초기화
