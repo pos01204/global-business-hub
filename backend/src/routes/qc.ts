@@ -3,8 +3,6 @@ import multer from 'multer';
 import { parse } from 'csv-parse/sync';
 import GoogleSheetsService from '../services/googleSheets';
 import { sheetsConfig, SHEET_NAMES } from '../config/sheets';
-import fs from 'fs';
-import path from 'path';
 
 const router = Router();
 const sheetsService = new GoogleSheetsService(sheetsConfig);
