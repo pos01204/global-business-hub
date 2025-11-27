@@ -17,6 +17,7 @@ const navItems: NavItem[] = [
   { href: '/logistics', label: '물류 추적', icon: '🚚' },
   { href: '/control-tower', label: '물류 관제 센터', icon: '📡' },
   { href: '/analytics', label: '성과 분석', icon: '📈' },
+  { href: '/qc', label: 'QC 관리', icon: '✅' },
   { href: '/lookup', label: '통합 검색', icon: '🔍' },
   { href: '/marketer', label: '퍼포먼스 마케터', icon: '📝' },
   { href: '/chat', label: 'AI 어시스턴트', icon: '💬' },

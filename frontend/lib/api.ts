@@ -394,5 +394,75 @@ export const chatApi = {
   },
 }
 
+// QC API
+export const qcApi = {
+  // CSV 업로드
+  uploadText: async (file: File) => {
+    const formData = new FormData()
+    formData.append('file', file)
+    const response = await api.post('/api/qc/upload/text', formData, {
+      headers: {
+        'Content-Type': 'multipart/form-data',
+      },
+    })
+    return response.data
+  },
+  uploadImage: async (file: File) => {
+    const formData = new FormData()
+    formData.append('file', file)
+    const response = await api.post('/api/qc/upload/image', formData, {
+      headers: {
+        'Content-Type': 'multipart/form-data',
+      },
+    })
+    return response.data
+  },
+  // 텍스트 QC 목록
+  getTextList: async (params?: {
+    status?: string
+    page?: number
+    limit?: number
+    weeklyOnly?: boolean
+  }) => {
+    const response = await api.get('/api/qc/text/list', { params })
+    return response.data
+  },
+  // 이미지 QC 목록
+  getImageList: async (params?: {
+    status?: string
+    page?: number
+    limit?: number
+    weeklyOnly?: boolean
+  }) => {
+    const response = await api.get('/api/qc/image/list', { params })
+    return response.data
+  },
+  // QC 상태 업데이트
+  updateStatus: async (type: 'text' | 'image', id: string, status: string, needsRevision: boolean) => {
+    const response = await api.put(`/api/qc/${type}/${id}/status`, {
+      status,
+      needsRevision,
+    })
+    return response.data
+  },
+  // QC 완료 처리
+  complete: async (type: 'text' | 'image', id: string) => {
+    const response = await api.post(`/api/qc/${type}/${id}/complete`)
+    return response.data
+  },
+  // 작가 알람 명단
+  getArtistNotifications: async () => {
+    const response = await api.get('/api/qc/artists/notifications')
+    return response.data
+  },
+  // 중복 검사
+  checkDuplicates: async (type: string, ids: string[]) => {
+    const response = await api.get('/api/qc/check-duplicates', {
+      params: { type, ids: ids.join(',') },
+    })
+    return response.data
+  },
+}
+
 export default api
 

@@ -22,6 +22,7 @@ import chatRoutes from './routes/chat';
 import logisticsPerformanceRoutes from './routes/logistics-performance';
 import comparisonRoutes from './routes/comparison';
 import trendAnalysisRoutes from './routes/trend-analysis';
+import qcRoutes from './routes/qc';
 
 // .env 파일 로드 (backend 폴더 기준)
 let envPath: string;
@@ -75,6 +76,7 @@ app.use('/api/chat', chatRoutes);
 app.use('/api/logistics-performance', logisticsPerformanceRoutes);
 app.use('/api/comparison', comparisonRoutes);
 app.use('/api/trend-analysis', trendAnalysisRoutes);
+app.use('/api/qc', qcRoutes);
 
 app.get('/api', (req, res) => {
   res.json({ message: 'Global Business Hub API' });
