@@ -74,6 +74,7 @@ export abstract class BaseAgent {
 
       // 필터 적용
       if (params.filters) {
+        // 배열 형식 또는 레거시 Record 형식 모두 지원
         data = this.applyFilters(data, params.filters)
       }
 
@@ -330,23 +331,84 @@ export abstract class BaseAgent {
   }
 
   /**
-   * 헬퍼 메서드: 필터 적용
+   * 헬퍼 메서드: 필터 적용 (고도화)
    */
-  private applyFilters(data: any[], filters: Record<string, any>): any[] {
-    return data.filter((row: any) => {
+  protected applyFilters(data: any[], filters: Array<{
+    column: string
+    operator: string
+    value: any
+  }> | Record<string, any>): any[] {
+    // 레거시 형식 지원 (Record<string, any>)
+    if (!Array.isArray(filters)) {
+      const legacyFilters: Array<{ column: string; operator: string; value: any }> = []
       for (const [column, value] of Object.entries(filters)) {
-        if (value === null || value === undefined) continue
+        legacyFilters.push({
+          column,
+          operator: typeof value === 'string' ? 'contains' : 'equals',
+          value,
+        })
+      }
+      filters = legacyFilters
+    }
 
+    return data.filter((row: any) => {
+      for (const filter of filters as Array<{ column: string; operator: string; value: any }>) {
+        const { column, operator, value } = filter
         const cellValue = row[column]
 
-        // 문자열 포함 검사
-        if (typeof value === 'string' && typeof cellValue === 'string') {
-          if (!cellValue.toLowerCase().includes(value.toLowerCase())) {
-            return false
-          }
+        if (value === null || value === undefined) continue
+
+        let matches = false
+
+        switch (operator) {
+          case 'equals':
+            matches = cellValue === value
+            break
+          case 'not_equals':
+            matches = cellValue !== value
+            break
+          case 'contains':
+            matches = String(cellValue).toLowerCase().includes(String(value).toLowerCase())
+            break
+          case 'not_contains':
+            matches = !String(cellValue).toLowerCase().includes(String(value).toLowerCase())
+            break
+          case 'greater_than':
+            matches = Number(cellValue) > Number(value)
+            break
+          case 'less_than':
+            matches = Number(cellValue) < Number(value)
+            break
+          case 'greater_than_or_equal':
+            matches = Number(cellValue) >= Number(value)
+            break
+          case 'less_than_or_equal':
+            matches = Number(cellValue) <= Number(value)
+            break
+          case 'in':
+            matches = Array.isArray(value) && value.includes(cellValue)
+            break
+          case 'not_in':
+            matches = Array.isArray(value) && !value.includes(cellValue)
+            break
+          case 'between':
+            if (Array.isArray(value) && value.length === 2) {
+              const numValue = Number(cellValue)
+              matches = numValue >= Number(value[0]) && numValue <= Number(value[1])
+            }
+            break
+          case 'starts_with':
+            matches = String(cellValue).toLowerCase().startsWith(String(value).toLowerCase())
+            break
+          case 'ends_with':
+            matches = String(cellValue).toLowerCase().endsWith(String(value).toLowerCase())
+            break
+          default:
+            // 기본값: 포함 검사
+            matches = String(cellValue).toLowerCase().includes(String(value).toLowerCase())
         }
-        // 정확한 일치 검사
-        else if (cellValue !== value) {
+
+        if (!matches) {
           return false
         }
       }

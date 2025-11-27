@@ -1,4 +1,6 @@
 import { BaseAgent, AgentContext, ToolResult } from './BaseAgent'
+import { intentClassifier, ExtractedIntent } from './IntentClassifier'
+import { queryOptimizer, OptimizedQuery } from './QueryOptimizer'
 
 export class DataAnalystAgent extends BaseAgent {
   private systemPrompt = `당신은 데이터 분석 전문가입니다. 
@@ -26,14 +28,57 @@ export class DataAnalystAgent extends BaseAgent {
     actions?: Array<{ label: string; action: string; data?: any }>
   }> {
     try {
-      // 의도 분석 및 데이터 조회 계획 수립
-      const analysis = await this.analyzeIntent(query)
-      
-      // 데이터 조회 및 분석 수행
-      const results = await this.executeAnalysis(analysis)
+      // LLM 기반 의도 분류 및 엔티티 추출 (고도화)
+      let extractedIntent: ExtractedIntent
+      try {
+        extractedIntent = await intentClassifier.classify(query, context.history)
+      } catch (llmError) {
+        // LLM 실패 시 폴백
+        console.warn('[DataAnalystAgent] LLM 의도 분류 실패, 폴백 사용:', llmError)
+        const analysis = await this.analyzeIntent(query)
+        extractedIntent = {
+          intent: analysis.intent,
+          confidence: 0.5,
+          entities: {
+            sheets: analysis.dataNeeds.sheets,
+            dateRange: analysis.dataNeeds.dateRange
+              ? {
+                  ...analysis.dataNeeds.dateRange,
+                  type: 'absolute' as const,
+                }
+              : undefined,
+            filters: analysis.dataNeeds.filters
+              ? Object.entries(analysis.dataNeeds.filters).map(([column, value]) => ({
+                  column,
+                  operator: 'equals' as const,
+                  value,
+                }))
+              : undefined,
+          },
+        }
+      }
+
+      // 쿼리 최적화
+      const optimizedQuery = queryOptimizer.optimize(extractedIntent)
+
+      // 쿼리 검증
+      const validation = queryOptimizer.validate(optimizedQuery)
+      if (!validation.valid && validation.errors.length > 0) {
+        return {
+          response: `쿼리 오류가 발견되었습니다:\n${validation.errors.join('\n')}\n\n제안: ${validation.suggestions.join('\n')}`,
+        }
+      }
+
+      // 최적화된 쿼리 실행
+      const results = await this.executeOptimizedQuery(optimizedQuery, extractedIntent.intent)
 
       // LLM을 통한 자연어 응답 생성
-      const response = await this.generateResponse(query, results, analysis)
+      const response = await this.generateResponse(
+        query,
+        results,
+        extractedIntent,
+        validation.suggestions
+      )
 
       return {
         response,
@@ -42,8 +87,23 @@ export class DataAnalystAgent extends BaseAgent {
         actions: results.actions,
       }
     } catch (error: any) {
-      return {
-        response: `분석 중 오류가 발생했습니다: ${error.message}`,
+      console.error('[DataAnalystAgent] 오류:', error)
+      // 최종 폴백: 기존 방식
+      try {
+        const analysis = await this.analyzeIntent(query)
+        const results = await this.executeAnalysis(analysis)
+        const response = await this.generateResponse(query, results, analysis)
+
+        return {
+          response,
+          data: results.data,
+          charts: results.charts,
+          actions: results.actions,
+        }
+      } catch (fallbackError: any) {
+        return {
+          response: `분석 중 오류가 발생했습니다: ${error.message}`,
+        }
       }
     }
   }
@@ -125,7 +185,175 @@ export class DataAnalystAgent extends BaseAgent {
   }
 
   /**
-   * 분석 실행
+   * 최적화된 쿼리 실행
+   */
+  private async executeOptimizedQuery(
+    optimizedQuery: OptimizedQuery,
+    intentType: string
+  ): Promise<{
+    data: any
+    charts?: any[]
+    actions?: Array<{ label: string; action: string; data?: any }>
+  }> {
+    const results: any[] = []
+
+    // 각 시트에서 데이터 조회
+    for (const sheet of optimizedQuery.sheets) {
+      const result = await this.getData({
+        sheet: sheet as any,
+        dateRange: optimizedQuery.dateRange,
+        filters: optimizedQuery.filters.length > 0 ? optimizedQuery.filters : undefined,
+        limit: optimizedQuery.limit,
+      })
+
+      if (result.success && result.data) {
+        results.push(...result.data)
+      }
+    }
+
+    // 조인 처리
+    let joinedData = results
+    if (optimizedQuery.join && optimizedQuery.join.length > 0) {
+      joinedData = await this.performJoins(results, optimizedQuery.join)
+    }
+
+    // 집계 처리
+    let processedData = joinedData
+    if (optimizedQuery.aggregations && Object.keys(optimizedQuery.aggregations).length > 0) {
+      const aggregations: Record<string, 'sum' | 'avg' | 'count' | 'max' | 'min'> = {}
+      for (const [column, func] of Object.entries(optimizedQuery.aggregations)) {
+        if (['sum', 'avg', 'count', 'max', 'min'].includes(func)) {
+          aggregations[column] = func as 'sum' | 'avg' | 'count' | 'max' | 'min'
+        }
+      }
+      const aggregationResult = await this.aggregateData({
+        data: joinedData,
+        groupBy: optimizedQuery.groupBy,
+        aggregations,
+      })
+      if (aggregationResult.success) {
+        processedData = Array.isArray(aggregationResult.data) 
+          ? aggregationResult.data 
+          : [aggregationResult.data]
+      }
+    }
+
+    // 정렬 처리
+    if (optimizedQuery.orderBy && optimizedQuery.orderBy.length > 0 && Array.isArray(processedData)) {
+      processedData = this.applySorting(processedData, optimizedQuery.orderBy)
+    }
+
+    // 제한 적용
+    if (optimizedQuery.limit && Array.isArray(processedData)) {
+      processedData = processedData.slice(0, optimizedQuery.limit)
+    }
+
+    // 의도별 차트 생성
+    const charts = await this.generateChartsForIntent(intentType, processedData)
+
+    return {
+      data: processedData,
+      charts,
+      actions: [],
+    }
+  }
+
+  /**
+   * 조인 수행
+   */
+  private async performJoins(
+    data: any[],
+    joins: Array<{ leftSheet: string; rightSheet: string; leftKey: string; rightKey: string }>
+  ): Promise<any[]> {
+    // 간단한 조인 구현
+    let joined = data
+
+    for (const join of joins) {
+      // 조인할 시트 데이터 조회
+      const rightSheetData = await this.getData({
+        sheet: join.rightSheet as any,
+      })
+
+      if (rightSheetData.success && rightSheetData.data) {
+        // 조인 수행
+        const joinMap = new Map()
+        for (const rightRow of rightSheetData.data) {
+          const key = rightRow[join.rightKey]
+          if (!joinMap.has(key)) {
+            joinMap.set(key, [])
+          }
+          joinMap.get(key)!.push(rightRow)
+        }
+
+        joined = joined.map((leftRow) => {
+          const key = leftRow[join.leftKey]
+          const rightRows = joinMap.get(key) || []
+          return {
+            ...leftRow,
+            [`${join.rightSheet}_data`]: rightRows,
+          }
+        })
+      }
+    }
+
+    return joined
+  }
+
+  /**
+   * 정렬 적용
+   */
+  private applySorting(
+    data: any[],
+    orderBy: Array<{ column: string; direction: 'asc' | 'desc' }>
+  ): any[] {
+    return [...data].sort((a, b) => {
+      for (const order of orderBy) {
+        const aVal = a[order.column]
+        const bVal = b[order.column]
+
+        let comparison = 0
+        if (typeof aVal === 'number' && typeof bVal === 'number') {
+          comparison = aVal - bVal
+        } else {
+          comparison = String(aVal).localeCompare(String(bVal))
+        }
+
+        if (comparison !== 0) {
+          return order.direction === 'asc' ? comparison : -comparison
+        }
+      }
+      return 0
+    })
+  }
+
+  /**
+   * 의도별 차트 생성
+   */
+  private async generateChartsForIntent(intent: string, data: any[]): Promise<any[]> {
+    const charts: any[] = []
+
+    if (intent === 'trend_analysis' && Array.isArray(data) && data.length > 0) {
+      const trendChart = await this.createTrendChart(data)
+      charts.push(...trendChart)
+    } else if (intent === 'comparison' && Array.isArray(data) && data.length > 0) {
+      const comparisonChart = await this.createComparisonChart(data)
+      charts.push(...comparisonChart)
+    } else if (intent === 'ranking' && Array.isArray(data) && data.length > 0) {
+      const rankingChart = await this.visualizeData({
+        data: data.slice(0, 10),
+        chartType: 'bar',
+        xAxis: Object.keys(data[0])[0],
+        yAxis: Object.keys(data[0])[1] || 'value',
+        title: '랭킹',
+      })
+      if (rankingChart.success) charts.push(rankingChart.data)
+    }
+
+    return charts
+  }
+
+  /**
+   * 분석 실행 (레거시 - 호환성 유지)
    */
   private async executeAnalysis(analysis: {
     intent: string
@@ -336,14 +564,16 @@ export class DataAnalystAgent extends BaseAgent {
   }
 
   /**
-   * 자연어 응답 생성
+   * 자연어 응답 생성 (고도화)
    */
   private async generateResponse(
     query: string,
     results: { data: any; charts?: any[]; actions?: any[] },
-    analysis: any
+    intent: ExtractedIntent | any,
+    suggestions?: string[]
   ): Promise<string> {
-    const dataSummary = this.formatDataSummary(results.data, analysis.intent)
+    const intentType = typeof intent === 'object' && intent.intent ? intent.intent : (intent.intent || 'general_query')
+    const dataSummary = this.formatDataSummary(results.data, intentType)
 
     // 실제 데이터가 있는지 확인
     const hasData = Array.isArray(results.data) 
@@ -351,8 +581,11 @@ export class DataAnalystAgent extends BaseAgent {
       : results.data && Object.keys(results.data).length > 0
 
     // 날짜 범위 정보 추가
-    const dateRangeInfo = analysis.dataNeeds?.dateRange 
-      ? `\n요청한 날짜 범위: ${analysis.dataNeeds.dateRange.start} ~ ${analysis.dataNeeds.dateRange.end}`
+    const dateRange = typeof intent === 'object' && intent.entities?.dateRange
+      ? intent.entities.dateRange
+      : null
+    const dateRangeInfo = dateRange
+      ? `\n요청한 날짜 범위: ${dateRange.start} ~ ${dateRange.end}`
       : '\n날짜 범위: 전체 데이터'
 
     const prompt = `${this.systemPrompt}
