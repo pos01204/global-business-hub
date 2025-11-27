@@ -229,7 +229,7 @@ export class BusinessManagerAgent extends BaseAgent {
     const orders = ordersData.data || []
 
     // 기본 메트릭 계산
-    const totalGmv = orders.reduce((sum, o) => sum + (Number(o['Total GMV']) || 0), 0)
+    const totalGmv = orders.reduce((sum: number, o: any) => sum + (Number(o['Total GMV']) || 0), 0)
     const orderCount = orders.length
     const avgOrderValue = orderCount > 0 ? totalGmv / orderCount : 0
 
@@ -349,7 +349,7 @@ JSON 형식으로 반환해주세요:
     if (metrics.includes('revenue')) {
       const recentGmv = historicalData
         .slice(-30)
-        .reduce((sum, d) => sum + (d.gmv || 0), 0)
+        .reduce((sum: number, d: any) => sum + (d.gmv || 0), 0)
       const avgDailyGmv = recentGmv / 30
 
       const days = this.parseTimeHorizon(timeHorizon)
@@ -364,7 +364,7 @@ JSON 형식으로 반환해주세요:
     }
 
     if (metrics.includes('orders')) {
-      const recentOrders = historicalData.slice(-30).reduce((sum, d) => sum + (d.orderCount || 0), 0)
+      const recentOrders = historicalData.slice(-30).reduce((sum: number, d: any) => sum + (d.orderCount || 0), 0)
       const avgDailyOrders = recentOrders / 30
 
       const days = this.parseTimeHorizon(timeHorizon)
@@ -408,7 +408,7 @@ JSON 형식으로 반환해주세요:
 
     return Array.from(dailyGroups.entries())
       .map(([date, orders]) => {
-        const gmv = orders.reduce((sum, o) => sum + (Number(o['Total GMV']) || 0), 0)
+        const gmv = orders.reduce((sum: number, o: any) => sum + (Number(o['Total GMV']) || 0), 0)
         return {
           date,
           gmv,

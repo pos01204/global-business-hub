@@ -181,10 +181,10 @@ export abstract class BaseAgent {
 
           switch (operation) {
             case 'sum':
-              result[column] = values.reduce((a, b) => a + b, 0)
+              result[column] = values.reduce((a: number, b: number) => a + b, 0)
               break
             case 'avg':
-              result[column] = values.length > 0 ? values.reduce((a, b) => a + b, 0) / values.length : 0
+              result[column] = values.length > 0 ? values.reduce((a: number, b: number) => a + b, 0) / values.length : 0
               break
             case 'count':
               result[column] = values.length

@@ -317,7 +317,7 @@ ${copyType === 'blog' ? '블로그 포스트 형식으로 작성하세요 (800-1
 
       // 성장률 계산 (간단한 버전)
       for (const [key, items] of groups.entries()) {
-        const totalGmv = items.reduce((sum, item) => {
+        const totalGmv = items.reduce((sum: number, item: any) => {
           const order = orders.find((o) => o.order_code === item.order_code)
           return sum + (Number(order?.['Total GMV']) || 0)
         }, 0)
@@ -393,7 +393,7 @@ ${JSON.stringify(topTrends, null, 2)}
 
       if (userOrders.length === 0) continue
 
-      const totalGmv = userOrders.reduce((sum, o) => sum + (Number(o['Total GMV']) || 0), 0)
+      const totalGmv = userOrders.reduce((sum: number, o: any) => sum + (Number(o['Total GMV']) || 0), 0)
       const lastOrderDate = userOrders
         .map((o) => new Date(o.order_created))
         .sort((a, b) => b.getTime() - a.getTime())[0]
@@ -485,7 +485,7 @@ ${Array.from(segmentCounts.entries())
     }
 
     const platformPerformance = Array.from(platformGroups.entries()).map(([platform, orders]) => {
-      const totalGmv = orders.reduce((sum, o) => sum + (Number(o['Total GMV']) || 0), 0)
+      const totalGmv = orders.reduce((sum: number, o: any) => sum + (Number(o['Total GMV']) || 0), 0)
       return {
         channel: platform,
         totalGmv,
@@ -495,7 +495,7 @@ ${Array.from(segmentCounts.entries())
     })
 
     const pgPerformance = Array.from(pgGroups.entries()).map(([pg, orders]) => {
-      const totalGmv = orders.reduce((sum, o) => sum + (Number(o['Total GMV']) || 0), 0)
+      const totalGmv = orders.reduce((sum: number, o: any) => sum + (Number(o['Total GMV']) || 0), 0)
       return {
         channel: pg,
         totalGmv,

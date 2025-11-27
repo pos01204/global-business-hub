@@ -208,7 +208,7 @@ export class DataAnalystAgent extends BaseAgent {
 
     const trendData = Array.from(dateGroups.entries())
       .map(([date, rows]) => {
-        const gmv = rows.reduce((sum, r) => sum + (Number(r['Total GMV']) || 0), 0)
+        const gmv = rows.reduce((sum: number, r: any) => sum + (Number(r['Total GMV']) || 0), 0)
         const orderCount = rows.length
 
         return {
@@ -255,7 +255,7 @@ export class DataAnalystAgent extends BaseAgent {
 
     const ranking = Array.from(groups.entries())
       .map(([key, rows]) => {
-        const gmv = rows.reduce((sum, r) => sum + (Number(r['Total GMV']) || 0), 0)
+        const gmv = rows.reduce((sum: number, r: any) => sum + (Number(r['Total GMV']) || 0), 0)
         const count = rows.length
 
         return {
@@ -372,8 +372,8 @@ ${JSON.stringify(dataSummary, null, 2)}
       }
 
       if (intent === 'trend_analysis') {
-        const totalGmv = data.reduce((sum, d) => sum + (d.gmv || 0), 0)
-        const totalOrders = data.reduce((sum, d) => sum + (d.orderCount || 0), 0)
+        const totalGmv = data.reduce((sum: number, d: any) => sum + (d.gmv || 0), 0)
+        const totalOrders = data.reduce((sum: number, d: any) => sum + (d.orderCount || 0), 0)
         return `총 ${data.length}일간의 데이터: 총 매출 ${totalGmv.toLocaleString()} USD, 총 주문 ${totalOrders}건`
       }
 
