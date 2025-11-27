@@ -190,3 +190,5 @@ FRONTEND_URL=https://your-frontend.vercel.app
 2. 모니터링 설정 (선택사항)
 3. 백업 설정 (선택사항)
 
+
+

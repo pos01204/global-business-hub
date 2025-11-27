@@ -202,6 +202,88 @@ export class OpenAIService {
   }
 
   /**
+   * 이미지 분석 (Vision API)
+   * @param imageBase64 base64 인코딩된 이미지
+   * @param prompt 이미지 분석 프롬프트
+   */
+  async analyzeImage(
+    imageBase64: string,
+    prompt: string,
+    options?: { temperature?: number; maxTokens?: number }
+  ): Promise<string> {
+    try {
+      if (!this.apiKey) {
+        throw new Error('OpenAI API 키가 설정되지 않았습니다. OPENAI_API_KEY 환경 변수를 설정하세요.')
+      }
+
+      // Vision API는 gpt-4o 또는 gpt-4o-mini 사용 (vision 지원 모델)
+      const visionModel = this.model.includes('gpt-4o') ? this.model : 'gpt-4o-mini'
+
+      console.log(`[OpenAI Vision] 이미지 분석 시작 - 모델: ${visionModel}`)
+
+      const response = await axios.post<OpenAIResponse>(
+        `${this.baseUrl}/chat/completions`,
+        {
+          model: visionModel,
+          messages: [
+            {
+              role: 'user',
+              content: [
+                {
+                  type: 'text',
+                  text: prompt,
+                },
+                {
+                  type: 'image_url',
+                  image_url: {
+                    url: `data:image/jpeg;base64,${imageBase64}`,
+                  },
+                },
+              ],
+            },
+          ],
+          temperature: options?.temperature || 0.7,
+          max_tokens: options?.maxTokens || 2000,
+        },
+        {
+          headers: {
+            'Authorization': `Bearer ${this.apiKey}`,
+            'Content-Type': 'application/json',
+          },
+          timeout: 60000, // 60초 타임아웃
+        }
+      )
+
+      const content = response.data.choices[0]?.message?.content || ''
+      console.log(`[OpenAI Vision] 분석 성공 - 응답 길이: ${content.length}, 토큰 사용: ${response.data.usage.total_tokens}`)
+      
+      return content
+    } catch (error: any) {
+      console.error('[OpenAI Vision] API 오류 상세:', {
+        message: error.message,
+        code: error.code,
+        response: error.response?.data,
+        status: error.response?.status,
+        model: this.model,
+      })
+
+      if (error.response?.status === 401) {
+        throw new Error('OpenAI API 키가 유효하지 않습니다. OPENAI_API_KEY를 확인하세요.')
+      } else if (error.response?.status === 429) {
+        throw new Error('OpenAI API 요청 한도가 초과되었습니다. 잠시 후 다시 시도하세요.')
+      } else if (error.response?.status === 400 && error.response?.data?.error?.message?.includes('image')) {
+        throw new Error('이미지 형식이 올바르지 않거나 너무 큽니다. JPEG/PNG 형식의 20MB 이하 이미지를 사용하세요.')
+      } else if (error.response?.data?.error?.message) {
+        throw new Error(`OpenAI 오류: ${error.response.data.error.message}`)
+      } else if (error.message) {
+        throw new Error(`OpenAI 연결 오류: ${error.message}`)
+      } else {
+        throw new Error('이미지 분석 중 오류가 발생했습니다.')
+      }
+    }
+  }
+
+  /**
    * 사용 가능한 모델 목록 조회 (OpenAI는 API로 조회 불가, 일반적인 모델 목록 반환)
    */
   async listModels(): Promise<string[]> {

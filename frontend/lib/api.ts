@@ -299,5 +299,59 @@ export const chatApi = {
   },
 }
 
+// 소재(Material) API
+export const materialApi = {
+  // 이미지 업로드 및 분석
+  analyzeImage: async (imageFile: File) => {
+    const formData = new FormData()
+    formData.append('image', imageFile)
+    
+    const response = await api.post('/api/marketer/materials/analyze-image', formData, {
+      headers: {
+        'Content-Type': 'multipart/form-data',
+      },
+    })
+    return response.data
+  },
+  
+  // 소재 저장
+  saveMaterial: async (material: {
+    imageUrl: string
+    visualAnalysis: any
+    marketingInsights: any
+    title?: string
+    description?: string
+    price?: number
+    category?: string
+    tags?: string[]
+    artist?: { name: string; url?: string }
+  }) => {
+    const response = await api.post('/api/marketer/materials', material)
+    return response.data
+  },
+  
+  // 이미지 분석 결과 기반 콘텐츠 생성
+  generateContentFromImage: async (request: {
+    imageAnalysisResult: {
+      visualAnalysis: any
+      marketingInsights: any
+    }
+    contentType: 'blog' | 'social' | 'email'
+    platform: 'blog' | 'instagram' | 'facebook' | 'twitter' | 'email'
+    language: 'korean' | 'english' | 'japanese'
+    tone?: string
+    targetAudience?: string[]
+  }) => {
+    const response = await api.post('/api/marketer/materials/generate-content', request)
+    return response.data
+  },
+  
+  // 소재 목록 조회
+  getMaterials: async () => {
+    const response = await api.get('/api/marketer/materials')
+    return response.data
+  },
+}
+
 export default api
 

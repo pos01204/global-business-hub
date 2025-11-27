@@ -129,3 +129,5 @@ async crawlProduct(url: string): Promise<IdusProduct | null> {
 - [웹 스크래핑 법적 고려사항](https://www.law.go.kr/)
 
 
+
+

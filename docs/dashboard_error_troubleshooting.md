@@ -124,3 +124,5 @@ console.log(process.env.NEXT_PUBLIC_API_URL)
 - **포트 확인**: 프론트엔드(3000), 백엔드(3001)
 - **환경 변수**: `NEXT_PUBLIC_API_URL`이 올바르게 설정되어 있는지 확인
 
+
+

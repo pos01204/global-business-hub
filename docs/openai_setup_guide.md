@@ -153,3 +153,5 @@ OPENAI_BASE_URL=https://api.openai.com/v1
 - **비용 모니터링**: [Usage](https://platform.openai.com/usage) 페이지에서 정기적으로 확인
 - **모델 선택**: 작업에 맞는 모델 선택 (간단한 작업은 `gpt-4o-mini`, 복잡한 작업은 `gpt-4o`)
 
+
+
