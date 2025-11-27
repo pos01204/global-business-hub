@@ -4,7 +4,7 @@ export interface DiscoveryResult {
   id: string
   type: 'product' | 'artist' | 'trend'
   source: {
-    platform: 'idus'
+    platform: 'idus' | 'image'
     url: string
     scrapedAt: string
   }

@@ -1,8 +1,8 @@
 'use client'
 
-import { useState, useRef } from 'react'
+import { useState } from 'react'
 import { useQuery, useMutation } from '@tanstack/react-query'
-import { marketerApi, materialApi } from '@/lib/api'
+import { marketerApi } from '@/lib/api'
 import type { DiscoveryResult, GeneratedContent } from '@/types/marketer'
 
 interface DiscoveryResultWithContent extends DiscoveryResult {
@@ -10,7 +10,7 @@ interface DiscoveryResultWithContent extends DiscoveryResult {
 }
 
 export default function MarketerPage() {
-  const [activeTab, setActiveTab] = useState<'discovery' | 'generate' | 'image'>('image')
+  const [activeTab, setActiveTab] = useState<'discovery' | 'generate'>('discovery')
   const [searchKeyword, setSearchKeyword] = useState('')
   const [selectedDiscovery, setSelectedDiscovery] = useState<DiscoveryResultWithContent | null>(null)
   const [contentType, setContentType] = useState<'blog' | 'social' | 'email'>('social')
@@ -29,13 +29,6 @@ export default function MarketerPage() {
     platforms: [] as string[],
     timezone: 'Asia/Seoul',
   })
-  
-  // 이미지 업로드 관련 상태
-  const [uploadedImage, setUploadedImage] = useState<string | null>(null)
-  const [imageFile, setImageFile] = useState<File | null>(null)
-  const [imageAnalysisResult, setImageAnalysisResult] = useState<any>(null)
-  const [isAnalyzing, setIsAnalyzing] = useState(false)
-  const fileInputRef = useRef<HTMLInputElement>(null)
 
   // Ollama 연결 상태 확인
   const { data: healthData } = useQuery({
@@ -156,115 +149,6 @@ export default function MarketerPage() {
     if (searchKeyword.trim()) {
       searchDiscovery()
     }
-  }
-
-  // 이미지 업로드 핸들러
-  const handleImageUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
-    const file = e.target.files?.[0]
-    if (!file) return
-
-    // 이미지 파일 검증
-    if (!file.type.startsWith('image/')) {
-      alert('이미지 파일만 업로드 가능합니다.')
-      return
-    }
-
-    if (file.size > 20 * 1024 * 1024) {
-      alert('이미지 크기는 20MB 이하여야 합니다.')
-      return
-    }
-
-    setImageFile(file)
-    
-    // 미리보기 생성
-    const reader = new FileReader()
-    reader.onloadend = () => {
-      setUploadedImage(reader.result as string)
-    }
-    reader.readAsDataURL(file)
-  }
-
-  // 이미지 분석 뮤테이션
-  const analyzeImageMutation = useMutation({
-    mutationFn: (file: File) => materialApi.analyzeImage(file),
-    onSuccess: (data) => {
-      if (data.success) {
-        setImageAnalysisResult(data.data)
-        setIsAnalyzing(false)
-        // 분석 결과를 선택된 소재로 설정
-        setSelectedDiscovery({
-          id: `image-${Date.now()}`,
-          type: 'product',
-          source: {
-            platform: 'image',
-            url: data.data.imageUrl,
-            scrapedAt: new Date().toISOString(),
-          },
-          metadata: {
-            title: data.data.marketingInsights.title,
-            description: data.data.marketingInsights.description,
-            images: [data.data.imageUrl],
-            category: '이미지 분석',
-            tags: data.data.marketingInsights.hashtags || [],
-            price: 0,
-          },
-          analysis: {
-            trendScore: 0,
-            targetAudience: data.data.marketingInsights.targetAudience || [],
-            keywords: data.data.marketingInsights.hashtags || [],
-          },
-          createdAt: new Date().toISOString(),
-        } as DiscoveryResultWithContent)
-      }
-    },
-    onError: (error: any) => {
-      setIsAnalyzing(false)
-      alert(`이미지 분석 실패: ${error.message || '알 수 없는 오류'}`)
-    },
-  })
-
-  // 이미지 분석 시작
-  const handleAnalyzeImage = () => {
-    if (!imageFile) {
-      alert('이미지를 먼저 업로드해주세요.')
-      return
-    }
-    setIsAnalyzing(true)
-    analyzeImageMutation.mutate(imageFile)
-  }
-
-  // 이미지 분석 결과 기반 콘텐츠 생성
-  const generateContentFromImageMutation = useMutation({
-    mutationFn: (request: any) => materialApi.generateContentFromImage(request),
-    onSuccess: (data) => {
-      if (data.success && selectedDiscovery) {
-        setSelectedDiscovery({
-          ...selectedDiscovery,
-          generatedContent: data.data.content,
-        } as DiscoveryResultWithContent)
-        setActiveTab('generate')
-      }
-    },
-  })
-
-  // 이미지 분석 결과로 콘텐츠 생성
-  const handleGenerateContentFromImage = () => {
-    if (!imageAnalysisResult) {
-      alert('이미지를 먼저 분석해주세요.')
-      return
-    }
-
-    generateContentFromImageMutation.mutate({
-      imageAnalysisResult: {
-        visualAnalysis: imageAnalysisResult.visualAnalysis,
-        marketingInsights: imageAnalysisResult.marketingInsights,
-      },
-      contentType,
-      platform,
-      language,
-      tone,
-      targetAudience: imageAnalysisResult.marketingInsights?.targetAudience,
-    })
   }
 
   // URL 분석 mutation
