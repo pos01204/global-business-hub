@@ -22,10 +22,14 @@ export default function ChatPage() {
     queryKey: ['chat-health'],
     queryFn: () => chatApi.checkHealth(),
     refetchInterval: 30000, // 30초마다 상태 확인
-    onSuccess: (data) => {
-      setIsConnected(data?.success && data?.data?.connected)
-    },
   })
+
+  // 연결 상태 업데이트
+  useEffect(() => {
+    if (healthData) {
+      setIsConnected(healthData?.success && healthData?.data?.connected)
+    }
+  }, [healthData])
 
   // 메시지 전송 뮤테이션
   const sendMessageMutation = useMutation({
