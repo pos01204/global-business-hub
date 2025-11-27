@@ -29,17 +29,22 @@ router.get('/main', async (req, res) => {
     // Google Sheets 연결 확인
     const connectionStatus = await sheetsService.checkConnection();
     if (!connectionStatus.connected) {
-      console.error('[Dashboard] Google Sheets 연결 실패:', connectionStatus.error);
+      console.error('[Dashboard] Google Sheets 연결 실패');
+      console.error('  오류:', connectionStatus.error);
+      console.error('  상세 정보:', JSON.stringify(connectionStatus.details, null, 2));
+      
       return res.status(503).json({
         error: 'Google Sheets에 연결할 수 없습니다.',
-        details: connectionStatus.error,
-        troubleshooting: [
+        message: connectionStatus.error,
+        details: connectionStatus.details,
+        troubleshooting: connectionStatus.details?.troubleshooting || [
           '1. Railway Variables에서 다음 환경 변수를 확인하세요:',
           '   - GOOGLE_SHEETS_SPREADSHEET_ID',
           '   - GOOGLE_SHEETS_CLIENT_EMAIL',
           '   - GOOGLE_SHEETS_PRIVATE_KEY',
           '2. 서비스 계정이 스프레드시트에 접근 권한이 있는지 확인하세요.',
           '3. 스프레드시트 ID가 올바른지 확인하세요.',
+          '4. Railway 로그에서 더 자세한 오류 정보를 확인하세요.',
         ],
       });
     }

@@ -11,10 +11,14 @@ class GoogleSheetsService {
   private auth: JWT | null = null;
   private sheets: any = null;
   private spreadsheetId: string;
+  private clientEmail: string;
+  private privateKey: string;
   private isConfigured: boolean;
 
   constructor(config: SheetConfig) {
     this.spreadsheetId = config.spreadsheetId;
+    this.clientEmail = config.clientEmail;
+    this.privateKey = config.privateKey;
     this.isConfigured = !!(config.spreadsheetId && config.clientEmail && config.privateKey);
     
     if (this.isConfigured) {
@@ -34,25 +38,81 @@ class GoogleSheetsService {
   /**
    * 연결 상태 확인
    */
-  async checkConnection(): Promise<{ connected: boolean; error?: string }> {
+  async checkConnection(): Promise<{ connected: boolean; error?: string; details?: any }> {
     if (!this.isConfigured || !this.sheets) {
+      console.error('[Google Sheets] 환경 변수 미설정');
+      console.error(`  - SPREADSHEET_ID: ${this.spreadsheetId ? '있음' : '없음'}`);
+      console.error(`  - CLIENT_EMAIL: ${this.clientEmail ? '있음' : '없음'}`);
+      console.error(`  - PRIVATE_KEY: ${this.privateKey ? '있음' : '없음'}`);
       return {
         connected: false,
         error: '환경 변수가 설정되지 않았습니다.',
+        details: {
+          spreadsheetId: !!this.spreadsheetId,
+          clientEmail: !!this.clientEmail,
+          privateKey: !!this.privateKey,
+        },
       };
     }
 
     try {
+      console.log('[Google Sheets] 연결 테스트 시작...');
+      console.log(`  - 스프레드시트 ID: ${this.spreadsheetId.substring(0, 20)}...`);
+      
       // 스프레드시트 메타데이터 조회로 연결 테스트
-      await this.sheets.spreadsheets.get({
+      const response = await this.sheets.spreadsheets.get({
         spreadsheetId: this.spreadsheetId,
       });
+      
+      console.log('[Google Sheets] 연결 성공');
+      console.log(`  - 스프레드시트 제목: ${response.data.properties?.title || 'N/A'}`);
+      console.log(`  - 시트 수: ${response.data.sheets?.length || 0}`);
+      
       return { connected: true };
     } catch (error: any) {
-      console.error('Google Sheets 연결 확인 실패:', error);
+      console.error('[Google Sheets] 연결 확인 실패');
+      console.error(`  - 오류 코드: ${error.code || 'UNKNOWN'}`);
+      console.error(`  - 오류 메시지: ${error.message || '알 수 없는 오류'}`);
+      
+      if (error.response) {
+        console.error(`  - HTTP 상태: ${error.response.status}`);
+        console.error(`  - 응답 데이터:`, JSON.stringify(error.response.data, null, 2));
+      }
+      
+      let errorMessage = error.message || '연결 실패';
+      let troubleshooting: string[] = [];
+      
+      if (error.code === 403) {
+        errorMessage = '서비스 계정이 스프레드시트에 접근 권한이 없습니다.';
+        troubleshooting = [
+          '1. 스프레드시트를 열고 "공유" 버튼을 클릭하세요.',
+          '2. 서비스 계정 이메일을 추가하고 "뷰어" 권한을 부여하세요.',
+          `3. 서비스 계정 이메일: ${this.clientEmail}`,
+        ];
+      } else if (error.code === 404) {
+        errorMessage = `스프레드시트를 찾을 수 없습니다. (ID: ${this.spreadsheetId})`;
+        troubleshooting = [
+          '1. GOOGLE_SHEETS_SPREADSHEET_ID 환경 변수를 확인하세요.',
+          '2. 스프레드시트 URL에서 ID를 복사했는지 확인하세요.',
+          '3. 스프레드시트가 삭제되지 않았는지 확인하세요.',
+        ];
+      } else if (error.code === 401) {
+        errorMessage = '서비스 계정 인증에 실패했습니다.';
+        troubleshooting = [
+          '1. GOOGLE_SHEETS_CLIENT_EMAIL 환경 변수를 확인하세요.',
+          '2. GOOGLE_SHEETS_PRIVATE_KEY 환경 변수를 확인하세요.',
+          '3. PRIVATE_KEY가 큰따옴표로 감싸져 있고, \\n이 포함되어 있는지 확인하세요.',
+        ];
+      }
+      
       return {
         connected: false,
-        error: error.message || '연결 실패',
+        error: errorMessage,
+        details: {
+          code: error.code,
+          message: error.message,
+          troubleshooting,
+        },
       };
     }
   }
