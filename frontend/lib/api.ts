@@ -462,6 +462,17 @@ export const qcApi = {
     })
     return response.data
   },
+  // QC 아카이브 조회
+  getArchive: async (params?: {
+    type?: 'all' | 'text' | 'image'
+    page?: number
+    limit?: number
+    startDate?: string
+    endDate?: string
+  }) => {
+    const response = await api.get('/api/qc/archive', { params })
+    return response.data
+  },
 }
 
 export default api

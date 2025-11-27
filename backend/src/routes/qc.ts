@@ -733,6 +733,84 @@ router.get('/artists/notifications', async (req, res) => {
 });
 
 /**
+ * QC 아카이브 목록 조회
+ * GET /api/qc/archive?type=text&page=1&limit=20&startDate=2025-01-01&endDate=2025-01-31
+ */
+router.get('/archive', async (req, res) => {
+  try {
+    const type = req.query.type as string | undefined;
+    const page = parseInt(req.query.page as string) || 1;
+    const limit = parseInt(req.query.limit as string) || 20;
+    const startDate = req.query.startDate as string | undefined;
+    const endDate = req.query.endDate as string | undefined;
+
+    let items = Array.from(qcDataStore.archive.values());
+
+    // 타입 필터링
+    if (type && type !== 'all') {
+      items = items.filter((item) => item.type === type);
+    }
+
+    // 날짜 필터링
+    if (startDate) {
+      const start = new Date(startDate);
+      start.setHours(0, 0, 0, 0);
+      items = items.filter((item) => {
+        const completedAt = item.completedAt || item.createdAt;
+        return completedAt >= start;
+      });
+    }
+
+    if (endDate) {
+      const end = new Date(endDate);
+      end.setHours(23, 59, 59, 999);
+      items = items.filter((item) => {
+        const completedAt = item.completedAt || item.createdAt;
+        return completedAt <= end;
+      });
+    }
+
+    // 완료일 기준으로 최신순 정렬
+    items.sort((a, b) => {
+      const dateA = a.completedAt || a.createdAt;
+      const dateB = b.completedAt || b.createdAt;
+      return dateB.getTime() - dateA.getTime();
+    });
+
+    // 페이지네이션
+    const start = (page - 1) * limit;
+    const end = start + limit;
+    const paginatedItems = items.slice(start, end);
+
+    // 통계 계산
+    const totalByType = {
+      text: items.filter((item) => item.type === 'text').length,
+      image: items.filter((item) => item.type === 'image').length,
+    };
+
+    res.json({
+      items: paginatedItems,
+      pagination: {
+        page,
+        limit,
+        total: items.length,
+        totalPages: Math.ceil(items.length / limit),
+      },
+      stats: {
+        total: items.length,
+        totalByType,
+      },
+    });
+  } catch (error: any) {
+    console.error('[QC] 아카이브 목록 조회 오류:', error);
+    res.status(500).json({
+      error: '아카이브 목록 조회 중 오류가 발생했습니다.',
+      message: error.message,
+    });
+  }
+});
+
+/**
  * 중복 검사
  * GET /api/qc/check-duplicates
  */
