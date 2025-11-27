@@ -14,7 +14,6 @@ interface ImageModalProps {
   hasNext?: boolean
   onApprove?: () => void
   onNeedsRevision?: () => void
-  onComplete?: () => void
   onExclude?: () => void
   isUpdating?: boolean
 }
@@ -29,7 +28,6 @@ function ImageModal({
   hasNext,
   onApprove,
   onNeedsRevision,
-  onComplete,
   onExclude,
   isUpdating,
 }: ImageModalProps) {
@@ -129,8 +127,9 @@ function ImageModal({
                 onClick={onApprove}
                 disabled={isUpdating}
                 className="btn flex-1 bg-green-500 hover:bg-green-600 text-white disabled:opacity-50"
+                title="승인 후 아카이브로 이동됩니다"
               >
-                승인
+                ✓ 승인
               </button>
             )}
             {item.status !== 'needs_revision' && item.status !== 'excluded' && onNeedsRevision && (
@@ -149,15 +148,6 @@ function ImageModal({
                 className="btn flex-1 bg-gray-500 hover:bg-gray-600 text-white disabled:opacity-50"
               >
                 비대상으로 표시
-              </button>
-            )}
-            {(item.status === 'approved' || item.status === 'needs_revision') && onComplete && (
-              <button
-                onClick={onComplete}
-                disabled={isUpdating}
-                className="btn flex-1 bg-primary text-white disabled:opacity-50"
-              >
-                완료 처리
               </button>
             )}
           </div>
@@ -200,16 +190,6 @@ export default function ImageQCTab() {
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['qc', 'image'] })
       queryClient.invalidateQueries({ queryKey: ['qc', 'artists'] })
-    },
-  })
-
-  const completeMutation = useMutation({
-    mutationFn: (id: string) => qcApi.complete('image', id),
-    onSuccess: (data, id: string) => {
-      queryClient.invalidateQueries({ queryKey: ['qc', 'image'] })
-      if (selectedImage?.id === id) {
-        setSelectedImage(null)
-      }
     },
   })
 
@@ -344,7 +324,6 @@ export default function ImageQCTab() {
               <option value="all">전체</option>
               <option value="pending">미검수</option>
               <option value="needs_revision">수정 필요</option>
-              <option value="approved">승인 완료</option>
               <option value="excluded">비대상</option>
             </select>
           </div>
@@ -599,21 +578,12 @@ export default function ImageQCTab() {
               }
             : undefined
         }
-        onComplete={
-          selectedImage
-            ? () => {
-                if (confirm('QC를 완료하고 아카이브로 이동하시겠습니까?')) {
-                  completeMutation.mutate(selectedImage.id)
-                }
-              }
-            : undefined
-        }
         onExclude={
           selectedImage
             ? () => handleExclude(selectedImage.id)
             : undefined
         }
-        isUpdating={updateStatusMutation.isPending || completeMutation.isPending}
+        isUpdating={updateStatusMutation.isPending}
       />
     </div>
   )

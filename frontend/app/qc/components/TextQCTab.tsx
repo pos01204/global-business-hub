@@ -40,13 +40,6 @@ export default function TextQCTab() {
     },
   })
 
-  const completeMutation = useMutation({
-    mutationFn: (id: string) => qcApi.complete('text', id),
-    onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ['qc', 'text'] })
-    },
-  })
-
   const handleApprove = useCallback((id: string) => {
     if (confirm('이 항목을 승인하시겠습니까?')) {
       updateStatusMutation.mutate({
@@ -66,12 +59,6 @@ export default function TextQCTab() {
       })
     }
   }, [updateStatusMutation])
-
-  const handleComplete = useCallback((id: string) => {
-    if (confirm('QC를 완료하고 아카이브로 이동하시겠습니까?')) {
-      completeMutation.mutate(id)
-    }
-  }, [completeMutation])
 
   const handleExclude = useCallback((id: string) => {
     if (confirm('이 항목을 QC 비대상으로 표시하시겠습니까?')) {
@@ -140,21 +127,12 @@ export default function TextQCTab() {
             }, 100)
           }
           break
-        case 'c': // 완료 (Complete)
-          if (
-            currentItem.status === 'approved' ||
-            currentItem.status === 'needs_revision'
-          ) {
-            e.preventDefault()
-            handleComplete(currentItem.id)
-          }
-          break
       }
     }
 
     window.addEventListener('keydown', handleKeyPress)
     return () => window.removeEventListener('keydown', handleKeyPress)
-  }, [selectedIndex, handleApprove, handleNeedsRevision, handleComplete])
+  }, [selectedIndex, handleApprove, handleNeedsRevision])
 
   // 데이터 변경 시 selectedIndex 초기화
   useEffect(() => {
@@ -201,7 +179,6 @@ export default function TextQCTab() {
               <option value="all">전체</option>
               <option value="pending">미검수</option>
               <option value="needs_revision">수정 필요</option>
-              <option value="approved">승인 완료</option>
               <option value="excluded">비대상</option>
             </select>
           </div>
@@ -260,9 +237,8 @@ export default function TextQCTab() {
           <h3 className="text-sm font-semibold">키보드 단축키</h3>
         </div>
         <div className="grid grid-cols-2 md:grid-cols-5 gap-2 text-xs text-gray-600">
-          <div><kbd className="px-2 py-1 bg-white rounded border">A</kbd> 승인</div>
+          <div><kbd className="px-2 py-1 bg-white rounded border">A</kbd> 승인 (아카이브)</div>
           <div><kbd className="px-2 py-1 bg-white rounded border">R</kbd> 수정 필요</div>
-          <div><kbd className="px-2 py-1 bg-white rounded border">C</kbd> 완료 처리</div>
           <div><kbd className="px-2 py-1 bg-white rounded border">N</kbd> 다음 항목</div>
           <div><kbd className="px-2 py-1 bg-white rounded border">P</kbd> 이전 항목</div>
         </div>
@@ -356,8 +332,9 @@ export default function TextQCTab() {
                       onClick={() => handleApprove(item.id)}
                       disabled={updateStatusMutation.isPending}
                       className="btn btn-sm bg-green-500 hover:bg-green-600 text-white"
+                      title="승인 후 아카이브로 이동됩니다"
                     >
-                      승인
+                      ✓ 승인
                     </button>
                   )}
                   {item.status !== 'needs_revision' && item.status !== 'excluded' && (
@@ -376,15 +353,6 @@ export default function TextQCTab() {
                       className="btn btn-sm bg-gray-500 hover:bg-gray-600 text-white"
                     >
                       비대상
-                    </button>
-                  )}
-                  {(item.status === 'approved' || item.status === 'needs_revision') && (
-                    <button
-                      onClick={() => handleComplete(item.id)}
-                      disabled={completeMutation.isPending}
-                      className="btn btn-sm bg-primary text-white"
-                    >
-                      완료 처리
                     </button>
                   )}
                 </div>
