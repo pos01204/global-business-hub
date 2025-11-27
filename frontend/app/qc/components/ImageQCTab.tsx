@@ -194,7 +194,7 @@ export default function ImageQCTab() {
 
   const completeMutation = useMutation({
     mutationFn: (id: string) => qcApi.complete('image', id),
-    onSuccess: () => {
+    onSuccess: (data, id: string) => {
       queryClient.invalidateQueries({ queryKey: ['qc', 'image'] })
       if (selectedImage?.id === id) {
         setSelectedImage(null)
