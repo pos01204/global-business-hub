@@ -26,11 +26,43 @@ router.get('/main', async (req, res) => {
       validStartDate = thirtyDaysAgo.toISOString().split('T')[0];
     }
 
+    // Google Sheets 연결 확인
+    const connectionStatus = await sheetsService.checkConnection();
+    if (!connectionStatus.connected) {
+      console.error('[Dashboard] Google Sheets 연결 실패:', connectionStatus.error);
+      return res.status(503).json({
+        error: 'Google Sheets에 연결할 수 없습니다.',
+        details: connectionStatus.error,
+        troubleshooting: [
+          '1. Railway Variables에서 다음 환경 변수를 확인하세요:',
+          '   - GOOGLE_SHEETS_SPREADSHEET_ID',
+          '   - GOOGLE_SHEETS_CLIENT_EMAIL',
+          '   - GOOGLE_SHEETS_PRIVATE_KEY',
+          '2. 서비스 계정이 스프레드시트에 접근 권한이 있는지 확인하세요.',
+          '3. 스프레드시트 ID가 올바른지 확인하세요.',
+        ],
+      });
+    }
+
     // logistics 데이터 로드
-    const logisticsData = await sheetsService.getSheetDataAsJson(
-      SHEET_NAMES.LOGISTICS,
-      true // fill-down 활성화
-    );
+    let logisticsData: any[] = [];
+    try {
+      logisticsData = await sheetsService.getSheetDataAsJson(
+        SHEET_NAMES.LOGISTICS,
+        true // fill-down 활성화
+      );
+      console.log(`[Dashboard] Logistics 데이터 로드 완료: ${logisticsData.length}건`);
+    } catch (error: any) {
+      console.error('[Dashboard] Logistics 데이터 로드 실패:', error.message);
+      return res.status(500).json({
+        error: 'Logistics 데이터를 불러오는 중 오류가 발생했습니다.',
+        details: error.message,
+        troubleshooting: [
+          `시트 이름 '${SHEET_NAMES.LOGISTICS}'이 스프레드시트에 존재하는지 확인하세요.`,
+          '서비스 계정이 스프레드시트에 접근 권한이 있는지 확인하세요.',
+        ],
+      });
+    }
 
     // 날짜 필터링
     const start = new Date(validStartDate);
