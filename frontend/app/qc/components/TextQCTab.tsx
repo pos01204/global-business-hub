@@ -1,6 +1,6 @@
 'use client'
 
-import { useState, useEffect, useRef } from 'react'
+import { useState, useEffect, useRef, useCallback } from 'react'
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
 import { qcApi } from '@/lib/api'
 
@@ -47,7 +47,7 @@ export default function TextQCTab() {
     },
   })
 
-  const handleApprove = (id: string) => {
+  const handleApprove = useCallback((id: string) => {
     if (confirm('이 항목을 승인하시겠습니까?')) {
       updateStatusMutation.mutate({
         id,
@@ -55,9 +55,9 @@ export default function TextQCTab() {
         needsRevision: false,
       })
     }
-  }
+  }, [updateStatusMutation])
 
-  const handleNeedsRevision = (id: string) => {
+  const handleNeedsRevision = useCallback((id: string) => {
     if (confirm('이 항목을 수정 필요로 표시하시겠습니까?')) {
       updateStatusMutation.mutate({
         id,
@@ -65,13 +65,13 @@ export default function TextQCTab() {
         needsRevision: true,
       })
     }
-  }
+  }, [updateStatusMutation])
 
-  const handleComplete = (id: string) => {
+  const handleComplete = useCallback((id: string) => {
     if (confirm('QC를 완료하고 아카이브로 이동하시겠습니까?')) {
       completeMutation.mutate(id)
     }
-  }
+  }, [completeMutation])
 
   // 키보드 단축키
   useEffect(() => {
@@ -144,7 +144,7 @@ export default function TextQCTab() {
 
     window.addEventListener('keydown', handleKeyPress)
     return () => window.removeEventListener('keydown', handleKeyPress)
-  }, [selectedIndex])
+  }, [selectedIndex, handleApprove, handleNeedsRevision, handleComplete])
 
   // 데이터 변경 시 selectedIndex 초기화
   useEffect(() => {
