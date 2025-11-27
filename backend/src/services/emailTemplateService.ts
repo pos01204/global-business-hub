@@ -39,6 +39,7 @@ class EmailTemplateService {
    * 텍스트 본문 생성
    */
   private generateTextBody(artistName: string, textQCItems: number, imageQCItems: number, items: QCItem[]): string {
+    const totalItems = textQCItems + imageQCItems;
     let body = `작가님 안녕하세요.\n\n`;
     body += `아이디어스 글로벌팀 입니다.\n\n`;
     body += `${artistName} 작가님의 작품 중 QC(품질 검수)에서 수정이 필요한 항목이 ${totalItems}개 발견되었습니다.\n\n`;
