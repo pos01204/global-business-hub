@@ -73,6 +73,16 @@ export default function TextQCTab() {
     }
   }, [completeMutation])
 
+  const handleExclude = useCallback((id: string) => {
+    if (confirm('이 항목을 QC 비대상으로 표시하시겠습니까?')) {
+      updateStatusMutation.mutate({
+        id,
+        status: 'excluded',
+        needsRevision: false,
+      })
+    }
+  }, [updateStatusMutation])
+
   // 키보드 단축키
   useEffect(() => {
     const handleKeyPress = (e: KeyboardEvent) => {
