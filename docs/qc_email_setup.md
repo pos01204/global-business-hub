@@ -1,65 +1,53 @@
-# QC 작가 알람 이메일 발송 설정 가이드
+# QC 작가 알람 이메일 발송 빠른 설정
 
 ## 🚀 빠른 시작
 
-### 1. 환경 변수 설정
+### 1. Gmail 앱 비밀번호 생성
 
-`backend/.env` 파일에 다음을 추가:
+1. https://myaccount.google.com/apppasswords 접속
+2. "앱 선택" → "기타" 선택 → 이름 입력
+3. **16자리 비밀번호 복사**
+
+### 2. 환경 변수 설정
+
+`backend/.env` 파일에 추가:
 
 ```env
-# Gmail API 설정
-GMAIL_CLIENT_EMAIL=your-service-account@project-id.iam.gserviceaccount.com
-GMAIL_PRIVATE_KEY="-----BEGIN PRIVATE KEY-----\n...\n-----END PRIVATE KEY-----\n"
-GMAIL_FROM_EMAIL=global_help@backpac.kr
-GMAIL_FROM_NAME=Global Business 셀 | Business Pathfinder
+GMAIL_USER=your-email@gmail.com
+GMAIL_APP_PASSWORD=xxxx xxxx xxxx xxxx
 ```
 
-### 2. 서버 재시작
+### 3. 서버 재시작
 
 ```bash
 cd backend
+npm install
 npm run dev
 ```
-
-### 3. 사용 방법
-
-1. 허브 → QC 관리 → 작가 알람 명단
-2. 작가 카드에서 "알람 발송" 버튼 클릭
-3. 이메일이 자동으로 발송됩니다
-
----
-
-## 📧 이메일 템플릿
-
-### 제목
-`[idus글로벌] QC 수정이 필요한 항목이 있습니다.`
-
-### 포함 내용
-- 작가 인사말
-- 수정 필요 항목 요약 (텍스트 QC, 이미지 QC 개수)
-- 수정 필요 항목 상세 목록
-- 안내사항
-- 발신자 정보
 
 ---
 
 ## ✅ 확인 사항
 
-### 이메일 발송 성공 시
-- ✅ 알람이 성공적으로 발송되었습니다.
-- 📧 이메일 발송 완료 (ID: ...)
+### 알람 발송 시 확인 창
+- 작가명
+- 📧 발송 메일: artist@example.com
+- 수정 필요 항목 개수
 
-### 이메일 발송 실패 시
+### 발송 결과
 - ✅ 알람이 성공적으로 발송되었습니다.
-- ⚠️ 이메일 발송 실패: [오류 메시지]
+- 📧 이메일 발송 완료
 
-### 메일 주소 없음
-- ✅ 알람이 성공적으로 발송되었습니다.
-- ℹ️ 작가 메일 주소가 없어 이메일을 발송할 수 없습니다.
+---
+
+## ⚠️ 주의사항
+
+- **앱 비밀번호**를 사용해야 합니다 (일반 비밀번호 X)
+- 2단계 인증이 활성화되어 있어야 합니다
+- Gmail SMTP로 발송된 메일은 보낸편지함에 저장되지 않습니다
 
 ---
 
 ## 🔧 상세 설정
 
 자세한 설정 방법은 `docs/gmail_integration_guide.md`를 참고하세요.
-

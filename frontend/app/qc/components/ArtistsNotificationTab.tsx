@@ -45,7 +45,11 @@ export default function ArtistsNotificationTab() {
 
   const handleNotify = (artist: any) => {
     const items = artist.items.map((item: any) => item.id)
-    const message = `작가 "${artist.artistName}"에게 알람을 발송하시겠습니까?\n\n수정 필요 항목:\n- 텍스트 QC: ${artist.textQCItems}개\n- 이미지 QC: ${artist.imageQCItems}개\n\n총 ${items.length}개 항목에 대한 알람이 발송됩니다.`
+    const emailInfo = artist.artistEmail 
+      ? `\n📧 발송 메일: ${artist.artistEmail}`
+      : '\n⚠️ 메일 주소가 없어 이메일은 발송되지 않습니다.'
+    
+    const message = `작가 "${artist.artistName}"에게 알람을 발송하시겠습니까?\n${emailInfo}\n\n수정 필요 항목:\n- 텍스트 QC: ${artist.textQCItems}개\n- 이미지 QC: ${artist.imageQCItems}개\n\n총 ${items.length}개 항목에 대한 알람이 발송됩니다.`
 
     if (confirm(message)) {
       notifyMutation.mutate({

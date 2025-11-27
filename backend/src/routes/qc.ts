@@ -3,15 +3,15 @@ import multer from 'multer';
 import { parse } from 'csv-parse/sync';
 import GoogleSheetsService from '../services/googleSheets';
 import { sheetsConfig, SHEET_NAMES } from '../config/sheets';
-import GmailService from '../services/gmailService';
+import NodemailerService from '../services/nodemailerService';
 import EmailTemplateService from '../services/emailTemplateService';
-import { gmailConfig, isGmailConfigured } from '../config/gmail';
+import { emailConfig, isEmailConfigured } from '../config/gmail';
 
 const router = Router();
 const sheetsService = new GoogleSheetsService(sheetsConfig);
 
-// Gmail 서비스 및 이메일 템플릿 서비스 초기화
-const gmailService = isGmailConfigured ? new GmailService(gmailConfig) : null;
+// 이메일 서비스 및 템플릿 서비스 초기화
+const emailService = isEmailConfigured ? new NodemailerService(emailConfig) : null;
 const emailTemplateService = new EmailTemplateService();
 
 // Multer 설정: 메모리 스토리지 사용
@@ -1350,7 +1350,7 @@ router.post('/artists/notify', async (req, res) => {
     let emailError: string | undefined = undefined;
     let emailMessageId: string | undefined = undefined;
 
-    if (artistEmail && gmailService) {
+    if (artistEmail && emailService) {
       try {
         // 이메일 템플릿 생성
         const emailTemplate = emailTemplateService.generateQCNotificationEmail({
@@ -1361,7 +1361,7 @@ router.post('/artists/notify', async (req, res) => {
         });
 
         // 이메일 발송
-        const emailResult = await gmailService.sendEmail(
+        const emailResult = await emailService.sendEmail(
           artistEmail,
           emailTemplate.subject,
           emailTemplate.htmlBody,
@@ -1383,9 +1383,9 @@ router.post('/artists/notify', async (req, res) => {
     } else if (!artistEmail) {
       emailError = '작가 메일 주소가 없습니다.';
       console.warn(`[QC] 이메일 발송 불가: ${artistName} - 메일 주소 없음`);
-    } else if (!gmailService) {
-      emailError = 'Gmail 서비스가 설정되지 않았습니다.';
-      console.warn(`[QC] 이메일 발송 불가: Gmail 서비스 미설정`);
+    } else if (!emailService) {
+      emailError = '이메일 서비스가 설정되지 않았습니다. Gmail 앱 비밀번호를 설정해주세요.';
+      console.warn(`[QC] 이메일 발송 불가: 이메일 서비스 미설정`);
     }
 
     console.log(`[QC] 작가 알람 발송: ${artistName} (${artistId})에게 ${validItems.length}개 항목 알람 발송${emailSent ? ' (이메일 발송 완료)' : emailError ? ` (이메일 발송 실패: ${emailError})` : ''}`);
