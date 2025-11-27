@@ -8,21 +8,27 @@ interface SheetConfig {
 }
 
 class GoogleSheetsService {
-  private auth: JWT;
-  private sheets: any;
+  private auth: JWT | null = null;
+  private sheets: any = null;
   private spreadsheetId: string;
+  private isConfigured: boolean;
 
   constructor(config: SheetConfig) {
     this.spreadsheetId = config.spreadsheetId;
+    this.isConfigured = !!(config.spreadsheetId && config.clientEmail && config.privateKey);
     
-    // JWT 인증 설정
-    this.auth = new JWT({
-      email: config.clientEmail,
-      key: config.privateKey.replace(/\\n/g, '\n'),
-      scopes: ['https://www.googleapis.com/auth/spreadsheets.readonly'],
-    });
+    if (this.isConfigured) {
+      // JWT 인증 설정
+      this.auth = new JWT({
+        email: config.clientEmail,
+        key: config.privateKey.replace(/\\n/g, '\n'),
+        scopes: ['https://www.googleapis.com/auth/spreadsheets.readonly'],
+      });
 
-    this.sheets = google.sheets({ version: 'v4', auth: this.auth });
+      this.sheets = google.sheets({ version: 'v4', auth: this.auth });
+    } else {
+      console.warn('Google Sheets Service: 환경 변수가 설정되지 않아 빈 데이터를 반환합니다.');
+    }
   }
 
   /**
@@ -34,6 +40,11 @@ class GoogleSheetsService {
     sheetName: string,
     enableFillDown: boolean = false
   ): Promise<any[]> {
+    if (!this.isConfigured || !this.sheets) {
+      console.warn(`Google Sheets Service: 환경 변수가 설정되지 않아 빈 데이터를 반환합니다. (시트: ${sheetName})`);
+      return [];
+    }
+
     try {
       const response = await this.sheets.spreadsheets.values.get({
         spreadsheetId: this.spreadsheetId,
@@ -103,6 +114,11 @@ class GoogleSheetsService {
     range: string,
     value: any
   ): Promise<void> {
+    if (!this.isConfigured || !this.sheets) {
+      console.warn(`Google Sheets Service: 환경 변수가 설정되지 않아 업데이트를 건너뜁니다. (${sheetName}!${range})`);
+      return;
+    }
+
     try {
       await this.sheets.spreadsheets.values.update({
         spreadsheetId: this.spreadsheetId,
@@ -125,6 +141,11 @@ class GoogleSheetsService {
     sheetName: string,
     updates: Array<{ range: string; value: any }>
   ): Promise<void> {
+    if (!this.isConfigured || !this.sheets) {
+      console.warn(`Google Sheets Service: 환경 변수가 설정되지 않아 업데이트를 건너뜁니다. (${sheetName})`);
+      return;
+    }
+
     try {
       const data = updates.map((update) => ({
         range: `${sheetName}!${update.range}`,

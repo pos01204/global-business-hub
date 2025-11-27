@@ -25,17 +25,19 @@ export const sheetsConfig = {
   privateKey,
 };
 
-// 환경 변수 검증 및 디버깅 정보
-if (!spreadsheetId || !clientEmail || !privateKey) {
-  console.error('❌ 환경 변수 오류: backend/.env 파일을 확인하세요.');
-  console.error('파일 경로:', envPath);
-  console.error('환경 변수 상태:');
-  console.error('  - GOOGLE_SHEETS_SPREADSHEET_ID:', spreadsheetId ? `있음 (${spreadsheetId.substring(0, 10)}...)` : '없음');
-  console.error('  - GOOGLE_SHEETS_CLIENT_EMAIL:', clientEmail ? `있음 (${clientEmail.substring(0, 20)}...)` : '없음');
-  console.error('  - GOOGLE_SHEETS_PRIVATE_KEY:', privateKey ? `있음 (${privateKey.length}자)` : '없음');
-  console.error('\n자세한 설정 방법은 QUICK_START.md 파일을 참고하세요.');
+// Google Sheets 환경 변수 검증 (선택사항)
+export const isGoogleSheetsConfigured = !!(spreadsheetId && clientEmail && privateKey);
+
+if (!isGoogleSheetsConfigured) {
+  console.warn('⚠️  Google Sheets API 환경 변수가 설정되지 않았습니다.');
+  console.warn('   Google Sheets 기능은 사용할 수 없지만, 서버는 정상적으로 시작됩니다.');
+  console.warn('   환경 변수 상태:');
+  console.warn('     - GOOGLE_SHEETS_SPREADSHEET_ID:', spreadsheetId ? '있음' : '없음');
+  console.warn('     - GOOGLE_SHEETS_CLIENT_EMAIL:', clientEmail ? '있음' : '없음');
+  console.warn('     - GOOGLE_SHEETS_PRIVATE_KEY:', privateKey ? '있음' : '없음');
+  console.warn('   Google Sheets 기능을 사용하려면 환경 변수를 설정하세요.');
 } else {
-  console.log('✅ 환경 변수 로드 성공');
+  console.log('✅ Google Sheets 환경 변수 로드 성공');
 }
 
 // 시트 이름 상수
