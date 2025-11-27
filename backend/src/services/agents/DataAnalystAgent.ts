@@ -139,6 +139,7 @@ export class DataAnalystAgent extends BaseAgent {
     data: any
     charts?: any[]
     actions?: Array<{ label: string; action: string; data?: any }>
+    dateRange?: { start: string; end: string }
   }> {
     const { dataNeeds, intent } = analysis
     const results: any[] = []
@@ -186,6 +187,7 @@ export class DataAnalystAgent extends BaseAgent {
       data: processedData,
       charts,
       actions,
+      dateRange: dataNeeds.dateRange,
     }
   }
 
@@ -343,17 +345,31 @@ export class DataAnalystAgent extends BaseAgent {
   ): Promise<string> {
     const dataSummary = this.formatDataSummary(results.data, analysis.intent)
 
+    // 실제 데이터가 있는지 확인
+    const hasData = Array.isArray(results.data) 
+      ? results.data.length > 0 
+      : results.data && Object.keys(results.data).length > 0
+
+    // 날짜 범위 정보 추가
+    const dateRangeInfo = analysis.dataNeeds?.dateRange 
+      ? `\n요청한 날짜 범위: ${analysis.dataNeeds.dateRange.start} ~ ${analysis.dataNeeds.dateRange.end}`
+      : '\n날짜 범위: 전체 데이터'
+
     const prompt = `${this.systemPrompt}
 
 사용자 질문: ${query}
+${dateRangeInfo}
 
 분석 결과:
-${JSON.stringify(dataSummary, null, 2)}
+${hasData ? JSON.stringify(dataSummary, null, 2) : '데이터가 없습니다.'}
 
-위 분석 결과를 바탕으로 사용자에게 친절하고 전문적인 답변을 작성해주세요.
+${hasData 
+  ? '위 분석 결과를 바탕으로 사용자에게 친절하고 전문적인 답변을 작성해주세요.'
+  : '데이터가 조회되지 않았습니다. 실제로 데이터가 존재하는지 확인하고, 날짜 범위가 올바른지 확인해주세요.'}
 - 구체적인 숫자와 함께 설명하세요
 - 트렌드나 패턴이 있다면 설명하세요
 - 인사이트나 제안이 있다면 포함하세요
+- 데이터가 없는 경우, 실제 데이터 범위를 확인한 후 정확히 알려주세요
 - 한국어로 답변하세요.`
 
     return await this.openaiService.generate(prompt, {
@@ -401,6 +417,56 @@ ${JSON.stringify(dataSummary, null, 2)}
 
     const lowerQuery = query.toLowerCase()
 
+    // 구체적인 연도와 월 파싱 (예: "2025년 11월", "2025년11월", "2025/11")
+    const yearMonthMatch = query.match(/(\d{4})\s*년\s*(\d{1,2})\s*월|(\d{4})\/(\d{1,2})/i)
+    if (yearMonthMatch) {
+      const year = parseInt(yearMonthMatch[1] || yearMonthMatch[3])
+      const month = parseInt(yearMonthMatch[2] || yearMonthMatch[4]) - 1 // JavaScript Date는 0부터 시작
+      
+      const startDate = new Date(year, month, 1)
+      startDate.setHours(0, 0, 0, 0)
+      
+      const endDateForMonth = new Date(year, month + 1, 0) // 해당 월의 마지막 날
+      endDateForMonth.setHours(23, 59, 59, 999)
+
+      return {
+        start: startDate.toISOString().split('T')[0],
+        end: endDateForMonth.toISOString().split('T')[0],
+      }
+    }
+
+    // 구체적인 연도만 파싱 (예: "2025년")
+    const yearMatch = query.match(/(\d{4})\s*년/i)
+    if (yearMatch) {
+      const year = parseInt(yearMatch[1])
+      const startDate = new Date(year, 0, 1)
+      startDate.setHours(0, 0, 0, 0)
+      
+      const endDateForYear = new Date(year, 11, 31)
+      endDateForYear.setHours(23, 59, 59, 999)
+
+      return {
+        start: startDate.toISOString().split('T')[0],
+        end: endDateForYear.toISOString().split('T')[0],
+      }
+    }
+
+    // 월만 파싱 (예: "11월", "11월분")
+    const monthMatch = query.match(/(\d{1,2})\s*월/i)
+    if (monthMatch && !yearMonthMatch) {
+      const month = parseInt(monthMatch[1]) - 1
+      const startDate = new Date(today.getFullYear(), month, 1)
+      startDate.setHours(0, 0, 0, 0)
+      
+      const endDateForMonth = new Date(today.getFullYear(), month + 1, 0)
+      endDateForMonth.setHours(23, 59, 59, 999)
+
+      return {
+        start: startDate.toISOString().split('T')[0],
+        end: endDateForMonth.toISOString().split('T')[0],
+      }
+    }
+
     // 최근 N일
     const recentMatch = query.match(/(\d+)일|(\d+)days?/i)
     if (recentMatch) {
@@ -437,15 +503,9 @@ ${JSON.stringify(dataSummary, null, 2)}
       }
     }
 
-    // 기본값: 최근 30일
-    const startDate = new Date(today)
-    startDate.setDate(startDate.getDate() - 30)
-    startDate.setHours(0, 0, 0, 0)
-
-    return {
-      start: startDate.toISOString().split('T')[0],
-      end: endDate.toISOString().split('T')[0],
-    }
+    // 기본값: 최근 30일 (명시적인 날짜가 없을 때만)
+    // 날짜가 명시되지 않은 경우 undefined 반환하여 전체 데이터 조회
+    return undefined
   }
 
   /**
