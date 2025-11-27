@@ -3,26 +3,24 @@ import multer from 'multer';
 import { parse } from 'csv-parse/sync';
 import GoogleSheetsService from '../services/googleSheets';
 import { sheetsConfig, SHEET_NAMES } from '../config/sheets';
-import NodemailerService from '../services/nodemailerService';
+import ResendService from '../services/resendService';
 import EmailTemplateService from '../services/emailTemplateService';
-import { emailConfig, isEmailConfigured } from '../config/gmail';
+import { resendConfig, isEmailConfigured } from '../config/email';
 
 const router = Router();
 const sheetsService = new GoogleSheetsService(sheetsConfig);
 
-// 이메일 서비스 및 템플릿 서비스 초기화
-console.log('[Email] 이메일 서비스 초기화 시작...');
+// 이메일 서비스 및 템플릿 서비스 초기화 (Resend 사용)
+console.log('[Email] 이메일 서비스 초기화 시작 (Resend)...');
 console.log('[Email] isEmailConfigured:', isEmailConfigured);
-console.log('[Email] emailConfig.user:', emailConfig.user ? '설정됨' : '없음');
-console.log('[Email] emailConfig.pass:', emailConfig.pass ? '설정됨 (' + emailConfig.pass.length + '자)' : '없음');
 
-const emailService = isEmailConfigured ? new NodemailerService(emailConfig) : null;
+const emailService = isEmailConfigured ? new ResendService(resendConfig) : null;
 const emailTemplateService = new EmailTemplateService();
 
 if (emailService) {
-  console.log('[Email] ✅ 이메일 서비스 초기화 완료');
+  console.log('[Email] ✅ Resend 이메일 서비스 초기화 완료');
 } else {
-  console.log('[Email] ⚠️ 이메일 서비스 비활성화 (환경 변수 미설정)');
+  console.log('[Email] ⚠️ 이메일 서비스 비활성화 (RESEND_API_KEY 미설정)');
 }
 
 // Multer 설정: 메모리 스토리지 사용
