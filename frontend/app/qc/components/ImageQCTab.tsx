@@ -1,6 +1,6 @@
 'use client'
 
-import { useState, useEffect } from 'react'
+import { useState, useEffect, useCallback } from 'react'
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
 import { qcApi } from '@/lib/api'
 
@@ -207,37 +207,38 @@ export default function ImageQCTab() {
     setSelectedIndex(index)
   }
 
-  const handlePrevious = () => {
+  const handlePrevious = useCallback(() => {
     if (!data?.items || selectedIndex <= 0) return
     const prevItem = data.items[selectedIndex - 1]
     setSelectedImage(prevItem)
     setSelectedIndex(selectedIndex - 1)
-  }
+  }, [data?.items, selectedIndex])
 
-  const handleNext = () => {
+  const handleNext = useCallback(() => {
     if (!data?.items || selectedIndex >= data.items.length - 1) return
     const nextItem = data.items[selectedIndex + 1]
     setSelectedImage(nextItem)
     setSelectedIndex(selectedIndex + 1)
-  }
+  }, [data?.items, selectedIndex])
 
   // 키보드 네비게이션
   useEffect(() => {
+    if (!selectedImage || !data?.items) return
+    
     const handleKeyPress = (e: KeyboardEvent) => {
       if (!selectedImage) return
       if (e.key === 'ArrowLeft' && selectedIndex > 0) {
         handlePrevious()
-      } else if (e.key === 'ArrowRight' && selectedIndex < items.length - 1) {
+      } else if (e.key === 'ArrowRight' && selectedIndex < data.items.length - 1) {
         handleNext()
       } else if (e.key === 'Escape') {
         setSelectedImage(null)
       }
     }
-    if (selectedImage) {
-      window.addEventListener('keydown', handleKeyPress)
-      return () => window.removeEventListener('keydown', handleKeyPress)
-    }
-  }, [selectedImage, selectedIndex, items.length])
+    
+    window.addEventListener('keydown', handleKeyPress)
+    return () => window.removeEventListener('keydown', handleKeyPress)
+  }, [selectedImage, selectedIndex, data?.items, handlePrevious, handleNext])
 
   if (isLoading) {
     return (
