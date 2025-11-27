@@ -479,6 +479,26 @@ export const settlementApi = {
     const response = await api.get('/api/settlement/rates/countries')
     return response.data
   },
+
+  // 교차 검증 (다중 운송사 비용 비교)
+  crossValidate: async (period?: string, limit?: number) => {
+    const response = await api.post('/api/settlement/cross-validate', { period, limit })
+    return response.data
+  },
+
+  // 고도화된 트렌드 분석
+  getTrendAdvanced: async () => {
+    const response = await api.get('/api/settlement/analysis/trend-advanced')
+    return response.data
+  },
+
+  // 물류비 시뮬레이션
+  simulate: async (country: string, weight: number, isDocument?: boolean) => {
+    const response = await api.get('/api/settlement/simulate', {
+      params: { country, weight, isDocument },
+    })
+    return response.data
+  },
 }
 
 // QC API

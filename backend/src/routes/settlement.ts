@@ -3,7 +3,7 @@ import multer from 'multer';
 import { parse } from 'csv-parse/sync';
 import GoogleSheetsService from '../services/googleSheets';
 import { sheetsConfig, SHEET_NAMES } from '../config/sheets';
-import { rateService, RateValidationResult } from '../services/rateService';
+import { rateService, RateValidationResult, CrossValidationResult } from '../services/rateService';
 
 const router = Router();
 const sheetsService = new GoogleSheetsService(sheetsConfig);
@@ -1021,6 +1021,439 @@ router.get('/analysis/trend', async (req, res) => {
     res.status(500).json({
       success: false,
       error: error.message || '분석 중 오류가 발생했습니다.',
+    });
+  }
+});
+
+/**
+ * POST /api/settlement/cross-validate
+ * 교차 검증: 다른 운송사로 보냈을 때 비용 비교
+ */
+router.post('/cross-validate', async (req, res) => {
+  try {
+    const { period, limit = 100 } = req.body;
+
+    const allData = await sheetsService.getSheetDataAsJson(
+      SHEET_NAMES.SETTLEMENT_RECORDS, 
+      false
+    );
+
+    let filteredData = allData;
+    if (period) {
+      filteredData = filteredData.filter(row => row.period === period);
+    }
+
+    if (filteredData.length === 0) {
+      return res.json({
+        success: true,
+        data: {
+          results: [],
+          summary: {
+            totalRecords: 0,
+            recordsWithSavings: 0,
+            totalPotentialSavings: 0,
+            avgSavingsPercent: 0,
+          },
+        },
+      });
+    }
+
+    // 교차 검증 데이터 준비
+    const validationRecords = filteredData.slice(0, parseInt(limit as string)).map(row => ({
+      id: row.id,
+      carrier: row.carrier,
+      country: row.country_code,
+      charged_weight: parseFloat(row.charged_weight || 0),
+      total_cost: parseFloat(row.total_cost || 0),
+      shipment_id: row.shipment_id,
+      tracking_number: row.tracking_number,
+      recipient: row.recipient,
+      period: row.period,
+    }));
+
+    const crossValidationResult = rateService.crossValidateBatch(validationRecords);
+
+    // 절감 가능 건만 추출 (상위 20건)
+    const savingsRecords = crossValidationResult.results
+      .filter(r => r.bestAlternative !== null)
+      .map((r, idx) => ({
+        ...r,
+        shipment_id: validationRecords[idx]?.shipment_id,
+        tracking_number: validationRecords[idx]?.tracking_number,
+        recipient: validationRecords[idx]?.recipient,
+        country: validationRecords[idx]?.country,
+        weight: validationRecords[idx]?.charged_weight,
+        period: validationRecords[idx]?.period,
+      }))
+      .sort((a, b) => (b.bestAlternative?.savings || 0) - (a.bestAlternative?.savings || 0))
+      .slice(0, 20);
+
+    // 운송사별 절감 가능액 집계
+    const savingsByCarrier: Record<string, { count: number; totalSavings: number; bestCarrier: string }> = {};
+    crossValidationResult.results.forEach(r => {
+      if (r.bestAlternative) {
+        const carrier = r.currentCarrier;
+        if (!savingsByCarrier[carrier]) {
+          savingsByCarrier[carrier] = { count: 0, totalSavings: 0, bestCarrier: '' };
+        }
+        savingsByCarrier[carrier].count++;
+        savingsByCarrier[carrier].totalSavings += r.bestAlternative.savings;
+        // 가장 많이 추천된 대안 운송사 추적
+        if (!savingsByCarrier[carrier].bestCarrier || 
+            r.bestAlternative.carrier === savingsByCarrier[carrier].bestCarrier) {
+          savingsByCarrier[carrier].bestCarrier = r.bestAlternative.carrier;
+        }
+      }
+    });
+
+    res.json({
+      success: true,
+      data: {
+        summary: crossValidationResult.summary,
+        savingsRecords,
+        savingsByCarrier: Object.entries(savingsByCarrier).map(([carrier, data]) => ({
+          carrier,
+          ...data,
+          avgSavings: data.count > 0 ? Math.round(data.totalSavings / data.count) : 0,
+        })),
+      },
+    });
+
+  } catch (error: any) {
+    console.error('[Settlement] 교차 검증 오류:', error);
+    res.status(500).json({
+      success: false,
+      error: error.message || '교차 검증 중 오류가 발생했습니다.',
+    });
+  }
+});
+
+/**
+ * GET /api/settlement/analysis/trend-advanced
+ * 고도화된 트렌드 분석 (이상 탐지, 예측, 인사이트 포함)
+ */
+router.get('/analysis/trend-advanced', async (req, res) => {
+  try {
+    const allData = await sheetsService.getSheetDataAsJson(
+      SHEET_NAMES.SETTLEMENT_RECORDS, 
+      false
+    );
+
+    // 기간별 집계
+    const periodStats: Record<string, {
+      count: number;
+      totalCost: number;
+      totalShippingFee: number;
+      totalSurcharge: number;
+      totalWeight: number;
+      byCarrier: Record<string, { count: number; cost: number; avgCost: number }>;
+      byCountry: Record<string, { count: number; cost: number; avgCost: number; avgWeight: number }>;
+      weightDistribution: Record<string, number>; // 중량 구간별 건수
+    }> = {};
+
+    allData.forEach(row => {
+      const period = row.period || 'Unknown';
+      const cost = parseFloat(row.total_cost || 0);
+      const shippingFee = parseFloat(row.shipping_fee || 0);
+      const surcharge = 
+        parseFloat(row.surcharge1 || 0) + 
+        parseFloat(row.surcharge2 || 0) + 
+        parseFloat(row.surcharge3 || 0);
+      const weight = parseFloat(row.charged_weight || 0);
+      const carrier = row.carrier || 'Unknown';
+      const country = row.country_code || 'Unknown';
+
+      if (!periodStats[period]) {
+        periodStats[period] = {
+          count: 0,
+          totalCost: 0,
+          totalShippingFee: 0,
+          totalSurcharge: 0,
+          totalWeight: 0,
+          byCarrier: {},
+          byCountry: {},
+          weightDistribution: { '0-1': 0, '1-2': 0, '2-5': 0, '5-10': 0, '10+': 0 },
+        };
+      }
+
+      periodStats[period].count++;
+      periodStats[period].totalCost += cost;
+      periodStats[period].totalShippingFee += shippingFee;
+      periodStats[period].totalSurcharge += surcharge;
+      periodStats[period].totalWeight += weight;
+
+      // 중량 분포
+      if (weight <= 1) periodStats[period].weightDistribution['0-1']++;
+      else if (weight <= 2) periodStats[period].weightDistribution['1-2']++;
+      else if (weight <= 5) periodStats[period].weightDistribution['2-5']++;
+      else if (weight <= 10) periodStats[period].weightDistribution['5-10']++;
+      else periodStats[period].weightDistribution['10+']++;
+
+      // 운송사별
+      if (!periodStats[period].byCarrier[carrier]) {
+        periodStats[period].byCarrier[carrier] = { count: 0, cost: 0, avgCost: 0 };
+      }
+      periodStats[period].byCarrier[carrier].count++;
+      periodStats[period].byCarrier[carrier].cost += cost;
+
+      // 국가별
+      if (!periodStats[period].byCountry[country]) {
+        periodStats[period].byCountry[country] = { count: 0, cost: 0, avgCost: 0, avgWeight: 0 };
+      }
+      periodStats[period].byCountry[country].count++;
+      periodStats[period].byCountry[country].cost += cost;
+    });
+
+    // 평균 계산
+    Object.values(periodStats).forEach(stats => {
+      Object.values(stats.byCarrier).forEach(c => {
+        c.avgCost = c.count > 0 ? Math.round(c.cost / c.count) : 0;
+      });
+      Object.values(stats.byCountry).forEach(c => {
+        c.avgCost = c.count > 0 ? Math.round(c.cost / c.count) : 0;
+      });
+    });
+
+    // 트렌드 데이터 생성
+    const trendData = Object.entries(periodStats)
+      .filter(([period]) => period !== 'Unknown')
+      .map(([period, stats]) => ({
+        period,
+        count: stats.count,
+        totalCost: Math.round(stats.totalCost),
+        totalShippingFee: Math.round(stats.totalShippingFee),
+        totalSurcharge: Math.round(stats.totalSurcharge),
+        avgCost: stats.count > 0 ? Math.round(stats.totalCost / stats.count) : 0,
+        avgWeight: stats.count > 0 ? Math.round(stats.totalWeight / stats.count * 100) / 100 : 0,
+        surchargeRate: stats.totalCost > 0 
+          ? Math.round((stats.totalSurcharge / stats.totalCost) * 1000) / 10 
+          : 0,
+        byCarrier: Object.entries(stats.byCarrier)
+          .map(([carrier, data]) => ({ carrier, ...data }))
+          .sort((a, b) => b.cost - a.cost),
+        byCountry: Object.entries(stats.byCountry)
+          .map(([country, data]) => ({ country, ...data }))
+          .sort((a, b) => b.cost - a.cost)
+          .slice(0, 10),
+        weightDistribution: stats.weightDistribution,
+      }))
+      .sort((a, b) => a.period.localeCompare(b.period));
+
+    // 이상 탐지: 평균 대비 20% 이상 변동 건 찾기
+    const avgCostPerShipment = trendData.length > 0
+      ? trendData.reduce((sum, t) => sum + t.avgCost, 0) / trendData.length
+      : 0;
+    
+    const anomalies = trendData
+      .filter(t => Math.abs(t.avgCost - avgCostPerShipment) / avgCostPerShipment > 0.2)
+      .map(t => ({
+        period: t.period,
+        avgCost: t.avgCost,
+        deviation: Math.round((t.avgCost - avgCostPerShipment) / avgCostPerShipment * 100),
+        reason: t.avgCost > avgCostPerShipment ? '평균 초과' : '평균 미달',
+      }));
+
+    // 월별 변화율 계산
+    const monthlyChanges = trendData.slice(1).map((t, idx) => {
+      const prev = trendData[idx];
+      const costChange = prev.totalCost > 0 
+        ? Math.round((t.totalCost - prev.totalCost) / prev.totalCost * 1000) / 10
+        : 0;
+      const countChange = prev.count > 0
+        ? Math.round((t.count - prev.count) / prev.count * 1000) / 10
+        : 0;
+      return {
+        period: t.period,
+        prevPeriod: prev.period,
+        costChange,
+        countChange,
+        costDiff: t.totalCost - prev.totalCost,
+        countDiff: t.count - prev.count,
+      };
+    });
+
+    // 인사이트 생성
+    const insights: string[] = [];
+    
+    // 최근 월 vs 이전 월 비교
+    if (monthlyChanges.length > 0) {
+      const latest = monthlyChanges[monthlyChanges.length - 1];
+      if (latest.costChange > 10) {
+        insights.push(`⚠️ ${latest.period} 물류비가 전월 대비 ${latest.costChange}% 증가했습니다.`);
+      } else if (latest.costChange < -10) {
+        insights.push(`✅ ${latest.period} 물류비가 전월 대비 ${Math.abs(latest.costChange)}% 감소했습니다.`);
+      }
+    }
+
+    // 건당 평균 비용 트렌드
+    if (trendData.length >= 3) {
+      const recent3 = trendData.slice(-3);
+      const avgRecent = recent3.reduce((sum, t) => sum + t.avgCost, 0) / 3;
+      if (avgRecent > avgCostPerShipment * 1.1) {
+        insights.push(`📈 최근 3개월 건당 평균 비용(₩${Math.round(avgRecent).toLocaleString()})이 전체 평균보다 높습니다.`);
+      }
+    }
+
+    // 주요 국가 비중 변화
+    if (trendData.length >= 2) {
+      const latest = trendData[trendData.length - 1];
+      const topCountry = latest.byCountry[0];
+      if (topCountry && topCountry.count / latest.count > 0.5) {
+        insights.push(`🌏 ${topCountry.country} 발송이 전체의 ${Math.round(topCountry.count / latest.count * 100)}%를 차지합니다.`);
+      }
+    }
+
+    // 추가 운임 비율 체크
+    const avgSurchargeRate = trendData.reduce((sum, t) => sum + t.surchargeRate, 0) / (trendData.length || 1);
+    if (avgSurchargeRate > 5) {
+      insights.push(`💰 평균 추가 운임 비율이 ${avgSurchargeRate.toFixed(1)}%입니다. 특별운송수수료를 확인하세요.`);
+    }
+
+    // 전체 요약
+    const overallSummary = {
+      totalPeriods: trendData.length,
+      totalRecords: trendData.reduce((sum, p) => sum + p.count, 0),
+      totalCost: trendData.reduce((sum, p) => sum + p.totalCost, 0),
+      avgMonthlyCost: trendData.length > 0 
+        ? Math.round(trendData.reduce((sum, p) => sum + p.totalCost, 0) / trendData.length)
+        : 0,
+      avgMonthlyCount: trendData.length > 0
+        ? Math.round(trendData.reduce((sum, p) => sum + p.count, 0) / trendData.length)
+        : 0,
+      avgCostPerShipment: Math.round(avgCostPerShipment),
+      avgSurchargeRate: Math.round(avgSurchargeRate * 10) / 10,
+    };
+
+    res.json({
+      success: true,
+      data: {
+        trend: trendData,
+        monthlyChanges,
+        anomalies,
+        insights,
+        summary: overallSummary,
+      },
+    });
+
+  } catch (error: any) {
+    console.error('[Settlement] 고급 트렌드 분석 오류:', error);
+    res.status(500).json({
+      success: false,
+      error: error.message || '분석 중 오류가 발생했습니다.',
+    });
+  }
+});
+
+/**
+ * GET /api/settlement/simulate
+ * 물류비 시뮬레이션: 예상 배송비 계산
+ */
+router.get('/simulate', async (req, res) => {
+  try {
+    const { country, weight, isDocument = 'false' } = req.query;
+
+    if (!country || !weight) {
+      return res.status(400).json({
+        success: false,
+        error: '국가(country)와 중량(weight)은 필수입니다.',
+      });
+    }
+
+    const weightNum = parseFloat(weight as string);
+    const isDoc = isDocument === 'true';
+    const countryStr = country as string;
+
+    const results: Array<{
+      carrier: string;
+      service: string;
+      rate: number | null;
+      available: boolean;
+      notes?: string;
+    }> = [];
+
+    // 롯데글로벌
+    const lotteRate = rateService.getExpectedLotteRate(countryStr, weightNum);
+    results.push({
+      carrier: 'LOTTEGLOBAL',
+      service: lotteRate?.service || '이코노미',
+      rate: lotteRate?.rate || null,
+      available: lotteRate !== null,
+      notes: lotteRate ? undefined : '해당 국가/중량 미지원',
+    });
+
+    // SF Express
+    const sfRate = rateService.getExpectedSfRate(countryStr, weightNum, isDoc);
+    results.push({
+      carrier: 'SF EXPRESS',
+      service: `Economy Express Zone ${sfRate?.zone || '-'}`,
+      rate: sfRate?.rate || null,
+      available: sfRate !== null,
+      notes: sfRate ? '유류할증료 포함' : '해당 국가/중량 미지원',
+    });
+
+    // UPS
+    const upsRate = rateService.getExpectedUpsRate(countryStr, weightNum, isDoc);
+    results.push({
+      carrier: 'UPS',
+      service: `Express Saver Zone ${upsRate?.zone || '-'}`,
+      rate: upsRate?.rate || null,
+      available: upsRate !== null,
+      notes: upsRate ? '유류할증료 별도 (매주 변동)' : '해당 국가/중량 미지원',
+    });
+
+    // K-Packet (2kg 이하만)
+    if (weightNum <= 2.0) {
+      const kpacketRate = rateService.getExpectedKPacketRate(countryStr, weightNum);
+      results.push({
+        carrier: 'K-PACKET',
+        service: 'K-Packet',
+        rate: kpacketRate,
+        available: kpacketRate !== null,
+        notes: kpacketRate ? '특별운송수수료 별도' : '해당 국가 미지원',
+      });
+    }
+
+    // EMS
+    const emsRate = rateService.getExpectedEmsRate(countryStr, weightNum);
+    results.push({
+      carrier: 'EMS',
+      service: 'EMS',
+      rate: emsRate,
+      available: emsRate !== null,
+      notes: emsRate ? '특별운송수수료 별도' : '해당 국가/중량 미지원',
+    });
+
+    // 정렬 (가격순, 미지원은 맨 뒤)
+    results.sort((a, b) => {
+      if (!a.available && !b.available) return 0;
+      if (!a.available) return 1;
+      if (!b.available) return -1;
+      return (a.rate || 0) - (b.rate || 0);
+    });
+
+    // 최저가
+    const cheapest = results.find(r => r.available);
+
+    res.json({
+      success: true,
+      data: {
+        country: countryStr,
+        weight: weightNum,
+        isDocument: isDoc,
+        results,
+        cheapest: cheapest ? {
+          carrier: cheapest.carrier,
+          service: cheapest.service,
+          rate: cheapest.rate,
+        } : null,
+      },
+    });
+
+  } catch (error: any) {
+    console.error('[Settlement] 시뮬레이션 오류:', error);
+    res.status(500).json({
+      success: false,
+      error: error.message || '시뮬레이션 중 오류가 발생했습니다.',
     });
   }
 });

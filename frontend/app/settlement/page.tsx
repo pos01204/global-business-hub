@@ -5,7 +5,7 @@ import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
 import { settlementApi } from '@/lib/api'
 
 // 탭 타입
-type SettlementTab = 'upload' | 'list' | 'country' | 'carrier' | 'weight' | 'trend' | 'validate'
+type SettlementTab = 'upload' | 'list' | 'country' | 'carrier' | 'weight' | 'trend' | 'validate' | 'crossValidate' | 'simulate'
 
 // 국가 플래그 매핑
 const countryFlags: Record<string, string> = {
@@ -23,7 +23,27 @@ const countryFlags: Record<string, string> = {
   TW: '🇹🇼',
   HK: '🇭🇰',
   SG: '🇸🇬',
+  MY: '🇲🇾',
+  VN: '🇻🇳',
+  TH: '🇹🇭',
+  ID: '🇮🇩',
+  PH: '🇵🇭',
+  IT: '🇮🇹',
+  ES: '🇪🇸',
+  NL: '🇳🇱',
+  BE: '🇧🇪',
+  PL: '🇵🇱',
   Unknown: '🌐',
+}
+
+// 운송사 색상 매핑
+const carrierColors: Record<string, string> = {
+  LOTTEGLOBAL: 'bg-blue-100 text-blue-800',
+  LOTTE: 'bg-blue-100 text-blue-800',
+  KPACKET: 'bg-green-100 text-green-800',
+  EMS: 'bg-purple-100 text-purple-800',
+  SF: 'bg-orange-100 text-orange-800',
+  UPS: 'bg-amber-100 text-amber-800',
 }
 
 export default function SettlementPage() {
@@ -31,6 +51,11 @@ export default function SettlementPage() {
   const [selectedPeriod, setSelectedPeriod] = useState<string>('')
   const [uploadResult, setUploadResult] = useState<any>(null)
   const [isDragging, setIsDragging] = useState(false)
+  
+  // 시뮬레이터 상태
+  const [simCountry, setSimCountry] = useState<string>('JP')
+  const [simWeight, setSimWeight] = useState<string>('1.0')
+  const [simIsDocument, setSimIsDocument] = useState<boolean>(false)
 
   const queryClient = useQueryClient()
 
@@ -73,6 +98,25 @@ export default function SettlementPage() {
     queryKey: ['settlement', 'trend'],
     queryFn: settlementApi.getTrendAnalysis,
     enabled: activeTab === 'trend',
+  })
+
+  // 고도화된 트렌드 분석
+  const { data: trendAdvancedData, isLoading: isTrendAdvancedLoading } = useQuery({
+    queryKey: ['settlement', 'trend-advanced'],
+    queryFn: settlementApi.getTrendAdvanced,
+    enabled: activeTab === 'trend',
+  })
+
+  // 교차 검증
+  const crossValidateMutation = useMutation({
+    mutationFn: (period?: string) => settlementApi.crossValidate(period, 100),
+  })
+
+  // 물류비 시뮬레이션
+  const { data: simulateData, isLoading: isSimulateLoading, refetch: refetchSimulate } = useQuery({
+    queryKey: ['settlement', 'simulate', simCountry, simWeight, simIsDocument],
+    queryFn: () => settlementApi.simulate(simCountry, parseFloat(simWeight), simIsDocument),
+    enabled: activeTab === 'simulate' && !!simCountry && !!simWeight,
   })
 
   // 요금 검증
@@ -231,6 +275,28 @@ export default function SettlementPage() {
           >
             <span>🔍</span>
             <span>요금 검증</span>
+          </button>
+          <button
+            onClick={() => setActiveTab('crossValidate')}
+            className={`px-4 py-2.5 rounded-lg font-medium transition-all flex items-center gap-2 ${
+              activeTab === 'crossValidate'
+                ? 'bg-gradient-to-r from-emerald-500 to-teal-500 text-white shadow-md'
+                : 'bg-emerald-50 text-emerald-700 hover:bg-emerald-100 border border-emerald-200'
+            }`}
+          >
+            <span>🔄</span>
+            <span>교차 검증</span>
+          </button>
+          <button
+            onClick={() => setActiveTab('simulate')}
+            className={`px-4 py-2.5 rounded-lg font-medium transition-all flex items-center gap-2 ${
+              activeTab === 'simulate'
+                ? 'bg-gradient-to-r from-violet-500 to-purple-500 text-white shadow-md'
+                : 'bg-violet-50 text-violet-700 hover:bg-violet-100 border border-violet-200'
+            }`}
+          >
+            <span>🧮</span>
+            <span>비용 시뮬레이터</span>
           </button>
         </div>
       </div>
@@ -1087,9 +1153,378 @@ export default function SettlementPage() {
               </ul>
               <div className="mt-4 p-3 bg-white rounded-lg">
                 <p className="text-xs text-gray-500">
-                  * 표준 요금표: 롯데글로벌(YAMATO, USPS, CXC, CJ Logistics, Skynet, HCT, AusPost, CanadaPost), K-Packet, EMS
+                  * 표준 요금표: 롯데글로벌(YAMATO, USPS, CXC, CJ Logistics, Skynet, HCT, AusPost, CanadaPost), SF Express, UPS, K-Packet, EMS
                 </p>
               </div>
+            </div>
+          </div>
+        )}
+
+        {/* 교차 검증 탭 */}
+        {activeTab === 'crossValidate' && (
+          <div>
+            <div className="card mb-6 bg-gradient-to-r from-emerald-50 to-teal-50">
+              <h2 className="text-xl font-semibold mb-4 flex items-center gap-2">
+                <span>🔄</span>
+                교차 검증: 운송사 비용 비교
+              </h2>
+              <p className="text-gray-600 mb-4">
+                현재 사용 중인 운송사 대비 다른 운송사로 보냈을 때 절감 가능 금액을 분석합니다.
+              </p>
+              
+              <div className="flex items-center gap-4">
+                <select
+                  value={selectedPeriod}
+                  onChange={(e) => setSelectedPeriod(e.target.value)}
+                  className="border border-gray-300 rounded-lg px-4 py-2 focus:ring-2 focus:ring-emerald-500 focus:border-emerald-500"
+                >
+                  <option value="">전체 기간</option>
+                  {periodsData?.data?.map((p: any) => (
+                    <option key={p.period} value={p.period}>
+                      {p.period} ({p.count}건)
+                    </option>
+                  ))}
+                </select>
+                
+                <button
+                  onClick={() => crossValidateMutation.mutate(selectedPeriod || undefined)}
+                  disabled={crossValidateMutation.isPending}
+                  className="btn bg-gradient-to-r from-emerald-500 to-teal-500 text-white hover:from-emerald-600 hover:to-teal-600 flex items-center gap-2"
+                >
+                  {crossValidateMutation.isPending ? (
+                    <>
+                      <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-white"></div>
+                      분석 중...
+                    </>
+                  ) : (
+                    <>
+                      <span>🔄</span>
+                      교차 검증 실행
+                    </>
+                  )}
+                </button>
+              </div>
+            </div>
+
+            {/* 교차 검증 결과 */}
+            {crossValidateMutation.data?.success && (
+              <div className="space-y-6">
+                {/* 요약 */}
+                <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
+                  <div className="card">
+                    <p className="text-sm text-gray-500">분석 건수</p>
+                    <p className="text-2xl font-bold">{crossValidateMutation.data.data.summary.totalRecords}건</p>
+                  </div>
+                  <div className="card bg-emerald-50">
+                    <p className="text-sm text-emerald-700">절감 가능 건수</p>
+                    <p className="text-2xl font-bold text-emerald-700">
+                      {crossValidateMutation.data.data.summary.recordsWithSavings}건
+                    </p>
+                  </div>
+                  <div className="card bg-green-50">
+                    <p className="text-sm text-green-700">총 절감 가능액</p>
+                    <p className="text-2xl font-bold text-green-700">
+                      {formatCurrency(crossValidateMutation.data.data.summary.totalPotentialSavings)}
+                    </p>
+                  </div>
+                  <div className="card">
+                    <p className="text-sm text-gray-500">평균 절감률</p>
+                    <p className="text-2xl font-bold">
+                      {crossValidateMutation.data.data.summary.avgSavingsPercent}%
+                    </p>
+                  </div>
+                </div>
+
+                {/* 운송사별 절감 가능액 */}
+                {crossValidateMutation.data.data.savingsByCarrier?.length > 0 && (
+                  <div className="card">
+                    <h3 className="font-semibold mb-4">현재 운송사별 절감 분석</h3>
+                    <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+                      {crossValidateMutation.data.data.savingsByCarrier.map((item: any) => (
+                        <div key={item.carrier} className="bg-gray-50 rounded-lg p-4">
+                          <div className="flex items-center justify-between mb-2">
+                            <span className={`px-2 py-1 rounded text-sm font-medium ${carrierColors[item.carrier] || 'bg-gray-100 text-gray-800'}`}>
+                              {item.carrier}
+                            </span>
+                            <span className="text-sm text-gray-500">{item.count}건</span>
+                          </div>
+                          <p className="text-lg font-bold text-green-600 mb-1">
+                            {formatCurrency(item.totalSavings)} 절감 가능
+                          </p>
+                          <p className="text-xs text-gray-500">
+                            건당 평균 {formatCurrency(item.avgSavings)} 절감
+                          </p>
+                          {item.bestCarrier && (
+                            <p className="text-xs text-emerald-600 mt-2">
+                              💡 추천: {item.bestCarrier}
+                            </p>
+                          )}
+                        </div>
+                      ))}
+                    </div>
+                  </div>
+                )}
+
+                {/* 절감 가능 건 상세 목록 */}
+                {crossValidateMutation.data.data.savingsRecords?.length > 0 && (
+                  <div className="card">
+                    <h3 className="font-semibold mb-4">절감 가능 건 Top 20</h3>
+                    <div className="overflow-x-auto">
+                      <table className="w-full text-sm">
+                        <thead>
+                          <tr className="border-b bg-gray-50">
+                            <th className="text-left p-3">Shipment ID</th>
+                            <th className="text-left p-3">국가</th>
+                            <th className="text-right p-3">중량</th>
+                            <th className="text-left p-3">현재 운송사</th>
+                            <th className="text-right p-3">현재 비용</th>
+                            <th className="text-left p-3">추천 운송사</th>
+                            <th className="text-right p-3">추천 비용</th>
+                            <th className="text-right p-3 text-green-700">절감액</th>
+                          </tr>
+                        </thead>
+                        <tbody>
+                          {crossValidateMutation.data.data.savingsRecords.map((record: any, idx: number) => (
+                            <tr key={idx} className="border-b hover:bg-gray-50">
+                              <td className="p-3 font-mono text-xs">{record.shipment_id}</td>
+                              <td className="p-3">
+                                {countryFlags[record.country] || '🌐'} {record.country}
+                              </td>
+                              <td className="p-3 text-right">{record.weight}kg</td>
+                              <td className="p-3">
+                                <span className={`px-2 py-0.5 rounded text-xs ${carrierColors[record.currentCarrier] || 'bg-gray-100'}`}>
+                                  {record.currentCarrier}
+                                </span>
+                              </td>
+                              <td className="p-3 text-right">{formatCurrency(record.currentRate)}</td>
+                              <td className="p-3">
+                                <span className={`px-2 py-0.5 rounded text-xs ${carrierColors[record.bestAlternative?.carrier] || 'bg-emerald-100 text-emerald-800'}`}>
+                                  {record.bestAlternative?.carrier}
+                                </span>
+                                <span className="text-xs text-gray-500 ml-1">
+                                  ({record.bestAlternative?.service})
+                                </span>
+                              </td>
+                              <td className="p-3 text-right">{formatCurrency(record.bestAlternative?.rate)}</td>
+                              <td className="p-3 text-right font-bold text-green-600">
+                                -{formatCurrency(record.bestAlternative?.savings)}
+                                <br />
+                                <span className="text-xs font-normal">
+                                  ({record.bestAlternative?.savingsPercent?.toFixed(1)}%)
+                                </span>
+                              </td>
+                            </tr>
+                          ))}
+                        </tbody>
+                      </table>
+                    </div>
+                  </div>
+                )}
+
+                {crossValidateMutation.data.data.summary.recordsWithSavings === 0 && (
+                  <div className="card bg-blue-50 text-center py-8">
+                    <span className="text-4xl">👍</span>
+                    <p className="text-blue-800 font-medium mt-4">
+                      현재 최적의 운송사를 사용하고 있습니다!
+                    </p>
+                  </div>
+                )}
+              </div>
+            )}
+
+            {/* 안내 */}
+            <div className="card mt-6 bg-gray-50">
+              <h3 className="font-semibold mb-3 flex items-center gap-2">
+                <span>💡</span>
+                교차 검증 안내
+              </h3>
+              <ul className="text-sm text-gray-600 space-y-2">
+                <li>• 동일 국가/중량 조건에서 다른 운송사 이용 시 예상 비용을 비교합니다.</li>
+                <li>• <strong>롯데글로벌</strong>, <strong>SF Express</strong>, <strong>UPS</strong>, <strong>K-Packet</strong>, <strong>EMS</strong> 요금표 기준입니다.</li>
+                <li>• K-Packet은 2kg 이하만 이용 가능합니다.</li>
+                <li>• 특별운송수수료, 유류할증료 등 추가 비용은 별도입니다.</li>
+              </ul>
+            </div>
+          </div>
+        )}
+
+        {/* 물류비 시뮬레이터 탭 */}
+        {activeTab === 'simulate' && (
+          <div>
+            <div className="card mb-6 bg-gradient-to-r from-violet-50 to-purple-50">
+              <h2 className="text-xl font-semibold mb-4 flex items-center gap-2">
+                <span>🧮</span>
+                물류비 시뮬레이터
+              </h2>
+              <p className="text-gray-600 mb-6">
+                배송 전 예상 물류비를 운송사별로 비교하여 최적의 선택을 하세요.
+              </p>
+              
+              <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-1">도착 국가</label>
+                  <select
+                    value={simCountry}
+                    onChange={(e) => setSimCountry(e.target.value)}
+                    className="w-full border border-gray-300 rounded-lg px-4 py-2 focus:ring-2 focus:ring-violet-500 focus:border-violet-500"
+                  >
+                    <option value="JP">🇯🇵 일본 (JP)</option>
+                    <option value="US">🇺🇸 미국 (US)</option>
+                    <option value="AU">🇦🇺 호주 (AU)</option>
+                    <option value="CA">🇨🇦 캐나다 (CA)</option>
+                    <option value="NZ">🇳🇿 뉴질랜드 (NZ)</option>
+                    <option value="NO">🇳🇴 노르웨이 (NO)</option>
+                    <option value="GB">🇬🇧 영국 (GB)</option>
+                    <option value="DE">🇩🇪 독일 (DE)</option>
+                    <option value="FR">🇫🇷 프랑스 (FR)</option>
+                    <option value="CN">🇨🇳 중국 (CN)</option>
+                    <option value="HK">🇭🇰 홍콩 (HK)</option>
+                    <option value="TW">🇹🇼 대만 (TW)</option>
+                    <option value="SG">🇸🇬 싱가포르 (SG)</option>
+                    <option value="MY">🇲🇾 말레이시아 (MY)</option>
+                    <option value="VN">🇻🇳 베트남 (VN)</option>
+                  </select>
+                </div>
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-1">청구 중량 (kg)</label>
+                  <input
+                    type="number"
+                    step="0.1"
+                    min="0.1"
+                    max="30"
+                    value={simWeight}
+                    onChange={(e) => setSimWeight(e.target.value)}
+                    className="w-full border border-gray-300 rounded-lg px-4 py-2 focus:ring-2 focus:ring-violet-500 focus:border-violet-500"
+                    placeholder="예: 1.5"
+                  />
+                </div>
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-1">서류 여부</label>
+                  <select
+                    value={simIsDocument ? 'true' : 'false'}
+                    onChange={(e) => setSimIsDocument(e.target.value === 'true')}
+                    className="w-full border border-gray-300 rounded-lg px-4 py-2 focus:ring-2 focus:ring-violet-500 focus:border-violet-500"
+                  >
+                    <option value="false">📦 비서류 (상품)</option>
+                    <option value="true">📄 서류</option>
+                  </select>
+                </div>
+                <div className="flex items-end">
+                  <button
+                    onClick={() => refetchSimulate()}
+                    disabled={isSimulateLoading}
+                    className="w-full btn bg-gradient-to-r from-violet-500 to-purple-500 text-white hover:from-violet-600 hover:to-purple-600"
+                  >
+                    {isSimulateLoading ? '계산 중...' : '🔍 비용 계산'}
+                  </button>
+                </div>
+              </div>
+            </div>
+
+            {/* 시뮬레이션 결과 */}
+            {simulateData?.success && (
+              <div className="space-y-6">
+                {/* 최저가 추천 */}
+                {simulateData.data.cheapest && (
+                  <div className="card bg-gradient-to-r from-green-50 to-emerald-50 border-2 border-green-200">
+                    <div className="flex items-center gap-4">
+                      <div className="w-16 h-16 bg-green-500 rounded-full flex items-center justify-center">
+                        <span className="text-3xl">💰</span>
+                      </div>
+                      <div>
+                        <p className="text-sm text-green-700 font-medium">최저가 추천</p>
+                        <p className="text-2xl font-bold text-green-800">
+                          {simulateData.data.cheapest.carrier}
+                        </p>
+                        <p className="text-sm text-green-600">
+                          {simulateData.data.cheapest.service}
+                        </p>
+                      </div>
+                      <div className="ml-auto text-right">
+                        <p className="text-3xl font-bold text-green-700">
+                          {formatCurrency(simulateData.data.cheapest.rate)}
+                        </p>
+                        <p className="text-sm text-green-600">
+                          {countryFlags[simulateData.data.country]} {simulateData.data.country} / {simulateData.data.weight}kg
+                        </p>
+                      </div>
+                    </div>
+                  </div>
+                )}
+
+                {/* 운송사별 비교 */}
+                <div className="card">
+                  <h3 className="font-semibold mb-4">운송사별 예상 비용 비교</h3>
+                  <div className="space-y-3">
+                    {simulateData.data.results.map((item: any, idx: number) => {
+                      const isLowest = simulateData.data.cheapest?.carrier === item.carrier;
+                      return (
+                        <div 
+                          key={item.carrier} 
+                          className={`flex items-center justify-between p-4 rounded-lg ${
+                            isLowest 
+                              ? 'bg-green-50 border-2 border-green-300' 
+                              : item.available 
+                                ? 'bg-gray-50' 
+                                : 'bg-gray-100 opacity-60'
+                          }`}
+                        >
+                          <div className="flex items-center gap-4">
+                            <div className={`w-8 h-8 rounded-full flex items-center justify-center text-white font-bold ${
+                              isLowest ? 'bg-green-500' : item.available ? 'bg-gray-400' : 'bg-gray-300'
+                            }`}>
+                              {idx + 1}
+                            </div>
+                            <div>
+                              <div className="flex items-center gap-2">
+                                <span className={`px-2 py-1 rounded text-sm font-medium ${carrierColors[item.carrier] || 'bg-gray-100'}`}>
+                                  {item.carrier}
+                                </span>
+                                {isLowest && (
+                                  <span className="px-2 py-0.5 bg-green-500 text-white text-xs rounded-full">
+                                    최저가
+                                  </span>
+                                )}
+                              </div>
+                              <p className="text-sm text-gray-500">{item.service}</p>
+                            </div>
+                          </div>
+                          <div className="text-right">
+                            {item.available ? (
+                              <>
+                                <p className={`text-xl font-bold ${isLowest ? 'text-green-700' : 'text-gray-700'}`}>
+                                  {formatCurrency(item.rate)}
+                                </p>
+                                {item.notes && (
+                                  <p className="text-xs text-gray-500">{item.notes}</p>
+                                )}
+                              </>
+                            ) : (
+                              <p className="text-sm text-gray-400">{item.notes || '미지원'}</p>
+                            )}
+                          </div>
+                        </div>
+                      );
+                    })}
+                  </div>
+                </div>
+              </div>
+            )}
+
+            {/* 안내 */}
+            <div className="card mt-6 bg-gray-50">
+              <h3 className="font-semibold mb-3 flex items-center gap-2">
+                <span>💡</span>
+                시뮬레이터 안내
+              </h3>
+              <ul className="text-sm text-gray-600 space-y-2">
+                <li>• 청구 중량 = max(실중량, 부피중량)</li>
+                <li>• 부피중량 = (가로 × 세로 × 높이) ÷ 6000</li>
+                <li>• 표시된 금액은 기본 운임이며, 유류할증료/특별운송수수료는 별도입니다.</li>
+                <li>• UPS: 유류할증료 매주 변동 (40% 할인 적용)</li>
+                <li>• SF Express: 유류할증료 포함</li>
+                <li>• K-Packet/EMS: 특별운송수수료 국가별 상이</li>
+              </ul>
             </div>
           </div>
         )}

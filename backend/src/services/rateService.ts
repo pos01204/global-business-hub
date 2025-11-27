@@ -3,6 +3,7 @@
  * - 표준 요금표 데이터 관리
  * - 정산서 금액 검증
  * - 예상 요금 계산
+ * - 교차 검증 (다중 운송사 비용 비교)
  */
 
 // ============================================================
@@ -159,6 +160,355 @@ const LOTTE_RATES: LotteRateTable = {
 };
 
 // ============================================================
+// SF Express 요금표 (sf 비용.csv 기준) - Economy Express
+// Zone: A(홍콩,마카오), B(중국), C(대만,일본), D(싱가폴,말레이시아),
+//       E(브루나이,필리핀,방글라데시,파키스탄,스리랑카), F(뉴질랜드,아랍에미리트),
+//       G(미국), H(유럽1,유럽2), I(유럽3)
+// ============================================================
+interface SfRateTable {
+  zone: string;
+  countries: string[];
+  document: { [weight: string]: number };
+  nonDocument: { [weight: string]: number };
+  perKg: { [range: string]: number }; // 20kg 이상 kg당 운임
+}
+
+const SF_RATES: SfRateTable[] = [
+  {
+    zone: 'A',
+    countries: ['HK', 'MO'], // 홍콩, 마카오
+    document: {
+      '0.5': 8690, '1.0': 10610, '1.5': 12540, '2.0': 14460, '2.5': 16380,
+    },
+    nonDocument: {
+      '0.5': 14890, '1.0': 15700, '1.5': 16510, '2.0': 17310, '2.5': 18130,
+      '3.0': 19110, '3.5': 20110, '4.0': 21100, '4.5': 22100, '5.0': 23090,
+      '5.5': 24020, '6.0': 24950, '6.5': 25880, '7.0': 26810, '7.5': 27750,
+      '8.0': 28680, '8.5': 29610, '9.0': 30540, '9.5': 31470, '10.0': 32400,
+      '10.5': 33330, '11.0': 34260, '11.5': 35190, '12.0': 36120, '12.5': 37050,
+      '13.0': 37990, '13.5': 38920, '14.0': 39850, '14.5': 40780, '15.0': 41710,
+      '15.5': 42640, '16.0': 43570, '16.5': 44500, '17.0': 45430, '17.5': 46360,
+      '18.0': 47290, '18.5': 48220, '19.0': 49160, '19.5': 50090,
+    },
+    perKg: { '20-70': 2790, '71-299': 2360, '300+': 2230 },
+  },
+  {
+    zone: 'B',
+    countries: ['CN'], // 중국
+    document: {
+      '0.5': 7560, '1.0': 9240, '1.5': 10930, '2.0': 12620, '2.5': 14300,
+    },
+    nonDocument: {
+      '0.5': 12860, '1.0': 13580, '1.5': 14300, '2.0': 15020, '2.5': 15750,
+      '3.0': 16610, '3.5': 17480, '4.0': 18350, '4.5': 19210, '5.0': 20080,
+      '5.5': 20990, '6.0': 21910, '6.5': 22820, '7.0': 23740, '7.5': 24650,
+      '8.0': 25570, '8.5': 26480, '9.0': 27400, '9.5': 28310, '10.0': 29230,
+      '10.5': 30140, '11.0': 31060, '11.5': 31970, '12.0': 32890, '12.5': 33800,
+      '13.0': 34720, '13.5': 35630, '14.0': 36550, '14.5': 37460, '15.0': 38380,
+      '15.5': 39290, '16.0': 40210, '16.5': 41120, '17.0': 42030, '17.5': 42950,
+      '18.0': 43860, '18.5': 44780, '19.0': 45690, '19.5': 46610,
+    },
+    perKg: { '20-70': 2020, '71-299': 1740, '300+': 1580 },
+  },
+  {
+    zone: 'C',
+    countries: ['TW', 'JP'], // 대만, 일본
+    document: {
+      '0.5': 12040, '1.0': 14460, '1.5': 16880, '2.0': 19300, '2.5': 21720,
+    },
+    nonDocument: {
+      '0.5': 17750, '1.0': 18990, '1.5': 20230, '2.0': 21470, '2.5': 22720,
+      '3.0': 23830, '3.5': 24950, '4.0': 26070, '4.5': 27180, '5.0': 28300,
+      '5.5': 29410, '6.0': 30540, '6.5': 31650, '7.0': 32760, '7.5': 33890,
+      '8.0': 35000, '8.5': 36120, '9.0': 37240, '9.5': 38350, '10.0': 39470,
+      '10.5': 40590, '11.0': 41710, '11.5': 42820, '12.0': 43930, '12.5': 45060,
+      '13.0': 46170, '13.5': 47290, '14.0': 48410, '14.5': 49520, '15.0': 50640,
+      '15.5': 51880, '16.0': 53130, '16.5': 54370, '17.0': 55610, '17.5': 56850,
+      '18.0': 58090, '18.5': 59330, '19.0': 60570, '19.5': 61810,
+    },
+    perKg: { '20-70': 3290, '71-299': 3040, '300+': 2920 },
+  },
+  {
+    zone: 'D',
+    countries: ['SG', 'MY'], // 싱가폴, 말레이시아
+    document: {
+      '0.5': 20760, '1.0': 24930, '1.5': 29100, '2.0': 33280, '2.5': 37450,
+    },
+    nonDocument: {
+      '0.5': 30600, '1.0': 32740, '1.5': 34880, '2.0': 37020, '2.5': 39160,
+      '3.0': 41090, '3.5': 43010, '4.0': 44940, '4.5': 46870, '5.0': 48790,
+      '5.5': 50720, '6.0': 52640, '6.5': 54570, '7.0': 56500, '7.5': 58420,
+      '8.0': 60350, '8.5': 62270, '9.0': 64200, '9.5': 66130, '10.0': 68050,
+      '10.5': 69980, '11.0': 71900, '11.5': 73830, '12.0': 75760, '12.5': 77680,
+      '13.0': 79610, '13.5': 81530, '14.0': 83460, '14.5': 85390, '15.0': 87310,
+      '15.5': 89450, '16.0': 91590, '16.5': 93730, '17.0': 95870, '17.5': 98010,
+      '18.0': 100150, '18.5': 102290, '19.0': 104430, '19.5': 106570,
+    },
+    perKg: { '20-70': 5670, '71-299': 5240, '300+': 5030 },
+  },
+  {
+    zone: 'E',
+    countries: ['BN', 'PH', 'BD', 'PK', 'LK'], // 브루나이, 필리핀, 방글라데시, 파키스탄, 스리랑카
+    document: {
+      '0.5': 32100, '1.0': 36380, '1.5': 40660, '2.0': 44940, '2.5': 49220,
+    },
+    nonDocument: {
+      '0.5': 34670, '1.0': 39800, '1.5': 44940, '2.0': 50080, '2.5': 55210,
+      '3.0': 60350, '3.5': 65480, '4.0': 70620, '4.5': 75760, '5.0': 80890,
+      '5.5': 86140, '6.0': 91380, '6.5': 96620, '7.0': 101860, '7.5': 107110,
+      '8.0': 112350, '8.5': 117590, '9.0': 122840, '9.5': 128080, '10.0': 133320,
+      '10.5': 138570, '11.0': 143810, '11.5': 149050, '12.0': 154290, '12.5': 159540,
+      '13.0': 164780, '13.5': 170020, '14.0': 175270, '14.5': 180510, '15.0': 185750,
+      '15.5': 191000, '16.0': 196240, '16.5': 201480, '17.0': 206720, '17.5': 211970,
+      '18.0': 217210, '18.5': 222450, '19.0': 227700, '19.5': 232940,
+    },
+    perKg: { '20-70': 12950, '71-299': 12310, '300+': 11660 },
+  },
+  {
+    zone: 'F',
+    countries: ['NZ', 'AE'], // 뉴질랜드, 아랍에미리트
+    document: {
+      '0.5': 40450, '1.0': 51250, '1.5': 62060, '2.0': 72870, '2.5': 83670,
+    },
+    nonDocument: {
+      '0.5': 57890, '1.0': 64950, '1.5': 72010, '2.0': 79070, '2.5': 86140,
+      '3.0': 92980, '3.5': 99830, '4.0': 106680, '4.5': 113530, '5.0': 120380,
+      '5.5': 126900, '6.0': 133430, '6.5': 139960, '7.0': 146480, '7.5': 153010,
+      '8.0': 159540, '8.5': 166060, '9.0': 172590, '9.5': 179120, '10.0': 185650,
+      '10.5': 192170, '11.0': 198700, '11.5': 205230, '12.0': 211750, '12.5': 218280,
+      '13.0': 224810, '13.5': 231330, '14.0': 237860, '14.5': 244390, '15.0': 250920,
+      '15.5': 257440, '16.0': 263970, '16.5': 270500, '17.0': 277020, '17.5': 283550,
+      '18.0': 290080, '18.5': 296600, '19.0': 303130, '19.5': 309660,
+    },
+    perKg: { '20-70': 17330, '71-299': 16910, '300+': 16590 },
+  },
+  {
+    zone: 'G',
+    countries: ['US'], // 미국
+    document: {
+      '0.5': 40450, '1.0': 51250, '1.5': 62060, '2.0': 72870, '2.5': 83670,
+    },
+    nonDocument: {
+      '0.5': 58740, '1.0': 65810, '1.5': 72870, '2.0': 79930, '2.5': 86990,
+      '3.0': 93840, '3.5': 100690, '4.0': 107540, '4.5': 114380, '5.0': 121230,
+      '5.5': 127760, '6.0': 134290, '6.5': 140810, '7.0': 147340, '7.5': 153870,
+      '8.0': 160390, '8.5': 166920, '9.0': 173450, '9.5': 179970, '10.0': 186500,
+      '10.5': 193030, '11.0': 199560, '11.5': 206080, '12.0': 212610, '12.5': 219140,
+      '13.0': 225660, '13.5': 232190, '14.0': 238720, '14.5': 245240, '15.0': 251770,
+      '15.5': 258300, '16.0': 264830, '16.5': 271350, '17.0': 277880, '17.5': 284410,
+      '18.0': 290930, '18.5': 297460, '19.0': 303990, '19.5': 310510,
+    },
+    perKg: { '20-70': 17440, '71-299': 17120, '300+': 16910 },
+  },
+  {
+    zone: 'H',
+    countries: ['BE', 'FR', 'DE', 'IT', 'LU', 'NL', 'ES', 'GB', 'AT', 'BG', 'CZ', 'DK', 'FI', 'GR', 'HU', 'IE', 'PL', 'PT', 'RO', 'SK', 'SE'],
+    // 유럽1: 벨기에, 프랑스, 독일, 이탈리아, 룩셈부르크, 네덜란드, 스페인, 영국
+    // 유럽2: 오스트리아, 불가리아, 체코, 덴마크, 핀란드, 그리스, 헝가리, 아일랜드, 폴란드, 포르투갈, 루마니아, 슬로바키아, 스웨덴
+    document: {
+      '0.5': 41090, '1.0': 51900, '1.5': 62700, '2.0': 73510, '2.5': 84320,
+    },
+    nonDocument: {
+      '0.5': 59060, '1.0': 66130, '1.5': 73190, '2.0': 80250, '2.5': 87310,
+      '3.0': 94370, '3.5': 101440, '4.0': 108500, '4.5': 115560, '5.0': 122620,
+      '5.5': 130650, '6.0': 138670, '6.5': 146700, '7.0': 154720, '7.5': 162750,
+      '8.0': 170770, '8.5': 178800, '9.0': 186820, '9.5': 194850, '10.0': 202870,
+      '10.5': 210900, '11.0': 218920, '11.5': 226950, '12.0': 234970, '12.5': 243000,
+      '13.0': 251020, '13.5': 259050, '14.0': 267070, '14.5': 275100, '15.0': 283120,
+      '15.5': 291150, '16.0': 299170, '16.5': 307200, '17.0': 315220, '17.5': 323250,
+      '18.0': 331270, '18.5': 339300, '19.0': 347320, '19.5': 355350,
+    },
+    perKg: { '20-70': 18830, '71-299': 17440, '300+': 17230 },
+  },
+  {
+    zone: 'I',
+    countries: ['CL', 'BR', 'HR', 'EE', 'LV', 'LT', 'SI'],
+    // 유럽3: 칠레, 브라질, 크로아티아, 에스토니아, 라트비아, 리투아니아, 슬로베니아
+    document: {
+      '0.5': 52860, '1.0': 63670, '1.5': 74470, '2.0': 85280, '2.5': 96090,
+    },
+    nonDocument: {
+      '0.5': 63450, '1.0': 73620, '1.5': 83780, '2.0': 93950, '2.5': 104110,
+      '3.0': 114280, '3.5': 124440, '4.0': 134610, '4.5': 144770, '5.0': 154940,
+      '5.5': 163500, '6.0': 172060, '6.5': 180620, '7.0': 189180, '7.5': 197740,
+      '8.0': 206300, '8.5': 214860, '9.0': 223420, '9.5': 231980, '10.0': 240540,
+      '10.5': 249100, '11.0': 257660, '11.5': 266220, '12.0': 274780, '12.5': 283340,
+      '13.0': 291900, '13.5': 300460, '14.0': 309020, '14.5': 317580, '15.0': 326140,
+      '15.5': 334700, '16.0': 343260, '16.5': 351820, '17.0': 360380, '17.5': 368940,
+      '18.0': 377500, '18.5': 386060, '19.0': 394620, '19.5': 403180,
+    },
+    perKg: { '20-70': 22470, '71-299': 22260, '300+': 22150 },
+  },
+];
+
+// ============================================================
+// UPS Express Saver 요금표 (ups 비용.csv 기준)
+// Zone 1~10 + 특수 Zone (JP2, VN2, US5, PL6)
+// ============================================================
+interface UpsRateTable {
+  zone: string;
+  document: { [weight: string]: number };
+  nonDocument: { [weight: string]: number };
+  multiplier: { [range: string]: number }; // 21kg+ kg당 운임
+}
+
+// UPS 국가별 Zone 매핑
+const UPS_ZONE_MAP: Record<string, string> = {
+  // Zone 1: 중국, 대만, 마카오, 싱가폴
+  'CN': '1', 'TW': '1', 'MO': '1', 'SG': '1',
+  // Zone 2: 일본 (JP2 특수)
+  'JP': 'JP2',
+  // Zone 3: 인도네시아, 브루나이, 말레이시아, 태국, 필리핀
+  'ID': '3', 'BN': '3', 'MY': '3', 'TH': '3', 'PH': '3',
+  // Zone 4: 호주, 인도, 뉴질랜드
+  'AU': '4', 'IN': '4', 'NZ': '4',
+  // Zone 5: 캐나다, 멕시코
+  'CA': '5', 'MX': '5',
+  // Zone 6: 유럽 일부 (벨기에, 스위스, 독일, 스페인, 프랑스, 영국, 이탈리아, 네덜란드, 슬로바키아)
+  'BE': '6', 'CH': '6', 'DE': '6', 'ES': '6', 'FR': '6', 'GB': '6', 'IT': '6', 'NL': '6', 'SK': '6',
+  // Zone 7: 덴마크, 핀란드, 아일랜드, 노르웨이, 오스트리아, 포르투갈, 그리스
+  'DK': '7', 'FI': '7', 'IE': '7', 'NO': '7', 'AT': '7', 'PT': '7', 'GR': '7',
+  // Zone 8: 아랍에미리트, 러시아, 브라질, 칠레, 남아프리카 등
+  'AE': '8', 'RU': '8', 'BR': '8', 'CL': '8', 'ZA': '8',
+  // Zone 9: 기타 지역
+  // Zone 10: 홍콩
+  'HK': '10',
+  // 특수 Zone
+  'VN': 'VN2', // 베트남
+  'US': 'US5', // 미국
+  'PL': 'PL6', // 폴란드
+};
+
+const UPS_RATES: Record<string, UpsRateTable> = {
+  '1': {
+    zone: '1',
+    document: {
+      '0.5': 15010, '1.0': 19970, '1.5': 27270, '2.0': 34220, '2.5': 41190,
+      '3.0': 44650, '3.5': 47840, '4.0': 50860, '4.5': 53790, '5.0': 56580,
+    },
+    nonDocument: {
+      '0.5': 24320, '1.0': 26140, '1.5': 27990, '2.0': 29860, '2.5': 31520,
+      '3.0': 33010, '3.5': 34380, '4.0': 35650, '4.5': 36750, '5.0': 37910,
+      '5.5': 39040, '6.0': 40140, '6.5': 41170, '7.0': 42170, '7.5': 43150,
+      '8.0': 44160, '8.5': 45020, '9.0': 46080, '9.5': 47010, '10.0': 47960,
+      '10.5': 48900, '11.0': 49870, '11.5': 50830, '12.0': 51780, '12.5': 52740,
+      '13.0': 53680, '13.5': 54670, '14.0': 55670, '14.5': 56560, '15.0': 57540,
+      '15.5': 58490, '16.0': 59490, '16.5': 60380, '17.0': 61340, '17.5': 62310,
+      '18.0': 63080, '18.5': 63740, '19.0': 64430, '19.5': 65760, '20.0': 67380,
+    },
+    multiplier: { '21-44': 3360, '45-70': 3320, '71-99': 3070, '100-299': 3050, '300+': 2950 },
+  },
+  'JP2': {
+    zone: 'JP2',
+    document: {
+      '0.5': 15270, '1.0': 29280, '1.5': 34970, '2.0': 37520, '2.5': 41230,
+      '3.0': 44700, '3.5': 47870, '4.0': 50930, '4.5': 53770, '5.0': 56710,
+    },
+    nonDocument: {
+      '0.5': 21490, '1.0': 23100, '1.5': 24700, '2.0': 26350, '2.5': 27810,
+      '3.0': 29160, '3.5': 30300, '4.0': 31480, '4.5': 32460, '5.0': 33510,
+      '5.5': 34480, '6.0': 35440, '6.5': 36340, '7.0': 37250, '7.5': 38120,
+      '8.0': 38970, '8.5': 39770, '9.0': 40640, '9.5': 41500, '10.0': 42330,
+      '10.5': 43210, '11.0': 44020, '11.5': 44880, '12.0': 45750, '12.5': 46610,
+      '13.0': 47350, '13.5': 48280, '14.0': 49150, '14.5': 49980, '15.0': 50780,
+      '15.5': 51640, '16.0': 52530, '16.5': 53350, '17.0': 54200, '17.5': 55050,
+      '18.0': 55660, '18.5': 56250, '19.0': 56880, '19.5': 58320, '20.0': 59740,
+    },
+    multiplier: { '21-44': 2980, '45-70': 2920, '71-99': 2790, '100-299': 2770, '300+': 2710 },
+  },
+  'VN2': {
+    zone: 'VN2',
+    document: {
+      '0.5': 15270, '1.0': 29280, '1.5': 34970, '2.0': 37520, '2.5': 41230,
+      '3.0': 44700, '3.5': 47870, '4.0': 50930, '4.5': 53770, '5.0': 56710,
+    },
+    nonDocument: {
+      '0.5': 23880, '1.0': 25820, '1.5': 27530, '2.0': 29310, '2.5': 31060,
+      '3.0': 32760, '3.5': 34470, '4.0': 36190, '4.5': 37900, '5.0': 39630,
+      '5.5': 41570, '6.0': 43370, '6.5': 45300, '7.0': 47080, '7.5': 49030,
+      '8.0': 50630, '8.5': 52240, '9.0': 53880, '9.5': 55450, '10.0': 57040,
+      '10.5': 58210, '11.0': 59380, '11.5': 60550, '12.0': 61720, '12.5': 62910,
+      '13.0': 64020, '13.5': 65210, '14.0': 66300, '14.5': 67510, '15.0': 68640,
+      '15.5': 68800, '16.0': 69060, '16.5': 69330, '17.0': 69470, '17.5': 69730,
+      '18.0': 69930, '18.5': 70110, '19.0': 70400, '19.5': 70580, '20.0': 70860,
+    },
+    multiplier: { '21-44': 3510, '45-70': 3450, '71-99': 3250, '100-299': 3210, '300+': 3050 },
+  },
+  'US5': {
+    zone: 'US5',
+    document: {
+      '0.5': 31300, '1.0': 32010, '1.5': 42440, '2.0': 52860, '2.5': 63130,
+      '3.0': 68770, '3.5': 74310, '4.0': 79460, '4.5': 84070, '5.0': 89430,
+    },
+    nonDocument: {
+      '0.5': 30290, '1.0': 33450, '1.5': 36500, '2.0': 39480, '2.5': 42550,
+      '3.0': 45530, '3.5': 48260, '4.0': 51040, '4.5': 54440, '5.0': 57270,
+      '5.5': 62210, '6.0': 65100, '6.5': 68000, '7.0': 72440, '7.5': 74590,
+      '8.0': 77460, '8.5': 80280, '9.0': 84850, '9.5': 87750, '10.0': 91670,
+      '10.5': 93800, '11.0': 98210, '11.5': 100560, '12.0': 104890, '12.5': 107340,
+      '13.0': 110890, '13.5': 114410, '14.0': 117900, '14.5': 120430, '15.0': 122870,
+      '15.5': 125210, '16.0': 129250, '16.5': 133290, '17.0': 137320, '17.5': 141360,
+      '18.0': 145400, '18.5': 149440, '19.0': 153480, '19.5': 157520, '20.0': 161560,
+    },
+    multiplier: { '21-44': 7570, '45-70': 7560, '71-99': 7480, '100-299': 7450, '300+': 7440 },
+  },
+  'PL6': {
+    zone: 'PL6',
+    document: {
+      '0.5': 29580, '1.0': 42670, '1.5': 50830, '2.0': 53960, '2.5': 58840,
+      '3.0': 65370, '3.5': 71610, '4.0': 77590, '4.5': 83630, '5.0': 89840,
+    },
+    nonDocument: {
+      '0.5': 28950, '1.0': 29790, '1.5': 32560, '2.0': 36170, '2.5': 39780,
+      '3.0': 43480, '3.5': 47260, '4.0': 50980, '4.5': 54670, '5.0': 58390,
+      '5.5': 62230, '6.0': 65990, '6.5': 69870, '7.0': 73670, '7.5': 77490,
+      '8.0': 80650, '8.5': 83660, '9.0': 86730, '9.5': 89780, '10.0': 92880,
+      '10.5': 95560, '11.0': 98210, '11.5': 100930, '12.0': 103590, '12.5': 106270,
+      '13.0': 108740, '13.5': 111230, '14.0': 113740, '14.5': 116280, '15.0': 118710,
+      '15.5': 121220, '16.0': 123650, '16.5': 127240, '17.0': 131000, '17.5': 134050,
+      '18.0': 137790, '18.5': 141280, '19.0': 144850, '19.5': 148520, '20.0': 152140,
+    },
+    multiplier: { '21-44': 7600, '45-70': 7600, '71-99': 7600, '100-299': 7600, '300+': 7540 },
+  },
+  '4': {
+    zone: '4',
+    document: {
+      '0.5': 18170, '1.0': 24980, '1.5': 32930, '2.0': 40800, '2.5': 48710,
+      '3.0': 56040, '3.5': 62180, '4.0': 67720, '4.5': 73280, '5.0': 78810,
+    },
+    nonDocument: {
+      '0.5': 54030, '1.0': 58510, '1.5': 63500, '2.0': 68190, '2.5': 72920,
+      '3.0': 78610, '3.5': 84510, '4.0': 90240, '4.5': 96010, '5.0': 102030,
+      '5.5': 106520, '6.0': 110920, '6.5': 115450, '7.0': 119970, '7.5': 124460,
+      '8.0': 128900, '8.5': 133390, '9.0': 137870, '9.5': 142440, '10.0': 147050,
+      '10.5': 150580, '11.0': 154270, '11.5': 157930, '12.0': 161670, '12.5': 165450,
+      '13.0': 169060, '13.5': 172840, '14.0': 176530, '14.5': 180310, '15.0': 184050,
+      '15.5': 185500, '16.0': 187210, '16.5': 188950, '17.0': 190530, '17.5': 191980,
+      '18.0': 193520, '18.5': 195050, '19.0': 196510, '19.5': 197880, '20.0': 200160,
+    },
+    multiplier: { '21-44': 10010, '45-70': 10010, '71-99': 9800, '100-299': 9680, '300+': 9470 },
+  },
+  '10': {
+    zone: '10',
+    document: {
+      '0.5': 15270, '1.0': 29280, '1.5': 34970, '2.0': 37520, '2.5': 41230,
+      '3.0': 44700, '3.5': 47870, '4.0': 50930, '4.5': 53770, '5.0': 56710,
+    },
+    nonDocument: {
+      '0.5': 21490, '1.0': 23100, '1.5': 24700, '2.0': 26350, '2.5': 27810,
+      '3.0': 29160, '3.5': 30300, '4.0': 31480, '4.5': 32460, '5.0': 33510,
+      '5.5': 34480, '6.0': 35440, '6.5': 36340, '7.0': 37250, '7.5': 38120,
+      '8.0': 38970, '8.5': 39770, '9.0': 40640, '9.5': 41500, '10.0': 42330,
+      '10.5': 43210, '11.0': 44020, '11.5': 44880, '12.0': 45750, '12.5': 46610,
+      '13.0': 47350, '13.5': 48280, '14.0': 49150, '14.5': 49980, '15.0': 50780,
+      '15.5': 51640, '16.0': 52530, '16.5': 53350, '17.0': 54200, '17.5': 55050,
+      '18.0': 55660, '18.5': 56250, '19.0': 56880, '19.5': 58320, '20.0': 59740,
+    },
+    multiplier: { '21-44': 2980, '45-70': 2920, '71-99': 2790, '100-299': 2770, '300+': 2710 },
+  },
+};
+
+// ============================================================
 // EMS 요금표 (ems 비용.csv 기준)
 // ============================================================
 interface EmsRateTable {
@@ -252,6 +602,12 @@ const KPACKET_RATES: KPacketRateTable = {
     '1.1': 12310, '1.2': 13050, '1.3': 13780, '1.4': 14270, '1.5': 14750,
     '1.6': 15240, '1.7': 15720, '1.8': 16200, '1.9': 16690, '2.0': 17170,
   },
+  NO: {
+    '0.1': 5340, '0.2': 6950, '0.3': 8570, '0.4': 10200, '0.5': 11830,
+    '0.6': 13090, '0.7': 14340, '0.8': 15610, '0.9': 16860, '1.0': 18150,
+    '1.1': 19070, '1.2': 20010, '1.3': 20930, '1.4': 21870, '1.5': 22790,
+    '1.6': 23730, '1.7': 24650, '1.8': 25590, '1.9': 26510, '2.0': 27450,
+  },
 };
 
 // ============================================================
@@ -280,6 +636,14 @@ const COUNTRY_CODE_MAP: Record<string, string> = {
   '베트남': 'VN', 'VN': 'VN', 'Vietnam': 'VN',
   // 노르웨이
   '노르웨이': 'NO', 'NO': 'NO', 'Norway': 'NO',
+  // 중국
+  '중국': 'CN', 'CN': 'CN', 'China': 'CN',
+  // 영국
+  '영국': 'GB', 'GB': 'GB', 'UK': 'GB', 'United Kingdom': 'GB',
+  // 독일
+  '독일': 'DE', 'DE': 'DE', 'Germany': 'DE',
+  // 프랑스
+  '프랑스': 'FR', 'FR': 'FR', 'France': 'FR',
   // 기타 3지역
   '3지역': 'ZONE3',
 };
@@ -293,6 +657,9 @@ const CARRIER_MAP: Record<string, string> = {
   'KPACKET': 'KPACKET',
   'K-PACKET': 'KPACKET',
   'EMS': 'EMS',
+  'SF': 'SF',
+  'SF EXPRESS': 'SF',
+  'UPS': 'UPS',
 };
 
 // ============================================================
@@ -314,6 +681,29 @@ export interface RateValidationResult {
     service?: string;
     rateSource?: string;
   };
+}
+
+// ============================================================
+// 교차 검증 결과 타입
+// ============================================================
+export interface CrossValidationResult {
+  currentCarrier: string;
+  currentRate: number;
+  alternatives: Array<{
+    carrier: string;
+    service: string;
+    rate: number;
+    difference: number;
+    differencePercent: number;
+    isCheaper: boolean;
+  }>;
+  bestAlternative: {
+    carrier: string;
+    service: string;
+    rate: number;
+    savings: number;
+    savingsPercent: number;
+  } | null;
 }
 
 // ============================================================
@@ -344,14 +734,11 @@ export class RateService {
       .map(k => parseFloat(k))
       .sort((a, b) => a - b);
 
-    // 해당 중량 이상의 첫 번째 키 찾기
     for (const key of weightKeys) {
       if (weight <= key) {
         return key.toString();
       }
     }
-
-    // 최대 중량 초과 시 null
     return null;
   }
 
@@ -360,27 +747,95 @@ export class RateService {
    */
   getExpectedLotteRate(country: string, weight: number): { rate: number; service: string } | null {
     const countryCode = this.normalizeCountry(country);
-    
-    // 국가별 요금표 조회
     const rateTable = LOTTE_RATES[countryCode];
-    if (!rateTable) {
-      return null;
-    }
+    if (!rateTable) return null;
+    if (weight > rateTable.maxWeight) return null;
 
-    // 중량 초과 확인
-    if (weight > rateTable.maxWeight) {
-      return null;
-    }
-
-    // 중량에 해당하는 요금 찾기
     const weightKey = this.findWeightKey(weight, rateTable.rates);
-    if (!weightKey) {
-      return null;
-    }
+    if (!weightKey) return null;
 
     return {
       rate: rateTable.rates[weightKey],
       service: rateTable.service,
+    };
+  }
+
+  /**
+   * SF Express 예상 요금 조회
+   */
+  getExpectedSfRate(country: string, weight: number, isDocument: boolean = false): { rate: number; zone: string } | null {
+    const countryCode = this.normalizeCountry(country);
+    
+    // 국가에 해당하는 Zone 찾기
+    const sfRateTable = SF_RATES.find(zone => zone.countries.includes(countryCode));
+    if (!sfRateTable) return null;
+
+    const rates = isDocument ? sfRateTable.document : sfRateTable.nonDocument;
+    const weightKey = this.findWeightKey(weight, rates);
+    
+    if (!weightKey) {
+      // 20kg 이상인 경우 per kg 요금 적용
+      if (weight > 19.5) {
+        const perKgRates = sfRateTable.perKg;
+        let perKgRate = 0;
+        if (weight <= 70) perKgRate = perKgRates['20-70'];
+        else if (weight <= 299) perKgRate = perKgRates['71-299'];
+        else perKgRate = perKgRates['300+'];
+        
+        const baseRate = rates['19.5'];
+        const extraWeight = Math.ceil(weight - 19.5);
+        return {
+          rate: baseRate + (extraWeight * perKgRate),
+          zone: sfRateTable.zone,
+        };
+      }
+      return null;
+    }
+
+    return {
+      rate: rates[weightKey],
+      zone: sfRateTable.zone,
+    };
+  }
+
+  /**
+   * UPS Express Saver 예상 요금 조회
+   */
+  getExpectedUpsRate(country: string, weight: number, isDocument: boolean = false): { rate: number; zone: string } | null {
+    const countryCode = this.normalizeCountry(country);
+    const zone = UPS_ZONE_MAP[countryCode];
+    if (!zone) return null;
+
+    const rateTable = UPS_RATES[zone];
+    if (!rateTable) return null;
+
+    const rates = isDocument ? rateTable.document : rateTable.nonDocument;
+    const weightKey = this.findWeightKey(weight, rates);
+
+    if (!weightKey) {
+      // 20kg 이상인 경우 multiplier 요금 적용
+      if (weight > 20) {
+        const multiplier = rateTable.multiplier;
+        let perKgRate = 0;
+        if (weight <= 44) perKgRate = multiplier['21-44'];
+        else if (weight <= 70) perKgRate = multiplier['45-70'];
+        else if (weight <= 99) perKgRate = multiplier['71-99'];
+        else if (weight <= 299) perKgRate = multiplier['100-299'];
+        else perKgRate = multiplier['300+'];
+
+        const baseRate = rates['20.0'];
+        const extraWeight = Math.ceil(weight - 20);
+        return {
+          rate: baseRate + (extraWeight * perKgRate),
+          zone,
+        };
+      }
+      return null;
+    }
+
+    return {
+      rate: rates[weightKey],
+      zone,
     };
   }
 
@@ -390,15 +845,10 @@ export class RateService {
   getExpectedKPacketRate(country: string, weight: number): number | null {
     const countryCode = this.normalizeCountry(country);
     const rateTable = KPACKET_RATES[countryCode];
-    
-    if (!rateTable || weight > 2.0) {
-      return null;
-    }
+    if (!rateTable || weight > 2.0) return null;
 
     const weightKey = this.findWeightKey(weight, rateTable);
-    if (!weightKey) {
-      return null;
-    }
+    if (!weightKey) return null;
 
     return rateTable[weightKey];
   }
@@ -409,15 +859,10 @@ export class RateService {
   getExpectedEmsRate(country: string, weight: number): number | null {
     const countryCode = this.normalizeCountry(country);
     const rateTable = EMS_RATES[countryCode];
-    
-    if (!rateTable) {
-      return null;
-    }
+    if (!rateTable) return null;
 
     const weightKey = this.findWeightKey(weight, rateTable);
-    if (!weightKey) {
-      return null;
-    }
+    if (!weightKey) return null;
 
     return rateTable[weightKey];
   }
@@ -429,7 +874,8 @@ export class RateService {
     carrier: string,
     country: string,
     weight: number,
-    actualRate: number
+    actualRate: number,
+    shippingFeeOnly?: number // 순수 운송료만 (할증료 제외)
   ): RateValidationResult {
     const normalizedCarrier = this.normalizeCarrier(carrier);
     const countryCode = this.normalizeCountry(country);
@@ -437,6 +883,9 @@ export class RateService {
     let expectedRate: number | null = null;
     let service: string | undefined;
     let rateSource: string | undefined;
+
+    // 순수 운송료가 있으면 그것으로 비교, 없으면 total로 비교
+    const compareRate = shippingFeeOnly !== undefined ? shippingFeeOnly : actualRate;
 
     // 운송사별 예상 요금 조회
     if (normalizedCarrier === 'LOTTE') {
@@ -454,14 +903,27 @@ export class RateService {
       expectedRate = this.getExpectedEmsRate(countryCode, weight);
       service = 'EMS';
       rateSource = 'EMS';
+    } else if (normalizedCarrier === 'SF') {
+      const sfRate = this.getExpectedSfRate(countryCode, weight, false);
+      if (sfRate) {
+        expectedRate = sfRate.rate;
+        service = `SF Economy Zone ${sfRate.zone}`;
+        rateSource = 'SF Express';
+      }
+    } else if (normalizedCarrier === 'UPS') {
+      const upsRate = this.getExpectedUpsRate(countryCode, weight, false);
+      if (upsRate) {
+        expectedRate = upsRate.rate;
+        service = `UPS Express Saver Zone ${upsRate.zone}`;
+        rateSource = 'UPS';
+      }
     }
 
-    // 예상 요금 없으면 검증 불가
     if (expectedRate === null) {
       return {
         isValid: true,
         expectedRate: null,
-        actualRate,
+        actualRate: compareRate,
         difference: 0,
         differencePercent: 0,
         status: 'unknown',
@@ -477,11 +939,9 @@ export class RateService {
       };
     }
 
-    // 차이 계산
-    const difference = actualRate - expectedRate;
+    const difference = compareRate - expectedRate;
     const differencePercent = (difference / expectedRate) * 100;
 
-    // 상태 판정
     let status: 'normal' | 'warning' | 'error' = 'normal';
     let message = '';
 
@@ -495,13 +955,13 @@ export class RateService {
       message = `예상 요금 대비 ${differencePercent > 0 ? '초과' : '미달'} (${differencePercent.toFixed(1)}%)`;
     } else {
       status = 'error';
-      message = `큰 차이 발생! 예상: ₩${expectedRate.toLocaleString()}, 실제: ₩${actualRate.toLocaleString()} (${differencePercent.toFixed(1)}%)`;
+      message = `큰 차이 발생! 예상: ₩${expectedRate.toLocaleString()}, 실제: ₩${compareRate.toLocaleString()} (${differencePercent.toFixed(1)}%)`;
     }
 
     return {
       isValid: status !== 'error',
       expectedRate,
-      actualRate,
+      actualRate: compareRate,
       difference,
       differencePercent,
       status,
@@ -518,7 +978,121 @@ export class RateService {
   }
 
   /**
-   * 정산서 전체 검증
+   * 교차 검증: 동일 건에 대해 다른 운송사로 보냈을 때 비용 비교
+   */
+  crossValidate(
+    country: string,
+    weight: number,
+    currentCarrier: string,
+    currentRate: number
+  ): CrossValidationResult {
+    const countryCode = this.normalizeCountry(country);
+    const normalizedCarrier = this.normalizeCarrier(currentCarrier);
+    
+    const alternatives: CrossValidationResult['alternatives'] = [];
+
+    // 롯데글로벌
+    if (normalizedCarrier !== 'LOTTE') {
+      const lotteRate = this.getExpectedLotteRate(countryCode, weight);
+      if (lotteRate) {
+        const diff = lotteRate.rate - currentRate;
+        alternatives.push({
+          carrier: 'LOTTE',
+          service: lotteRate.service,
+          rate: lotteRate.rate,
+          difference: diff,
+          differencePercent: (diff / currentRate) * 100,
+          isCheaper: diff < 0,
+        });
+      }
+    }
+
+    // K-Packet (2kg 이하만)
+    if (normalizedCarrier !== 'KPACKET' && weight <= 2.0) {
+      const kpacketRate = this.getExpectedKPacketRate(countryCode, weight);
+      if (kpacketRate) {
+        const diff = kpacketRate - currentRate;
+        alternatives.push({
+          carrier: 'KPACKET',
+          service: 'K-Packet',
+          rate: kpacketRate,
+          difference: diff,
+          differencePercent: (diff / currentRate) * 100,
+          isCheaper: diff < 0,
+        });
+      }
+    }
+
+    // EMS
+    if (normalizedCarrier !== 'EMS') {
+      const emsRate = this.getExpectedEmsRate(countryCode, weight);
+      if (emsRate) {
+        const diff = emsRate - currentRate;
+        alternatives.push({
+          carrier: 'EMS',
+          service: 'EMS',
+          rate: emsRate,
+          difference: diff,
+          differencePercent: (diff / currentRate) * 100,
+          isCheaper: diff < 0,
+        });
+      }
+    }
+
+    // SF Express
+    if (normalizedCarrier !== 'SF') {
+      const sfRate = this.getExpectedSfRate(countryCode, weight, false);
+      if (sfRate) {
+        const diff = sfRate.rate - currentRate;
+        alternatives.push({
+          carrier: 'SF',
+          service: `SF Economy Zone ${sfRate.zone}`,
+          rate: sfRate.rate,
+          difference: diff,
+          differencePercent: (diff / currentRate) * 100,
+          isCheaper: diff < 0,
+        });
+      }
+    }
+
+    // UPS
+    if (normalizedCarrier !== 'UPS') {
+      const upsRate = this.getExpectedUpsRate(countryCode, weight, false);
+      if (upsRate) {
+        const diff = upsRate.rate - currentRate;
+        alternatives.push({
+          carrier: 'UPS',
+          service: `UPS Saver Zone ${upsRate.zone}`,
+          rate: upsRate.rate,
+          difference: diff,
+          differencePercent: (diff / currentRate) * 100,
+          isCheaper: diff < 0,
+        });
+      }
+    }
+
+    // 가장 저렴한 대안 찾기
+    const cheaperAlternatives = alternatives.filter(a => a.isCheaper);
+    const bestAlternative = cheaperAlternatives.length > 0
+      ? cheaperAlternatives.sort((a, b) => a.rate - b.rate)[0]
+      : null;
+
+    return {
+      currentCarrier: normalizedCarrier,
+      currentRate,
+      alternatives: alternatives.sort((a, b) => a.rate - b.rate),
+      bestAlternative: bestAlternative ? {
+        carrier: bestAlternative.carrier,
+        service: bestAlternative.service,
+        rate: bestAlternative.rate,
+        savings: Math.abs(bestAlternative.difference),
+        savingsPercent: Math.abs(bestAlternative.differencePercent),
+      } : null,
+    };
+  }
+
+  /**
+   * 정산서 전체 검증 (배치)
    */
   validateBatch(
     records: Array<{
@@ -526,6 +1100,7 @@ export class RateService {
       country: string;
       charged_weight: number;
       total_cost: number;
+      shipping_fee?: number;
       id?: string;
     }>
   ): {
@@ -554,7 +1129,8 @@ export class RateService {
         record.carrier,
         record.country,
         record.charged_weight,
-        record.total_cost
+        record.total_cost,
+        record.shipping_fee
       );
 
       results.push({
@@ -599,6 +1175,64 @@ export class RateService {
   }
 
   /**
+   * 교차 검증 배치
+   */
+  crossValidateBatch(
+    records: Array<{
+      carrier: string;
+      country: string;
+      charged_weight: number;
+      total_cost: number;
+      id?: string;
+    }>
+  ): {
+    results: Array<CrossValidationResult & { recordId?: string }>;
+    summary: {
+      totalRecords: number;
+      recordsWithSavings: number;
+      totalPotentialSavings: number;
+      avgSavingsPercent: number;
+    };
+  } {
+    const results: Array<CrossValidationResult & { recordId?: string }> = [];
+    let recordsWithSavings = 0;
+    let totalPotentialSavings = 0;
+    let totalSavingsPercent = 0;
+
+    for (const record of records) {
+      const result = this.crossValidate(
+        record.country,
+        record.charged_weight,
+        record.carrier,
+        record.total_cost
+      );
+
+      results.push({
+        ...result,
+        recordId: record.id,
+      });
+
+      if (result.bestAlternative) {
+        recordsWithSavings++;
+        totalPotentialSavings += result.bestAlternative.savings;
+        totalSavingsPercent += result.bestAlternative.savingsPercent;
+      }
+    }
+
+    return {
+      results,
+      summary: {
+        totalRecords: records.length,
+        recordsWithSavings,
+        totalPotentialSavings: Math.round(totalPotentialSavings),
+        avgSavingsPercent: recordsWithSavings > 0 
+          ? Math.round(totalSavingsPercent / recordsWithSavings * 10) / 10 
+          : 0,
+      },
+    };
+  }
+
+  /**
    * 지원 국가 목록 조회
    */
   getSupportedCountries(): { code: string; name: string; carriers: string[] }[] {
@@ -607,7 +1241,7 @@ export class RateService {
     const countryNames: Record<string, string> = {
       JP: '일본', US: '미국', AU: '호주', CA: '캐나다', NZ: '뉴질랜드',
       HK: '홍콩', SG: '싱가포르', MY: '말레이시아', TW: '대만', VN: '베트남',
-      NO: '노르웨이',
+      NO: '노르웨이', CN: '중국', GB: '영국', DE: '독일', FR: '프랑스',
     };
 
     const allCountries = new Set<string>();
@@ -617,6 +1251,14 @@ export class RateService {
       const baseCode = code.replace('_NEKOPOS', '').replace('_EAST', '').replace('_WEST', '');
       allCountries.add(baseCode);
     });
+    
+    // SF Express 국가
+    SF_RATES.forEach(zone => {
+      zone.countries.forEach(code => allCountries.add(code));
+    });
+
+    // UPS 국가
+    Object.keys(UPS_ZONE_MAP).forEach(code => allCountries.add(code));
     
     // EMS 국가
     Object.keys(EMS_RATES).forEach(code => allCountries.add(code));
@@ -631,6 +1273,8 @@ export class RateService {
           LOTTE_RATES[`${code}_EAST`] || LOTTE_RATES[`${code}_WEST`]) {
         carriers.push('LOTTEGLOBAL');
       }
+      if (SF_RATES.some(zone => zone.countries.includes(code))) carriers.push('SF');
+      if (UPS_ZONE_MAP[code]) carriers.push('UPS');
       if (EMS_RATES[code]) carriers.push('EMS');
       if (KPACKET_RATES[code]) carriers.push('KPACKET');
 
@@ -647,4 +1291,3 @@ export class RateService {
 
 // 싱글톤 인스턴스 내보내기
 export const rateService = new RateService();
-
