@@ -243,20 +243,55 @@ function getArtistName(artistId: string | number): string {
  * 고유 ID 생성
  */
 function generateId(prefix: string, data: any): string {
+  // 이미지 QC의 경우 다양한 컬럼 조합 시도
+  if (prefix === 'image') {
+    // 1. product_id + page_name + cmd_type 조합 (가장 고유함)
+    if (data.product_id && data.page_name && data.cmd_type) {
+      return `${prefix}_${data.product_id}_${data.page_name}_${data.cmd_type}`;
+    }
+    // 2. product_id + page_name 조합
+    if (data.product_id && data.page_name) {
+      return `${prefix}_${data.product_id}_${data.page_name}`;
+    }
+    // 3. product_id + cmd_type 조합
+    if (data.product_id && data.cmd_type) {
+      return `${prefix}_${data.product_id}_${data.cmd_type}`;
+    }
+    // 4. product_id + image_url (이미지 URL의 일부 사용)
+    if (data.product_id && data.image_url) {
+      // URL에서 파일명 추출하여 사용
+      const urlParts = data.image_url.split('/');
+      const filename = urlParts[urlParts.length - 1] || '';
+      const fileId = filename.split('.')[0] || '';
+      if (fileId) {
+        return `${prefix}_${data.product_id}_${fileId}`;
+      }
+    }
+    // 5. product_id만 있는 경우
+    if (data.product_id) {
+      return `${prefix}_${data.product_id}`;
+    }
+    // 6. image_url만 있는 경우 (URL 해시 사용)
+    if (data.image_url) {
+      const urlHash = data.image_url.split('/').pop()?.split('.')[0] || '';
+      if (urlHash) {
+        return `${prefix}_url_${urlHash}`;
+      }
+    }
+  }
+  
+  // 텍스트 QC 또는 일반적인 경우
   if (data.global_product_id) {
     return `${prefix}_${data.global_product_id}`;
   }
   if (data.product_id && data.description_id) {
     return `${prefix}_${data.product_id}_${data.description_id}`;
   }
-  // 이미지 QC의 경우 product_id만 있는 경우 처리
   if (data.product_id) {
-    // page_name이나 cmd_type이 있으면 함께 사용하여 고유성 확보
-    if (data.page_name || data.cmd_type) {
-      return `${prefix}_${data.product_id}_${data.page_name || ''}_${data.cmd_type || ''}`;
-    }
     return `${prefix}_${data.product_id}`;
   }
+  
+  // 마지막 수단: 타임스탬프 + 랜덤
   return `${prefix}_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`;
 }
 
@@ -346,29 +381,65 @@ router.post('/upload/image', upload.single('file'), async (req, res) => {
       trim: true,
     });
 
+    console.log(`[QC] 이미지 CSV 파싱 완료: ${records.length}개 레코드`);
+
     let imported = 0;
     let skipped = 0;
+    let updated = 0;
     const duplicates: string[] = [];
+    const skippedReasons: { [key: string]: number } = {
+      archived: 0,
+      alreadyExists: 0,
+      invalidData: 0,
+    };
 
     // 작가 정보 다시 로드
     await loadArtists();
 
     for (const record of records) {
+      // 필수 필드 검증
+      if (!record.product_id && !record.image_url) {
+        console.warn('[QC] 이미지 QC 레코드에 필수 필드가 없습니다:', record);
+        skippedReasons.invalidData++;
+        skipped++;
+        continue;
+      }
+
       const id = generateId('image', record);
       
-      // 중복 검사 (아카이브 확인)
+      // 아카이브에 있는 경우만 스킵 (이미 완료된 항목)
       if (qcDataStore.archive.has(id)) {
         duplicates.push(id);
+        skippedReasons.archived++;
         skipped++;
         continue;
       }
 
-      // 이미 존재하는 경우 스킵
-      if (qcDataStore.image.has(id)) {
-        skipped++;
-        continue;
+      // 이미 존재하는 경우
+      const existingItem = qcDataStore.image.get(id);
+      if (existingItem) {
+        // 이미지 QC는 모든 항목을 확인해야 하므로:
+        // - 상태가 'pending'이면 데이터 업데이트
+        // - 상태가 'approved' 또는 'needs_revision'이면 스킵 (이미 처리됨)
+        // - 상태가 'excluded'이면 데이터 업데이트 (비대상 해제 가능)
+        if (existingItem.status === 'pending' || existingItem.status === 'excluded') {
+          // 데이터 업데이트 (최신 정보 반영)
+          existingItem.data = record;
+          existingItem.status = 'pending'; // 상태 초기화
+          existingItem.needsRevision = false;
+          existingItem.createdAt = new Date(); // 업로드 시간 갱신
+          qcDataStore.image.set(id, existingItem);
+          updated++;
+          continue;
+        } else {
+          // 이미 처리된 항목은 스킵
+          skippedReasons.alreadyExists++;
+          skipped++;
+          continue;
+        }
       }
 
+      // 새 항목 추가
       const qcItem: QCItem = {
         id,
         type: 'image',
@@ -382,12 +453,17 @@ router.post('/upload/image', upload.single('file'), async (req, res) => {
       imported++;
     }
 
+    console.log(`[QC] 이미지 CSV 업로드 완료: ${imported}개 가져옴, ${updated}개 업데이트, ${skipped}개 스킵`);
+    console.log(`[QC] 스킵 이유: 아카이브=${skippedReasons.archived}, 이미존재=${skippedReasons.alreadyExists}, 유효하지않음=${skippedReasons.invalidData}`);
+
     res.json({
       success: true,
       imported,
+      updated,
       skipped,
       duplicates: duplicates.length,
       total: records.length,
+      skippedReasons,
     });
   } catch (error: any) {
     console.error('[QC] 이미지 CSV 업로드 오류:', error);

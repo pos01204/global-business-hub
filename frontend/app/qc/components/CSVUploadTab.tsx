@@ -47,7 +47,10 @@ export default function CSVUploadTab() {
         ...prev,
       ])
       setImageFile(null)
-      alert(`업로드 완료!\n- 가져온 항목: ${data.imported}개\n- 스킵된 항목: ${data.skipped}개\n- 중복 항목: ${data.duplicates}개`)
+      const message = data.updated 
+        ? `업로드 완료!\n- 가져온 항목: ${data.imported}개\n- 업데이트된 항목: ${data.updated}개\n- 스킵된 항목: ${data.skipped}개\n- 중복 항목: ${data.duplicates}개`
+        : `업로드 완료!\n- 가져온 항목: ${data.imported}개\n- 스킵된 항목: ${data.skipped}개\n- 중복 항목: ${data.duplicates}개`
+      alert(message)
     },
     onError: (error: any) => {
       alert(`업로드 실패: ${error.response?.data?.message || error.message}`)
@@ -174,23 +177,31 @@ export default function CSVUploadTab() {
                   </span>
                 </div>
                 {history.result && (
-                  <div className="grid grid-cols-3 gap-4 mt-3 text-sm">
+                  <div className={`grid gap-4 mt-3 text-sm ${history.result.updated ? 'grid-cols-4' : 'grid-cols-3'}`}>
                     <div className="bg-green-50 p-2 rounded">
                       <div className="text-gray-600">가져온 항목</div>
                       <div className="font-semibold text-green-700">
-                        {history.result.imported}개
+                        {history.result.imported || 0}개
                       </div>
                     </div>
+                    {history.result.updated !== undefined && history.result.updated > 0 && (
+                      <div className="bg-purple-50 p-2 rounded">
+                        <div className="text-gray-600">업데이트된 항목</div>
+                        <div className="font-semibold text-purple-700">
+                          {history.result.updated}개
+                        </div>
+                      </div>
+                    )}
                     <div className="bg-yellow-50 p-2 rounded">
                       <div className="text-gray-600">스킵된 항목</div>
                       <div className="font-semibold text-yellow-700">
-                        {history.result.skipped}개
+                        {history.result.skipped || 0}개
                       </div>
                     </div>
                     <div className="bg-blue-50 p-2 rounded">
                       <div className="text-gray-600">중복 항목</div>
                       <div className="font-semibold text-blue-700">
-                        {history.result.duplicates}개
+                        {history.result.duplicates || 0}개
                       </div>
                     </div>
                   </div>
