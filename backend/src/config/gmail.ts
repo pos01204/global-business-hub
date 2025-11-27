@@ -1,7 +1,7 @@
 import dotenv from 'dotenv';
 import { resolve } from 'path';
 
-// .env 파일 로드
+// .env 파일 로드 (로컬 개발용, Railway에서는 환경 변수가 직접 주입됨)
 let envPath: string;
 if (process.cwd().endsWith('backend')) {
   envPath = resolve(process.cwd(), '.env');
@@ -11,8 +11,14 @@ if (process.cwd().endsWith('backend')) {
 dotenv.config({ path: envPath });
 
 // Gmail SMTP 환경 변수 (Nodemailer용)
+// 환경 변수에서 직접 읽기
 const gmailUser = process.env.GMAIL_USER || '';
 const gmailAppPassword = process.env.GMAIL_APP_PASSWORD || '';
+
+// 디버깅 로그
+console.log('[Gmail Config] 환경 변수 로딩...');
+console.log('[Gmail Config] GMAIL_USER:', gmailUser ? gmailUser.substring(0, 3) + '***' : '없음');
+console.log('[Gmail Config] GMAIL_APP_PASSWORD:', gmailAppPassword ? `설정됨 (${gmailAppPassword.length}자)` : '없음');
 const gmailFromEmail = process.env.GMAIL_FROM_EMAIL || process.env.GMAIL_USER || '';
 const gmailFromName = process.env.GMAIL_FROM_NAME || 'Global Business 셀 | Business Pathfinder';
 

@@ -11,8 +11,19 @@ const router = Router();
 const sheetsService = new GoogleSheetsService(sheetsConfig);
 
 // 이메일 서비스 및 템플릿 서비스 초기화
+console.log('[Email] 이메일 서비스 초기화 시작...');
+console.log('[Email] isEmailConfigured:', isEmailConfigured);
+console.log('[Email] emailConfig.user:', emailConfig.user ? '설정됨' : '없음');
+console.log('[Email] emailConfig.pass:', emailConfig.pass ? '설정됨 (' + emailConfig.pass.length + '자)' : '없음');
+
 const emailService = isEmailConfigured ? new NodemailerService(emailConfig) : null;
 const emailTemplateService = new EmailTemplateService();
+
+if (emailService) {
+  console.log('[Email] ✅ 이메일 서비스 초기화 완료');
+} else {
+  console.log('[Email] ⚠️ 이메일 서비스 비활성화 (환경 변수 미설정)');
+}
 
 // Multer 설정: 메모리 스토리지 사용
 const upload = multer({
@@ -1525,9 +1536,16 @@ router.post('/artists/notify', async (req, res) => {
     });
 
     // 응답 후 백그라운드에서 이메일 발송
+    console.log(`[QC] 이메일 발송 조건 확인: artistEmail=${artistEmail ? 'Y' : 'N'}, emailService=${emailService ? 'Y' : 'N'}`);
+    
     if (artistEmail && emailService) {
-      setImmediate(async () => {
+      console.log(`[QC] 이메일 발송 시작 (백그라운드): ${artistName} -> ${artistEmail}`);
+      
+      // 즉시 실행 (setImmediate 대신 직접 호출)
+      (async () => {
         try {
+          console.log(`[QC] 이메일 템플릿 생성 중...`);
+          
           // 이메일 템플릿 생성
           const emailTemplate = emailTemplateService.generateQCNotificationEmail({
             artistName,
@@ -1536,6 +1554,8 @@ router.post('/artists/notify', async (req, res) => {
             items: validItems,
           });
 
+          console.log(`[QC] 이메일 발송 중: ${artistEmail}`);
+          
           // 이메일 발송
           const emailResult = await emailService.sendEmail(
             artistEmail,
@@ -1545,14 +1565,16 @@ router.post('/artists/notify', async (req, res) => {
           );
 
           if (emailResult.success) {
-            console.log(`[QC] 이메일 발송 성공: ${artistName} (${artistEmail}) - Message ID: ${emailResult.messageId}`);
+            console.log(`[QC] ✅ 이메일 발송 성공: ${artistName} (${artistEmail}) - Message ID: ${emailResult.messageId}`);
           } else {
-            console.warn(`[QC] 이메일 발송 실패: ${artistName} (${artistEmail}) - ${emailResult.error}`);
+            console.warn(`[QC] ❌ 이메일 발송 실패: ${artistName} (${artistEmail}) - ${emailResult.error}`);
           }
         } catch (error: any) {
-          console.error(`[QC] 이메일 발송 오류: ${artistName} (${artistEmail}) -`, error.message);
+          console.error(`[QC] ❌ 이메일 발송 오류: ${artistName} (${artistEmail}) -`, error.message);
         }
-      });
+      })();
+    } else {
+      console.log(`[QC] 이메일 발송 스킵: ${!artistEmail ? '메일 주소 없음' : '이메일 서비스 미설정'}`);
     }
     
     return; // 이미 응답을 보냈으므로 함수 종료
