@@ -1028,7 +1028,7 @@ export default function SettlementPage() {
             {validateMutation.data?.success && (
               <div className="space-y-6">
                 {/* 요약 */}
-                <div className="grid grid-cols-1 md:grid-cols-5 gap-4">
+                <div className="grid grid-cols-1 md:grid-cols-6 gap-4">
                   <div className="card">
                     <p className="text-sm text-gray-500">총 검증</p>
                     <p className="text-2xl font-bold">{validateMutation.data.data.summary.total}건</p>
@@ -1044,6 +1044,10 @@ export default function SettlementPage() {
                   <div className="card bg-red-50">
                     <p className="text-sm text-red-700">오류 (15%+)</p>
                     <p className="text-2xl font-bold text-red-700">{validateMutation.data.data.summary.error}건</p>
+                  </div>
+                  <div className="card bg-blue-50">
+                    <p className="text-sm text-blue-700">추가비용</p>
+                    <p className="text-2xl font-bold text-blue-700">{validateMutation.data.data.summary.additionalChargeOnly || 0}건</p>
                   </div>
                   <div className="card">
                     <p className="text-sm text-gray-500">미검증</p>
@@ -1082,17 +1086,21 @@ export default function SettlementPage() {
                 {/* 이슈 목록 */}
                 {validateMutation.data.data.issues?.length > 0 && (
                   <div className="card">
-                    <h3 className="font-semibold mb-4">이슈 건 목록 ({validateMutation.data.data.issues.length}건)</h3>
+                    <h3 className="font-semibold mb-4 flex items-center gap-2">
+                      <span className="text-red-500">⚠️</span>
+                      이슈 건 목록 ({validateMutation.data.data.issues.length}건)
+                    </h3>
                     <div className="overflow-x-auto">
                       <table className="w-full text-sm">
                         <thead>
                           <tr className="border-b bg-gray-50">
                             <th className="text-left p-3">상태</th>
+                            <th className="text-left p-3">주문번호</th>
                             <th className="text-left p-3">국가</th>
                             <th className="text-left p-3">운송사</th>
-                            <th className="text-right p-3">중량</th>
+                            <th className="text-right p-3">청구중량</th>
+                            <th className="text-right p-3">해외운송료</th>
                             <th className="text-right p-3">예상요금</th>
-                            <th className="text-right p-3">실제요금</th>
                             <th className="text-right p-3">차이</th>
                             <th className="text-left p-3">메시지</th>
                           </tr>
@@ -1109,19 +1117,83 @@ export default function SettlementPage() {
                                   {issue.status === 'error' ? '오류' : '경고'}
                                 </span>
                               </td>
-                              <td className="p-3">{countryFlags[issue.details?.countryCode] || '🌐'} {issue.details?.country}</td>
-                              <td className="p-3">{issue.details?.carrier}</td>
-                              <td className="p-3 text-right">{issue.details?.weight}kg</td>
+                              <td className="p-3 font-mono text-xs">{issue.details?.shipmentId || '-'}</td>
+                              <td className="p-3">{countryFlags[issue.details?.countryCode] || '🌐'} {issue.details?.countryCode}</td>
+                              <td className="p-3">
+                                {issue.details?.carrier}
+                                {issue.details?.service && (
+                                  <span className="block text-xs text-gray-500">{issue.details.service}</span>
+                                )}
+                              </td>
+                              <td className="p-3 text-right">
+                                <span className="font-medium">{issue.details?.weight}kg</span>
+                                {(issue.details?.actualWeight || issue.details?.volumetricWeight) && (
+                                  <span className="block text-xs text-gray-400">
+                                    실: {issue.details?.actualWeight?.toFixed(2) || '-'}kg / 부피: {issue.details?.volumetricWeight?.toFixed(2) || '-'}kg
+                                  </span>
+                                )}
+                              </td>
+                              <td className="p-3 text-right">
+                                {formatCurrency(issue.details?.shippingFee || issue.actualRate)}
+                                {issue.details?.surchargeAmount > 0 && (
+                                  <span className="block text-xs text-gray-400">
+                                    +할증 {formatCurrency(issue.details.surchargeAmount)}
+                                  </span>
+                                )}
+                              </td>
                               <td className="p-3 text-right">{issue.expectedRate ? formatCurrency(issue.expectedRate) : '-'}</td>
-                              <td className="p-3 text-right">{formatCurrency(issue.actualRate)}</td>
                               <td className={`p-3 text-right font-medium ${
                                 issue.difference > 0 ? 'text-red-600' : 'text-green-600'
                               }`}>
                                 {issue.difference > 0 ? '+' : ''}{formatCurrency(issue.difference)}
-                                <br />
-                                <span className="text-xs">({issue.differencePercent}%)</span>
+                                <span className="block text-xs">({issue.differencePercent}%)</span>
                               </td>
-                              <td className="p-3 text-xs text-gray-600 max-w-xs truncate">{issue.message}</td>
+                              <td className="p-3 text-xs text-gray-600 max-w-xs">
+                                <span className="block truncate">{issue.message}</span>
+                              </td>
+                            </tr>
+                          ))}
+                        </tbody>
+                      </table>
+                    </div>
+                  </div>
+                )}
+
+                {/* 추가비용 청구 건 목록 */}
+                {validateMutation.data.data.additionalCharges?.length > 0 && (
+                  <div className="card border-blue-200 bg-blue-50/30">
+                    <h3 className="font-semibold mb-4 flex items-center gap-2">
+                      <span className="text-blue-500">📋</span>
+                      추가비용 청구 건 ({validateMutation.data.data.additionalCharges.length}건)
+                    </h3>
+                    <p className="text-sm text-gray-600 mb-4">
+                      아래 건들은 순수 운송료 없이 할증료만 청구된 건으로, 기존 발송 건에 대한 추가 비용 청구입니다.
+                    </p>
+                    <div className="overflow-x-auto">
+                      <table className="w-full text-sm">
+                        <thead>
+                          <tr className="border-b bg-blue-50">
+                            <th className="text-left p-3">주문번호</th>
+                            <th className="text-left p-3">국가</th>
+                            <th className="text-left p-3">운송사</th>
+                            <th className="text-left p-3">할증 항목</th>
+                            <th className="text-right p-3">청구 금액</th>
+                          </tr>
+                        </thead>
+                        <tbody>
+                          {validateMutation.data.data.additionalCharges.map((item: any, idx: number) => (
+                            <tr key={idx} className="border-b hover:bg-blue-50/50">
+                              <td className="p-3 font-mono text-xs">{item.details?.shipmentId || '-'}</td>
+                              <td className="p-3">{countryFlags[item.details?.countryCode] || '🌐'} {item.details?.countryCode}</td>
+                              <td className="p-3">{item.details?.carrier}</td>
+                              <td className="p-3">
+                                <span className="px-2 py-1 rounded bg-blue-100 text-blue-800 text-xs">
+                                  {item.details?.surchargeType || '할증료'}
+                                </span>
+                              </td>
+                              <td className="p-3 text-right font-medium text-blue-700">
+                                {formatCurrency(item.actualRate)}
+                              </td>
                             </tr>
                           ))}
                         </tbody>
@@ -1134,6 +1206,11 @@ export default function SettlementPage() {
                   <div className="card bg-green-50 text-center py-8">
                     <span className="text-4xl">✅</span>
                     <p className="text-green-800 font-medium mt-4">모든 정산 건이 정상 범위입니다!</p>
+                    {validateMutation.data.data.additionalCharges?.length > 0 && (
+                      <p className="text-gray-600 text-sm mt-2">
+                        (추가비용 청구 건 {validateMutation.data.data.additionalCharges.length}건은 위 별도 목록 참고)
+                      </p>
+                    )}
                   </div>
                 )}
               </div>
@@ -1149,11 +1226,15 @@ export default function SettlementPage() {
                 <li>• <span className="text-green-600 font-medium">정상</span>: 예상 요금 대비 ±5% 이내</li>
                 <li>• <span className="text-yellow-600 font-medium">경고</span>: 예상 요금 대비 5~15% 차이</li>
                 <li>• <span className="text-red-600 font-medium">오류</span>: 예상 요금 대비 15% 이상 차이</li>
+                <li>• <span className="text-blue-600 font-medium">추가비용</span>: 해외운송료 없이 할증료만 청구된 건 (외곽지역 수수료 등)</li>
                 <li>• <span className="text-gray-500 font-medium">미검증</span>: 요금표에 없는 국가/운송사 조합</li>
               </ul>
-              <div className="mt-4 p-3 bg-white rounded-lg">
+              <div className="mt-4 p-3 bg-white rounded-lg space-y-2">
                 <p className="text-xs text-gray-500">
                   * 표준 요금표: 롯데글로벌(YAMATO, USPS, CXC, CJ Logistics, Skynet, HCT, AusPost, CanadaPost), SF Express, UPS, K-Packet, EMS
+                </p>
+                <p className="text-xs text-gray-500">
+                  * 검증 대상: 해외운송료(순수 운송료)와 표준 요금표를 비교합니다. 청구중량이 없는 경우 실중량/부피중량 중 큰 값으로 대체됩니다.
                 </p>
               </div>
             </div>

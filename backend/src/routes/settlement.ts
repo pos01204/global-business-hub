@@ -236,6 +236,27 @@ router.post('/upload', upload.single('file'), async (req, res) => {
       // 기간 추출
       const period = extractPeriod(rowData.shipped_at);
       
+      // 중량 파싱
+      const actualWeight = parseNumber(rowData.actual_weight);
+      const volumetricWeight = parseNumber(rowData.volumetric_weight);
+      const rawChargedWeight = parseNumber(rowData.charged_weight);
+      
+      // 청구중량이 없으면 실중량/부피중량 중 큰 값으로 폴백
+      const chargedWeight = rawChargedWeight > 0 
+        ? rawChargedWeight 
+        : Math.max(actualWeight, volumetricWeight);
+      
+      // 비용 파싱
+      const shippingFee = parseNumber(rowData.shipping_fee);
+      const surcharge1 = parseNumber(rowData.surcharge1);
+      const surcharge2 = parseNumber(rowData.surcharge2);
+      const surcharge3 = parseNumber(rowData.surcharge3);
+      const totalCost = parseNumber(rowData.total_cost);
+      
+      // 비용 유형 식별 (추가비용만 청구된 건인지)
+      const totalSurcharge = surcharge1 + surcharge2 + surcharge3;
+      const isAdditionalChargeOnly = shippingFee === 0 && totalSurcharge > 0 && totalCost === totalSurcharge;
+      
       // 표준 형식으로 변환
       const standardRow = [
         generateId(),                                    // id
@@ -254,18 +275,18 @@ router.post('/upload', upload.single('file'), async (req, res) => {
         rowData.country_code || '',                      // country_code
         rowData.zone || '',                              // zone
         rowData.dimensions || '',                        // dimensions
-        parseNumber(rowData.actual_weight),              // actual_weight
-        parseNumber(rowData.volumetric_weight),          // volumetric_weight
-        parseNumber(rowData.charged_weight),             // charged_weight
-        parseNumber(rowData.shipping_fee),               // shipping_fee
-        parseNumber(rowData.surcharge1),                 // surcharge1
+        actualWeight,                                    // actual_weight
+        volumetricWeight,                                // volumetric_weight
+        chargedWeight,                                   // charged_weight (폴백 적용됨)
+        shippingFee,                                     // shipping_fee
+        surcharge1,                                      // surcharge1
         rowData.surcharge1_type || '',                   // surcharge1_type
-        parseNumber(rowData.surcharge2),                 // surcharge2
+        surcharge2,                                      // surcharge2
         rowData.surcharge2_type || '',                   // surcharge2_type
-        parseNumber(rowData.surcharge3),                 // surcharge3
+        surcharge3,                                      // surcharge3
         rowData.surcharge3_type || '',                   // surcharge3_type
-        parseNumber(rowData.total_cost),                 // total_cost
-        rowData.note || '',                              // note
+        totalCost,                                       // total_cost
+        isAdditionalChargeOnly ? `[추가비용] ${rowData.note || ''}`.trim() : (rowData.note || ''), // note (추가비용 표시)
       ];
 
       processedRows.push(standardRow);
@@ -287,14 +308,21 @@ router.post('/upload', upload.single('file'), async (req, res) => {
     // ======== 요금 검증 (자동) ========
     const validationRecords = processedRows.map(row => ({
       id: row[0],
+      shipment_id: row[6],                // shipment_id 추가
       carrier: row[4],
-      country: row[13], // country_code
+      country: row[13],                   // country_code
+      actual_weight: row[16],             // 실중량 추가
+      volumetric_weight: row[17],         // 부피중량 추가
       charged_weight: row[18],
+      shipping_fee: row[19],              // 해외운송료 추가
+      surcharge1: row[20],                // 할증료1 추가
+      surcharge1_type: row[21],           // 할증료1 항목 추가
       total_cost: row[27],
+      note: row[28],                      // 비고 추가
     }));
 
     const validationResult = rateService.validateBatch(validationRecords);
-    console.log(`[Settlement] 요금 검증 완료: 정상 ${validationResult.summary.normal}, 경고 ${validationResult.summary.warning}, 오류 ${validationResult.summary.error}`);
+    console.log(`[Settlement] 요금 검증 완료: 정상 ${validationResult.summary.normal}, 경고 ${validationResult.summary.warning}, 오류 ${validationResult.summary.error}, 추가비용 ${validationResult.summary.additionalChargeOnly || 0}`);
 
     // 검증 결과 중 경고/오류 건만 추출
     const validationIssues = validationResult.results
@@ -769,26 +797,34 @@ router.post('/validate', async (req, res) => {
         success: true,
         data: {
           summary: {
-            total: 0, normal: 0, warning: 0, error: 0, unknown: 0,
+            total: 0, normal: 0, warning: 0, error: 0, unknown: 0, additionalChargeOnly: 0,
             totalExpectedCost: 0, totalActualCost: 0, totalDifference: 0,
           },
           issues: [],
+          additionalCharges: [],
         },
       });
     }
 
-    // 검증 데이터 준비
+    // 검증 데이터 준비 (상세 정보 포함)
     const validationRecords = filteredData.map(row => ({
       id: row.id,
+      shipment_id: row.shipment_id,
       carrier: row.carrier,
       country: row.country_code,
+      actual_weight: parseFloat(row.actual_weight || 0),
+      volumetric_weight: parseFloat(row.volumetric_weight || 0),
       charged_weight: parseFloat(row.charged_weight || 0),
+      shipping_fee: parseFloat(row.shipping_fee || 0),
+      surcharge1: parseFloat(row.surcharge1 || 0),
+      surcharge1_type: row.surcharge1_type || '',
       total_cost: parseFloat(row.total_cost || 0),
+      note: row.note || '',
     }));
 
     const result = rateService.validateBatch(validationRecords);
 
-    // 검증 결과 중 이슈 있는 건만 추출
+    // 검증 결과 중 이슈 있는 건만 추출 (추가비용 건 제외)
     const issues = result.results
       .filter(r => r.status === 'warning' || r.status === 'error')
       .map(r => ({
@@ -803,12 +839,24 @@ router.post('/validate', async (req, res) => {
       }))
       .sort((a, b) => Math.abs(b.difference) - Math.abs(a.difference));
 
+    // 추가비용 청구 건 별도 추출
+    const additionalCharges = result.results
+      .filter(r => r.status === 'additional_charge')
+      .map(r => ({
+        recordId: r.recordId,
+        status: r.status,
+        message: r.message,
+        actualRate: r.actualRate,
+        details: r.details,
+      }));
+
     res.json({
       success: true,
       data: {
         period: period || '전체',
         summary: result.summary,
         issues,
+        additionalCharges, // 추가비용 건 별도 반환
       },
     });
 

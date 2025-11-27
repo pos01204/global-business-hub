@@ -671,15 +671,22 @@ export interface RateValidationResult {
   actualRate: number;
   difference: number;
   differencePercent: number;
-  status: 'normal' | 'warning' | 'error' | 'unknown';
+  status: 'normal' | 'warning' | 'error' | 'unknown' | 'additional_charge';
   message: string;
   details: {
     carrier: string;
     country: string;
     countryCode: string;
     weight: number;
+    actualWeight?: number;
+    volumetricWeight?: number;
+    shippingFee?: number;
+    surchargeAmount?: number;
+    surchargeType?: string;
     service?: string;
     rateSource?: string;
+    shipmentId?: string;
+    isAdditionalChargeOnly?: boolean;
   };
 }
 
@@ -875,17 +882,55 @@ export class RateService {
     country: string,
     weight: number,
     actualRate: number,
-    shippingFeeOnly?: number // 순수 운송료만 (할증료 제외)
+    options?: {
+      shippingFee?: number;        // 순수 운송료
+      surchargeAmount?: number;    // 할증료 합계
+      surchargeType?: string;      // 할증료 항목
+      actualWeight?: number;       // 실중량
+      volumetricWeight?: number;   // 부피중량
+      shipmentId?: string;         // 주문번호
+    }
   ): RateValidationResult {
     const normalizedCarrier = this.normalizeCarrier(carrier);
     const countryCode = this.normalizeCountry(country);
+    const shippingFee = options?.shippingFee ?? 0;
+    const surchargeAmount = options?.surchargeAmount ?? 0;
+    
+    // 추가비용만 청구된 건인지 확인 (해외운송료=0, 할증료만 있음)
+    const isAdditionalChargeOnly = shippingFee === 0 && surchargeAmount > 0 && actualRate === surchargeAmount;
+    
+    // 추가비용만 청구된 건은 별도 처리
+    if (isAdditionalChargeOnly) {
+      return {
+        isValid: true,
+        expectedRate: null,
+        actualRate: actualRate,
+        difference: 0,
+        differencePercent: 0,
+        status: 'additional_charge',
+        message: `추가비용 청구 건 (${options?.surchargeType || '할증료'}): ₩${actualRate.toLocaleString()}`,
+        details: {
+          carrier: normalizedCarrier,
+          country,
+          countryCode,
+          weight,
+          actualWeight: options?.actualWeight,
+          volumetricWeight: options?.volumetricWeight,
+          shippingFee,
+          surchargeAmount,
+          surchargeType: options?.surchargeType,
+          shipmentId: options?.shipmentId,
+          isAdditionalChargeOnly: true,
+        },
+      };
+    }
 
     let expectedRate: number | null = null;
     let service: string | undefined;
     let rateSource: string | undefined;
 
-    // 순수 운송료가 있으면 그것으로 비교, 없으면 total로 비교
-    const compareRate = shippingFeeOnly !== undefined ? shippingFeeOnly : actualRate;
+    // 비교 대상: 순수 운송료가 있으면 그것으로, 없으면 total로 비교
+    const compareRate = shippingFee > 0 ? shippingFee : actualRate;
 
     // 운송사별 예상 요금 조회
     if (normalizedCarrier === 'LOTTE') {
@@ -933,8 +978,15 @@ export class RateService {
           country,
           countryCode,
           weight,
+          actualWeight: options?.actualWeight,
+          volumetricWeight: options?.volumetricWeight,
+          shippingFee,
+          surchargeAmount,
+          surchargeType: options?.surchargeType,
+          shipmentId: options?.shipmentId,
           service,
           rateSource,
+          isAdditionalChargeOnly: false,
         },
       };
     }
@@ -971,8 +1023,15 @@ export class RateService {
         country,
         countryCode,
         weight,
+        actualWeight: options?.actualWeight,
+        volumetricWeight: options?.volumetricWeight,
+        shippingFee,
+        surchargeAmount,
+        surchargeType: options?.surchargeType,
+        shipmentId: options?.shipmentId,
         service,
         rateSource,
+        isAdditionalChargeOnly: false,
       },
     };
   }
@@ -1096,12 +1155,18 @@ export class RateService {
    */
   validateBatch(
     records: Array<{
+      id?: string;
+      shipment_id?: string;
       carrier: string;
       country: string;
+      actual_weight?: number;
+      volumetric_weight?: number;
       charged_weight: number;
-      total_cost: number;
       shipping_fee?: number;
-      id?: string;
+      surcharge1?: number;
+      surcharge1_type?: string;
+      total_cost: number;
+      note?: string;
     }>
   ): {
     results: Array<RateValidationResult & { recordId?: string }>;
@@ -1111,6 +1176,7 @@ export class RateService {
       warning: number;
       error: number;
       unknown: number;
+      additionalChargeOnly: number;
       totalExpectedCost: number;
       totalActualCost: number;
       totalDifference: number;
@@ -1121,6 +1187,7 @@ export class RateService {
     let warning = 0;
     let error = 0;
     let unknown = 0;
+    let additionalChargeOnly = 0;
     let totalExpectedCost = 0;
     let totalActualCost = 0;
 
@@ -1130,7 +1197,14 @@ export class RateService {
         record.country,
         record.charged_weight,
         record.total_cost,
-        record.shipping_fee
+        {
+          shippingFee: record.shipping_fee,
+          surchargeAmount: record.surcharge1,
+          surchargeType: record.surcharge1_type,
+          actualWeight: record.actual_weight,
+          volumetricWeight: record.volumetric_weight,
+          shipmentId: record.shipment_id,
+        }
       );
 
       results.push({
@@ -1156,6 +1230,10 @@ export class RateService {
         case 'unknown':
           unknown++;
           break;
+        case 'additional_charge':
+          additionalChargeOnly++;
+          // 추가비용 건은 예상 비용에서 제외
+          break;
       }
     }
 
@@ -1167,6 +1245,7 @@ export class RateService {
         warning,
         error,
         unknown,
+        additionalChargeOnly,
         totalExpectedCost,
         totalActualCost,
         totalDifference: totalActualCost - totalExpectedCost,
