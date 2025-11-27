@@ -1084,7 +1084,73 @@ router.get('/archive', async (req, res) => {
     const startDate = req.query.startDate as string | undefined;
     const endDate = req.query.endDate as string | undefined;
 
-    let items = Array.from(qcDataStore.archive.values());
+    // 메모리 아카이브 + 원본 시트에서 archived 상태인 항목도 함께 조회
+    const archiveMap = new Map<string, QCItem>();
+    
+    // 먼저 메모리 아카이브 추가
+    for (const item of qcDataStore.archive.values()) {
+      archiveMap.set(item.id, item);
+    }
+    
+    // 원본 시트에서 archived 상태인 항목도 추가
+    try {
+      console.log('[QC] 아카이브 조회: 원본 시트에서 archived 항목 검색 시작...');
+      
+      // 텍스트 QC 원본 시트에서 archived 항목 조회
+      const textData = await sheetsService.getSheetDataAsJson(SHEET_NAMES.QC_TEXT_RAW, false);
+      let textArchivedCount = 0;
+      for (const record of textData) {
+        const status = String(record.status || '').toLowerCase().trim();
+        if (status === 'archived' || record.archived === true) {
+          const id = generateId('text', record);
+          if (!archiveMap.has(id)) {
+            const qcItem: QCItem = {
+              id,
+              type: 'text',
+              data: record,
+              status: 'approved',
+              needsRevision: false,
+              createdAt: record.createdAt ? new Date(record.createdAt) : new Date(),
+              completedAt: record.completedAt ? new Date(record.completedAt) : new Date(),
+            };
+            archiveMap.set(id, qcItem);
+            textArchivedCount++;
+          }
+        }
+      }
+      console.log(`[QC] 텍스트 QC 원본 시트에서 ${textArchivedCount}개 archived 항목 발견`);
+
+      // 이미지 QC 원본 시트에서 archived 항목 조회
+      const imageData = await sheetsService.getSheetDataAsJson(SHEET_NAMES.QC_IMAGE_RAW, false);
+      let imageArchivedCount = 0;
+      for (const record of imageData) {
+        const status = String(record.status || '').toLowerCase().trim();
+        if (status === 'archived' || record.archived === true) {
+          const id = generateId('image', record);
+          if (!archiveMap.has(id)) {
+            const qcItem: QCItem = {
+              id,
+              type: 'image',
+              data: record,
+              status: 'approved',
+              needsRevision: false,
+              createdAt: record.createdAt ? new Date(record.createdAt) : new Date(),
+              completedAt: record.completedAt ? new Date(record.completedAt) : new Date(),
+            };
+            archiveMap.set(id, qcItem);
+            imageArchivedCount++;
+          }
+        }
+      }
+      console.log(`[QC] 이미지 QC 원본 시트에서 ${imageArchivedCount}개 archived 항목 발견`);
+      console.log(`[QC] 총 아카이브 항목: ${archiveMap.size}개 (메모리: ${qcDataStore.archive.size}개, 원본시트: ${textArchivedCount + imageArchivedCount}개)`);
+    } catch (error: any) {
+      console.warn('[QC] 원본 시트에서 아카이브 항목 조회 실패:', error);
+      console.warn('[QC] 오류 상세:', error.message);
+      // 실패해도 메모리 아카이브는 계속 사용
+    }
+
+    let items = Array.from(archiveMap.values());
 
     // 타입 필터링
     if (type && type !== 'all') {
