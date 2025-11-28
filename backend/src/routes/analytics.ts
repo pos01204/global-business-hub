@@ -30,12 +30,38 @@ router.get('/', async (req, res) => {
     let orderData = await sheetsService.getSheetDataAsJson(SHEET_NAMES.ORDER, false);
     const usersData = await sheetsService.getSheetDataAsJson(SHEET_NAMES.USERS, false);
 
-    // 사용자 맵 생성
+    // user_locale 시트에서 지역 정보 로드
+    const userLocaleMap = new Map<string, { country: string; region: string; timezone: string }>();
+    try {
+      const userLocaleData = await sheetsService.getSheetDataAsJson(SHEET_NAMES.USER_LOCALE, false);
+      userLocaleData.forEach((row: any) => {
+        const userId = String(row.user_id || '');
+        if (userId) {
+          userLocaleMap.set(userId, {
+            country: row.country_code || '',
+            region: row.region || '',
+            timezone: row.timezone || '',
+          });
+        }
+      });
+      console.log(`[Analytics] Loaded ${userLocaleMap.size} user locale entries`);
+    } catch (e) {
+      console.warn('[Analytics] user_locale not available');
+    }
+
+    // 사용자 맵 생성 (user_locale 정보 포함)
     const userMap = new Map<number, any>();
     usersData.forEach((row: any) => {
       const userId = parseInt(row.ID);
       if (!isNaN(userId)) {
-        userMap.set(userId, row);
+        // user_locale에서 지역 정보 가져오기 (우선순위: user_locale > users)
+        const locale = userLocaleMap.get(String(userId));
+        userMap.set(userId, {
+          ...row,
+          COUNTRY: locale?.country || row.COUNTRY || 'N/A',
+          REGION: locale?.region || '',
+          TIMEZONE: locale?.timezone || '',
+        });
       }
     });
 
@@ -749,7 +775,9 @@ router.get('/', async (req, res) => {
           if (isFtp) {
             acquisitionKpis.totalFtps++
           }
-          const c = u.COUNTRY || 'N/A'
+          // user_locale에서 지역 정보 가져오기 (우선순위: user_locale > users)
+          const locale = userLocaleMap.get(String(userId));
+          const c = locale?.country || u.COUNTRY || 'N/A'
           newUserCountriesData[c] = (newUserCountriesData[c] || 0) + 1
         }
 
