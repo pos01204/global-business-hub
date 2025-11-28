@@ -595,5 +595,67 @@ export const qcApi = {
   },
 }
 
+// 비용 분석 & 손익 시뮬레이션 API
+export const costAnalysisApi = {
+  // 대시보드 데이터 조회
+  getDashboard: async (params?: { startDate?: string; endDate?: string }) => {
+    const response = await api.get('/api/cost-analysis/dashboard', { params })
+    return response.data
+  },
+
+  // 단일 주문 시뮬레이션
+  simulate: async (input: {
+    country: string
+    productPriceKRW: number
+    weightKg: number
+    dimensions?: {
+      lengthCm: number
+      widthCm: number
+      heightCm: number
+    }
+    itemCount?: number
+    carrier?: string
+  }) => {
+    const response = await api.post('/api/cost-analysis/simulate', input)
+    return response.data
+  },
+
+  // 운송사별 요금 조회
+  getRates: async (params: { country: string; weight: number; height?: number }) => {
+    const response = await api.get('/api/cost-analysis/rates', { params })
+    return response.data
+  },
+
+  // 국가 목록 조회
+  getCountries: async () => {
+    const response = await api.get('/api/cost-analysis/countries')
+    return response.data
+  },
+
+  // 배송 정책 조회
+  getPolicies: async () => {
+    const response = await api.get('/api/cost-analysis/policies')
+    return response.data
+  },
+
+  // 운송사 목록 조회
+  getCarriers: async () => {
+    const response = await api.get('/api/cost-analysis/carriers')
+    return response.data
+  },
+
+  // 환율 조회
+  getExchangeRates: async () => {
+    const response = await api.get('/api/cost-analysis/exchange-rates')
+    return response.data
+  },
+
+  // 국가별 상세 분석
+  getCountryDetail: async (countryCode: string, params?: { startDate?: string; endDate?: string }) => {
+    const response = await api.get(`/api/cost-analysis/country/${countryCode}`, { params })
+    return response.data
+  },
+}
+
 export default api
 
