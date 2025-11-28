@@ -45,18 +45,18 @@ async function loadReviews(): Promise<Review[]> {
 
   if (!isGoogleSheetsConfigured) {
     console.warn('[Reviews] Google Sheets가 설정되지 않음');
-    return reviewsCache || [];
+    return reviewsCache ?? [];
   }
 
   try {
-    const rows = await sheetsService.getSheetData(SHEET_NAMES.REVIEW);
+    const rows = await sheetsService.getSheetDataAsJson(SHEET_NAMES.REVIEW);
     
     if (!rows || rows.length === 0) {
       console.warn('[Reviews] review 시트에 데이터 없음');
       return [];
     }
 
-    reviewsCache = rows.map((row: any) => ({
+    const reviews: Review[] = rows.map((row: any) => ({
       dt: row.dt || '',
       review_id: parseInt(row.review_id) || 0,
       rating: parseInt(row.rating) || 0,
@@ -74,12 +74,13 @@ async function loadReviews(): Promise<Review[]> {
       country: row.country || '',
     }));
 
+    reviewsCache = reviews;
     lastLoadTime = now;
-    console.log(`[Reviews] ${reviewsCache.length}개 리뷰 로드 완료`);
-    return reviewsCache;
+    console.log(`[Reviews] ${reviews.length}개 리뷰 로드 완료`);
+    return reviews;
   } catch (error) {
     console.error('[Reviews] 데이터 로드 실패:', error);
-    return reviewsCache || [];
+    return reviewsCache ?? [];
   }
 }
 
