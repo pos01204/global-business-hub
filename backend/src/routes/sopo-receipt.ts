@@ -403,8 +403,7 @@ router.post('/upload', upload.single('file'), async (req: Request, res: Response
       productName: string;
       option: string;
       quantity: number;
-      amountUSD: number;
-      amountKRW: number;
+      amount: number; // 작품 판매 금액(KRW) - 작가 정산 기준
       orderStatus: string;
       shippedAt: string;
       carrier: string;
@@ -418,8 +417,7 @@ router.post('/upload', upload.single('file'), async (req: Request, res: Response
       artistId?: string;
       artistEmail?: string;
       orders: OrderDetail[];
-      totalAmountUSD: number;
-      totalAmountKRW: number;
+      totalAmount: number; // 작품 판매 금액(KRW) 합계
       orderCount: number;
     }
 
@@ -450,8 +448,7 @@ router.post('/upload', upload.single('file'), async (req: Request, res: Response
             artistId: artistInfo.id,
             artistEmail: artistInfo.email,
             orders: [],
-            totalAmountUSD: 0,
-            totalAmountKRW: 0,
+            totalAmount: 0, // 작품 판매 금액(KRW) 합계
             orderCount: 0,
           });
         }
@@ -469,9 +466,9 @@ router.post('/upload', upload.single('file'), async (req: Request, res: Response
         );
 
         if (!existingOrder) {
-          // Total GMV (USD)로 금액 계산 - 다른 기능들과 동일
-          const amountUSD = cleanAndParseFloat(row['Total GMV']);
-          const amountKRW = amountUSD * USD_TO_KRW;
+          // 작품 판매 금액(KRW) - 작가 정산 기준 (AQ열)
+          // 주문내역서 발급 시 이 금액을 기준으로 함
+          const productPriceKRW = cleanAndParseFloat(row['작품 판매 금액(KRW)']);
           const quantity = parseInt(row['구매수량'] || row.quantity || '1') || 1;
 
           artistSummary.orders.push({
@@ -480,8 +477,8 @@ router.post('/upload', upload.single('file'), async (req: Request, res: Response
             productName: row.product_name || row['작품명'] || '',
             option: row.option || row['옵션'] || '',
             quantity,
-            amountUSD,
-            amountKRW,
+            // 작품 금액 (KRW) - 작가 정산 기준
+            amount: productPriceKRW,
             orderStatus: '배송완료',
             shippedAt: shipment.shippedAt,
             carrier: shipment.carrier,
@@ -490,8 +487,7 @@ router.post('/upload', upload.single('file'), async (req: Request, res: Response
             recipient: shipment.recipient,
           });
 
-          artistSummary.totalAmountUSD += amountUSD;
-          artistSummary.totalAmountKRW += amountKRW;
+          artistSummary.totalAmount += productPriceKRW;
         }
       }
     }
@@ -530,11 +526,7 @@ router.post('/upload', upload.single('file'), async (req: Request, res: Response
           withEmail,
           withoutEmail,
         },
-        artists: artistSummaries.map(a => ({
-          ...a,
-          // KRW 금액을 메인으로 반환
-          totalAmount: a.totalAmountKRW,
-        })),
+        artists: artistSummaries,
       },
     });
   } catch (error: any) {
@@ -549,7 +541,7 @@ router.post('/upload', upload.single('file'), async (req: Request, res: Response
 async function saveTrackingData(period: string, artists: any[]): Promise<void> {
   const headers = [
     'period', 'artist_name', 'artist_id', 'artist_email', 'order_count', 
-    'total_amount_usd', 'total_amount_krw',
+    'total_amount', // 작품 판매 금액(KRW) 합계
     'notification_sent_at', 'application_status', 'application_submitted_at',
     'jotform_submission_id', 'reminder_sent_at', 'receipt_issued_at', 'updated_at'
   ];
@@ -571,8 +563,7 @@ async function saveTrackingData(period: string, artists: any[]): Promise<void> {
     artist.artistId || '',
     artist.artistEmail || '',
     artist.orderCount,
-    artist.totalAmountUSD || 0,
-    artist.totalAmountKRW || artist.totalAmount || 0,
+    artist.totalAmount || 0, // 작품 판매 금액(KRW) 합계
     '', // notification_sent_at
     'pending', // application_status
     '', // application_submitted_at
@@ -635,9 +626,7 @@ router.get('/artists', async (req: Request, res: Response) => {
         artistId: row.artist_id || null,
         artistEmail: email || null,
         orderCount: parseInt(row.order_count) || 0,
-        totalAmountUSD: parseFloat(row.total_amount_usd) || 0,
-        totalAmountKRW: parseFloat(row.total_amount_krw) || parseFloat(row.total_amount) || 0,
-        totalAmount: parseFloat(row.total_amount_krw) || parseFloat(row.total_amount) || 0,
+        totalAmount: parseFloat(row.total_amount) || 0, // 작품 판매 금액(KRW) 합계
         notificationSentAt: row.notification_sent_at || null,
         applicationStatus: row.application_status || 'pending',
         applicationSubmittedAt: row.application_submitted_at || null,
@@ -684,12 +673,33 @@ router.get('/order-sheet/:artistName', async (req: Request, res: Response) => {
     // logistics 데이터 로드
     const logisticsData = await sheetsService.getSheetDataAsJson(SHEET_NAMES.LOGISTICS, true);
 
+    // 디버깅: logistics 시트 전체 컬럼명 출력 (최초 1회)
+    if (logisticsData.length > 0) {
+      const allColumns = Object.keys(logisticsData[0]);
+      console.log('[Sopo] Logistics 전체 컬럼명:', allColumns.join(' | '));
+      // AQ열 근처 컬럼들 (약 43번째 컬럼)
+      console.log('[Sopo] 금액 관련 컬럼:', allColumns.filter(c => 
+        c.includes('금액') || c.includes('price') || c.includes('KRW') || c.includes('판매')
+      ).join(' | '));
+    }
+
     // 해당 작가의 주문 필터링
+    const decodedArtistName = decodeURIComponent(artistName);
+    console.log(`[Sopo] 주문내역서 조회 - 작가명: "${decodedArtistName}"`);
+    
     let artistOrders = logisticsData.filter((row: any) => {
       const rowArtist = row['artist_name (kr)'] || row['artist_name(kr)'] || 
-                        row.artist_name_kr || row.artist_name || row.artist;
-      return rowArtist === artistName || rowArtist === decodeURIComponent(artistName);
+                        row.artist_name_kr || row.artist_name || row.artist || '';
+      return rowArtist === artistName || rowArtist === decodedArtistName;
     });
+    
+    console.log(`[Sopo] 필터링 결과: ${artistOrders.length}건 (전체 ${logisticsData.length}건 중)`);
+    
+    // 작가명 매칭 안될 시 유사 검색 (디버깅용)
+    if (artistOrders.length === 0) {
+      const sample = logisticsData.slice(0, 5).map((r: any) => r['artist_name (kr)'] || r.artist_name);
+      console.log('[Sopo] 시트의 작가명 샘플:', sample);
+    }
 
     // shipment_id로 추가 필터링 (있는 경우)
     if (shipmentIds) {
@@ -703,16 +713,22 @@ router.get('/order-sheet/:artistName', async (req: Request, res: Response) => {
     // 주문내역서 형식으로 변환
     // 주문내역서는 작가 정산용이므로 "작품 판매 금액(KRW)" 사용
     // (hidden fee, 배송비 등 idus 적용 부분 제외, 실제 작가 판매 금액 기준)
+    
+    // 디버깅: 첫 번째 주문의 금액 관련 컬럼 확인
+    if (artistOrders.length > 0) {
+      const sample = artistOrders[0];
+      console.log('[Sopo] 주문내역서 금액 컬럼 확인:', {
+        '작품 판매 금액(KRW)': sample['작품 판매 금액(KRW)'],
+        '작품 가격': sample['작품 가격'],
+        '옵션 가격': sample['옵션 가격'],
+        'Product GMV': sample['Product GMV'],
+        'Total GMV': sample['Total GMV'],
+      });
+    }
+    
     const orderSheet = artistOrders.map((row: any) => {
-      // 작품 판매 금액(KRW) - 작가 정산 기준 금액
-      const productPriceKRW = cleanAndParseFloat(
-        row['작품 판매 금액(KRW)'] || 
-        row['작품판매금액(KRW)'] || 
-        row['작품 금액'] || 
-        row.product_price_krw ||
-        row.price_krw ||
-        0
-      );
+      // 작품 판매 금액(KRW) - 작가 정산 기준 금액 (AQ열)
+      const productPriceKRW = cleanAndParseFloat(row['작품 판매 금액(KRW)']);
       
       return {
         orderCode: row.order_code || '',
@@ -1080,9 +1096,7 @@ router.get('/tracking', async (req: Request, res: Response) => {
             artistId: row.artist_id || null,
             artistEmail: email || null,
             orderCount: parseInt(row.order_count) || 0,
-            totalAmountUSD: parseFloat(row.total_amount_usd) || 0,
-            totalAmountKRW: parseFloat(row.total_amount_krw) || parseFloat(row.total_amount) || 0,
-            totalAmount: parseFloat(row.total_amount_krw) || parseFloat(row.total_amount) || 0,
+            totalAmount: parseFloat(row.total_amount) || 0, // 작품 판매 금액(KRW) 합계
             notificationSentAt: row.notification_sent_at || null,
             applicationStatus: row.application_status || 'pending',
             applicationSubmittedAt: row.application_submitted_at || null,

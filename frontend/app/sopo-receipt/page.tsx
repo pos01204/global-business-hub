@@ -26,9 +26,7 @@ interface ArtistSummary {
   artistId?: string
   artistEmail?: string
   orders: OrderDetail[]
-  totalAmount: number
-  totalAmountKRW?: number
-  totalAmountUSD?: number
+  totalAmount: number // 작품 판매 금액(KRW) 합계 - 작가 정산 기준
   orderCount: number
 }
 
@@ -38,9 +36,7 @@ interface OrderDetail {
   productName: string
   option: string
   quantity: number
-  amount: number
-  amountKRW?: number
-  amountUSD?: number
+  amount: number // 작품 판매 금액(KRW) - 작가 정산 기준
   orderStatus: string
   shippedAt: string
   carrier: string
