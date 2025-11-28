@@ -25,6 +25,7 @@ import trendAnalysisRoutes from './routes/trend-analysis';
 import qcRoutes from './routes/qc';
 import settlementRoutes from './routes/settlement';
 import costAnalysisRoutes from './routes/cost-analysis';
+import sopoReceiptRoutes from './routes/sopo-receipt';
 
 // .env 파일 로드 (backend 폴더 기준)
 let envPath: string;
@@ -84,6 +85,8 @@ app.use('/api/settlement', settlementRoutes);
 console.log('[Server] Settlement 라우터 등록 완료: /api/settlement');
 app.use('/api/cost-analysis', costAnalysisRoutes);
 console.log('[Server] Cost Analysis 라우터 등록 완료: /api/cost-analysis');
+app.use('/api/sopo-receipt', sopoReceiptRoutes);
+console.log('[Server] Sopo Receipt 라우터 등록 완료: /api/sopo-receipt');
 
 app.get('/api', (req, res) => {
   res.json({ message: 'Global Business Hub API' });

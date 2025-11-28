@@ -679,5 +679,63 @@ export const costAnalysisApi = {
   },
 }
 
+// 소포수령증 관리 API
+export const sopoReceiptApi = {
+  // 롯데 선적 CSV 업로드 & 검증
+  upload: async (file: File, period: string) => {
+    const formData = new FormData()
+    formData.append('file', file)
+    formData.append('period', period)
+    const response = await api.post('/api/sopo-receipt/upload', formData, {
+      headers: { 'Content-Type': 'multipart/form-data' },
+    })
+    return response.data
+  },
+
+  // 대상 작가 목록 조회
+  getArtists: async (period?: string) => {
+    const response = await api.get('/api/sopo-receipt/artists', { params: { period } })
+    return response.data
+  },
+
+  // 주문내역서 데이터 조회
+  getOrderSheet: async (artistName: string, period?: string) => {
+    const response = await api.get(`/api/sopo-receipt/order-sheet/${encodeURIComponent(artistName)}`, {
+      params: { period },
+    })
+    return response.data
+  },
+
+  // 안내 이메일 발송
+  notify: async (params: { period: string; artistNames?: string[]; jotformLink?: string }) => {
+    const response = await api.post('/api/sopo-receipt/notify', params)
+    return response.data
+  },
+
+  // JotForm 데이터 동기화
+  syncJotform: async () => {
+    const response = await api.post('/api/sopo-receipt/sync-jotform')
+    return response.data
+  },
+
+  // 신청 현황 트래킹 조회
+  getTracking: async (params?: { period?: string; status?: string }) => {
+    const response = await api.get('/api/sopo-receipt/tracking', { params })
+    return response.data
+  },
+
+  // 리마인더 발송
+  sendReminder: async (params: { period: string; artistNames: string[] }) => {
+    const response = await api.post('/api/sopo-receipt/reminder', params)
+    return response.data
+  },
+
+  // 기간 목록 조회
+  getPeriods: async () => {
+    const response = await api.get('/api/sopo-receipt/periods')
+    return response.data
+  },
+}
+
 export default api
 

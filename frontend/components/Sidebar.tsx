@@ -42,6 +42,7 @@ const navGroups: NavGroup[] = [
     icon: '🔧',
     items: [
       { href: '/qc', label: 'QC 관리', icon: '✅' },
+      { href: '/sopo-receipt', label: '소포수령증', icon: '📦' },
       { href: '/lookup', label: '통합 검색', icon: '🔍' },
     ],
   },

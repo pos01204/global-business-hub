@@ -61,5 +61,8 @@ export const SHEET_NAMES = {
   RATE_LOTTE: 'Rate_LotteGlobal', // 롯데글로벌 요금표
   RATE_EMS: 'Rate_EMS', // EMS 요금표
   RATE_KPACKET: 'Rate_KPacket', // K-Packet 요금표
+  // 소포수령증 관련 시트
+  SOPO_TRACKING: 'Sopo_tracking', // 소포수령증 발급 트래킹
+  SOPO_JOTFORM: 'Sopo_jotform', // JotForm 신청 데이터 연동
 } as const;
 
