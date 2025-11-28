@@ -67,6 +67,9 @@ export default function SopoReceiptPage() {
   const [uploadResult, setUploadResult] = useState<UploadResult | null>(null)
   const [selectedArtists, setSelectedArtists] = useState<Set<string>>(new Set())
   const [selectedArtistDetail, setSelectedArtistDetail] = useState<ArtistSummary | null>(null)
+  // 검색 & 필터 상태
+  const [searchQuery, setSearchQuery] = useState('')
+  const [statusFilter, setStatusFilter] = useState<string>('all')
 
   // 기간 목록 조회
   const { data: periodsData } = useQuery({
@@ -75,10 +78,10 @@ export default function SopoReceiptPage() {
   })
 
   // 트래킹 데이터 조회
-  const { data: trackingData, isLoading: trackingLoading } = useQuery({
+  const { data: trackingData, isLoading: trackingLoading, refetch: refetchTracking } = useQuery({
     queryKey: ['sopo-tracking', selectedPeriod],
     queryFn: () => sopoReceiptApi.getTracking({ period: selectedPeriod }),
-    enabled: activeTab === 'tracking',
+    enabled: activeTab === 'tracking' || activeTab === 'history',
   })
 
   // 파일 업로드 뮤테이션
@@ -111,6 +114,37 @@ export default function SopoReceiptPage() {
       queryClient.invalidateQueries({ queryKey: ['sopo-tracking'] })
     },
   })
+
+  // JotForm 동기화 뮤테이션
+  const syncJotformMutation = useMutation({
+    mutationFn: () => sopoReceiptApi.syncJotform(),
+    onSuccess: (data) => {
+      queryClient.invalidateQueries({ queryKey: ['sopo-tracking'] })
+      if (data.data) {
+        alert(`✅ JotForm 동기화 완료: ${data.data.synced}건 업데이트`)
+      }
+    },
+  })
+
+  // 트래킹 데이터 필터링
+  const filteredTrackingRecords = trackingData?.data?.records?.filter((record: TrackingRecord) => {
+    // 검색 필터
+    if (searchQuery) {
+      const query = searchQuery.toLowerCase()
+      const matchesSearch = 
+        record.artistName.toLowerCase().includes(query) ||
+        (record.artistEmail && record.artistEmail.toLowerCase().includes(query))
+      if (!matchesSearch) return false
+    }
+    // 상태 필터
+    if (statusFilter !== 'all') {
+      if (statusFilter === 'pending' && record.applicationStatus !== 'pending') return false
+      if (statusFilter === 'notified' && !record.notificationSentAt) return false
+      if (statusFilter === 'submitted' && record.applicationStatus !== 'submitted') return false
+      if (statusFilter === 'no_email' && record.artistEmail) return false
+    }
+    return true
+  }) || []
 
   // 파일 업로드 핸들러
   const handleFileUpload = useCallback((e: React.ChangeEvent<HTMLInputElement>) => {
@@ -169,18 +203,30 @@ export default function SopoReceiptPage() {
               <p className="text-sm text-gray-500 mt-1">해외 배송 주문 소포수령증 발급 자동화</p>
             </div>
             
-            {/* 기간 선택 */}
+            {/* 기간 선택 & 액션 */}
             <div className="flex items-center gap-4">
-              <label className="text-sm font-medium text-gray-700">기간:</label>
-              <select
-                value={selectedPeriod}
-                onChange={(e) => setSelectedPeriod(e.target.value)}
-                className="px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-orange-500 focus:border-orange-500"
+              <div className="flex items-center gap-2">
+                <label className="text-sm font-medium text-gray-700">기간:</label>
+                <select
+                  value={selectedPeriod}
+                  onChange={(e) => setSelectedPeriod(e.target.value)}
+                  className="px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-orange-500 focus:border-orange-500"
+                >
+                  {generatePeriodOptions().map(period => (
+                    <option key={period} value={period}>{formatPeriodDisplay(period)}</option>
+                  ))}
+                </select>
+              </div>
+              
+              {/* JotForm 동기화 버튼 */}
+              <button
+                onClick={() => syncJotformMutation.mutate()}
+                disabled={syncJotformMutation.isPending}
+                className="px-4 py-2 text-sm bg-purple-100 text-purple-700 rounded-lg hover:bg-purple-200 disabled:opacity-50 flex items-center gap-2"
+                title="JotForm 신청 데이터 동기화"
               >
-                {generatePeriodOptions().map(period => (
-                  <option key={period} value={period}>{formatPeriodDisplay(period)}</option>
-                ))}
-              </select>
+                {syncJotformMutation.isPending ? '⏳' : '🔄'} JotForm 동기화
+              </button>
             </div>
           </div>
 
@@ -503,6 +549,38 @@ export default function SopoReceiptPage() {
         {/* 탭 3: 신청 현황 */}
         {activeTab === 'tracking' && (
           <div className="space-y-6">
+            {/* 검색 & 필터 */}
+            <div className="bg-white rounded-xl shadow-sm border border-gray-200 p-4">
+              <div className="flex items-center gap-4 flex-wrap">
+                <div className="flex-1 min-w-[200px]">
+                  <input
+                    type="text"
+                    placeholder="작가명 또는 이메일로 검색..."
+                    value={searchQuery}
+                    onChange={(e) => setSearchQuery(e.target.value)}
+                    className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-orange-500 focus:border-orange-500"
+                  />
+                </div>
+                <select
+                  value={statusFilter}
+                  onChange={(e) => setStatusFilter(e.target.value)}
+                  className="px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-orange-500"
+                >
+                  <option value="all">전체 상태</option>
+                  <option value="pending">대기 중</option>
+                  <option value="notified">안내 발송됨</option>
+                  <option value="submitted">신청 완료</option>
+                  <option value="no_email">이메일 없음</option>
+                </select>
+                <button
+                  onClick={() => refetchTracking()}
+                  className="px-4 py-2 text-gray-600 border border-gray-300 rounded-lg hover:bg-gray-50"
+                >
+                  🔄 새로고침
+                </button>
+              </div>
+            </div>
+
             {trackingLoading ? (
               <div className="text-center py-12">
                 <div className="animate-spin inline-block w-8 h-8 border-2 border-orange-600 border-t-transparent rounded-full"></div>
@@ -511,32 +589,46 @@ export default function SopoReceiptPage() {
             ) : trackingData?.data ? (
               <>
                 {/* 요약 카드 */}
-                <div className="grid grid-cols-4 gap-4">
+                <div className="grid grid-cols-5 gap-4">
                   <StatCard title="전체" value={trackingData.data.summary.total} icon="📊" color="blue" />
                   <StatCard title="안내 발송" value={trackingData.data.summary.notified} icon="📧" color="purple" />
-                  <StatCard title="신청 완료" value={trackingData.data.summary.submitted} icon="✅" color="green" />
                   <StatCard title="대기 중" value={trackingData.data.summary.pending} icon="⏳" color="orange" />
+                  <StatCard title="신청 완료" value={trackingData.data.summary.submitted} icon="✅" color="green" />
+                  <StatCard title="발급 완료" value={trackingData.data.summary.completed || 0} icon="🎉" color="gray" />
                 </div>
 
                 {/* 트래킹 테이블 */}
                 <div className="bg-white rounded-xl shadow-sm border border-gray-200 overflow-hidden">
+                  <div className="p-4 border-b border-gray-200">
+                    <span className="text-sm text-gray-500">검색 결과: {filteredTrackingRecords.length}건</span>
+                  </div>
                   <table className="w-full">
                     <thead className="bg-gray-50">
                       <tr>
                         <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase">작가명</th>
                         <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase">이메일</th>
                         <th className="px-4 py-3 text-right text-xs font-medium text-gray-500 uppercase">주문</th>
-                        <th className="px-4 py-3 text-center text-xs font-medium text-gray-500 uppercase">안내 발송</th>
-                        <th className="px-4 py-3 text-center text-xs font-medium text-gray-500 uppercase">신청 상태</th>
+                        <th className="px-4 py-3 text-right text-xs font-medium text-gray-500 uppercase">금액</th>
+                        <th className="px-4 py-3 text-center text-xs font-medium text-gray-500 uppercase">안내</th>
+                        <th className="px-4 py-3 text-center text-xs font-medium text-gray-500 uppercase">상태</th>
                         <th className="px-4 py-3 text-center text-xs font-medium text-gray-500 uppercase">액션</th>
                       </tr>
                     </thead>
                     <tbody className="divide-y divide-gray-200">
-                      {trackingData.data.records.map((record: TrackingRecord, idx: number) => (
+                      {filteredTrackingRecords.map((record: TrackingRecord, idx: number) => (
                         <tr key={idx} className="hover:bg-gray-50">
                           <td className="px-4 py-3 font-medium text-gray-900">{record.artistName}</td>
-                          <td className="px-4 py-3 text-sm text-gray-500">{record.artistEmail || '-'}</td>
+                          <td className="px-4 py-3 text-sm">
+                            {record.artistEmail ? (
+                              <span className="text-gray-600">{record.artistEmail}</span>
+                            ) : (
+                              <span className="px-2 py-0.5 bg-red-100 text-red-600 rounded text-xs">없음</span>
+                            )}
+                          </td>
                           <td className="px-4 py-3 text-right text-sm">{record.orderCount}건</td>
+                          <td className="px-4 py-3 text-right text-sm font-medium">
+                            ₩{(record.totalAmount || 0).toLocaleString()}
+                          </td>
                           <td className="px-4 py-3 text-center text-sm">
                             {record.notificationSentAt ? (
                               <span className="text-green-600">✓</span>
@@ -548,7 +640,7 @@ export default function SopoReceiptPage() {
                             <StatusBadge status={record.applicationStatus} />
                           </td>
                           <td className="px-4 py-3 text-center">
-                            {record.applicationStatus === 'pending' && record.notificationSentAt && (
+                            {record.applicationStatus === 'pending' && record.notificationSentAt && record.artistEmail && (
                               <button
                                 onClick={() => {
                                   if (confirm(`${record.artistName} 작가님에게 리마인더를 발송하시겠습니까?`)) {
@@ -558,9 +650,26 @@ export default function SopoReceiptPage() {
                                     })
                                   }
                                 }}
-                                className="text-xs text-orange-600 hover:text-orange-800"
+                                disabled={reminderMutation.isPending}
+                                className="text-xs text-orange-600 hover:text-orange-800 disabled:opacity-50"
                               >
                                 리마인더
+                              </button>
+                            )}
+                            {record.applicationStatus === 'pending' && !record.notificationSentAt && record.artistEmail && (
+                              <button
+                                onClick={() => {
+                                  if (confirm(`${record.artistName} 작가님에게 안내를 발송하시겠습니까?`)) {
+                                    notifyMutation.mutate({
+                                      period: selectedPeriod,
+                                      artistNames: [record.artistName],
+                                    })
+                                  }
+                                }}
+                                disabled={notifyMutation.isPending}
+                                className="text-xs text-blue-600 hover:text-blue-800 disabled:opacity-50"
+                              >
+                                안내 발송
                               </button>
                             )}
                           </td>
@@ -568,11 +677,20 @@ export default function SopoReceiptPage() {
                       ))}
                     </tbody>
                   </table>
+                  {filteredTrackingRecords.length === 0 && (
+                    <div className="p-8 text-center text-gray-500">
+                      {searchQuery || statusFilter !== 'all' 
+                        ? '검색 조건에 맞는 데이터가 없습니다.'
+                        : '해당 기간의 트래킹 데이터가 없습니다.'}
+                    </div>
+                  )}
                 </div>
               </>
             ) : (
-              <div className="text-center py-12 text-gray-500">
-                해당 기간의 트래킹 데이터가 없습니다.
+              <div className="bg-white rounded-xl shadow-sm border border-gray-200 p-12 text-center">
+                <div className="text-5xl mb-4">📋</div>
+                <h3 className="text-lg font-medium text-gray-900 mb-2">트래킹 데이터가 없습니다</h3>
+                <p className="text-gray-500">해당 기간의 선적 데이터를 먼저 업로드해주세요.</p>
               </div>
             )}
           </div>
@@ -580,29 +698,63 @@ export default function SopoReceiptPage() {
 
         {/* 탭 4: 히스토리 */}
         {activeTab === 'history' && (
-          <div className="bg-white rounded-xl shadow-sm border border-gray-200 p-6">
-            <h2 className="text-lg font-semibold text-gray-900 mb-4">📊 발급 히스토리</h2>
-            <div className="text-center py-12 text-gray-500">
-              {periodsData?.data?.periods?.length > 0 ? (
-                <div className="space-y-4">
-                  <p className="text-sm text-gray-600 mb-4">기록된 기간:</p>
-                  <div className="flex flex-wrap gap-2 justify-center">
-                    {periodsData.data.periods.map((period: string) => (
-                      <button
-                        key={period}
-                        onClick={() => {
-                          setSelectedPeriod(period)
-                          setActiveTab('tracking')
-                        }}
-                        className="px-4 py-2 bg-gray-100 hover:bg-orange-100 rounded-lg text-sm transition-colors"
-                      >
-                        {formatPeriodDisplay(period)}
-                      </button>
-                    ))}
+          <div className="space-y-6">
+            {/* 전체 통계 */}
+            {trackingData?.data?.summary && (
+              <div className="bg-white rounded-xl shadow-sm border border-gray-200 p-6">
+                <h2 className="text-lg font-semibold text-gray-900 mb-4">📊 {formatPeriodDisplay(selectedPeriod)} 발급 현황</h2>
+                <div className="grid grid-cols-4 gap-4">
+                  <div className="p-4 bg-blue-50 rounded-lg">
+                    <p className="text-sm text-blue-600 mb-1">대상 작가</p>
+                    <p className="text-2xl font-bold text-blue-900">{trackingData.data.summary.total}명</p>
+                  </div>
+                  <div className="p-4 bg-purple-50 rounded-lg">
+                    <p className="text-sm text-purple-600 mb-1">안내 발송</p>
+                    <p className="text-2xl font-bold text-purple-900">{trackingData.data.summary.notified}명</p>
+                  </div>
+                  <div className="p-4 bg-green-50 rounded-lg">
+                    <p className="text-sm text-green-600 mb-1">신청 완료</p>
+                    <p className="text-2xl font-bold text-green-900">{trackingData.data.summary.submitted}명</p>
+                  </div>
+                  <div className="p-4 bg-orange-50 rounded-lg">
+                    <p className="text-sm text-orange-600 mb-1">신청률</p>
+                    <p className="text-2xl font-bold text-orange-900">
+                      {trackingData.data.summary.notified > 0 
+                        ? Math.round((trackingData.data.summary.submitted / trackingData.data.summary.notified) * 100)
+                        : 0}%
+                    </p>
                   </div>
                 </div>
+              </div>
+            )}
+
+            {/* 기간별 이력 */}
+            <div className="bg-white rounded-xl shadow-sm border border-gray-200 p-6">
+              <h2 className="text-lg font-semibold text-gray-900 mb-4">📅 기간별 이력</h2>
+              {periodsData?.data?.periods?.length > 0 ? (
+                <div className="grid grid-cols-4 gap-4">
+                  {periodsData.data.periods.map((period: string) => (
+                    <button
+                      key={period}
+                      onClick={() => {
+                        setSelectedPeriod(period)
+                        setActiveTab('tracking')
+                      }}
+                      className={`p-4 border rounded-lg text-left transition-all hover:shadow-md ${
+                        selectedPeriod === period 
+                          ? 'border-orange-500 bg-orange-50' 
+                          : 'border-gray-200 hover:border-orange-300'
+                      }`}
+                    >
+                      <p className="text-lg font-semibold text-gray-900">{formatPeriodDisplay(period)}</p>
+                      <p className="text-sm text-gray-500 mt-1">클릭하여 상세 보기</p>
+                    </button>
+                  ))}
+                </div>
               ) : (
-                '발급 이력이 없습니다.'
+                <div className="text-center py-8 text-gray-500">
+                  발급 이력이 없습니다.
+                </div>
               )}
             </div>
           </div>
