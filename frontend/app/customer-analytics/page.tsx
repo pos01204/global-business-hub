@@ -735,6 +735,7 @@ function LTVTab() {
                 <th className="text-left py-2 px-3 font-medium text-slate-600">순위</th>
                 <th className="text-left py-2 px-3 font-medium text-slate-600">고객 ID</th>
                 <th className="text-left py-2 px-3 font-medium text-slate-600">국가</th>
+                <th className="text-left py-2 px-3 font-medium text-slate-600">지역</th>
                 <th className="text-right py-2 px-3 font-medium text-slate-600">LTV</th>
                 <th className="text-right py-2 px-3 font-medium text-slate-600">주문 횟수</th>
                 <th className="text-right py-2 px-3 font-medium text-slate-600">평균 주문</th>
@@ -749,7 +750,8 @@ function LTVTab() {
                     {idx < 3 ? ['🥇', '🥈', '🥉'][idx] : `#${idx + 1}`}
                   </td>
                   <td className="py-2 px-3 font-mono text-xs">{customer.userId}</td>
-                  <td className="py-2 px-3">{customer.country}</td>
+                  <td className="py-2 px-3">{customer.country || '-'}</td>
+                  <td className="py-2 px-3 text-slate-500 text-xs">{customer.region || '-'}</td>
                   <td className="py-2 px-3 text-right font-semibold text-green-600">
                     {(customer.ltv / 10000).toFixed(1)}만원
                   </td>

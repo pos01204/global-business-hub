@@ -66,5 +66,7 @@ export const SHEET_NAMES = {
   SOPO_JOTFORM: 'Sopo_jotform', // JotForm 신청 데이터 연동
   // 리뷰 시트
   REVIEW: 'review', // 글로벌 구매 후기
+  // 사용자 지역 정보 시트
+  USER_LOCALE: 'user_locale', // 사용자별 지역/타임존 정보
 } as const;
 

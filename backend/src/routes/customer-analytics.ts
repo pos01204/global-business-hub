@@ -10,6 +10,37 @@ import { sheetsConfig, SHEET_NAMES } from '../config/sheets';
 const router = Router();
 const sheetsService = new GoogleSheetsService(sheetsConfig);
 
+// USD to KRW 환율
+const USD_TO_KRW = 1350;
+
+/**
+ * 금액 파싱 유틸리티 (문자열에서 숫자 추출)
+ */
+function cleanAndParseFloat(value: any): number {
+  if (typeof value === 'number') return value;
+  if (!value) return 0;
+  const cleanedStr = String(value).replace(/[^0-9.-]/g, '');
+  const parsed = parseFloat(cleanedStr);
+  return isNaN(parsed) ? 0 : parsed;
+}
+
+/**
+ * GMV 추출 (USD → KRW 변환)
+ */
+function getGmvKrw(row: any): number {
+  // Total GMV가 USD 기준이므로 KRW로 변환
+  const gmvUsd = cleanAndParseFloat(row['Total GMV']);
+  if (gmvUsd > 0) return gmvUsd * USD_TO_KRW;
+  
+  // 대안 컬럼들 (이미 KRW인 경우)
+  const alternatives = ['상품금액', 'payment_amount', '총금액', 'price'];
+  for (const col of alternatives) {
+    const val = cleanAndParseFloat(row[col]);
+    if (val > 0) return val;
+  }
+  return 0;
+}
+
 // RFM 세그먼트 정의
 const RFM_SEGMENTS = {
   'Champions': { label: '챔피언', color: '#10B981', description: '최근 구매, 자주, 많이 구매하는 최우수 고객' },
@@ -104,11 +135,31 @@ router.get('/rfm', async (req, res) => {
     
     const logisticsData = await sheetsService.getSheetDataAsJson(SHEET_NAMES.LOGISTICS, true);
     
+    // user_locale 시트에서 지역 정보 로드
+    let userLocaleMap = new Map<string, { country: string; region: string; timezone: string }>();
+    try {
+      const userLocaleData = await sheetsService.getSheetDataAsJson(SHEET_NAMES.USER_LOCALE, false);
+      userLocaleData.forEach((row: any) => {
+        const userId = String(row.user_id || '');
+        if (userId) {
+          userLocaleMap.set(userId, {
+            country: row.country_code || '',
+            region: row.region || '',
+            timezone: row.timezone || '',
+          });
+        }
+      });
+      console.log(`[CustomerAnalytics] Loaded ${userLocaleMap.size} user locale entries`);
+    } catch (e) {
+      console.warn('[CustomerAnalytics] user_locale not available:', e);
+    }
+    
     // 고객별 집계
     const customerMap = new Map<string, {
       userId: string;
       orders: { date: Date; amount: number; orderCode: string }[];
       country: string;
+      region: string;
       lastOrderDate: Date;
     }>();
 
@@ -121,14 +172,20 @@ router.get('/rfm', async (req, res) => {
       const orderDate = new Date(row.order_created);
       if (isNaN(orderDate.getTime())) return;
 
-      // 다양한 금액 컬럼명 지원
-      const amount = parseFloat(row['상품금액']) || parseFloat(row['payment_amount']) || parseFloat(row['총금액']) || parseFloat(row['price']) || 0;
+      // Total GMV (USD) → KRW 변환
+      const amount = getGmvKrw(row);
+
+      // user_locale에서 지역 정보 가져오기 (없으면 logistics의 country 사용)
+      const locale = userLocaleMap.get(userId);
+      const country = locale?.country || row.country || 'Unknown';
+      const region = locale?.region || '';
 
       if (!customerMap.has(userId)) {
         customerMap.set(userId, {
           userId,
           orders: [],
-          country: row.country || 'Unknown',
+          country,
+          region,
           lastOrderDate: orderDate,
         });
       }
@@ -147,7 +204,10 @@ router.get('/rfm', async (req, res) => {
 
       if (orderDate > customer.lastOrderDate) {
         customer.lastOrderDate = orderDate;
-        customer.country = row.country || customer.country;
+        // 지역 정보 업데이트 (user_locale 우선)
+        if (!locale) {
+          customer.country = row.country || customer.country;
+        }
       }
     });
 
@@ -180,6 +240,7 @@ router.get('/rfm', async (req, res) => {
       customers: Array<{
         userId: string;
         country: string;
+        region: string;
         recencyDays: number;
         frequency: number;
         monetary: number;
@@ -206,6 +267,7 @@ router.get('/rfm', async (req, res) => {
         segments[segment].customers.push({
           userId: customer.userId,
           country: customer.country,
+          region: customer.region,
           recencyDays,
           frequency,
           monetary,
@@ -260,11 +322,29 @@ router.get('/churn-risk', async (req, res) => {
     
     const logisticsData = await sheetsService.getSheetDataAsJson(SHEET_NAMES.LOGISTICS, true);
     
+    // user_locale 시트에서 지역 정보 로드
+    let userLocaleMap = new Map<string, { country: string; region: string }>();
+    try {
+      const userLocaleData = await sheetsService.getSheetDataAsJson(SHEET_NAMES.USER_LOCALE, false);
+      userLocaleData.forEach((row: any) => {
+        const userId = String(row.user_id || '');
+        if (userId) {
+          userLocaleMap.set(userId, {
+            country: row.country_code || '',
+            region: row.region || '',
+          });
+        }
+      });
+    } catch (e) {
+      console.warn('[CustomerAnalytics] Churn: user_locale not available');
+    }
+    
     // 고객별 집계
     const customerMap = new Map<string, {
       userId: string;
       orders: { date: Date; amount: number }[];
       country: string;
+      region: string;
       lastOrderDate: Date;
       totalAmount: number;
     }>();
@@ -278,14 +358,20 @@ router.get('/churn-risk', async (req, res) => {
       const orderDate = new Date(row.order_created);
       if (isNaN(orderDate.getTime())) return;
 
-      // 다양한 금액 컬럼명 지원
-      const amount = parseFloat(row['상품금액']) || parseFloat(row['payment_amount']) || parseFloat(row['총금액']) || parseFloat(row['price']) || 0;
+      // Total GMV (USD) → KRW 변환
+      const amount = getGmvKrw(row);
+
+      // user_locale에서 지역 정보 가져오기
+      const locale = userLocaleMap.get(userId);
+      const country = locale?.country || row.country || 'Unknown';
+      const region = locale?.region || '';
 
       if (!customerMap.has(userId)) {
         customerMap.set(userId, {
           userId,
           orders: [],
-          country: row.country || 'Unknown',
+          country,
+          region,
           lastOrderDate: orderDate,
           totalAmount: 0,
         });
@@ -297,7 +383,6 @@ router.get('/churn-risk', async (req, res) => {
 
       if (orderDate > customer.lastOrderDate) {
         customer.lastOrderDate = orderDate;
-        customer.country = row.country || customer.country;
       }
     });
 
@@ -324,6 +409,7 @@ router.get('/churn-risk', async (req, res) => {
       const customerData = {
         userId: customer.userId,
         country: customer.country,
+        region: customer.region,
         recencyDays,
         frequency,
         totalAmount: customer.totalAmount,
@@ -526,11 +612,30 @@ router.get('/ltv', async (req, res) => {
     
     const logisticsData = await sheetsService.getSheetDataAsJson(SHEET_NAMES.LOGISTICS, true);
     
+    // user_locale 시트에서 지역 정보 로드
+    let userLocaleMap = new Map<string, { country: string; region: string }>();
+    try {
+      const userLocaleData = await sheetsService.getSheetDataAsJson(SHEET_NAMES.USER_LOCALE, false);
+      userLocaleData.forEach((row: any) => {
+        const userId = String(row.user_id || '');
+        if (userId) {
+          userLocaleMap.set(userId, {
+            country: row.country_code || '',
+            region: row.region || '',
+          });
+        }
+      });
+      console.log(`[CustomerAnalytics] LTV: Loaded ${userLocaleMap.size} user locale entries`);
+    } catch (e) {
+      console.warn('[CustomerAnalytics] LTV: user_locale not available:', e);
+    }
+    
     // 고객별 집계
     const customerMap = new Map<string, {
       userId: string;
       orders: { date: Date; amount: number }[];
       country: string;
+      region: string;
       firstOrderDate: Date;
       lastOrderDate: Date;
       totalAmount: number;
@@ -543,14 +648,20 @@ router.get('/ltv', async (req, res) => {
       const orderDate = new Date(row.order_created);
       if (isNaN(orderDate.getTime())) return;
 
-      // 다양한 금액 컬럼명 지원
-      const amount = parseFloat(row['상품금액']) || parseFloat(row['payment_amount']) || parseFloat(row['총금액']) || parseFloat(row['price']) || 0;
+      // Total GMV (USD) → KRW 변환
+      const amount = getGmvKrw(row);
+
+      // user_locale에서 지역 정보 가져오기
+      const locale = userLocaleMap.get(userId);
+      const country = locale?.country || row.country || 'Unknown';
+      const region = locale?.region || '';
 
       if (!customerMap.has(userId)) {
         customerMap.set(userId, {
           userId,
           orders: [],
-          country: row.country || 'Unknown',
+          country,
+          region,
           firstOrderDate: orderDate,
           lastOrderDate: orderDate,
           totalAmount: 0,
@@ -566,7 +677,6 @@ router.get('/ltv', async (req, res) => {
       }
       if (orderDate > customer.lastOrderDate) {
         customer.lastOrderDate = orderDate;
-        customer.country = row.country || customer.country;
       }
     });
 
@@ -598,6 +708,7 @@ router.get('/ltv', async (req, res) => {
       topCustomers.push({
         userId: customer.userId,
         country: customer.country,
+        region: customer.region,
         ltv,
         orderCount: customer.orders.length,
         avgOrderValue: Math.round(ltv / customer.orders.length),
@@ -677,8 +788,8 @@ router.post('/coupon-simulate', async (req, res) => {
       const orderDate = new Date(row.order_created);
       if (isNaN(orderDate.getTime())) return;
 
-      // 다양한 금액 컬럼명 지원
-      const amount = parseFloat(row['상품금액']) || parseFloat(row['payment_amount']) || parseFloat(row['총금액']) || parseFloat(row['price']) || 0;
+      // Total GMV (USD) → KRW 변환
+      const amount = getGmvKrw(row);
 
       if (!customerMap.has(userId)) {
         customerMap.set(userId, {
