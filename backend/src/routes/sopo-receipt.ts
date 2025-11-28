@@ -17,6 +17,9 @@ import { resendConfig, isEmailConfigured } from '../config/email';
 const router = Router();
 const sheetsService = new GoogleSheetsService(sheetsConfig);
 
+// 환율 (다른 라우트와 동일하게 통일)
+const USD_TO_KRW = 1400;
+
 // 이메일 서비스 초기화
 let emailService: ResendService | null = null;
 if (isEmailConfigured) {
@@ -36,78 +39,263 @@ const upload = multer({
   },
 });
 
-// 작가 정보 캐시
+// ============================================
+// 작가 정보 캐시 (QC와 동일한 방식으로 개선)
+// ============================================
 interface ArtistInfo {
   name: string;
   email?: string;
   artistId?: string;
+  krId?: string;
 }
-const artistsCache: Map<string, ArtistInfo> = new Map();
-let artistsCacheTime = 0;
+
+// 캐시 저장소
+const artistCache = {
+  byId: new Map<string, ArtistInfo>(),      // artist_id로 매핑
+  byName: new Map<string, ArtistInfo>(),    // 작가명으로 매핑
+  lastLoaded: 0,
+};
 const CACHE_TTL = 5 * 60 * 1000; // 5분
 
 /**
- * 작가 정보 로드 (캐시 활용)
+ * 숫자 파싱 유틸리티
+ */
+function cleanAndParseFloat(value: any): number {
+  if (value === undefined || value === null || value === '') return 0;
+  const cleaned = String(value).replace(/[$,￦₩\s]/g, '');
+  const parsed = parseFloat(cleaned);
+  return isNaN(parsed) ? 0 : parsed;
+}
+
+/**
+ * 작가 정보 로드 (캐시 활용) - QC 라우트와 동일한 방식
  */
 async function loadArtists(forceReload = false): Promise<void> {
   const now = Date.now();
-  if (!forceReload && artistsCacheTime > 0 && now - artistsCacheTime < CACHE_TTL) {
+  if (!forceReload && artistCache.lastLoaded > 0 && now - artistCache.lastLoaded < CACHE_TTL) {
     return;
   }
 
   try {
-    // artists 시트 로드
+    artistCache.byId.clear();
+    artistCache.byName.clear();
+
+    // 1. artists 시트 로드
     const artistsData = await sheetsService.getSheetDataAsJson(SHEET_NAMES.ARTISTS, false);
-    artistsCache.clear();
+    
+    // 가능한 ID 컬럼명들 (QC와 동일)
+    const possibleIdColumns = [
+      '작가 ID (Global)', '작가ID(Global)', '작가 ID(Global)',
+      'artist_id', 'global_artist_id', 'artistId', 'globalArtistId',
+      'ID', 'id', '작가 ID', '작가ID', '(Global)', 'artist ID',
+    ];
+    
+    // 가능한 KR ID 컬럼명들
+    const possibleKrIdColumns = [
+      '작가 ID (KR)', '작가ID(KR)', '작가 ID(KR)', '(KR)', 'kr_artist_id',
+    ];
+    
+    // 가능한 이름 컬럼명들
+    const possibleNameColumns = [
+      'artist_name (kr)', 'artist_name(kr)', '(KR)작가명', '작가명 (KR)',
+      'artist_name_kr', 'name_kr', 'name', 'artistName',
+    ];
+    
+    // 가능한 이메일 컬럼명들
+    const possibleEmailColumns = [
+      'mail', 'email', 'Email', 'Mail', 'EMAIL', 'MAIL', 
+      'artist_email', 'e-mail', 'E-mail',
+    ];
+
+    if (artistsData.length > 0 && artistCache.lastLoaded === 0) {
+      console.log('[Sopo] Artists 시트 컬럼명:', Object.keys(artistsData[0]).slice(0, 15).join(', '));
+    }
 
     artistsData.forEach((artist: any) => {
-      const artistId = artist.artist_id || artist.global_artist_id || artist.id;
-      const artistName = artist['artist_name (kr)'] || artist.artist_name_kr || artist.name_kr || artist.name;
+      // ID 추출
+      let artistId: string | null = null;
+      for (const col of possibleIdColumns) {
+        if (artist[col] !== undefined && artist[col] !== null && artist[col] !== '') {
+          artistId = String(artist[col]).trim();
+          if (artistId && artistId !== '0') break;
+        }
+      }
       
-      if (artistId && artistName) {
-        artistsCache.set(String(artistId), {
-          name: artistName,
-          email: artist.mail || artist.email || artist.artist_email,
-          artistId: String(artistId),
-        });
-        // 작가명으로도 매핑
-        artistsCache.set(artistName, {
-          name: artistName,
-          email: artist.mail || artist.email || artist.artist_email,
-          artistId: String(artistId),
-        });
+      // KR ID 추출
+      let krId: string | null = null;
+      for (const col of possibleKrIdColumns) {
+        if (artist[col] !== undefined && artist[col] !== null && artist[col] !== '') {
+          krId = String(artist[col]).trim();
+          if (krId && krId !== '0') break;
+        }
+      }
+      
+      // 이름 추출
+      let artistName: string | null = null;
+      for (const col of possibleNameColumns) {
+        if (artist[col] !== undefined && artist[col] !== null && artist[col] !== '') {
+          artistName = String(artist[col]).trim();
+          if (artistName) break;
+        }
+      }
+      
+      // 이메일 추출
+      let artistEmail: string | null = null;
+      for (const col of possibleEmailColumns) {
+        if (artist[col] !== undefined && artist[col] !== null && artist[col] !== '') {
+          artistEmail = String(artist[col]).trim();
+          if (artistEmail && artistEmail.includes('@')) break;
+        }
+      }
+
+      const info: ArtistInfo = {
+        name: artistName || '',
+        email: artistEmail || undefined,
+        artistId: artistId || undefined,
+        krId: krId || undefined,
+      };
+
+      // ID로 매핑
+      if (artistId) {
+        artistCache.byId.set(artistId, info);
+      }
+      if (krId) {
+        artistCache.byId.set(krId, info);
+      }
+      
+      // 이름으로 매핑
+      if (artistName) {
+        artistCache.byName.set(artistName, info);
+        // 소문자로도 매핑 (대소문자 무시)
+        artistCache.byName.set(artistName.toLowerCase(), info);
       }
     });
 
-    // artists_mail 시트에서 이메일 보강
+    console.log(`[Sopo] artists 시트에서 로드: ID ${artistCache.byId.size}개, 이름 ${artistCache.byName.size}개`);
+
+    // 2. artists_mail 시트에서 이메일 보강
     try {
       const mailData = await sheetsService.getSheetDataAsJson(SHEET_NAMES.ARTISTS_MAIL, false);
-      mailData.forEach((row: any) => {
-        const id = row.ID || row.id || row.artist_id;
-        const email = row.email || row.mail || row.Email;
-        if (id && email) {
-          const existing = artistsCache.get(String(id));
-          if (existing && !existing.email) {
-            existing.email = email;
-          }
+      
+      if (mailData.length > 0) {
+        if (artistCache.lastLoaded === 0) {
+          console.log('[Sopo] Artists_mail 시트 컬럼명:', Object.keys(mailData[0]).slice(0, 10).join(', '));
         }
-      });
+        
+        const mailIdColumns = ['ID', 'id', 'artist_id', '작가 ID', '작가ID', ...possibleIdColumns];
+        const mailEmailColumns = ['email', 'mail', 'Email', 'Mail', 'EMAIL', 'MAIL', 'e-mail', 'E-mail'];
+        
+        let emailsAdded = 0;
+        
+        mailData.forEach((row: any) => {
+          let artistId: string | null = null;
+          let artistEmail: string | null = null;
+          
+          // ID 찾기
+          for (const col of mailIdColumns) {
+            if (row[col] !== undefined && row[col] !== null && row[col] !== '') {
+              artistId = String(row[col]).trim();
+              if (artistId && artistId !== '0') break;
+            }
+          }
+          
+          // 이메일 찾기
+          for (const col of mailEmailColumns) {
+            if (row[col] !== undefined && row[col] !== null && row[col] !== '') {
+              artistEmail = String(row[col]).trim();
+              if (artistEmail && artistEmail.includes('@')) break;
+            }
+          }
+          
+          // ID와 이메일이 있으면 매핑 업데이트
+          if (artistId && artistEmail) {
+            const existing = artistCache.byId.get(artistId);
+            if (existing) {
+              if (!existing.email) {
+                existing.email = artistEmail;
+                emailsAdded++;
+              }
+            } else {
+              // 새로운 ID-이메일 매핑 추가
+              artistCache.byId.set(artistId, {
+                name: '',
+                email: artistEmail,
+                artistId: artistId,
+              });
+              emailsAdded++;
+            }
+          }
+        });
+        
+        console.log(`[Sopo] artists_mail에서 ${emailsAdded}개 이메일 보강`);
+      }
     } catch (e) {
       console.warn('[Sopo] artists_mail 로드 실패 (무시)');
     }
 
-    artistsCacheTime = now;
-    console.log(`[Sopo] 작가 정보 로드 완료: ${artistsCache.size}개`);
+    artistCache.lastLoaded = now;
+    console.log(`[Sopo] 작가 정보 로드 완료`);
   } catch (error: any) {
     console.error('[Sopo] 작가 정보 로드 실패:', error.message);
   }
 }
 
 /**
- * 작가 정보 조회
+ * 작가 정보 조회 (ID 또는 이름으로)
  */
-function getArtistInfo(artistNameOrId: string): ArtistInfo | undefined {
-  return artistsCache.get(artistNameOrId) || artistsCache.get(String(artistNameOrId).trim());
+function getArtistInfo(artistIdOrName: string): ArtistInfo | undefined {
+  const key = String(artistIdOrName).trim();
+  
+  // ID로 먼저 검색
+  let info = artistCache.byId.get(key);
+  if (info) return info;
+  
+  // 이름으로 검색
+  info = artistCache.byName.get(key);
+  if (info) return info;
+  
+  // 소문자로 검색
+  info = artistCache.byName.get(key.toLowerCase());
+  if (info) return info;
+  
+  return undefined;
+}
+
+/**
+ * logistics 행에서 작가 정보 추출
+ */
+function extractArtistFromLogistics(row: any): { name: string; id?: string; email?: string } {
+  // 작가명 추출
+  const artistName = row['artist_name (kr)'] || row['artist_name(kr)'] || 
+                     row.artist_name_kr || row.artist_name || row.artist || '알 수 없음';
+  
+  // 작가 ID 추출
+  const artistId = row.artist_id || row.global_artist_id || row.artistId || undefined;
+  
+  // 캐시에서 이메일 조회
+  let email: string | undefined = undefined;
+  
+  // ID로 먼저 검색
+  if (artistId) {
+    const infoById = artistCache.byId.get(String(artistId));
+    if (infoById?.email) {
+      email = infoById.email;
+    }
+  }
+  
+  // ID로 못 찾으면 이름으로 검색
+  if (!email) {
+    const infoByName = getArtistInfo(artistName);
+    if (infoByName?.email) {
+      email = infoByName.email;
+    }
+  }
+  
+  return {
+    name: artistName,
+    id: artistId ? String(artistId) : undefined,
+    email,
+  };
 }
 
 // ============================================
@@ -180,6 +368,11 @@ router.post('/upload', upload.single('file'), async (req: Request, res: Response
     try {
       logisticsData = await sheetsService.getSheetDataAsJson(SHEET_NAMES.LOGISTICS, true);
       console.log(`[Sopo] Logistics 데이터 로드: ${logisticsData.length}건`);
+      
+      // 디버깅: 컬럼명 확인
+      if (logisticsData.length > 0) {
+        console.log('[Sopo] Logistics 컬럼 샘플:', Object.keys(logisticsData[0]).slice(0, 20).join(', '));
+      }
     } catch (e: any) {
       console.error('[Sopo] Logistics 로드 실패:', e.message);
       return res.status(500).json({ success: false, error: 'Logistics 데이터 로드 실패' });
@@ -193,12 +386,15 @@ router.post('/upload', upload.single('file'), async (req: Request, res: Response
     logisticsData.forEach((row: any) => {
       const sid = row.shipment_id;
       if (sid) {
-        if (!logisticsByShipmentId[sid]) {
-          logisticsByShipmentId[sid] = [];
+        const key = String(sid).trim();
+        if (!logisticsByShipmentId[key]) {
+          logisticsByShipmentId[key] = [];
         }
-        logisticsByShipmentId[sid].push(row);
+        logisticsByShipmentId[key].push(row);
       }
     });
+
+    console.log(`[Sopo] shipment_id 인덱싱: ${Object.keys(logisticsByShipmentId).length}개 고유 ID`);
 
     // 교차 검증 및 작가별 그룹핑
     interface OrderDetail {
@@ -207,7 +403,8 @@ router.post('/upload', upload.single('file'), async (req: Request, res: Response
       productName: string;
       option: string;
       quantity: number;
-      amount: number;
+      amountUSD: number;
+      amountKRW: number;
       orderStatus: string;
       shippedAt: string;
       carrier: string;
@@ -218,10 +415,11 @@ router.post('/upload', upload.single('file'), async (req: Request, res: Response
 
     interface ArtistSummary {
       artistName: string;
-      artistNameKr?: string;
+      artistId?: string;
       artistEmail?: string;
       orders: OrderDetail[];
-      totalAmount: number;
+      totalAmountUSD: number;
+      totalAmountKRW: number;
       orderCount: number;
     }
 
@@ -241,25 +439,29 @@ router.post('/upload', upload.single('file'), async (req: Request, res: Response
 
       // 해당 shipment의 모든 상품 처리
       for (const row of logisticsRows) {
-        const artistName = row['artist_name (kr)'] || row.artist_name_kr || row.artist_name || row.artist || '알 수 없음';
+        const artistInfo = extractArtistFromLogistics(row);
+        const artistName = artistInfo.name;
         const orderCode = row.order_code || '';
         
-        // 작가 정보 조회
-        const artistInfo = getArtistInfo(artistName);
-
         // 작가별 그룹핑
         if (!artistMap.has(artistName)) {
           artistMap.set(artistName, {
             artistName,
-            artistNameKr: artistInfo?.name || artistName,
-            artistEmail: artistInfo?.email,
+            artistId: artistInfo.id,
+            artistEmail: artistInfo.email,
             orders: [],
-            totalAmount: 0,
+            totalAmountUSD: 0,
+            totalAmountKRW: 0,
             orderCount: 0,
           });
         }
 
         const artistSummary = artistMap.get(artistName)!;
+        
+        // 이메일 없으면 업데이트 시도
+        if (!artistSummary.artistEmail && artistInfo.email) {
+          artistSummary.artistEmail = artistInfo.email;
+        }
         
         // 같은 주문이 이미 있는지 확인 (중복 방지)
         const existingOrder = artistSummary.orders.find(
@@ -267,7 +469,9 @@ router.post('/upload', upload.single('file'), async (req: Request, res: Response
         );
 
         if (!existingOrder) {
-          const amount = parseFloat(String(row['작품 금액'] || row.amount || row.price || 0).replace(/,/g, '')) || 0;
+          // Total GMV (USD)로 금액 계산 - 다른 기능들과 동일
+          const amountUSD = cleanAndParseFloat(row['Total GMV']);
+          const amountKRW = amountUSD * USD_TO_KRW;
           const quantity = parseInt(row['구매수량'] || row.quantity || '1') || 1;
 
           artistSummary.orders.push({
@@ -276,16 +480,18 @@ router.post('/upload', upload.single('file'), async (req: Request, res: Response
             productName: row.product_name || row['작품명'] || '',
             option: row.option || row['옵션'] || '',
             quantity,
-            amount,
+            amountUSD,
+            amountKRW,
             orderStatus: '배송완료',
             shippedAt: shipment.shippedAt,
             carrier: shipment.carrier,
             trackingNumber: shipment.trackingNumber,
-            countryCode: shipment.countryCode,
+            countryCode: shipment.countryCode || row.country || '',
             recipient: shipment.recipient,
           });
 
-          artistSummary.totalAmount += amount;
+          artistSummary.totalAmountUSD += amountUSD;
+          artistSummary.totalAmountKRW += amountKRW;
         }
       }
     }
@@ -298,6 +504,11 @@ router.post('/upload', upload.single('file'), async (req: Request, res: Response
 
     // 결과 정리
     const artistSummaries = Array.from(artistMap.values()).sort((a, b) => b.orderCount - a.orderCount);
+
+    // 이메일 보유 통계
+    const withEmail = artistSummaries.filter(a => a.artistEmail).length;
+    const withoutEmail = artistSummaries.length - withEmail;
+    console.log(`[Sopo] 작가 ${artistSummaries.length}명 중 이메일 보유 ${withEmail}명, 미보유 ${withoutEmail}명`);
 
     // 트래킹 시트에 저장
     try {
@@ -313,9 +524,17 @@ router.post('/upload', upload.single('file'), async (req: Request, res: Response
         totalShipments: shipments.length,
         matchedCount: matchedShipments.length,
         unmatchedCount: unmatchedShipments.length,
-        unmatchedShipments,
+        unmatchedShipments: unmatchedShipments.slice(0, 20), // 최대 20개만 반환
         artistCount: artistSummaries.length,
-        artists: artistSummaries,
+        emailStats: {
+          withEmail,
+          withoutEmail,
+        },
+        artists: artistSummaries.map(a => ({
+          ...a,
+          // KRW 금액을 메인으로 반환
+          totalAmount: a.totalAmountKRW,
+        })),
       },
     });
   } catch (error: any) {
@@ -329,7 +548,8 @@ router.post('/upload', upload.single('file'), async (req: Request, res: Response
  */
 async function saveTrackingData(period: string, artists: any[]): Promise<void> {
   const headers = [
-    'period', 'artist_name', 'artist_email', 'order_count', 'total_amount',
+    'period', 'artist_name', 'artist_id', 'artist_email', 'order_count', 
+    'total_amount_usd', 'total_amount_krw',
     'notification_sent_at', 'application_status', 'application_submitted_at',
     'jotform_submission_id', 'reminder_sent_at', 'receipt_issued_at', 'updated_at'
   ];
@@ -338,11 +558,9 @@ async function saveTrackingData(period: string, artists: any[]): Promise<void> {
   try {
     const existingData = await sheetsService.getSheetDataAsJson(SHEET_NAMES.SOPO_TRACKING, false);
     if (existingData.length === 0) {
-      // 헤더만 있거나 빈 시트면 헤더 추가
       await sheetsService.appendRows(SHEET_NAMES.SOPO_TRACKING, [headers]);
     }
   } catch (e) {
-    // 시트가 없으면 생성
     console.log('[Sopo] 트래킹 시트 생성 시도');
   }
 
@@ -350,9 +568,11 @@ async function saveTrackingData(period: string, artists: any[]): Promise<void> {
   const rows = artists.map(artist => [
     period,
     artist.artistName,
+    artist.artistId || '',
     artist.artistEmail || '',
     artist.orderCount,
-    artist.totalAmount,
+    artist.totalAmountUSD || 0,
+    artist.totalAmountKRW || artist.totalAmount || 0,
     '', // notification_sent_at
     'pending', // application_status
     '', // application_submitted_at
@@ -376,6 +596,9 @@ router.get('/artists', async (req: Request, res: Response) => {
   try {
     const period = req.query.period as string;
     
+    // 작가 정보 로드 (이메일 보강용)
+    await loadArtists();
+    
     const trackingData = await sheetsService.getSheetDataAsJson(SHEET_NAMES.SOPO_TRACKING, false);
     
     let filteredData = trackingData;
@@ -392,22 +615,40 @@ router.get('/artists', async (req: Request, res: Response) => {
       }
     });
 
-    const artists = Array.from(artistMap.values()).map(row => ({
-      period: row.period,
-      artistName: row.artist_name,
-      artistEmail: row.artist_email,
-      orderCount: parseInt(row.order_count) || 0,
-      totalAmount: parseFloat(row.total_amount) || 0,
-      notificationSentAt: row.notification_sent_at || null,
-      applicationStatus: row.application_status || 'pending',
-      applicationSubmittedAt: row.application_submitted_at || null,
-      jotformSubmissionId: row.jotform_submission_id || null,
-      reminderSentAt: row.reminder_sent_at || null,
-      receiptIssuedAt: row.receipt_issued_at || null,
-    }));
+    const artists = Array.from(artistMap.values()).map(row => {
+      // 이메일이 없으면 캐시에서 다시 조회
+      let email = row.artist_email;
+      if (!email) {
+        if (row.artist_id) {
+          const info = artistCache.byId.get(String(row.artist_id));
+          if (info?.email) email = info.email;
+        }
+        if (!email) {
+          const info = getArtistInfo(row.artist_name);
+          if (info?.email) email = info.email;
+        }
+      }
+      
+      return {
+        period: row.period,
+        artistName: row.artist_name,
+        artistId: row.artist_id || null,
+        artistEmail: email || null,
+        orderCount: parseInt(row.order_count) || 0,
+        totalAmountUSD: parseFloat(row.total_amount_usd) || 0,
+        totalAmountKRW: parseFloat(row.total_amount_krw) || parseFloat(row.total_amount) || 0,
+        totalAmount: parseFloat(row.total_amount_krw) || parseFloat(row.total_amount) || 0,
+        notificationSentAt: row.notification_sent_at || null,
+        applicationStatus: row.application_status || 'pending',
+        applicationSubmittedAt: row.application_submitted_at || null,
+        jotformSubmissionId: row.jotform_submission_id || null,
+        reminderSentAt: row.reminder_sent_at || null,
+        receiptIssuedAt: row.receipt_issued_at || null,
+      };
+    });
 
     // 기간 목록 추출
-    const periods = [...new Set(trackingData.map((r: any) => r.period))].sort().reverse();
+    const periods = [...new Set(trackingData.map((r: any) => r.period))].filter(Boolean).sort().reverse();
 
     res.json({
       success: true,
@@ -416,6 +657,8 @@ router.get('/artists', async (req: Request, res: Response) => {
         periods,
         summary: {
           total: artists.length,
+          withEmail: artists.filter(a => a.artistEmail).length,
+          withoutEmail: artists.filter(a => !a.artistEmail).length,
           pending: artists.filter(a => a.applicationStatus === 'pending').length,
           submitted: artists.filter(a => a.applicationStatus === 'submitted').length,
           completed: artists.filter(a => a.applicationStatus === 'completed').length,
@@ -436,25 +679,48 @@ router.get('/order-sheet/:artistName', async (req: Request, res: Response) => {
   try {
     const { artistName } = req.params;
     const period = req.query.period as string;
+    const shipmentIds = req.query.shipmentIds as string; // 쉼표로 구분된 shipment_id 목록
 
     // logistics 데이터 로드
     const logisticsData = await sheetsService.getSheetDataAsJson(SHEET_NAMES.LOGISTICS, true);
 
     // 해당 작가의 주문 필터링
-    const artistOrders = logisticsData.filter((row: any) => {
-      const rowArtist = row['artist_name (kr)'] || row.artist_name_kr || row.artist_name || row.artist;
+    let artistOrders = logisticsData.filter((row: any) => {
+      const rowArtist = row['artist_name (kr)'] || row['artist_name(kr)'] || 
+                        row.artist_name_kr || row.artist_name || row.artist;
       return rowArtist === artistName || rowArtist === decodeURIComponent(artistName);
     });
 
+    // shipment_id로 추가 필터링 (있는 경우)
+    if (shipmentIds) {
+      const ids = shipmentIds.split(',').map(s => s.trim());
+      artistOrders = artistOrders.filter((row: any) => {
+        const sid = String(row.shipment_id || '').trim();
+        return ids.includes(sid);
+      });
+    }
+
     // 주문내역서 형식으로 변환
-    const orderSheet = artistOrders.map((row: any) => ({
-      orderCode: row.order_code || '',
-      orderStatus: '배송완료',
-      productName: row.product_name || row['작품명'] || '',
-      option: row.option || row['옵션'] || '',
-      quantity: parseInt(row['구매수량'] || row.quantity || '1') || 1,
-      amount: parseFloat(String(row['작품 금액'] || row.amount || 0).replace(/,/g, '')) || 0,
-    }));
+    const orderSheet = artistOrders.map((row: any) => {
+      const amountUSD = cleanAndParseFloat(row['Total GMV']);
+      const amountKRW = amountUSD * USD_TO_KRW;
+      
+      return {
+        orderCode: row.order_code || '',
+        orderStatus: '배송완료',
+        productName: row.product_name || row['작품명'] || '',
+        option: row.option || row['옵션'] || '',
+        quantity: parseInt(row['구매수량'] || row.quantity || '1') || 1,
+        amountUSD,
+        amountKRW,
+        // 기존 호환성
+        amount: amountKRW,
+      };
+    });
+
+    // 합계 계산
+    const totalAmountUSD = orderSheet.reduce((sum, o) => sum + o.amountUSD, 0);
+    const totalAmountKRW = orderSheet.reduce((sum, o) => sum + o.amountKRW, 0);
 
     res.json({
       success: true,
@@ -462,6 +728,11 @@ router.get('/order-sheet/:artistName', async (req: Request, res: Response) => {
         artistName,
         period,
         orders: orderSheet,
+        summary: {
+          orderCount: orderSheet.length,
+          totalAmountUSD,
+          totalAmountKRW,
+        },
         // CSV 형식 데이터 (다운로드용)
         csvData: generateOrderSheetCSV(artistName, orderSheet),
       },
@@ -477,11 +748,12 @@ router.get('/order-sheet/:artistName', async (req: Request, res: Response) => {
  */
 function generateOrderSheetCSV(artistName: string, orders: any[]): string {
   const header = '*상기 주문 내역서의 항목은 변경 될 수 있습니다.';
-  const columns = '주문번호,주문상태,작품명,옵션,수량,작품 금액';
+  const columns = '주문번호,주문상태,작품명,옵션,수량,금액(USD),금액(KRW)';
   
   const rows = orders.map(order => {
-    const amount = order.amount.toLocaleString('ko-KR');
-    return `${order.orderCode},${order.orderStatus},"${order.productName}","${order.option}",${order.quantity},"${amount}"`;
+    const amountUSD = order.amountUSD?.toFixed(2) || '0.00';
+    const amountKRW = order.amountKRW?.toLocaleString('ko-KR') || '0';
+    return `${order.orderCode},${order.orderStatus},"${order.productName}","${order.option}",${order.quantity},"$${amountUSD}","₩${amountKRW}"`;
   });
 
   return [header, columns, ...rows].join('\n');
@@ -499,6 +771,9 @@ router.post('/notify', async (req: Request, res: Response) => {
       return res.status(400).json({ success: false, error: '기간을 지정해주세요.' });
     }
 
+    // 작가 정보 로드
+    await loadArtists();
+
     // 대상 작가 조회
     const trackingData = await sheetsService.getSheetDataAsJson(SHEET_NAMES.SOPO_TRACKING, false);
     let targetArtists = trackingData.filter((row: any) => row.period === period);
@@ -507,8 +782,21 @@ router.post('/notify', async (req: Request, res: Response) => {
       targetArtists = targetArtists.filter((row: any) => artistNames.includes(row.artist_name));
     }
 
-    // 이메일이 있는 작가만 필터
-    const artistsWithEmail = targetArtists.filter((row: any) => row.artist_email);
+    // 이메일 보강 및 필터
+    const artistsWithEmail = targetArtists.map((row: any) => {
+      let email = row.artist_email;
+      if (!email) {
+        if (row.artist_id) {
+          const info = artistCache.byId.get(String(row.artist_id));
+          if (info?.email) email = info.email;
+        }
+        if (!email) {
+          const info = getArtistInfo(row.artist_name);
+          if (info?.email) email = info.email;
+        }
+      }
+      return { ...row, artist_email: email };
+    }).filter((row: any) => row.artist_email);
 
     if (artistsWithEmail.length === 0) {
       return res.status(400).json({ success: false, error: '이메일이 있는 대상 작가가 없습니다.' });
@@ -530,13 +818,14 @@ router.post('/notify', async (req: Request, res: Response) => {
 
         // 이메일 발송
         const periodDisplay = formatPeriodDisplay(period);
+        const totalAmount = parseFloat(artist.total_amount_krw) || parseFloat(artist.total_amount) || 0;
         const subject = `[아이디어스 글로벌] ${periodDisplay} 소포수령증 발급 신청 안내`;
         
         const htmlContent = generateNotificationEmailHTML({
           artistName: artist.artist_name,
           period: periodDisplay,
-          orderCount: artist.order_count,
-          totalAmount: artist.total_amount,
+          orderCount: parseInt(artist.order_count) || 0,
+          totalAmount,
           jotformLink: formLink,
           deadline: getDeadlineDate(),
         });
@@ -550,8 +839,6 @@ router.post('/notify', async (req: Request, res: Response) => {
 
         if (result.success) {
           sent.push(artist.artist_name);
-          // 트래킹 업데이트 (notification_sent_at)
-          // TODO: 시트 업데이트 구현
         } else {
           failed.push({ artistName: artist.artist_name, error: result.error || '발송 실패' });
         }
@@ -646,7 +933,7 @@ function generateNotificationEmailHTML(params: {
         </div>
         <div class="info-item">
           <span>총 금액</span>
-          <strong>${amountFormatted}원</strong>
+          <strong>₩${amountFormatted}</strong>
         </div>
       </div>
       
@@ -746,6 +1033,9 @@ router.get('/tracking', async (req: Request, res: Response) => {
     const period = req.query.period as string;
     const status = req.query.status as string;
 
+    // 작가 정보 로드
+    await loadArtists();
+
     let trackingData = await sheetsService.getSheetDataAsJson(SHEET_NAMES.SOPO_TRACKING, false);
 
     if (period) {
@@ -763,19 +1053,37 @@ router.get('/tracking', async (req: Request, res: Response) => {
     res.json({
       success: true,
       data: {
-        records: trackingData.map((row: any) => ({
-          period: row.period,
-          artistName: row.artist_name,
-          artistEmail: row.artist_email,
-          orderCount: parseInt(row.order_count) || 0,
-          totalAmount: parseFloat(row.total_amount) || 0,
-          notificationSentAt: row.notification_sent_at || null,
-          applicationStatus: row.application_status || 'pending',
-          applicationSubmittedAt: row.application_submitted_at || null,
-          jotformSubmissionId: row.jotform_submission_id || null,
-          reminderSentAt: row.reminder_sent_at || null,
-          receiptIssuedAt: row.receipt_issued_at || null,
-        })),
+        records: trackingData.map((row: any) => {
+          // 이메일 보강
+          let email = row.artist_email;
+          if (!email) {
+            if (row.artist_id) {
+              const info = artistCache.byId.get(String(row.artist_id));
+              if (info?.email) email = info.email;
+            }
+            if (!email) {
+              const info = getArtistInfo(row.artist_name);
+              if (info?.email) email = info.email;
+            }
+          }
+          
+          return {
+            period: row.period,
+            artistName: row.artist_name,
+            artistId: row.artist_id || null,
+            artistEmail: email || null,
+            orderCount: parseInt(row.order_count) || 0,
+            totalAmountUSD: parseFloat(row.total_amount_usd) || 0,
+            totalAmountKRW: parseFloat(row.total_amount_krw) || parseFloat(row.total_amount) || 0,
+            totalAmount: parseFloat(row.total_amount_krw) || parseFloat(row.total_amount) || 0,
+            notificationSentAt: row.notification_sent_at || null,
+            applicationStatus: row.application_status || 'pending',
+            applicationSubmittedAt: row.application_submitted_at || null,
+            jotformSubmissionId: row.jotform_submission_id || null,
+            reminderSentAt: row.reminder_sent_at || null,
+            receiptIssuedAt: row.receipt_issued_at || null,
+          };
+        }),
         summary: {
           total: periodData.length,
           pending: periodData.filter((r: any) => r.application_status === 'pending').length,
@@ -803,14 +1111,33 @@ router.post('/reminder', async (req: Request, res: Response) => {
       return res.status(400).json({ success: false, error: '기간과 작가 목록을 지정해주세요.' });
     }
 
+    // 작가 정보 로드
+    await loadArtists();
+
     // 트래킹 데이터에서 미신청 작가 필터
     const trackingData = await sheetsService.getSheetDataAsJson(SHEET_NAMES.SOPO_TRACKING, false);
-    const targets = trackingData.filter((row: any) => 
-      row.period === period && 
-      artistNames.includes(row.artist_name) &&
-      row.application_status === 'pending' &&
-      row.artist_email
-    );
+    const targets = trackingData
+      .filter((row: any) => 
+        row.period === period && 
+        artistNames.includes(row.artist_name) &&
+        row.application_status === 'pending'
+      )
+      .map((row: any) => {
+        // 이메일 보강
+        let email = row.artist_email;
+        if (!email) {
+          if (row.artist_id) {
+            const info = artistCache.byId.get(String(row.artist_id));
+            if (info?.email) email = info.email;
+          }
+          if (!email) {
+            const info = getArtistInfo(row.artist_name);
+            if (info?.email) email = info.email;
+          }
+        }
+        return { ...row, artist_email: email };
+      })
+      .filter((row: any) => row.artist_email);
 
     if (targets.length === 0) {
       return res.status(400).json({ success: false, error: '리마인더 발송 대상이 없습니다.' });
@@ -829,7 +1156,6 @@ router.post('/reminder', async (req: Request, res: Response) => {
         const periodDisplay = formatPeriodDisplay(period);
         const subject = `[리마인더] ${periodDisplay} 소포수령증 발급 신청을 잊지 마세요!`;
         
-        // 간단한 리마인더 이메일
         const htmlContent = `
           <div style="font-family: sans-serif; max-width: 600px; margin: 0 auto; padding: 20px;">
             <h2>⏰ 소포수령증 신청 리마인더</h2>
@@ -895,5 +1221,24 @@ router.get('/periods', async (req: Request, res: Response) => {
   }
 });
 
-export default router;
+/**
+ * POST /api/sopo-receipt/refresh-artists
+ * 작가 캐시 강제 새로고침
+ */
+router.post('/refresh-artists', async (req: Request, res: Response) => {
+  try {
+    await loadArtists(true);
+    
+    res.json({
+      success: true,
+      data: {
+        byIdCount: artistCache.byId.size,
+        byNameCount: artistCache.byName.size,
+      },
+    });
+  } catch (error: any) {
+    res.status(500).json({ success: false, error: error.message });
+  }
+});
 
+export default router;

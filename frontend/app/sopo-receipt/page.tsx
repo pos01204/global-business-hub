@@ -15,14 +15,20 @@ interface UploadResult {
   unmatchedShipments: string[]
   artistCount: number
   artists: ArtistSummary[]
+  emailStats?: {
+    withEmail: number
+    withoutEmail: number
+  }
 }
 
 interface ArtistSummary {
   artistName: string
-  artistNameKr?: string
+  artistId?: string
   artistEmail?: string
   orders: OrderDetail[]
   totalAmount: number
+  totalAmountKRW?: number
+  totalAmountUSD?: number
   orderCount: number
 }
 
@@ -33,6 +39,8 @@ interface OrderDetail {
   option: string
   quantity: number
   amount: number
+  amountKRW?: number
+  amountUSD?: number
   orderStatus: string
   shippedAt: string
   carrier: string
@@ -118,10 +126,11 @@ export default function SopoReceiptPage() {
   // CSV 다운로드
   const handleDownloadOrderSheet = (artist: ArtistSummary) => {
     const header = '*상기 주문 내역서의 항목은 변경 될 수 있습니다.'
-    const columns = '주문번호,주문상태,작품명,옵션,수량,작품 금액'
+    const columns = '주문번호,주문상태,작품명,옵션,수량,금액(USD),금액(KRW)'
     const rows = artist.orders.map(order => {
-      const amount = order.amount.toLocaleString('ko-KR')
-      return `${order.orderCode},${order.orderStatus},"${order.productName}","${order.option}",${order.quantity},"${amount}"`
+      const amountKRW = (order.amountKRW || order.amount || 0).toLocaleString('ko-KR')
+      const amountUSD = (order.amountUSD || 0).toFixed(2)
+      return `${order.orderCode},${order.orderStatus},"${order.productName}","${order.option}",${order.quantity},"$${amountUSD}","₩${amountKRW}"`
     })
     
     const csvContent = [header, columns, ...rows].join('\n')
@@ -131,6 +140,12 @@ export default function SopoReceiptPage() {
     const periodShort = selectedPeriod.replace('-', '').slice(2)
     link.download = `${periodShort} 소포수령증 발급신청용 주문내역서_${artist.artistName}.csv`
     link.click()
+  }
+
+  // 금액 포맷
+  const formatAmount = (artist: ArtistSummary) => {
+    const krw = artist.totalAmountKRW || artist.totalAmount || 0
+    return `₩${krw.toLocaleString()}`
   }
 
   // 탭 설정
@@ -234,7 +249,7 @@ export default function SopoReceiptPage() {
             {uploadResult && (
               <div className="space-y-6">
                 {/* 요약 카드 */}
-                <div className="grid grid-cols-4 gap-4">
+                <div className="grid grid-cols-5 gap-4">
                   <StatCard 
                     title="총 선적 건수" 
                     value={uploadResult.totalShipments} 
@@ -258,6 +273,12 @@ export default function SopoReceiptPage() {
                     value={uploadResult.artistCount} 
                     icon="👤"
                     color="orange"
+                  />
+                  <StatCard 
+                    title="이메일 보유" 
+                    value={uploadResult.emailStats?.withEmail || uploadResult.artists.filter(a => a.artistEmail).length} 
+                    icon="📧"
+                    color="purple"
                   />
                 </div>
 
@@ -305,12 +326,16 @@ export default function SopoReceiptPage() {
                         {uploadResult.artists.map(artist => (
                           <tr key={artist.artistName} className="hover:bg-gray-50">
                             <td className="px-4 py-3 font-medium text-gray-900">{artist.artistName}</td>
-                            <td className="px-4 py-3 text-sm text-gray-500">
-                              {artist.artistEmail || <span className="text-red-400">이메일 없음</span>}
+                            <td className="px-4 py-3 text-sm">
+                              {artist.artistEmail ? (
+                                <span className="text-gray-600">{artist.artistEmail}</span>
+                              ) : (
+                                <span className="px-2 py-0.5 bg-red-100 text-red-600 rounded text-xs">이메일 없음</span>
+                              )}
                             </td>
                             <td className="px-4 py-3 text-right text-sm">{artist.orderCount}건</td>
                             <td className="px-4 py-3 text-right text-sm font-medium">
-                              {artist.totalAmount.toLocaleString()}원
+                              {formatAmount(artist)}
                             </td>
                             <td className="px-4 py-3 text-center">
                               <button
@@ -453,12 +478,12 @@ export default function SopoReceiptPage() {
                         {artist.artistEmail ? (
                           <span className="text-gray-600">{artist.artistEmail}</span>
                         ) : (
-                          <span className="text-red-400 text-xs">이메일 없음</span>
+                          <span className="px-2 py-0.5 bg-red-100 text-red-600 rounded text-xs">이메일 없음</span>
                         )}
                       </td>
                       <td className="px-4 py-3 text-right text-sm">{artist.orderCount}건</td>
                       <td className="px-4 py-3 text-right text-sm font-medium">
-                        {artist.totalAmount.toLocaleString()}원
+                        {formatAmount(artist)}
                       </td>
                       <td className="px-4 py-3 text-center">
                         <button
@@ -618,7 +643,9 @@ export default function SopoReceiptPage() {
                         {order.productName}
                       </td>
                       <td className="px-3 py-2 text-center">{order.quantity}</td>
-                      <td className="px-3 py-2 text-right">{order.amount.toLocaleString()}원</td>
+                      <td className="px-3 py-2 text-right">
+                        ₩{(order.amountKRW || order.amount || 0).toLocaleString()}
+                      </td>
                       <td className="px-3 py-2 text-center">
                         <span className="px-2 py-0.5 bg-blue-100 text-blue-700 rounded text-xs">
                           {order.carrier}
