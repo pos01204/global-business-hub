@@ -772,5 +772,44 @@ export const reviewsApi = {
   },
 }
 
+// 고객 분석 API
+export const customerAnalyticsApi = {
+  // RFM 세그먼테이션
+  getRFM: async () => {
+    const response = await api.get('/api/customer-analytics/rfm')
+    return response.data
+  },
+
+  // 이탈 위험 분석
+  getChurnRisk: async () => {
+    const response = await api.get('/api/customer-analytics/churn-risk')
+    return response.data
+  },
+
+  // 코호트 분석
+  getCohort: async () => {
+    const response = await api.get('/api/customer-analytics/cohort')
+    return response.data
+  },
+
+  // LTV 분석
+  getLTV: async () => {
+    const response = await api.get('/api/customer-analytics/ltv')
+    return response.data
+  },
+
+  // 쿠폰 시뮬레이션
+  simulateCoupon: async (params: {
+    targetSegments: string[]
+    discountType: 'fixed' | 'percentage'
+    discountValue: number
+    minOrderAmount: number
+    targetCountries: string[]
+  }) => {
+    const response = await api.post('/api/customer-analytics/coupon-simulate', params)
+    return response.data
+  },
+}
+
 export default api
 

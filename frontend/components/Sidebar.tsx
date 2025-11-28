@@ -50,6 +50,7 @@ const navGroups: NavGroup[] = [
     title: '분석',
     items: [
       { href: '/analytics', label: '성과 분석', icon: '📈' },
+      { href: '/customer-analytics', label: '고객 분석', icon: '👥' },
       { href: '/cost-analysis', label: '비용 & 손익', icon: '💰' },
       { href: '/reviews', label: '고객 리뷰', icon: '⭐' },
     ],
