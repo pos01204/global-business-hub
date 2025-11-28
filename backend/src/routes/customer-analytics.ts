@@ -879,5 +879,222 @@ router.post('/coupon-simulate', async (req, res) => {
   }
 });
 
+/**
+ * 구매 전환 분석
+ * GET /api/customer-analytics/conversion
+ */
+router.get('/conversion', async (req, res) => {
+  try {
+    console.log('[CustomerAnalytics] Conversion analysis started');
+    
+    const logisticsData = await sheetsService.getSheetDataAsJson(SHEET_NAMES.LOGISTICS, true);
+    
+    // users 시트 로드
+    let usersData: any[] = [];
+    try {
+      usersData = await sheetsService.getSheetDataAsJson(SHEET_NAMES.USERS, false);
+    } catch (e) {
+      console.warn('[CustomerAnalytics] Users data not available');
+    }
+
+    // user_locale 시트에서 지역 정보 로드
+    const userLocaleMap = new Map<string, { country: string; region: string }>();
+    try {
+      const userLocaleData = await sheetsService.getSheetDataAsJson(SHEET_NAMES.USER_LOCALE, false);
+      userLocaleData.forEach((row: any) => {
+        const userId = String(row.user_id || '');
+        if (userId) {
+          userLocaleMap.set(userId, {
+            country: row.country_code || '',
+            region: row.region || '',
+          });
+        }
+      });
+    } catch (e) {
+      console.warn('[CustomerAnalytics] user_locale not available');
+    }
+
+    const now = new Date();
+
+    // 전체 가입자 수 및 구매자 집계
+    const userCreatedMap = new Map<string, Date>();
+    const userCountryMap = new Map<string, string>();
+    
+    usersData.forEach((user: any) => {
+      const userId = String(user.ID || '');
+      if (!userId) return;
+      
+      const createdAt = new Date(user.CREATED_AT);
+      if (!isNaN(createdAt.getTime())) {
+        userCreatedMap.set(userId, createdAt);
+      }
+      
+      // user_locale 우선
+      const locale = userLocaleMap.get(userId);
+      userCountryMap.set(userId, locale?.country || user.COUNTRY || 'N/A');
+    });
+
+    // 구매자 집계
+    const purchasedUsers = new Map<string, {
+      firstOrderDate: Date;
+      orderCount: number;
+      totalAmount: number;
+      country: string;
+    }>();
+
+    logisticsData.forEach((row: any) => {
+      const userId = String(row.user_id || '');
+      if (!userId) return;
+
+      const orderDate = new Date(row.order_created);
+      if (isNaN(orderDate.getTime())) return;
+
+      const amount = getGmvKrw(row);
+      const locale = userLocaleMap.get(userId);
+      const country = locale?.country || row.country || 'Unknown';
+
+      if (!purchasedUsers.has(userId)) {
+        purchasedUsers.set(userId, {
+          firstOrderDate: orderDate,
+          orderCount: 0,
+          totalAmount: 0,
+          country,
+        });
+      }
+
+      const user = purchasedUsers.get(userId)!;
+      user.orderCount++;
+      user.totalAmount += amount;
+      
+      if (orderDate < user.firstOrderDate) {
+        user.firstOrderDate = orderDate;
+      }
+    });
+
+    // 월별 가입자 및 전환율 계산 (최근 6개월)
+    const monthlyConversion: Array<{
+      month: string;
+      signups: number;
+      converted: number;
+      conversionRate: number;
+      avgDaysToConvert: number;
+    }> = [];
+
+    for (let i = 5; i >= 0; i--) {
+      const targetDate = new Date(now.getFullYear(), now.getMonth() - i, 1);
+      const monthKey = `${targetDate.getFullYear()}-${String(targetDate.getMonth() + 1).padStart(2, '0')}`;
+      const nextMonth = new Date(targetDate.getFullYear(), targetDate.getMonth() + 1, 1);
+
+      let signups = 0;
+      let converted = 0;
+      let totalDaysToConvert = 0;
+
+      userCreatedMap.forEach((createdAt, userId) => {
+        if (createdAt >= targetDate && createdAt < nextMonth) {
+          signups++;
+          
+          const purchaseData = purchasedUsers.get(userId);
+          if (purchaseData) {
+            converted++;
+            const daysToConvert = Math.floor((purchaseData.firstOrderDate.getTime() - createdAt.getTime()) / (1000 * 60 * 60 * 24));
+            totalDaysToConvert += Math.max(0, daysToConvert);
+          }
+        }
+      });
+
+      monthlyConversion.push({
+        month: monthKey,
+        signups,
+        converted,
+        conversionRate: signups > 0 ? Math.round((converted / signups) * 1000) / 10 : 0,
+        avgDaysToConvert: converted > 0 ? Math.round(totalDaysToConvert / converted) : 0,
+      });
+    }
+
+    // 국가별 전환율
+    const countryConversion: Record<string, { signups: number; converted: number }> = {};
+    
+    userCreatedMap.forEach((createdAt, userId) => {
+      const country = userCountryMap.get(userId) || 'N/A';
+      if (!countryConversion[country]) {
+        countryConversion[country] = { signups: 0, converted: 0 };
+      }
+      countryConversion[country].signups++;
+      
+      if (purchasedUsers.has(userId)) {
+        countryConversion[country].converted++;
+      }
+    });
+
+    const countryConversionData = Object.entries(countryConversion)
+      .map(([country, data]) => ({
+        country,
+        signups: data.signups,
+        converted: data.converted,
+        conversionRate: data.signups > 0 ? Math.round((data.converted / data.signups) * 1000) / 10 : 0,
+      }))
+      .filter(c => c.signups >= 5) // 최소 5명 이상
+      .sort((a, b) => b.conversionRate - a.conversionRate)
+      .slice(0, 15);
+
+    // 재구매율 계산
+    const repeatPurchase = {
+      oneTime: 0,
+      twoTimes: 0,
+      threePlus: 0,
+    };
+
+    purchasedUsers.forEach((user) => {
+      if (user.orderCount === 1) repeatPurchase.oneTime++;
+      else if (user.orderCount === 2) repeatPurchase.twoTimes++;
+      else repeatPurchase.threePlus++;
+    });
+
+    const totalPurchasedUsers = purchasedUsers.size;
+    const repeatRate = totalPurchasedUsers > 0 
+      ? Math.round(((repeatPurchase.twoTimes + repeatPurchase.threePlus) / totalPurchasedUsers) * 1000) / 10 
+      : 0;
+
+    // 전환 퍼널
+    const totalUsers = userCreatedMap.size;
+    const funnel = {
+      registered: totalUsers,
+      firstPurchase: totalPurchasedUsers,
+      secondPurchase: repeatPurchase.twoTimes + repeatPurchase.threePlus,
+      loyal: repeatPurchase.threePlus,
+    };
+
+    // 요약 KPI
+    const overallConversionRate = totalUsers > 0 
+      ? Math.round((totalPurchasedUsers / totalUsers) * 1000) / 10 
+      : 0;
+
+    res.json({
+      success: true,
+      summary: {
+        totalUsers,
+        totalPurchasedUsers,
+        overallConversionRate,
+        repeatRate,
+        avgOrdersPerCustomer: totalPurchasedUsers > 0 
+          ? Math.round((Array.from(purchasedUsers.values()).reduce((sum, u) => sum + u.orderCount, 0) / totalPurchasedUsers) * 10) / 10 
+          : 0,
+      },
+      monthlyTrend: monthlyConversion,
+      byCountry: countryConversionData,
+      repeatPurchase: {
+        oneTime: repeatPurchase.oneTime,
+        twoTimes: repeatPurchase.twoTimes,
+        threePlus: repeatPurchase.threePlus,
+        repeatRate,
+      },
+      funnel,
+    });
+  } catch (error: any) {
+    console.error('[CustomerAnalytics] Conversion error:', error?.message);
+    res.status(500).json({ error: 'Failed to analyze conversion', details: error?.message });
+  }
+});
+
 export default router;
 

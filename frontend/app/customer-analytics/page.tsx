@@ -31,13 +31,14 @@ ChartJS.register(
   Filler
 )
 
-type TabType = 'rfm' | 'churn' | 'cohort' | 'ltv' | 'coupon'
+type TabType = 'rfm' | 'conversion' | 'churn' | 'cohort' | 'ltv' | 'coupon'
 
 export default function CustomerAnalyticsPage() {
   const [activeTab, setActiveTab] = useState<TabType>('rfm')
 
   const tabs = [
     { id: 'rfm' as const, label: 'RFM 세그먼트', icon: '👥' },
+    { id: 'conversion' as const, label: '구매 전환', icon: '🔄' },
     { id: 'churn' as const, label: '이탈 위험', icon: '⚠️' },
     { id: 'cohort' as const, label: '코호트 분석', icon: '📊' },
     { id: 'ltv' as const, label: 'LTV 분석', icon: '💰' },
@@ -80,6 +81,7 @@ export default function CustomerAnalyticsPage() {
 
       {/* 탭 컨텐츠 */}
       {activeTab === 'rfm' && <RFMTab />}
+      {activeTab === 'conversion' && <ConversionTab />}
       {activeTab === 'churn' && <ChurnRiskTab />}
       {activeTab === 'cohort' && <CohortTab />}
       {activeTab === 'ltv' && <LTVTab />}
@@ -265,6 +267,249 @@ function RFMTab() {
           </div>
         </div>
       )}
+    </div>
+  )
+}
+
+// 구매 전환 분석 탭
+function ConversionTab() {
+  const { data, isLoading, error } = useQuery({
+    queryKey: ['conversion'],
+    queryFn: customerAnalyticsApi.getConversion,
+  })
+
+  if (isLoading) return <LoadingState />
+  if (error) return <ErrorState />
+  if (!data?.success) return <ErrorState />
+
+  const trendChartData = {
+    labels: data.monthlyTrend.map((m: any) => m.month),
+    datasets: [
+      {
+        label: '신규 가입',
+        data: data.monthlyTrend.map((m: any) => m.signups),
+        backgroundColor: '#94A3B8',
+        borderRadius: 4,
+      },
+      {
+        label: '첫 구매 전환',
+        data: data.monthlyTrend.map((m: any) => m.converted),
+        backgroundColor: '#3B82F6',
+        borderRadius: 4,
+      },
+    ],
+  }
+
+  const countryChartData = {
+    labels: data.byCountry.map((c: any) => c.country),
+    datasets: [
+      {
+        label: '전환율 (%)',
+        data: data.byCountry.map((c: any) => c.conversionRate),
+        backgroundColor: '#10B981',
+        borderRadius: 6,
+      },
+    ],
+  }
+
+  const repeatData = {
+    labels: ['1회 구매', '2회 구매', '3회+ 구매'],
+    datasets: [
+      {
+        data: [data.repeatPurchase.oneTime, data.repeatPurchase.twoTimes, data.repeatPurchase.threePlus],
+        backgroundColor: ['#94A3B8', '#3B82F6', '#10B981'],
+      },
+    ],
+  }
+
+  return (
+    <div className="space-y-6">
+      {/* 요약 KPI */}
+      <div className="grid grid-cols-2 md:grid-cols-5 gap-4">
+        <SummaryCard
+          title="전체 가입자"
+          value={data.summary.totalUsers.toLocaleString()}
+          suffix="명"
+          icon="👤"
+        />
+        <SummaryCard
+          title="구매 전환"
+          value={data.summary.totalPurchasedUsers.toLocaleString()}
+          suffix="명"
+          icon="🛒"
+        />
+        <SummaryCard
+          title="전환율"
+          value={data.summary.overallConversionRate}
+          suffix="%"
+          icon="📈"
+          highlight={data.summary.overallConversionRate >= 10 ? 'success' : 'warning'}
+        />
+        <SummaryCard
+          title="재구매율"
+          value={data.summary.repeatRate}
+          suffix="%"
+          icon="🔄"
+        />
+        <SummaryCard
+          title="인당 평균 주문"
+          value={data.summary.avgOrdersPerCustomer}
+          suffix="회"
+          icon="📦"
+        />
+      </div>
+
+      {/* 전환 퍼널 */}
+      <div className="card">
+        <h3 className="text-lg font-semibold mb-4">전환 퍼널</h3>
+        <div className="flex items-center justify-between gap-2">
+          {[
+            { label: '가입', value: data.funnel.registered, color: 'bg-slate-500' },
+            { label: '첫 구매', value: data.funnel.firstPurchase, color: 'bg-blue-500' },
+            { label: '재구매', value: data.funnel.secondPurchase, color: 'bg-purple-500' },
+            { label: '충성 고객', value: data.funnel.loyal, color: 'bg-green-500' },
+          ].map((step, idx, arr) => (
+            <div key={step.label} className="flex-1 flex items-center">
+              <div className="flex-1 text-center">
+                <div className={`${step.color} text-white rounded-lg py-4 px-2`}>
+                  <p className="text-2xl font-bold">{step.value.toLocaleString()}</p>
+                  <p className="text-xs opacity-90">{step.label}</p>
+                </div>
+                {idx > 0 && (
+                  <p className="text-xs text-slate-500 mt-1">
+                    {arr[idx - 1].value > 0
+                      ? `${Math.round((step.value / arr[idx - 1].value) * 100)}%`
+                      : '0%'}
+                  </p>
+                )}
+              </div>
+              {idx < arr.length - 1 && (
+                <div className="text-slate-300 px-2">→</div>
+              )}
+            </div>
+          ))}
+        </div>
+      </div>
+
+      <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+        {/* 월별 전환 추이 */}
+        <div className="card">
+          <h3 className="text-lg font-semibold mb-4">월별 가입 & 전환 추이</h3>
+          <div className="h-64">
+            <Bar
+              data={trendChartData}
+              options={{
+                responsive: true,
+                maintainAspectRatio: false,
+                plugins: {
+                  legend: { position: 'bottom' },
+                },
+                scales: {
+                  y: { beginAtZero: true },
+                },
+              }}
+            />
+          </div>
+        </div>
+
+        {/* 재구매 분포 */}
+        <div className="card">
+          <h3 className="text-lg font-semibold mb-4">구매 횟수 분포</h3>
+          <div className="h-64">
+            <Doughnut
+              data={repeatData}
+              options={{
+                responsive: true,
+                maintainAspectRatio: false,
+                plugins: {
+                  legend: { position: 'bottom' },
+                },
+              }}
+            />
+          </div>
+          <div className="grid grid-cols-3 gap-2 mt-4 text-center">
+            <div>
+              <p className="text-2xl font-bold text-slate-600">{data.repeatPurchase.oneTime}</p>
+              <p className="text-xs text-slate-500">1회</p>
+            </div>
+            <div>
+              <p className="text-2xl font-bold text-blue-600">{data.repeatPurchase.twoTimes}</p>
+              <p className="text-xs text-slate-500">2회</p>
+            </div>
+            <div>
+              <p className="text-2xl font-bold text-green-600">{data.repeatPurchase.threePlus}</p>
+              <p className="text-xs text-slate-500">3회+</p>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      {/* 국가별 전환율 */}
+      <div className="card">
+        <h3 className="text-lg font-semibold mb-4">국가별 전환율 (Top 15)</h3>
+        <div className="h-80">
+          <Bar
+            data={countryChartData}
+            options={{
+              responsive: true,
+              maintainAspectRatio: false,
+              indexAxis: 'y',
+              plugins: {
+                legend: { display: false },
+              },
+              scales: {
+                x: {
+                  beginAtZero: true,
+                  max: 100,
+                  title: { display: true, text: '전환율 (%)' },
+                },
+              },
+            }}
+          />
+        </div>
+      </div>
+
+      {/* 월별 상세 테이블 */}
+      <div className="card">
+        <h3 className="text-lg font-semibold mb-4">월별 전환 상세</h3>
+        <div className="overflow-x-auto">
+          <table className="w-full text-sm">
+            <thead>
+              <tr className="border-b border-slate-200">
+                <th className="text-left py-2 px-3 font-medium text-slate-600">월</th>
+                <th className="text-right py-2 px-3 font-medium text-slate-600">신규 가입</th>
+                <th className="text-right py-2 px-3 font-medium text-slate-600">첫 구매 전환</th>
+                <th className="text-right py-2 px-3 font-medium text-slate-600">전환율</th>
+                <th className="text-right py-2 px-3 font-medium text-slate-600">평균 전환 일수</th>
+              </tr>
+            </thead>
+            <tbody>
+              {data.monthlyTrend.map((month: any, idx: number) => (
+                <tr key={idx} className="border-b border-slate-100 hover:bg-slate-50">
+                  <td className="py-2 px-3 font-medium">{month.month}</td>
+                  <td className="py-2 px-3 text-right">{month.signups.toLocaleString()}명</td>
+                  <td className="py-2 px-3 text-right text-blue-600 font-medium">
+                    {month.converted.toLocaleString()}명
+                  </td>
+                  <td className="py-2 px-3 text-right">
+                    <span className={`px-2 py-1 rounded text-xs font-medium ${
+                      month.conversionRate >= 15 ? 'bg-green-100 text-green-700' :
+                      month.conversionRate >= 10 ? 'bg-blue-100 text-blue-700' :
+                      month.conversionRate >= 5 ? 'bg-yellow-100 text-yellow-700' :
+                      'bg-red-100 text-red-700'
+                    }`}>
+                      {month.conversionRate}%
+                    </span>
+                  </td>
+                  <td className="py-2 px-3 text-right text-slate-600">
+                    {month.avgDaysToConvert > 0 ? `${month.avgDaysToConvert}일` : '-'}
+                  </td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        </div>
+      </div>
     </div>
   )
 }

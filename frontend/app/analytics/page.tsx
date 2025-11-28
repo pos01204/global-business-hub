@@ -1266,7 +1266,7 @@ export default function AnalyticsPage() {
                 : 'text-muted-color hover:text-primary'
             }`}
           >
-            고객 분석
+            고객 확보
           </button>
           <button
             onClick={() => setActiveTab('channel')}
@@ -1812,6 +1812,25 @@ export default function AnalyticsPage() {
                     )}
                   </tbody>
                 </table>
+              </div>
+            </div>
+
+            {/* 고객 분석 페이지 안내 */}
+            <div className="card bg-gradient-to-r from-slate-50 to-slate-100 border-slate-200">
+              <div className="flex items-center justify-between">
+                <div className="flex items-center gap-3">
+                  <span className="text-3xl">👥</span>
+                  <div>
+                    <h3 className="font-semibold text-slate-800">더 상세한 고객 분석이 필요하신가요?</h3>
+                    <p className="text-sm text-slate-600">RFM 세그먼트, 이탈 위험, 코호트, LTV 분석을 확인하세요</p>
+                  </div>
+                </div>
+                <a
+                  href="/customer-analytics"
+                  className="px-4 py-2 bg-slate-800 text-white rounded-lg font-medium hover:bg-slate-700 transition-colors"
+                >
+                  고객 분석 바로가기 →
+                </a>
               </div>
             </div>
           </div>

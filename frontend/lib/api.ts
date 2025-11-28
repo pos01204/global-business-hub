@@ -802,6 +802,12 @@ export const customerAnalyticsApi = {
     return response.data
   },
 
+  // 구매 전환 분석
+  getConversion: async () => {
+    const response = await api.get('/api/customer-analytics/conversion')
+    return response.data
+  },
+
   // 쿠폰 시뮬레이션
   simulateCoupon: async (params: {
     targetSegments: string[]
