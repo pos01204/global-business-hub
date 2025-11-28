@@ -125,8 +125,8 @@ export default function UnreceivedPage() {
     return (
       <div className="min-h-screen flex items-center justify-center">
         <div className="text-center">
-          <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-primary mx-auto mb-4"></div>
-          <p>데이터를 불러오는 중...</p>
+          <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-idus-500 mx-auto mb-4"></div>
+          <p className="text-gray-600">데이터를 불러오는 중...</p>
         </div>
       </div>
     )
@@ -175,11 +175,19 @@ export default function UnreceivedPage() {
   const delayedCount = (data?.items || []).filter((item: any) => item.daysElapsed >= 7).length
 
   return (
-    <div>
-      {/* 페이지 헤더 */}
-      <div className="mb-6">
-        <h1 className="text-2xl font-bold text-gray-900 mb-1">미입고 관리</h1>
-        <p className="text-gray-600 text-sm">'결제 완료' 상태의 주문 중 '처리완료'되지 않은 개별 작품 목록입니다.</p>
+    <div className="animate-fade-in">
+      {/* 페이지 헤더 - idus 브랜드 스타일 */}
+      <div className="relative bg-gradient-to-r from-idus-500 to-idus-600 rounded-2xl p-6 mb-6 overflow-hidden shadow-orange">
+        <div className="absolute top-0 right-0 w-64 h-64 bg-white/10 rounded-full -translate-y-1/2 translate-x-1/2"></div>
+        <div className="flex items-center gap-4">
+          <div className="w-14 h-14 bg-white/20 backdrop-blur rounded-xl flex items-center justify-center shadow-lg">
+            <span className="text-3xl">📦</span>
+          </div>
+          <div>
+            <h1 className="text-2xl font-extrabold text-white tracking-tight">미입고 관리</h1>
+            <p className="text-idus-100 text-sm font-medium">'결제 완료' 상태의 주문 중 '처리완료'되지 않은 개별 작품 목록</p>
+          </div>
+        </div>
       </div>
 
       {/* 긴급 알림 배너 */}

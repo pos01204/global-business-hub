@@ -141,11 +141,19 @@ export default function ControlTowerPage() {
   const maxDelayDays = Math.max(...stages.map(([, stage]) => stage.maxDays))
 
   return (
-    <div>
-      {/* 페이지 헤더 */}
-      <div className="mb-6">
-        <h1 className="text-2xl font-bold text-gray-900 mb-1">실시간 물류 관제 센터</h1>
-        <p className="text-gray-600 text-sm">5단계 물류 파이프라인의 실시간 현황을 모니터링합니다.</p>
+    <div className="animate-fade-in">
+      {/* 페이지 헤더 - idus 브랜드 스타일 */}
+      <div className="relative bg-gradient-to-r from-idus-500 to-idus-600 rounded-2xl p-6 mb-6 overflow-hidden shadow-orange">
+        <div className="absolute top-0 right-0 w-64 h-64 bg-white/10 rounded-full -translate-y-1/2 translate-x-1/2"></div>
+        <div className="flex items-center gap-4">
+          <div className="w-14 h-14 bg-white/20 backdrop-blur rounded-xl flex items-center justify-center shadow-lg">
+            <span className="text-3xl">📡</span>
+          </div>
+          <div>
+            <h1 className="text-2xl font-extrabold text-white tracking-tight">실시간 물류 관제 센터</h1>
+            <p className="text-idus-100 text-sm font-medium">5단계 물류 파이프라인의 실시간 현황을 모니터링합니다</p>
+          </div>
+        </div>
       </div>
 
       {/* 전체 요약 카드 */}

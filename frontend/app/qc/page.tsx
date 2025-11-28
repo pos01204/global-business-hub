@@ -14,16 +14,17 @@ export default function QCPage() {
   const [activeTab, setActiveTab] = useState<QCTab>('upload')
 
   return (
-    <div>
-      {/* 페이지 헤더 */}
-      <div className="mb-6">
-        <div className="flex items-center gap-3 mb-2">
-          <div className="w-12 h-12 bg-gradient-to-br from-green-500 to-emerald-500 rounded-lg flex items-center justify-center shadow-lg">
-            <span className="text-white text-2xl">✅</span>
+    <div className="animate-fade-in">
+      {/* 페이지 헤더 - idus 브랜드 스타일 */}
+      <div className="relative bg-gradient-to-r from-idus-500 to-idus-600 rounded-2xl p-6 mb-6 overflow-hidden shadow-orange">
+        <div className="absolute top-0 right-0 w-64 h-64 bg-white/10 rounded-full -translate-y-1/2 translate-x-1/2"></div>
+        <div className="flex items-center gap-4">
+          <div className="w-14 h-14 bg-white/20 backdrop-blur rounded-xl flex items-center justify-center shadow-lg">
+            <span className="text-3xl">✅</span>
           </div>
           <div>
-            <h1 className="text-3xl font-bold text-gray-900">QC 관리</h1>
-            <p className="text-gray-600 text-sm mt-1">일본어 작품 한글 번역 및 이미지 QC 관리</p>
+            <h1 className="text-2xl font-extrabold text-white tracking-tight">QC 관리</h1>
+            <p className="text-idus-100 text-sm font-medium">일본어 작품 한글 번역 및 이미지 QC 관리</p>
           </div>
         </div>
       </div>

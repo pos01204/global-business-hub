@@ -62,10 +62,19 @@ export default function LookupPage() {
   }
 
   return (
-    <div>
-      <div className="mb-6">
-        <h1 className="text-3xl font-bold text-gray-900 mb-2">🔍 통합 검색</h1>
-        <p className="text-gray-600">주문번호, 송장번호, 사용자 ID 등으로 통합 검색합니다.</p>
+    <div className="animate-fade-in">
+      {/* 페이지 헤더 - idus 브랜드 스타일 */}
+      <div className="relative bg-gradient-to-r from-idus-500 to-idus-600 rounded-2xl p-6 mb-6 overflow-hidden shadow-orange">
+        <div className="absolute top-0 right-0 w-64 h-64 bg-white/10 rounded-full -translate-y-1/2 translate-x-1/2"></div>
+        <div className="flex items-center gap-4">
+          <div className="w-14 h-14 bg-white/20 backdrop-blur rounded-xl flex items-center justify-center shadow-lg">
+            <span className="text-3xl">🔍</span>
+          </div>
+          <div>
+            <h1 className="text-2xl font-extrabold text-white tracking-tight">통합 검색</h1>
+            <p className="text-idus-100 text-sm font-medium">주문번호, 송장번호, 사용자 ID 등으로 통합 검색합니다</p>
+          </div>
+        </div>
       </div>
 
         {/* 검색 폼 */}
