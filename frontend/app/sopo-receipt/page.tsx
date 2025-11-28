@@ -33,6 +33,7 @@ interface ArtistSummary {
 interface OrderDetail {
   orderCode: string
   shipmentId: string
+  shipmentItemId?: string // G열 - 고유 식별자 (동일 주문 내 옵션별 구분)
   productName: string
   option: string
   quantity: number

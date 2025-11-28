@@ -400,6 +400,7 @@ router.post('/upload', upload.single('file'), async (req: Request, res: Response
     interface OrderDetail {
       orderCode: string;
       shipmentId: string;
+      shipmentItemId: string; // G열 - 고유 식별자 (동일 주문 내 옵션별 구분)
       productName: string;
       option: string;
       quantity: number;
@@ -460,9 +461,11 @@ router.post('/upload', upload.single('file'), async (req: Request, res: Response
           artistSummary.artistEmail = artistInfo.email;
         }
         
-        // 같은 주문이 이미 있는지 확인 (중복 방지)
+        // shipment_item_id로 중복 체크 (동일 주문 내 옵션별 별도 인식)
+        // G열 - 고유 식별자로 동일 작품의 다른 옵션도 별도로 처리
+        const shipmentItemId = row.shipment_item_id || row['shipment_item_id'] || '';
         const existingOrder = artistSummary.orders.find(
-          o => o.orderCode === orderCode && o.productName === (row.product_name || '')
+          o => o.shipmentItemId === shipmentItemId && shipmentItemId !== ''
         );
 
         if (!existingOrder) {
@@ -474,6 +477,7 @@ router.post('/upload', upload.single('file'), async (req: Request, res: Response
           artistSummary.orders.push({
             orderCode,
             shipmentId: shipment.shipmentId,
+            shipmentItemId, // G열 고유 식별자
             productName: row.product_name || row['작품명'] || '',
             option: row.option || row['옵션'] || '',
             quantity,
@@ -726,12 +730,15 @@ router.get('/order-sheet/:artistName', async (req: Request, res: Response) => {
       });
     }
     
+    // shipment_item_id 기준으로 각 행을 개별 인식
+    // 동일 작품의 다른 옵션도 별도 행으로 처리
     const orderSheet = artistOrders.map((row: any) => {
       // 작품 판매 금액(KRW) - 작가 정산 기준 금액 (AQ열)
       const productPriceKRW = cleanAndParseFloat(row['작품 판매 금액(KRW)']);
       
       return {
         orderCode: row.order_code || '',
+        shipmentItemId: row.shipment_item_id || '', // G열 - 고유 식별자
         orderStatus: '배송완료',
         productName: row.product_name || row['작품명'] || '',
         option: row.option || row['옵션'] || '',
