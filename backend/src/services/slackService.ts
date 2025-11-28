@@ -96,7 +96,7 @@ class SlackService {
           type: 'section',
           text: {
             type: 'mrkdwn',
-            text: '`/order [주문번호]`\n주문 상세 정보 조회\n예: `/order 123456`',
+            text: '`/order [주문번호]`\n주문 상세 정보 조회\n예: `/order P_123456789`',
           },
         },
         {
@@ -110,7 +110,7 @@ class SlackService {
           type: 'section',
           text: {
             type: 'mrkdwn',
-            text: '`/customer [고객ID]`\n고객 주문 이력 조회\n예: `/customer user_12345`',
+            text: '`/customer [고객ID]`\n고객 주문 이력 조회\n예: `/customer 12345`',
           },
         },
         {

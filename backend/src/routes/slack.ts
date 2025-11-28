@@ -162,7 +162,7 @@ router.post('/commands/order', async (req: Request, res: Response) => {
     if (!orderCode) {
       return res.json({
         response_type: 'ephemeral',
-        text: '❌ 주문번호를 입력해주세요.\n사용법: `/order 123456`',
+        text: '❌ 주문번호를 입력해주세요.\n사용법: `/order P_123456789`',
       });
     }
 
@@ -321,7 +321,7 @@ router.post('/commands/customer', async (req: Request, res: Response) => {
     if (!customerId) {
       return res.json({
         response_type: 'ephemeral',
-        text: '❌ 고객 ID를 입력해주세요.\n사용법: `/customer user_12345`',
+        text: '❌ 고객 ID를 입력해주세요.\n사용법: `/customer 12345`',
       });
     }
 
@@ -343,7 +343,7 @@ router.post('/commands/customer', async (req: Request, res: Response) => {
       if (customerOrders.length === 0) {
         await sendDelayedResponse(responseUrl,
           slackService.buildErrorMessage('customer', customerId,
-            '• 고객 ID가 정확한지 확인해주세요\n• user_ 접두어를 포함해서 입력해주세요')
+            '• 고객 ID가 정확한지 확인해주세요')
         );
         return;
       }
