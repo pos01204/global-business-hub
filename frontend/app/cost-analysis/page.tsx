@@ -5,8 +5,9 @@ import DashboardTab from './components/DashboardTab'
 import SimulatorTab from './components/SimulatorTab'
 import RatesTab from './components/RatesTab'
 import CountryAnalysisTab from './components/CountryAnalysisTab'
+import PolicySimulatorTab from './components/PolicySimulatorTab'
 
-type CostAnalysisTab = 'dashboard' | 'simulator' | 'rates' | 'country'
+type CostAnalysisTab = 'dashboard' | 'simulator' | 'rates' | 'country' | 'policy'
 
 export default function CostAnalysisPage() {
   const [activeTab, setActiveTab] = useState<CostAnalysisTab>('dashboard')
@@ -16,6 +17,7 @@ export default function CostAnalysisPage() {
     { id: 'simulator' as const, label: '손익 시뮬레이터', icon: '🧮', description: '주문별 시뮬레이션' },
     { id: 'rates' as const, label: '운임 요금표', icon: '📋', description: '운송사별 요금 조회' },
     { id: 'country' as const, label: '국가별 분석', icon: '🌍', description: '국가별 상세 분석' },
+    { id: 'policy' as const, label: '정책 시뮬레이터', icon: '🎯', description: '배송 정책 영향 분석' },
   ]
 
   return (
@@ -71,7 +73,7 @@ export default function CostAnalysisPage() {
           <h2 className="text-lg font-semibold text-gray-800">분석 도구</h2>
         </div>
         
-        <div className="grid grid-cols-4 gap-3">
+        <div className="grid grid-cols-5 gap-3">
           {tabs.map((tab) => (
             <button
               key={tab.id}
@@ -111,6 +113,7 @@ export default function CostAnalysisPage() {
         {activeTab === 'simulator' && <SimulatorTab />}
         {activeTab === 'rates' && <RatesTab />}
         {activeTab === 'country' && <CountryAnalysisTab />}
+        {activeTab === 'policy' && <PolicySimulatorTab />}
       </div>
     </div>
   )

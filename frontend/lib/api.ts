@@ -598,7 +598,7 @@ export const qcApi = {
 // 비용 분석 & 손익 시뮬레이션 API
 export const costAnalysisApi = {
   // 대시보드 데이터 조회
-  getDashboard: async (params?: { startDate?: string; endDate?: string }) => {
+  getDashboard: async (params?: { startDate?: string; endDate?: string; country?: string }) => {
     const response = await api.get('/api/cost-analysis/dashboard', { params })
     return response.data
   },
@@ -653,6 +653,28 @@ export const costAnalysisApi = {
   // 국가별 상세 분석
   getCountryDetail: async (countryCode: string, params?: { startDate?: string; endDate?: string }) => {
     const response = await api.get(`/api/cost-analysis/country/${countryCode}`, { params })
+    return response.data
+  },
+
+  // 정책 시뮬레이션
+  simulatePolicy: async (input: {
+    tier: number
+    newFreeShippingThreshold?: number
+    newCustomerShippingFee?: number
+    newFreeShippingItemCount?: number | null
+  }) => {
+    const response = await api.post('/api/cost-analysis/policy-simulation', input)
+    return response.data
+  },
+
+  // 매출 요약 조회
+  getSalesSummary: async (params?: { 
+    startDate?: string
+    endDate?: string
+    country?: string
+    tier?: number
+  }) => {
+    const response = await api.get('/api/cost-analysis/sales-summary', { params })
     return response.data
   },
 }
