@@ -118,56 +118,79 @@ router.get('/dashboard', async (req: Request, res: Response) => {
       currentDate.setDate(currentDate.getDate() + 1);
     }
     
+    // ============================================
+    // 메인 대시보드와 동일한 GMV 계산 로직 적용
+    // - GMV: 모든 row 합산 (같은 주문에 여러 상품 가능)
+    // - 주문 건수: order_code 기준 중복 제거
+    // - 물류비: 주문당 한 번만 계산 (배송은 주문 단위)
+    // ============================================
+    
     let totalGMV = 0;
     let totalLogisticsCost = 0;
     let totalCustomerShipping = 0;
+    let totalItemCount = 0;
     const processedOrderCodes = new Set<string>();
     
+    // 주문별 GMV 집계 (물류비/배송비 계산용)
+    const orderGMVMap: Record<string, number> = {};
+    
+    // 1단계: 주문별 GMV 합산 (메인 대시보드와 동일)
+    for (const row of filteredData) {
+      const orderCode = row.order_code;
+      if (!orderCode) continue;
+      
+      const gmvUSD = cleanAndParseFloat(row['Total GMV']);
+      if (!orderGMVMap[orderCode]) {
+        orderGMVMap[orderCode] = 0;
+      }
+      orderGMVMap[orderCode] += gmvUSD;
+    }
+    
+    // 2단계: 전체 집계 (메인 대시보드 로직과 일치)
     for (const row of filteredData) {
       const orderCode = row.order_code;
       const country = row.country || 'JP';
       
-      // 중복 주문 건 처리 (order_code 기준)
-      const isNewOrder = !processedOrderCodes.has(orderCode);
-      if (isNewOrder && orderCode) {
-        processedOrderCodes.add(orderCode);
-      }
-      
-      // GMV 계산 (Total GMV는 USD 단위)
+      // GMV는 모든 row 합산 (메인 대시보드와 동일)
       const gmvUSD = cleanAndParseFloat(row['Total GMV']);
       const gmvKRW = gmvUSD * USD_TO_KRW;
+      totalGMV += gmvKRW;
       
-      // 물류비 계산 (settlement 데이터가 있으면 사용)
-      let logisticsCost = 0;
-      const shipmentId = row.shipment_id;
-      const settlementRecord = shipmentId ? settlementByShipmentId[shipmentId] : null;
+      // 수량도 모든 row 합산
+      totalItemCount += parseInt(row['구매수량'] || '1') || 1;
       
-      if (settlementRecord && settlementRecord.total_cost) {
-        logisticsCost = cleanAndParseFloat(settlementRecord.total_cost);
-      } else {
-        // settlement 데이터 없으면 Tier 기반 추정
+      // 중복 주문 건 처리 (order_code 기준) - 물류비/배송비 계산용
+      const isNewOrder = orderCode && !processedOrderCodes.has(orderCode);
+      if (isNewOrder) {
+        processedOrderCodes.add(orderCode);
+        
+        // 물류비 계산 (주문당 한 번만 - settlement 데이터가 있으면 사용)
+        let logisticsCost = 0;
+        const shipmentId = row.shipment_id;
+        const settlementRecord = shipmentId ? settlementByShipmentId[shipmentId] : null;
+        
+        if (settlementRecord && settlementRecord.total_cost) {
+          logisticsCost = cleanAndParseFloat(settlementRecord.total_cost);
+        } else {
+          // settlement 데이터 없으면 Tier 기반 추정
+          const countryInfo = COUNTRY_TIERS[country];
+          const tier = countryInfo?.tier || 4;
+          logisticsCost = tier === 1 ? 8000 : tier === 2 ? 15000 : tier === 3 ? 35000 : 45000;
+        }
+        
+        // 고객 배송비 수입 계산 (주문 전체 GMV 기준으로 무료배송 판단)
         const countryInfo = COUNTRY_TIERS[country];
         const tier = countryInfo?.tier || 4;
-        logisticsCost = tier === 1 ? 8000 : tier === 2 ? 15000 : tier === 3 ? 35000 : 45000;
-      }
-      
-      // 고객 배송비 수입 계산
-      const countryInfo = COUNTRY_TIERS[country];
-      const tier = countryInfo?.tier || 4;
-      const policy = SHIPPING_POLICIES[tier as 1 | 2 | 3 | 4];
-      const isFreeShipping = gmvUSD >= policy.freeShippingThresholdUSD;
-      const customerShipping = isNewOrder 
-        ? (isFreeShipping ? 0 : policy.customerShippingFeeUSD * USD_TO_KRW)
-        : 0;
-      
-      // 집계
-      if (isNewOrder) {
-        totalGMV += gmvKRW;
+        const policy = SHIPPING_POLICIES[tier as 1 | 2 | 3 | 4];
+        const orderTotalGMV_USD = orderGMVMap[orderCode] || 0;
+        const isFreeShipping = orderTotalGMV_USD >= policy.freeShippingThresholdUSD;
+        const customerShipping = isFreeShipping ? 0 : policy.customerShippingFeeUSD * USD_TO_KRW;
+        
         totalLogisticsCost += logisticsCost;
         totalCustomerShipping += customerShipping;
       }
       
-      // 국가별
+      // 국가별 집계
       if (!countryStats[country]) {
         countryStats[country] = {
           orderCount: 0,
@@ -177,22 +200,63 @@ router.get('/dashboard', async (req: Request, res: Response) => {
           customerShippingRevenue: 0,
         };
       }
+      
+      // 국가별 GMV는 모든 row 합산
+      countryStats[country].totalGMV += gmvKRW;
+      
+      // 국가별 주문 건수, 물류비는 order_code 기준
       if (orderCode && !countryStats[country].orderCodes.has(orderCode)) {
         countryStats[country].orderCodes.add(orderCode);
         countryStats[country].orderCount++;
-        countryStats[country].totalGMV += gmvKRW;
+        
+        // 물류비 계산 (주문당 한 번)
+        let logisticsCost = 0;
+        const shipmentId = row.shipment_id;
+        const settlementRecord = shipmentId ? settlementByShipmentId[shipmentId] : null;
+        
+        if (settlementRecord && settlementRecord.total_cost) {
+          logisticsCost = cleanAndParseFloat(settlementRecord.total_cost);
+        } else {
+          const countryInfo = COUNTRY_TIERS[country];
+          const tier = countryInfo?.tier || 4;
+          logisticsCost = tier === 1 ? 8000 : tier === 2 ? 15000 : tier === 3 ? 35000 : 45000;
+        }
+        
         countryStats[country].totalLogisticsCost += logisticsCost;
+        
+        // 배송비 수입 (주문 전체 GMV 기준)
+        const countryInfo = COUNTRY_TIERS[country];
+        const tier = countryInfo?.tier || 4;
+        const policy = SHIPPING_POLICIES[tier as 1 | 2 | 3 | 4];
+        const orderTotalGMV_USD = orderGMVMap[orderCode] || 0;
+        const isFreeShipping = orderTotalGMV_USD >= policy.freeShippingThresholdUSD;
+        const customerShipping = isFreeShipping ? 0 : policy.customerShippingFeeUSD * USD_TO_KRW;
         countryStats[country].customerShippingRevenue += customerShipping;
       }
       
-      // 일별
+      // 일별 집계
       try {
         const orderDate = new Date(row.order_created);
         const dateKey = orderDate.toISOString().split('T')[0];
-        if (dailyStats[dateKey] && orderCode) {
-          if (!dailyStats[dateKey].orderCodes.has(orderCode)) {
+        if (dailyStats[dateKey]) {
+          // GMV는 모든 row 합산
+          dailyStats[dateKey].gmv += gmvKRW;
+          
+          // 주문 건수, 물류비는 order_code 기준
+          if (orderCode && !dailyStats[dateKey].orderCodes.has(orderCode)) {
             dailyStats[dateKey].orderCodes.add(orderCode);
-            dailyStats[dateKey].gmv += gmvKRW;
+            
+            let logisticsCost = 0;
+            const shipmentId = row.shipment_id;
+            const settlementRecord = shipmentId ? settlementByShipmentId[shipmentId] : null;
+            
+            if (settlementRecord && settlementRecord.total_cost) {
+              logisticsCost = cleanAndParseFloat(settlementRecord.total_cost);
+            } else {
+              const countryInfo = COUNTRY_TIERS[country];
+              const tier = countryInfo?.tier || 4;
+              logisticsCost = tier === 1 ? 8000 : tier === 2 ? 15000 : tier === 3 ? 35000 : 45000;
+            }
             dailyStats[dateKey].logisticsCost += logisticsCost;
           }
         }
@@ -577,20 +641,47 @@ router.post('/policy-simulation', async (req: Request, res: Response) => {
       return tierCountries.includes(country) && orderDate >= thirtyDaysAgo;
     });
     
-    // 중복 제거 (order_code 기준)
-    const uniqueOrders: Record<string, any> = {};
-    tierOrders.forEach((row: any) => {
-      if (row.order_code && !uniqueOrders[row.order_code]) {
-        uniqueOrders[row.order_code] = row;
-      }
-    });
-    
-    const orders = Object.values(uniqueOrders);
     const USD_TO_KRW = 1350;
+    
+    const cleanAndParseFloat = (value: any): number => {
+      if (typeof value === 'number') return value;
+      if (typeof value === 'string') return parseFloat(value.replace(/,/g, '')) || 0;
+      return 0;
+    };
+    
+    // ============================================
+    // 메인 대시보드와 동일한 GMV 계산 로직 적용
+    // - GMV: 모든 row 합산 (같은 주문에 여러 상품 가능)
+    // - 주문 건수: order_code 기준 중복 제거
+    // ============================================
+    
+    // 1단계: 주문별 GMV/수량 합산
+    const orderDataMap: Record<string, { gmvUSD: number; quantity: number; shipmentId?: string; firstRow: any }> = {};
+    
+    for (const row of tierOrders) {
+      const orderCode = row.order_code;
+      if (!orderCode) continue;
+      
+      const gmvUSD = cleanAndParseFloat(row['Total GMV']);
+      const quantity = parseInt(row['구매수량'] || '1') || 1;
+      
+      if (!orderDataMap[orderCode]) {
+        orderDataMap[orderCode] = {
+          gmvUSD: 0,
+          quantity: 0,
+          shipmentId: row.shipment_id,
+          firstRow: row,
+        };
+      }
+      orderDataMap[orderCode].gmvUSD += gmvUSD;
+      orderDataMap[orderCode].quantity += quantity;
+    }
+    
+    const uniqueOrderCodes = Object.keys(orderDataMap);
     
     // 현재 정책 기준 분석
     let currentStats = {
-      totalOrders: orders.length,
+      totalOrders: uniqueOrderCodes.length,
       freeShippingOrders: 0,
       paidShippingOrders: 0,
       totalGMV: 0,
@@ -600,7 +691,7 @@ router.post('/policy-simulation', async (req: Request, res: Response) => {
     
     // 새 정책 기준 분석
     let newStats = {
-      totalOrders: orders.length,
+      totalOrders: uniqueOrderCodes.length,
       freeShippingOrders: 0,
       paidShippingOrders: 0,
       totalGMV: 0,
@@ -608,20 +699,16 @@ router.post('/policy-simulation', async (req: Request, res: Response) => {
       customerShippingRevenue: 0,
     };
     
-    const cleanAndParseFloat = (value: any): number => {
-      if (typeof value === 'number') return value;
-      if (typeof value === 'string') return parseFloat(value.replace(/,/g, '')) || 0;
-      return 0;
-    };
-    
-    for (const row of orders) {
-      const gmvUSD = cleanAndParseFloat(row['Total GMV']);
+    // 2단계: 주문별로 정책 시뮬레이션
+    for (const orderCode of uniqueOrderCodes) {
+      const orderData = orderDataMap[orderCode];
+      const gmvUSD = orderData.gmvUSD; // 주문 전체 GMV
       const gmvKRW = gmvUSD * USD_TO_KRW;
-      const quantity = parseInt(row['구매수량'] || '1') || 1;
+      const quantity = orderData.quantity; // 주문 전체 수량
       
-      // 물류비
+      // 물류비 (주문당 한 번)
       let logisticsCost = 0;
-      const shipmentId = row.shipment_id;
+      const shipmentId = orderData.shipmentId;
       const settlementRecord = shipmentId ? settlementByShipmentId[shipmentId] : null;
       
       if (settlementRecord && settlementRecord.total_cost) {
@@ -630,11 +717,11 @@ router.post('/policy-simulation', async (req: Request, res: Response) => {
         logisticsCost = tier === 1 ? 8000 : tier === 2 ? 15000 : tier === 3 ? 35000 : 45000;
       }
       
-      // 현재 정책 기준 무료배송 여부
+      // 현재 정책 기준 무료배송 여부 (주문 전체 GMV/수량 기준)
       const currentIsFree = gmvUSD >= currentPolicy.freeShippingThresholdUSD ||
         (currentPolicy.freeShippingItemCount && quantity >= currentPolicy.freeShippingItemCount);
       
-      // 새 정책 기준 무료배송 여부
+      // 새 정책 기준 무료배송 여부 (주문 전체 GMV/수량 기준)
       const newIsFree = gmvUSD >= newPolicy.freeShippingThresholdUSD ||
         (newPolicy.freeShippingItemCount && quantity >= newPolicy.freeShippingItemCount);
       
@@ -790,15 +877,6 @@ router.get('/sales-summary', async (req: Request, res: Response) => {
       return true;
     });
     
-    // 중복 제거
-    const uniqueOrders: Record<string, any> = {};
-    filteredData.forEach((row: any) => {
-      if (row.order_code && !uniqueOrders[row.order_code]) {
-        uniqueOrders[row.order_code] = row;
-      }
-    });
-    
-    const orders = Object.values(uniqueOrders);
     const USD_TO_KRW = 1350;
     
     const cleanAndParseFloat = (value: any): number => {
@@ -807,34 +885,62 @@ router.get('/sales-summary', async (req: Request, res: Response) => {
       return 0;
     };
     
+    // ============================================
+    // 메인 대시보드와 동일한 GMV 계산 로직 적용
+    // - GMV: 모든 row 합산 (같은 주문에 여러 상품 가능)
+    // - 주문 건수: order_code 기준 중복 제거
+    // ============================================
+    
     let totalGMV = 0;
-    let totalOrders = orders.length;
-    const countryBreakdown: Record<string, { orders: number; gmv: number }> = {};
-    const tierBreakdown: Record<number, { orders: number; gmv: number }> = {
-      1: { orders: 0, gmv: 0 },
-      2: { orders: 0, gmv: 0 },
-      3: { orders: 0, gmv: 0 },
-      4: { orders: 0, gmv: 0 },
+    const processedOrderCodes = new Set<string>();
+    const countryBreakdown: Record<string, { orders: number; gmv: number; orderCodes: Set<string> }> = {};
+    const tierBreakdown: Record<number, { orders: number; gmv: number; orderCodes: Set<string> }> = {
+      1: { orders: 0, gmv: 0, orderCodes: new Set() },
+      2: { orders: 0, gmv: 0, orderCodes: new Set() },
+      3: { orders: 0, gmv: 0, orderCodes: new Set() },
+      4: { orders: 0, gmv: 0, orderCodes: new Set() },
     };
     
-    for (const row of orders) {
+    // 모든 row를 순회하며 GMV 합산, 주문 건수는 order_code 기준 중복 제거
+    for (const row of filteredData) {
+      const orderCode = row.order_code;
       const gmvUSD = cleanAndParseFloat(row['Total GMV']);
       const gmvKRW = gmvUSD * USD_TO_KRW;
       const orderCountry = row.country || 'JP';
       const countryInfo = COUNTRY_TIERS[orderCountry];
       const orderTier = countryInfo?.tier || 4;
       
+      // GMV는 모든 row 합산 (메인 대시보드와 동일)
       totalGMV += gmvKRW;
       
+      // 국가별 집계
       if (!countryBreakdown[orderCountry]) {
-        countryBreakdown[orderCountry] = { orders: 0, gmv: 0 };
+        countryBreakdown[orderCountry] = { orders: 0, gmv: 0, orderCodes: new Set() };
       }
-      countryBreakdown[orderCountry].orders++;
       countryBreakdown[orderCountry].gmv += gmvKRW;
       
-      tierBreakdown[orderTier].orders++;
+      // Tier별 집계 - GMV는 모든 row 합산
       tierBreakdown[orderTier].gmv += gmvKRW;
+      
+      // 주문 건수는 order_code 기준 중복 제거
+      if (orderCode) {
+        if (!processedOrderCodes.has(orderCode)) {
+          processedOrderCodes.add(orderCode);
+        }
+        
+        if (!countryBreakdown[orderCountry].orderCodes.has(orderCode)) {
+          countryBreakdown[orderCountry].orderCodes.add(orderCode);
+          countryBreakdown[orderCountry].orders++;
+        }
+        
+        if (!tierBreakdown[orderTier].orderCodes.has(orderCode)) {
+          tierBreakdown[orderTier].orderCodes.add(orderCode);
+          tierBreakdown[orderTier].orders++;
+        }
+      }
     }
+    
+    const totalOrders = processedOrderCodes.size;
     
     res.json({
       success: true,
@@ -853,13 +959,13 @@ router.get('/sales-summary', async (req: Request, res: Response) => {
           .map(([code, data]) => ({
             country: code,
             countryName: COUNTRY_TIERS[code]?.name || code,
-            ...data,
+            orders: data.orders,
             gmv: Math.round(data.gmv),
           }))
           .sort((a, b) => b.gmv - a.gmv),
         byTier: Object.entries(tierBreakdown).map(([tier, data]) => ({
           tier: parseInt(tier),
-          ...data,
+          orders: data.orders,
           gmv: Math.round(data.gmv),
         })),
       },
