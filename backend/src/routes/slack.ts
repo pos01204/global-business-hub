@@ -7,6 +7,7 @@
 
 import express, { Request, Response } from 'express';
 import { slackService } from '../services/slackService';
+import { SHEET_NAMES } from '../config/sheets';
 
 const router = express.Router();
 
@@ -93,27 +94,31 @@ router.post('/commands/order', async (req: Request, res: Response) => {
       const { sheetsConfig } = await import('../config/sheets');
       const sheets = new GoogleSheetsService(sheetsConfig);
       
-      // 주문 데이터 조회
-      const ordersData = await sheets.getSheetDataAsJson('주문내역');
-      const order = ordersData.find((row: any) => 
-        row.order_code === orderCode || 
-        String(row.order_code) === orderCode
+      // 물류 데이터에서 주문 검색
+      const logisticsData = await sheets.getSheetDataAsJson(SHEET_NAMES.LOGISTICS, true);
+      const orderItems = logisticsData.filter((row: any) =>
+        row.order_code === orderCode
       );
 
-      if (order) {
-        await sendDelayedResponse(response_url, slackService.buildOrderMessage(order));
+      if (orderItems.length > 0) {
+        // 첫 번째 아이템에서 주문 정보 추출
+        const firstItem = orderItems[0];
+        const orderInfo = {
+          order_code: firstItem.order_code,
+          country: firstItem.country,
+          user_id: firstItem.user_id,
+          status: firstItem.logistics,
+          order_date: firstItem.order_created,
+          artist_name: firstItem['artist_name (kr)'] || firstItem.artist_name,
+          product_name: firstItem.product_name,
+          quantity: firstItem['구매수량'],
+          tracking_number: firstItem['국제송장번호'],
+          carrier: 'Lotte Global',
+          shipped_at: firstItem['shipment_item_updated'],
+        };
+        await sendDelayedResponse(response_url, slackService.buildOrderMessage(orderInfo));
       } else {
-        // 물류 데이터에서 검색
-        const logisticsData = await sheets.getSheetDataAsJson('물류관리');
-        const shipment = logisticsData.find((row: any) =>
-          row.order_code === orderCode
-        );
-
-        if (shipment) {
-          await sendDelayedResponse(response_url, slackService.buildOrderMessage(shipment));
-        } else {
-          await sendDelayedResponse(response_url, slackService.buildErrorMessage('order', orderCode));
-        }
+        await sendDelayedResponse(response_url, slackService.buildErrorMessage('order', orderCode));
       }
     } catch (dbError: any) {
       console.error('[Slack] Order DB error:', dbError?.message);
@@ -164,14 +169,23 @@ router.post('/commands/track', async (req: Request, res: Response) => {
       const { sheetsConfig } = await import('../config/sheets');
       const sheets = new GoogleSheetsService(sheetsConfig);
       
-      const logisticsData = await sheets.getSheetDataAsJson('물류관리');
+      const logisticsData = await sheets.getSheetDataAsJson(SHEET_NAMES.LOGISTICS, true);
       const shipment = logisticsData.find((row: any) =>
-        row.tracking_number === trackingNumber ||
-        row.tracking_number?.includes(trackingNumber)
+        row['국제송장번호'] === trackingNumber ||
+        row['국제송장번호']?.includes(trackingNumber) ||
+        row['작가 발송 송장번호'] === trackingNumber
       );
 
       if (shipment) {
-        await sendDelayedResponse(response_url, slackService.buildTrackingMessage(shipment));
+        const trackingInfo = {
+          tracking_number: shipment['국제송장번호'] || shipment['작가 발송 송장번호'],
+          order_code: shipment.order_code,
+          country: shipment.country,
+          carrier: shipment['국제송장번호'] ? 'Lotte Global' : shipment['작가 발송 택배사'],
+          status: shipment.logistics,
+          shipped_at: shipment['shipment_item_updated'],
+        };
+        await sendDelayedResponse(response_url, slackService.buildTrackingMessage(trackingInfo));
       } else {
         await sendDelayedResponse(response_url, slackService.buildErrorMessage('tracking', trackingNumber));
       }
@@ -224,27 +238,44 @@ router.post('/commands/customer', async (req: Request, res: Response) => {
       const { sheetsConfig } = await import('../config/sheets');
       const sheets = new GoogleSheetsService(sheetsConfig);
       
-      const ordersData = await sheets.getSheetDataAsJson('주문내역');
-      const customerOrders = ordersData.filter((row: any) =>
-        row.user_id === customerId ||
-        row.customer_id === customerId ||
-        row.user_id?.includes(customerId)
+      const logisticsData = await sheets.getSheetDataAsJson(SHEET_NAMES.LOGISTICS, true);
+      const customerOrders = logisticsData.filter((row: any) =>
+        String(row.user_id) === customerId ||
+        String(row.user_id)?.includes(customerId)
       );
 
       if (customerOrders.length > 0) {
+        // 주문코드별로 그룹화 (중복 제거)
+        const uniqueOrders = new Map();
+        customerOrders.forEach((row: any) => {
+          if (!uniqueOrders.has(row.order_code)) {
+            uniqueOrders.set(row.order_code, {
+              order_code: row.order_code,
+              order_date: row.order_created,
+              status: row.logistics,
+              product_name: row.product_name,
+              artist_name: row['artist_name (kr)'] || row.artist_name,
+              country: row.country,
+              total_price: row['상품금액'],
+              currency: row.currency,
+            });
+          }
+        });
+
+        const orders = Array.from(uniqueOrders.values());
         // 최신순 정렬
-        customerOrders.sort((a: any, b: any) => {
-          const dateA = new Date(a.order_date || a.created_at || 0);
-          const dateB = new Date(b.order_date || b.created_at || 0);
+        orders.sort((a: any, b: any) => {
+          const dateA = new Date(a.order_date || 0);
+          const dateB = new Date(b.order_date || 0);
           return dateB.getTime() - dateA.getTime();
         });
 
         const customer = {
           user_id: customerId,
-          country: customerOrders[0]?.country || customerOrders[0]?.country_code,
+          country: orders[0]?.country,
         };
 
-        await sendDelayedResponse(response_url, slackService.buildCustomerMessage(customer, customerOrders));
+        await sendDelayedResponse(response_url, slackService.buildCustomerMessage(customer, orders));
       } else {
         await sendDelayedResponse(response_url, slackService.buildErrorMessage('customer', customerId));
       }
@@ -297,48 +328,51 @@ router.post('/commands/artist', async (req: Request, res: Response) => {
       const { sheetsConfig } = await import('../config/sheets');
       const sheets = new GoogleSheetsService(sheetsConfig);
       
-      // 주문 데이터에서 작가 검색
-      const ordersData = await sheets.getSheetDataAsJson('주문내역');
-      const artistOrders = ordersData.filter((row: any) =>
-        row.artist_name === artistName ||
-        row.artist === artistName ||
-        row.artist_name?.includes(artistName)
-      );
+      // 물류 데이터에서 작가 검색
+      const logisticsData = await sheets.getSheetDataAsJson(SHEET_NAMES.LOGISTICS, true);
+      const artistItems = logisticsData.filter((row: any) => {
+        const artistKr = row['artist_name (kr)'] || '';
+        const artistEn = row.artist_name || '';
+        return artistKr === artistName || 
+               artistEn === artistName ||
+               artistKr?.includes(artistName) ||
+               artistEn?.includes(artistName);
+      });
 
-      // 미입고 데이터에서 지연 건 확인
-      const unreceivedData = await sheets.getSheetDataAsJson('미입고현황');
-      const delayedOrders = unreceivedData.filter((row: any) =>
-        row.artist_name === artistName ||
-        row.artist?.includes(artistName)
-      );
-
-      if (artistOrders.length > 0 || delayedOrders.length > 0) {
-        // 지연 정보 병합
-        const enrichedOrders = artistOrders.map((order: any) => {
-          const delayed = delayedOrders.find((d: any) =>
-            d.order_code === order.order_code
-          );
-          return {
-            ...order,
-            is_delayed: !!delayed,
-            delay_days: delayed?.delay_days,
-          };
+      if (artistItems.length > 0) {
+        // 주문코드별로 그룹화 (중복 제거)
+        const uniqueOrders = new Map();
+        artistItems.forEach((row: any) => {
+          if (!uniqueOrders.has(row.order_code)) {
+            const isDelayed = row.logistics === '미입고' || row.logistics?.includes('미입고');
+            uniqueOrders.set(row.order_code, {
+              order_code: row.order_code,
+              order_date: row.order_created,
+              status: row.logistics,
+              country: row.country,
+              product_name: row.product_name,
+              is_delayed: isDelayed,
+            });
+          }
         });
 
+        const orders = Array.from(uniqueOrders.values());
         // 최신순 정렬
-        enrichedOrders.sort((a: any, b: any) => {
-          const dateA = new Date(a.order_date || a.created_at || 0);
-          const dateB = new Date(b.order_date || b.created_at || 0);
+        orders.sort((a: any, b: any) => {
+          const dateA = new Date(a.order_date || 0);
+          const dateB = new Date(b.order_date || 0);
           return dateB.getTime() - dateA.getTime();
         });
 
+        const delayedCount = orders.filter((o: any) => o.is_delayed).length;
+
         const artist = { name: artistName };
         const summary = {
-          total: artistOrders.length,
-          delayed: delayedOrders.length,
+          total: orders.length,
+          delayed: delayedCount,
         };
 
-        await sendDelayedResponse(response_url, slackService.buildArtistMessage(artist, enrichedOrders, summary));
+        await sendDelayedResponse(response_url, slackService.buildArtistMessage(artist, orders, summary));
       } else {
         await sendDelayedResponse(response_url, slackService.buildErrorMessage('artist', artistName));
       }
