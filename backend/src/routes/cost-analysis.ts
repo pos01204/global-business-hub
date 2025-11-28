@@ -267,24 +267,46 @@ router.get('/dashboard', async (req: Request, res: Response) => {
     const netLogisticsCost = totalLogisticsCost - totalCustomerShipping;
     const grossProfit = totalGMV - netLogisticsCost;
     
-    // Tier별 집계
-    const tierStats: Record<number, { orderCount: number; gmv: number; logisticsCost: number }> = {
-      1: { orderCount: 0, gmv: 0, logisticsCost: 0 },
-      2: { orderCount: 0, gmv: 0, logisticsCost: 0 },
-      3: { orderCount: 0, gmv: 0, logisticsCost: 0 },
-      4: { orderCount: 0, gmv: 0, logisticsCost: 0 },
+    // Tier별 집계 (Hidden Fee 분석 포함)
+    const tierStats: Record<number, { 
+      orderCount: number; 
+      gmv: number; 
+      logisticsCost: number;
+      customerShippingRevenue: number;
+      hiddenFeeRevenue: number;
+      freeShippingOrders: number;
+    }> = {
+      1: { orderCount: 0, gmv: 0, logisticsCost: 0, customerShippingRevenue: 0, hiddenFeeRevenue: 0, freeShippingOrders: 0 },
+      2: { orderCount: 0, gmv: 0, logisticsCost: 0, customerShippingRevenue: 0, hiddenFeeRevenue: 0, freeShippingOrders: 0 },
+      3: { orderCount: 0, gmv: 0, logisticsCost: 0, customerShippingRevenue: 0, hiddenFeeRevenue: 0, freeShippingOrders: 0 },
+      4: { orderCount: 0, gmv: 0, logisticsCost: 0, customerShippingRevenue: 0, hiddenFeeRevenue: 0, freeShippingOrders: 0 },
     };
     
-    // 국가별 분석 결과 생성
+    // 국가별 분석 결과 생성 (Hidden Fee 분석 포함)
     const byCountry = Object.entries(countryStats).map(([country, stats]) => {
       const countryInfo = COUNTRY_TIERS[country] || { tier: 4, name: country, code: country };
       const tier = countryInfo.tier;
+      const policy = SHIPPING_POLICIES[tier as 1 | 2 | 3 | 4];
+      
+      // Hidden Fee 수입 계산 (주문당 Hidden Fee × 주문 건수)
+      const hiddenFeePerOrder = policy.hiddenFeeUSD * USD_TO_KRW;
+      const hiddenFeeRevenue = hiddenFeePerOrder * stats.orderCount;
+      
+      // 무료배송 주문 추정 (고객 배송비 수입 기반)
+      const paidShippingOrders = Math.round(stats.customerShippingRevenue / (policy.customerShippingFeeUSD * USD_TO_KRW));
+      const freeShippingOrders = stats.orderCount - paidShippingOrders;
       
       tierStats[tier].orderCount += stats.orderCount;
       tierStats[tier].gmv += stats.totalGMV;
       tierStats[tier].logisticsCost += stats.totalLogisticsCost;
+      tierStats[tier].customerShippingRevenue += stats.customerShippingRevenue;
+      tierStats[tier].hiddenFeeRevenue += hiddenFeeRevenue;
+      tierStats[tier].freeShippingOrders += freeShippingOrders;
       
-      const logisticsGap = stats.totalLogisticsCost - stats.customerShippingRevenue;
+      // 물류비 보전 총액: Hidden Fee + 고객 배송비
+      const totalCoverage = hiddenFeeRevenue + stats.customerShippingRevenue;
+      // 물류비 갭: 실제 물류비 - 보전 총액 (양수면 손실, 음수면 이익)
+      const logisticsGap = stats.totalLogisticsCost - totalCoverage;
       const profitMargin = stats.totalGMV > 0 
         ? ((stats.totalGMV - logisticsGap) / stats.totalGMV) * 100
         : 0;
@@ -298,22 +320,56 @@ router.get('/dashboard', async (req: Request, res: Response) => {
         totalLogisticsCost: Math.round(stats.totalLogisticsCost),
         avgLogisticsCost: stats.orderCount > 0 ? Math.round(stats.totalLogisticsCost / stats.orderCount) : 0,
         customerShippingRevenue: Math.round(stats.customerShippingRevenue),
+        hiddenFeeRevenue: Math.round(hiddenFeeRevenue),
+        totalCoverage: Math.round(totalCoverage),
         logisticsGap: Math.round(logisticsGap),
         profitMargin: Math.round(profitMargin * 10) / 10,
         avgOrderValue: stats.orderCount > 0 ? Math.round(stats.totalGMV / stats.orderCount) : 0,
+        freeShippingOrders,
+        freeShippingRate: stats.orderCount > 0 
+          ? Math.round((freeShippingOrders / stats.orderCount) * 1000) / 10
+          : 0,
       };
     }).sort((a, b) => b.totalGMV - a.totalGMV);
     
-    // Tier별 결과
-    const byTier = Object.entries(tierStats).map(([tier, stats]) => ({
-      tier: parseInt(tier),
-      orderCount: stats.orderCount,
-      gmv: Math.round(stats.gmv),
-      logisticsCost: Math.round(stats.logisticsCost),
-      profitMargin: stats.gmv > 0 
-        ? Math.round(((stats.gmv - stats.logisticsCost) / stats.gmv) * 1000) / 10
-        : 0,
-    }));
+    // Tier별 결과 (Hidden Fee 분석 포함)
+    const byTier = Object.entries(tierStats).map(([tierNum, stats]) => {
+      const policy = SHIPPING_POLICIES[parseInt(tierNum) as 1 | 2 | 3 | 4];
+      const totalCoverage = stats.hiddenFeeRevenue + stats.customerShippingRevenue;
+      const logisticsGap = stats.logisticsCost - totalCoverage;
+      const avgLogisticsCostPerOrder = stats.orderCount > 0 ? stats.logisticsCost / stats.orderCount : 0;
+      const avgCoveragePerOrder = stats.orderCount > 0 ? totalCoverage / stats.orderCount : 0;
+      
+      return {
+        tier: parseInt(tierNum),
+        orderCount: stats.orderCount,
+        gmv: Math.round(stats.gmv),
+        logisticsCost: Math.round(stats.logisticsCost),
+        // Hidden Fee 분석
+        hiddenFeeUSD: policy.hiddenFeeUSD,
+        customerShippingFeeUSD: policy.customerShippingFeeUSD,
+        hiddenFeeRevenue: Math.round(stats.hiddenFeeRevenue),
+        customerShippingRevenue: Math.round(stats.customerShippingRevenue),
+        totalCoverage: Math.round(totalCoverage),
+        logisticsGap: Math.round(logisticsGap),
+        // 건당 분석
+        avgLogisticsCostPerOrder: Math.round(avgLogisticsCostPerOrder),
+        avgCoveragePerOrder: Math.round(avgCoveragePerOrder),
+        // 무료배송 분석
+        freeShippingOrders: stats.freeShippingOrders,
+        freeShippingRate: stats.orderCount > 0 
+          ? Math.round((stats.freeShippingOrders / stats.orderCount) * 1000) / 10
+          : 0,
+        // 적정성 판단
+        isCoverageAdequate: logisticsGap <= 0,
+        coverageRatio: stats.logisticsCost > 0 
+          ? Math.round((totalCoverage / stats.logisticsCost) * 1000) / 10
+          : 100,
+        profitMargin: stats.gmv > 0 
+          ? Math.round(((stats.gmv - stats.logisticsCost) / stats.gmv) * 1000) / 10
+          : 0,
+      };
+    });
     
     // 일별 트렌드
     const trends = Object.entries(dailyStats)
@@ -325,7 +381,21 @@ router.get('/dashboard', async (req: Request, res: Response) => {
       }))
       .sort((a, b) => a.date.localeCompare(b.date));
     
-    console.log(`[Cost Analysis] 대시보드 응답: GMV=${totalGMV}, Orders=${orderCount}`);
+    // Hidden Fee 분석 계산
+    const totalHiddenFeeRevenue = byTier.reduce((sum, t) => sum + t.hiddenFeeRevenue, 0);
+    const totalCoverage = totalHiddenFeeRevenue + totalCustomerShipping;
+    const totalLogisticsGap = totalLogisticsCost - totalCoverage;
+    const avgHiddenFeePerOrder = orderCount > 0 ? totalHiddenFeeRevenue / orderCount : 0;
+    const avgCoveragePerOrder = orderCount > 0 ? totalCoverage / orderCount : 0;
+    const avgLogisticsCostPerOrder = orderCount > 0 ? totalLogisticsCost / orderCount : 0;
+    
+    // Hidden Fee 필요 비율 계산 (GMV 대비)
+    const currentHiddenFeeRatio = totalGMV > 0 ? (totalHiddenFeeRevenue / totalGMV) * 100 : 0;
+    const requiredHiddenFeeRatio = totalGMV > 0 ? (totalLogisticsGap > 0 
+      ? ((totalHiddenFeeRevenue + totalLogisticsGap) / totalGMV) * 100 
+      : currentHiddenFeeRatio) : 0;
+    
+    console.log(`[Cost Analysis] 대시보드 응답: GMV=${totalGMV}, Orders=${orderCount}, HiddenFee=${totalHiddenFeeRevenue}`);
     
     res.json({
       success: true,
@@ -349,6 +419,45 @@ router.get('/dashboard', async (req: Request, res: Response) => {
           avgOrderValue: orderCount > 0 ? Math.round(totalGMV / orderCount) : 0,
           avgLogisticsCost: orderCount > 0 ? Math.round(totalLogisticsCost / orderCount) : 0,
           orderCount,
+        },
+        // Hidden Fee 적정성 분석
+        hiddenFeeAnalysis: {
+          // 현재 정책
+          policy: {
+            tier1: { hiddenFeeUSD: SHIPPING_POLICIES[1].hiddenFeeUSD, customerShippingFeeUSD: SHIPPING_POLICIES[1].customerShippingFeeUSD },
+            tier2: { hiddenFeeUSD: SHIPPING_POLICIES[2].hiddenFeeUSD, customerShippingFeeUSD: SHIPPING_POLICIES[2].customerShippingFeeUSD },
+            tier3: { hiddenFeeUSD: SHIPPING_POLICIES[3].hiddenFeeUSD, customerShippingFeeUSD: SHIPPING_POLICIES[3].customerShippingFeeUSD },
+            tier4: { hiddenFeeUSD: SHIPPING_POLICIES[4].hiddenFeeUSD, customerShippingFeeUSD: SHIPPING_POLICIES[4].customerShippingFeeUSD },
+          },
+          // 총액 분석
+          totalHiddenFeeRevenue: Math.round(totalHiddenFeeRevenue),
+          totalCustomerShippingRevenue: Math.round(totalCustomerShipping),
+          totalCoverage: Math.round(totalCoverage),
+          totalLogisticsCost: Math.round(totalLogisticsCost),
+          totalGap: Math.round(totalLogisticsGap),
+          // 비율 분석
+          coverageRatio: totalLogisticsCost > 0 
+            ? Math.round((totalCoverage / totalLogisticsCost) * 1000) / 10
+            : 100,
+          currentHiddenFeeRatioOfGMV: Math.round(currentHiddenFeeRatio * 100) / 100,
+          requiredHiddenFeeRatioOfGMV: Math.round(requiredHiddenFeeRatio * 100) / 100,
+          // 건당 분석
+          avgHiddenFeePerOrder: Math.round(avgHiddenFeePerOrder),
+          avgCustomerShippingPerOrder: Math.round(totalCustomerShipping / orderCount),
+          avgCoveragePerOrder: Math.round(avgCoveragePerOrder),
+          avgLogisticsCostPerOrder: Math.round(avgLogisticsCostPerOrder),
+          avgGapPerOrder: Math.round(totalLogisticsGap / orderCount),
+          // 적정성 판단
+          isAdequate: totalLogisticsGap <= 0,
+          adequacyStatus: totalLogisticsGap <= 0 
+            ? (totalLogisticsGap < -500000 ? 'surplus' : 'adequate')
+            : (totalLogisticsGap > 500000 ? 'critical' : 'deficit'),
+          // 권장 사항
+          recommendation: totalLogisticsGap <= 0 
+            ? (totalLogisticsGap < -1000000 
+              ? `Hidden Fee 여유분 ${Math.round(Math.abs(totalLogisticsGap) / 10000)}만원. 정책 유지 또는 프로모션 활용 가능.`
+              : 'Hidden Fee 정책이 적정합니다.')
+            : `월 ${Math.round(totalLogisticsGap / 10000)}만원 부족. Hidden Fee 인상 또는 무료배송 기준 상향 검토 필요.`,
         },
         byTier,
         byCountry,

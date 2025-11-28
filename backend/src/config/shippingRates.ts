@@ -57,35 +57,47 @@ export const COUNTRY_TIERS: Record<string, { tier: number; name: string; code: s
   'RU': { tier: 4, name: '러시아', code: 'RU' },
 };
 
-// 배송비 정책 (Tier별)
+// 배송비 정책 (Tier별) - 2023.10.25 반영 기준
 export const SHIPPING_POLICIES = {
   1: {
     tier: 1,
+    // Hidden Fee: 작품가에 포함되어 고객에게 보이지 않는 물류비 보전금
+    hiddenFeeUSD: 3,
+    // 고객 부담 배송비: 무료배송 미달 시 고객이 결제하는 금액
     customerShippingFeeUSD: 1.49,
+    // 총 물류비 보전: Hidden Fee + 고객 배송비 (무료배송 아닐 때)
+    // 무료배송 시: Hidden Fee만으로 물류비 커버 필요
     freeShippingThresholdUSD: 50,
     freeShippingItemCount: 2,
-    description: '핵심 시장 - 최우선 집중',
+    description: '핵심 시장 (JP, HK, SG) - 최우선 집중',
+    countries: ['JP', 'HK', 'SG'],
   },
   2: {
     tier: 2,
+    hiddenFeeUSD: 3,
     customerShippingFeeUSD: 9.99,
     freeShippingThresholdUSD: 100,
     freeShippingItemCount: null,
-    description: '동남아 시장',
+    description: '동남아 시장 (TW, MY, ID, VN)',
+    countries: ['TW', 'MY', 'ID', 'VN', 'IN'],
   },
   3: {
     tier: 3,
+    hiddenFeeUSD: 7,
     customerShippingFeeUSD: 19.99,
     freeShippingThresholdUSD: 150,
     freeShippingItemCount: null,
-    description: '영미권 시장',
+    description: '영미권 시장 (US, CA, AU, NZ)',
+    countries: ['US', 'CA', 'AU', 'NZ'],
   },
   4: {
     tier: 4,
+    hiddenFeeUSD: 7,
     customerShippingFeeUSD: 29.99,
     freeShippingThresholdUSD: 100,
     freeShippingItemCount: null,
-    description: '유럽/기타 시장',
+    description: '유럽/기타 시장 (EU, Others)',
+    countries: ['GB', 'DE', 'FR', 'IT', 'ES', 'NL', 'BE', 'CH', 'AT', 'SE', 'NO', 'DK', 'FI', 'PL', 'CZ', 'HU', 'IE', 'PT', 'BR', 'MX', 'TH', 'PH', 'AE', 'IL', 'ZA', 'TR', 'CN', 'RU'],
   },
 };
 

@@ -222,6 +222,163 @@ export default function DashboardTab() {
         </div>
       </div>
 
+      {/* Hidden Fee 적정성 분석 */}
+      {dashboardData?.hiddenFeeAnalysis && (
+        <div className="bg-gradient-to-br from-slate-50 to-slate-100 rounded-xl border border-slate-200 p-6">
+          <div className="flex items-center justify-between mb-5">
+            <div className="flex items-center gap-3">
+              <div className="w-10 h-10 bg-slate-700 rounded-lg flex items-center justify-center">
+                <span className="text-xl">🎯</span>
+              </div>
+              <div>
+                <h3 className="font-bold text-slate-800 text-lg">Hidden Fee 적정성 분석</h3>
+                <p className="text-xs text-slate-500">작품가에 포함된 물류비 보전금 분석</p>
+              </div>
+            </div>
+            <div className={`px-4 py-2 rounded-lg font-bold text-sm ${
+              dashboardData.hiddenFeeAnalysis.adequacyStatus === 'surplus' 
+                ? 'bg-emerald-100 text-emerald-700'
+                : dashboardData.hiddenFeeAnalysis.adequacyStatus === 'adequate'
+                ? 'bg-blue-100 text-blue-700'
+                : dashboardData.hiddenFeeAnalysis.adequacyStatus === 'deficit'
+                ? 'bg-amber-100 text-amber-700'
+                : 'bg-red-100 text-red-700'
+            }`}>
+              {dashboardData.hiddenFeeAnalysis.adequacyStatus === 'surplus' && '✅ 여유'}
+              {dashboardData.hiddenFeeAnalysis.adequacyStatus === 'adequate' && '✅ 적정'}
+              {dashboardData.hiddenFeeAnalysis.adequacyStatus === 'deficit' && '⚠️ 부족'}
+              {dashboardData.hiddenFeeAnalysis.adequacyStatus === 'critical' && '🚨 심각'}
+            </div>
+          </div>
+
+          {/* Hidden Fee 정책 현황 */}
+          <div className="grid grid-cols-4 gap-3 mb-5">
+            {[1, 2, 3, 4].map((tier) => {
+              const policy = dashboardData.hiddenFeeAnalysis.policy[`tier${tier}` as keyof typeof dashboardData.hiddenFeeAnalysis.policy]
+              const tierData = dashboardData.byTier?.find((t: any) => t.tier === tier)
+              return (
+                <div key={tier} className={`rounded-lg p-3 ${
+                  tier === 1 ? 'bg-emerald-50 border border-emerald-200' :
+                  tier === 2 ? 'bg-blue-50 border border-blue-200' :
+                  tier === 3 ? 'bg-amber-50 border border-amber-200' :
+                  'bg-red-50 border border-red-200'
+                }`}>
+                  <div className="flex items-center justify-between mb-2">
+                    <span className={`text-xs font-bold ${
+                      tier === 1 ? 'text-emerald-700' :
+                      tier === 2 ? 'text-blue-700' :
+                      tier === 3 ? 'text-amber-700' : 'text-red-700'
+                    }`}>Tier {tier}</span>
+                    <span className="text-xs text-gray-500">{tierData?.orderCount || 0}건</span>
+                  </div>
+                  <div className="space-y-1">
+                    <div className="flex justify-between text-xs">
+                      <span className="text-gray-500">Hidden Fee</span>
+                      <span className="font-bold">${policy?.hiddenFeeUSD}</span>
+                    </div>
+                    <div className="flex justify-between text-xs">
+                      <span className="text-gray-500">고객 배송비</span>
+                      <span className="font-medium">${policy?.customerShippingFeeUSD}</span>
+                    </div>
+                    {tierData && (
+                      <div className="pt-1 mt-1 border-t border-gray-200">
+                        <div className="flex justify-between text-xs">
+                          <span className="text-gray-500">보전율</span>
+                          <span className={`font-bold ${
+                            tierData.coverageRatio >= 100 ? 'text-emerald-600' :
+                            tierData.coverageRatio >= 80 ? 'text-amber-600' : 'text-red-600'
+                          }`}>{tierData.coverageRatio}%</span>
+                        </div>
+                      </div>
+                    )}
+                  </div>
+                </div>
+              )
+            })}
+          </div>
+
+          {/* 분석 요약 */}
+          <div className="grid grid-cols-5 gap-4 mb-5">
+            <div className="bg-white rounded-lg p-4 text-center shadow-sm">
+              <p className="text-xs text-gray-500 mb-1">Hidden Fee 수입</p>
+              <p className="text-lg font-bold text-slate-800">
+                {formatCurrency(dashboardData.hiddenFeeAnalysis.totalHiddenFeeRevenue)}
+              </p>
+              <p className="text-xs text-gray-400">주문당 {formatCurrency(dashboardData.hiddenFeeAnalysis.avgHiddenFeePerOrder)}</p>
+            </div>
+            <div className="bg-white rounded-lg p-4 text-center shadow-sm">
+              <p className="text-xs text-gray-500 mb-1">고객 배송비 수입</p>
+              <p className="text-lg font-bold text-slate-800">
+                {formatCurrency(dashboardData.hiddenFeeAnalysis.totalCustomerShippingRevenue)}
+              </p>
+              <p className="text-xs text-gray-400">주문당 {formatCurrency(dashboardData.hiddenFeeAnalysis.avgCustomerShippingPerOrder)}</p>
+            </div>
+            <div className="bg-white rounded-lg p-4 text-center shadow-sm">
+              <p className="text-xs text-gray-500 mb-1">총 보전액</p>
+              <p className="text-lg font-bold text-blue-600">
+                {formatCurrency(dashboardData.hiddenFeeAnalysis.totalCoverage)}
+              </p>
+              <p className="text-xs text-gray-400">주문당 {formatCurrency(dashboardData.hiddenFeeAnalysis.avgCoveragePerOrder)}</p>
+            </div>
+            <div className="bg-white rounded-lg p-4 text-center shadow-sm">
+              <p className="text-xs text-gray-500 mb-1">실제 물류비</p>
+              <p className="text-lg font-bold text-amber-600">
+                {formatCurrency(dashboardData.hiddenFeeAnalysis.totalLogisticsCost)}
+              </p>
+              <p className="text-xs text-gray-400">주문당 {formatCurrency(dashboardData.hiddenFeeAnalysis.avgLogisticsCostPerOrder)}</p>
+            </div>
+            <div className={`rounded-lg p-4 text-center shadow-sm ${
+              dashboardData.hiddenFeeAnalysis.totalGap <= 0 
+                ? 'bg-emerald-50' 
+                : 'bg-red-50'
+            }`}>
+              <p className="text-xs text-gray-500 mb-1">GAP (보전액-물류비)</p>
+              <p className={`text-lg font-bold ${
+                dashboardData.hiddenFeeAnalysis.totalGap <= 0 
+                  ? 'text-emerald-600' 
+                  : 'text-red-600'
+              }`}>
+                {dashboardData.hiddenFeeAnalysis.totalGap <= 0 ? '+' : ''}
+                {formatCurrency(Math.abs(dashboardData.hiddenFeeAnalysis.totalGap))}
+                {dashboardData.hiddenFeeAnalysis.totalGap > 0 && ' 부족'}
+              </p>
+              <p className="text-xs text-gray-400">
+                보전율 {dashboardData.hiddenFeeAnalysis.coverageRatio}%
+              </p>
+            </div>
+          </div>
+
+          {/* 권장 사항 */}
+          <div className={`rounded-lg p-4 ${
+            dashboardData.hiddenFeeAnalysis.isAdequate 
+              ? 'bg-emerald-50 border border-emerald-200' 
+              : 'bg-amber-50 border border-amber-200'
+          }`}>
+            <div className="flex items-start gap-3">
+              <span className="text-xl">
+                {dashboardData.hiddenFeeAnalysis.isAdequate ? '💡' : '⚠️'}
+              </span>
+              <div>
+                <p className={`font-semibold ${
+                  dashboardData.hiddenFeeAnalysis.isAdequate 
+                    ? 'text-emerald-800' 
+                    : 'text-amber-800'
+                }`}>
+                  {dashboardData.hiddenFeeAnalysis.isAdequate ? '분석 결과' : '조치 필요'}
+                </p>
+                <p className={`text-sm mt-1 ${
+                  dashboardData.hiddenFeeAnalysis.isAdequate 
+                    ? 'text-emerald-700' 
+                    : 'text-amber-700'
+                }`}>
+                  {dashboardData.hiddenFeeAnalysis.recommendation}
+                </p>
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
+
       {/* 차트 섹션 */}
       <div className="grid grid-cols-3 gap-6">
         {/* 트렌드 차트 */}
@@ -398,29 +555,100 @@ export default function DashboardTab() {
         </div>
       </div>
 
+      {/* Tier별 Hidden Fee 상세 분석 */}
+      <div className="bg-white rounded-xl border border-gray-200 overflow-hidden">
+        <div className="flex items-center justify-between p-5 border-b border-gray-200">
+          <div className="flex items-center gap-2">
+            <span className="text-lg">📊</span>
+            <h3 className="font-semibold text-gray-800">Tier별 물류비 보전 상세</h3>
+          </div>
+          <span className="text-sm text-gray-500">Hidden Fee 정책: 2023.10.25 기준</span>
+        </div>
+        <div className="overflow-x-auto">
+          <table className="w-full">
+            <thead className="bg-gray-50 text-xs text-gray-600 uppercase">
+              <tr>
+                <th className="px-4 py-3 text-left">Tier</th>
+                <th className="px-4 py-3 text-center">주문수</th>
+                <th className="px-4 py-3 text-right">Hidden Fee</th>
+                <th className="px-4 py-3 text-right">고객 배송비 수입</th>
+                <th className="px-4 py-3 text-right">총 보전액</th>
+                <th className="px-4 py-3 text-right">실제 물류비</th>
+                <th className="px-4 py-3 text-right">건당 물류비</th>
+                <th className="px-4 py-3 text-center">보전율</th>
+                <th className="px-4 py-3 text-center">GAP</th>
+              </tr>
+            </thead>
+            <tbody className="divide-y divide-gray-100">
+              {dashboardData?.byTier?.map((tier: any) => (
+                <tr key={tier.tier} className="hover:bg-gray-50">
+                  <td className="px-4 py-3">
+                    <span className={`px-2 py-1 rounded-full text-xs font-bold ${
+                      tier.tier === 1 ? 'bg-emerald-100 text-emerald-700' :
+                      tier.tier === 2 ? 'bg-blue-100 text-blue-700' :
+                      tier.tier === 3 ? 'bg-amber-100 text-amber-700' :
+                      'bg-red-100 text-red-700'
+                    }`}>
+                      Tier {tier.tier}
+                    </span>
+                    <span className="text-xs text-gray-500 ml-2">
+                      (${tier.hiddenFeeUSD} / ${tier.customerShippingFeeUSD})
+                    </span>
+                  </td>
+                  <td className="px-4 py-3 text-center font-medium">{tier.orderCount}</td>
+                  <td className="px-4 py-3 text-right text-slate-600">{formatCurrency(tier.hiddenFeeRevenue)}</td>
+                  <td className="px-4 py-3 text-right text-blue-600">{formatCurrency(tier.customerShippingRevenue)}</td>
+                  <td className="px-4 py-3 text-right font-medium text-indigo-600">{formatCurrency(tier.totalCoverage)}</td>
+                  <td className="px-4 py-3 text-right font-medium text-amber-600">{formatCurrency(tier.logisticsCost)}</td>
+                  <td className="px-4 py-3 text-right text-gray-600">{formatCurrency(tier.avgLogisticsCostPerOrder)}</td>
+                  <td className="px-4 py-3 text-center">
+                    <span className={`px-2 py-1 rounded text-xs font-bold ${
+                      tier.coverageRatio >= 100 ? 'bg-emerald-100 text-emerald-700' :
+                      tier.coverageRatio >= 80 ? 'bg-amber-100 text-amber-700' :
+                      'bg-red-100 text-red-700'
+                    }`}>
+                      {tier.coverageRatio}%
+                    </span>
+                  </td>
+                  <td className="px-4 py-3 text-center">
+                    <span className={`font-bold ${
+                      tier.logisticsGap <= 0 ? 'text-emerald-600' : 'text-red-600'
+                    }`}>
+                      {tier.logisticsGap <= 0 ? '+' : '-'}{formatCurrency(Math.abs(tier.logisticsGap))}
+                    </span>
+                  </td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        </div>
+      </div>
+
       {/* 인사이트 카드 */}
       <div className="grid grid-cols-3 gap-4">
         <div className="bg-gradient-to-br from-emerald-50 to-teal-50 rounded-xl p-5 border border-emerald-200">
           <div className="flex items-center gap-2 mb-3">
             <span className="text-xl">💡</span>
-            <h4 className="font-semibold text-emerald-800">수익성 인사이트</h4>
+            <h4 className="font-semibold text-emerald-800">Tier 1 분석</h4>
           </div>
           <p className="text-sm text-emerald-700">
-            일본(JP)이 전체 매출의 {dashboardData?.byCountry?.[0]?.country === 'JP' 
-              ? Math.round((dashboardData?.byCountry?.[0]?.totalGMV / dashboardData?.kpis?.totalGMV) * 100) 
-              : 0}%를 차지하며, 
-            YAMATO 운송으로 가장 효율적인 물류비 구조를 유지하고 있습니다.
+            핵심 시장(JP, HK, SG)은 Hidden Fee $3 + 배송비 $1.49로 
+            운영 중입니다. 
+            {dashboardData?.byTier?.find((t: any) => t.tier === 1)?.coverageRatio >= 100 
+              ? ' 물류비 보전이 양호합니다.' 
+              : ' 물류비 보전율 개선이 필요합니다.'}
           </p>
         </div>
         <div className="bg-gradient-to-br from-amber-50 to-orange-50 rounded-xl p-5 border border-amber-200">
           <div className="flex items-center gap-2 mb-3">
             <span className="text-xl">⚠️</span>
-            <h4 className="font-semibold text-amber-800">주의 필요</h4>
+            <h4 className="font-semibold text-amber-800">Tier 3, 4 분석</h4>
           </div>
           <p className="text-sm text-amber-700">
-            평균 물류비가 {formatCurrency(dashboardData?.kpis?.avgLogisticsCost || 0)}로, 
-            Hidden Fee 구조 검토가 필요합니다. 
-            특히 Tier 3, 4 국가의 물류비 최적화를 고려하세요.
+            영미권/유럽 시장은 물류비가 높아 Hidden Fee $7로도 
+            {dashboardData?.byTier?.filter((t: any) => t.tier >= 3 && t.coverageRatio < 100).length > 0
+              ? ' 보전이 부족할 수 있습니다. 배송비 정책 검토를 권장합니다.'
+              : ' 현재 정책이 적정합니다.'}
           </p>
         </div>
         <div className="bg-gradient-to-br from-blue-50 to-indigo-50 rounded-xl p-5 border border-blue-200">
@@ -429,8 +657,9 @@ export default function DashboardTab() {
             <h4 className="font-semibold text-blue-800">권장 액션</h4>
           </div>
           <p className="text-sm text-blue-700">
-            무료배송 기준(Tier 1: $50)을 충족하는 주문 비율을 높여 
-            객단가 상승과 물류비 효율화를 동시에 달성하세요.
+            {dashboardData?.hiddenFeeAnalysis?.isAdequate 
+              ? '현재 Hidden Fee 정책이 적정합니다. 무료배송 기준 최적화로 전환율 상승을 도모하세요.'
+              : `Hidden Fee 인상 또는 무료배송 기준 상향을 검토하세요. 월 ${formatCurrency(Math.abs(dashboardData?.hiddenFeeAnalysis?.totalGap || 0))} 개선이 필요합니다.`}
           </p>
         </div>
       </div>
