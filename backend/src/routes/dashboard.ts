@@ -300,5 +300,162 @@ router.get('/main', async (req, res) => {
   }
 });
 
+/**
+ * 오늘 할 일 (Today's Tasks) 데이터 조회
+ * GET /api/dashboard/tasks
+ */
+router.get('/tasks', async (req, res) => {
+  try {
+    const now = new Date();
+    const tasks: Array<{
+      id: string;
+      title: string;
+      count: number;
+      priority: 'high' | 'medium' | 'low';
+      icon: string;
+      link: string;
+      description: string;
+    }> = [];
+
+    // 1. 미입고 7일 이상 확인
+    try {
+      const logisticsData = await sheetsService.getSheetDataAsJson(SHEET_NAMES.LOGISTICS, true);
+      const unreceivedDelayed = logisticsData.filter((row: any) => {
+        const status = (row.logistics || '').toLowerCase();
+        if (!status.includes('미입고')) return false;
+        
+        const orderDate = new Date(row.order_created);
+        if (isNaN(orderDate.getTime())) return false;
+        
+        const daysDiff = Math.floor((now.getTime() - orderDate.getTime()) / (1000 * 60 * 60 * 24));
+        return daysDiff >= 7;
+      });
+
+      if (unreceivedDelayed.length > 0) {
+        tasks.push({
+          id: 'unreceived',
+          title: '미입고 지연 처리',
+          count: unreceivedDelayed.length,
+          priority: 'high',
+          icon: '📦',
+          link: '/unreceived?delay=delayed',
+          description: '7일 이상 미입고 건 확인 필요',
+        });
+      }
+    } catch (e) {
+      console.error('[Tasks] Error checking unreceived:', e);
+    }
+
+    // 2. QC 대기 건수 확인
+    try {
+      const qcTextData = await sheetsService.getSheetDataAsJson(SHEET_NAMES.QC_TEXT_RAW, false);
+      const qcImageData = await sheetsService.getSheetDataAsJson(SHEET_NAMES.QC_IMAGE_RAW, false);
+      
+      const qcTextPending = qcTextData.filter((row: any) => {
+        const status = (row['처리 상태'] || row.status || '').toLowerCase();
+        return !status.includes('완료') && !status.includes('skip');
+      }).length;
+      
+      const qcImagePending = qcImageData.filter((row: any) => {
+        const status = (row['처리 상태'] || row.status || '').toLowerCase();
+        return !status.includes('완료') && !status.includes('skip');
+      }).length;
+      
+      const totalQcPending = qcTextPending + qcImagePending;
+      
+      if (totalQcPending > 0) {
+        tasks.push({
+          id: 'qc',
+          title: 'QC 검수 대기',
+          count: totalQcPending,
+          priority: totalQcPending > 10 ? 'high' : 'medium',
+          icon: '✅',
+          link: '/qc',
+          description: `텍스트 ${qcTextPending}건, 이미지 ${qcImagePending}건`,
+        });
+      }
+    } catch (e) {
+      console.error('[Tasks] Error checking QC:', e);
+    }
+
+    // 3. 소포수령증 미신청자 확인
+    try {
+      const sopoTrackingData = await sheetsService.getSheetDataAsJson(SHEET_NAMES.SOPO_TRACKING, false);
+      const sopoNotApplied = sopoTrackingData.filter((row: any) => {
+        const status = (row['신청 상태'] || row.status || '').toLowerCase();
+        return status.includes('미신청') || status === '';
+      }).length;
+      
+      if (sopoNotApplied > 0) {
+        tasks.push({
+          id: 'sopo',
+          title: '소포수령증 리마인드',
+          count: sopoNotApplied,
+          priority: 'medium',
+          icon: '📋',
+          link: '/sopo-receipt',
+          description: '미신청 작가 리마인드 필요',
+        });
+      }
+    } catch (e) {
+      console.error('[Tasks] Error checking SOPO:', e);
+    }
+
+    // 4. 이탈 위험 고객 (간략 버전)
+    try {
+      const logisticsData = await sheetsService.getSheetDataAsJson(SHEET_NAMES.LOGISTICS, true);
+      const customerLastOrder = new Map<string, Date>();
+      
+      logisticsData.forEach((row: any) => {
+        const userId = String(row.user_id || '');
+        if (!userId) return;
+        const orderDate = new Date(row.order_created);
+        if (isNaN(orderDate.getTime())) return;
+        
+        const existing = customerLastOrder.get(userId);
+        if (!existing || orderDate > existing) {
+          customerLastOrder.set(userId, orderDate);
+        }
+      });
+      
+      let churnRiskCount = 0;
+      customerLastOrder.forEach((lastOrder) => {
+        const daysSinceOrder = Math.floor((now.getTime() - lastOrder.getTime()) / (1000 * 60 * 60 * 24));
+        if (daysSinceOrder > 60 && daysSinceOrder <= 90) {
+          churnRiskCount++;
+        }
+      });
+      
+      if (churnRiskCount > 0) {
+        tasks.push({
+          id: 'churn',
+          title: '이탈 위험 고객',
+          count: churnRiskCount,
+          priority: 'low',
+          icon: '⚠️',
+          link: '/customer-analytics?tab=churn',
+          description: '60-90일 미구매 고객 리텐션 필요',
+        });
+      }
+    } catch (e) {
+      console.error('[Tasks] Error checking churn:', e);
+    }
+
+    // 우선순위 정렬
+    const priorityOrder = { high: 0, medium: 1, low: 2 };
+    tasks.sort((a, b) => priorityOrder[a.priority] - priorityOrder[b.priority]);
+
+    res.json({
+      success: true,
+      date: now.toISOString().split('T')[0],
+      totalTasks: tasks.length,
+      tasks,
+    });
+  } catch (error) {
+    console.error('[Tasks] Error:', error);
+    res.status(500).json({ error: 'Failed to fetch tasks' });
+  }
+});
+
 export default router;
 

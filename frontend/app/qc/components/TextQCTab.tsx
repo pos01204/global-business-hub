@@ -9,6 +9,7 @@ export default function TextQCTab() {
   const [weeklyOnly, setWeeklyOnly] = useState(false)
   const [page, setPage] = useState(1)
   const [selectedIndex, setSelectedIndex] = useState<number>(-1)
+  const [selectedItems, setSelectedItems] = useState<Set<string>>(new Set())
   const limit = 20
   const queryClient = useQueryClient()
   const itemsRef = useRef<any[]>([])
@@ -69,6 +70,59 @@ export default function TextQCTab() {
       })
     }
   }, [updateStatusMutation])
+
+  // 일괄 처리 함수들
+  const toggleSelectItem = useCallback((id: string) => {
+    setSelectedItems(prev => {
+      const newSet = new Set(prev)
+      if (newSet.has(id)) {
+        newSet.delete(id)
+      } else {
+        newSet.add(id)
+      }
+      return newSet
+    })
+  }, [])
+
+  const selectAllVisible = useCallback(() => {
+    if (!itemsRef.current) return
+    const pendingItems = itemsRef.current.filter((item: any) => item.status === 'pending')
+    setSelectedItems(new Set(pendingItems.map((item: any) => item.id)))
+  }, [])
+
+  const clearSelection = useCallback(() => {
+    setSelectedItems(new Set())
+  }, [])
+
+  const handleBulkApprove = useCallback(async () => {
+    if (selectedItems.size === 0) return
+    if (!confirm(`${selectedItems.size}개 항목을 일괄 승인하시겠습니까?`)) return
+    
+    for (const id of selectedItems) {
+      await updateStatusMutation.mutateAsync({ id, status: 'approved', needsRevision: false })
+    }
+    setSelectedItems(new Set())
+  }, [selectedItems, updateStatusMutation])
+
+  const handleBulkNeedsRevision = useCallback(async () => {
+    if (selectedItems.size === 0) return
+    if (!confirm(`${selectedItems.size}개 항목을 일괄 수정 필요로 표시하시겠습니까?`)) return
+    
+    for (const id of selectedItems) {
+      await updateStatusMutation.mutateAsync({ id, status: 'needs_revision', needsRevision: true })
+    }
+    setSelectedItems(new Set())
+  }, [selectedItems, updateStatusMutation])
+
+  const handleBulkExclude = useCallback(async () => {
+    if (selectedItems.size === 0) return
+    if (!confirm(`${selectedItems.size}개 항목을 일괄 비대상으로 표시하시겠습니까?`)) return
+    
+    for (const id of selectedItems) {
+      await updateStatusMutation.mutateAsync({ id, status: 'excluded', needsRevision: false })
+    }
+    setSelectedItems(new Set())
+  }, [selectedItems, updateStatusMutation])
 
   // 키보드 단축키
   useEffect(() => {
@@ -134,9 +188,10 @@ export default function TextQCTab() {
     return () => window.removeEventListener('keydown', handleKeyPress)
   }, [selectedIndex, handleApprove, handleNeedsRevision])
 
-  // 데이터 변경 시 selectedIndex 초기화
+  // 데이터 변경 시 selectedIndex 및 selectedItems 초기화
   useEffect(() => {
     setSelectedIndex(-1)
+    setSelectedItems(new Set())
   }, [statusFilter, weeklyOnly, page])
 
   if (isLoading) {
@@ -244,6 +299,55 @@ export default function TextQCTab() {
         </div>
       </div>
 
+      {/* 일괄 선택/처리 바 */}
+      <div className="card bg-slate-800 text-white">
+        <div className="flex items-center justify-between flex-wrap gap-4">
+          <div className="flex items-center gap-4">
+            <button
+              onClick={selectAllVisible}
+              className="px-3 py-1.5 bg-white/10 hover:bg-white/20 rounded-lg text-sm font-medium transition-colors"
+            >
+              미검수 전체 선택
+            </button>
+            <button
+              onClick={clearSelection}
+              className="px-3 py-1.5 bg-white/10 hover:bg-white/20 rounded-lg text-sm font-medium transition-colors"
+            >
+              선택 해제
+            </button>
+            <span className="text-sm text-slate-300">
+              {selectedItems.size > 0 ? `${selectedItems.size}개 선택됨` : '항목을 선택하세요'}
+            </span>
+          </div>
+          
+          {selectedItems.size > 0 && (
+            <div className="flex items-center gap-2">
+              <button
+                onClick={handleBulkApprove}
+                disabled={updateStatusMutation.isPending}
+                className="px-4 py-1.5 bg-green-500 hover:bg-green-600 disabled:bg-green-500/50 rounded-lg text-sm font-semibold transition-colors"
+              >
+                ✓ 일괄 승인
+              </button>
+              <button
+                onClick={handleBulkNeedsRevision}
+                disabled={updateStatusMutation.isPending}
+                className="px-4 py-1.5 bg-amber-500 hover:bg-amber-600 disabled:bg-amber-500/50 rounded-lg text-sm font-semibold transition-colors"
+              >
+                ✎ 일괄 수정필요
+              </button>
+              <button
+                onClick={handleBulkExclude}
+                disabled={updateStatusMutation.isPending}
+                className="px-4 py-1.5 bg-slate-500 hover:bg-slate-600 disabled:bg-slate-500/50 rounded-lg text-sm font-semibold transition-colors"
+              >
+                ✕ 일괄 비대상
+              </button>
+            </div>
+          )}
+        </div>
+      </div>
+
       {/* QC 목록 */}
       <div className="space-y-4">
         {data?.items && data.items.length > 0 ? (
@@ -267,6 +371,20 @@ export default function TextQCTab() {
                         : 'border-gray-300'
                 }`}
               >
+              {/* 체크박스 + 콘텐츠 컨테이너 */}
+              <div className="flex gap-4">
+                {/* 체크박스 */}
+                <div className="flex-shrink-0 pt-1">
+                  <input
+                    type="checkbox"
+                    checked={selectedItems.has(item.id)}
+                    onChange={() => toggleSelectItem(item.id)}
+                    className="w-5 h-5 rounded border-slate-300 text-slate-800 focus:ring-slate-500 cursor-pointer"
+                  />
+                </div>
+                
+                {/* 콘텐츠 */}
+                <div className="flex-1">
               <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
                 {/* 일본어 원문 */}
                 <div>
@@ -356,6 +474,8 @@ export default function TextQCTab() {
                     </button>
                   )}
                 </div>
+              </div>
+              </div>
               </div>
             </div>
           ))

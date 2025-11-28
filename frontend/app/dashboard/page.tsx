@@ -1,7 +1,7 @@
 'use client'
 
 import { useQuery } from '@tanstack/react-query'
-import { dashboardApi, trendAnalysisApi, reviewsApi } from '@/lib/api'
+import { dashboardApi, trendAnalysisApi, reviewsApi, customerAnalyticsApi } from '@/lib/api'
 import Link from 'next/link'
 import { useState, useEffect, useRef } from 'react'
 import { format } from 'date-fns'
@@ -71,6 +71,13 @@ export default function DashboardPage() {
     queryKey: ['reviews-highlights-dashboard'],
     queryFn: () => reviewsApi.getHighlights(4),
     staleTime: 5 * 60 * 1000,
+  })
+
+  // 오늘 할 일
+  const { data: tasksData } = useQuery({
+    queryKey: ['dashboard-tasks'],
+    queryFn: dashboardApi.getTasks,
+    staleTime: 2 * 60 * 1000,
   })
 
   const handleApply = () => {
@@ -394,6 +401,61 @@ export default function DashboardPage() {
               )}
             </div>
           </div>
+
+          {/* 오늘 할 일 위젯 */}
+          {tasksData?.tasks && tasksData.tasks.length > 0 && (
+            <div className="bg-white rounded-2xl border border-gray-100 p-6 shadow-sm mb-6">
+              <div className="flex items-center justify-between mb-4">
+                <div className="flex items-center gap-3">
+                  <div className="w-10 h-10 bg-gradient-to-br from-violet-500 to-purple-600 rounded-xl flex items-center justify-center shadow-sm">
+                    <span className="text-white text-lg">📝</span>
+                  </div>
+                  <div>
+                    <h3 className="font-bold text-gray-800">오늘 할 일</h3>
+                    <p className="text-xs text-gray-500">{tasksData.totalTasks}개 항목 처리 필요</p>
+                  </div>
+                </div>
+                <span className="text-xs text-gray-400">{tasksData.date}</span>
+              </div>
+              
+              <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-3">
+                {tasksData.tasks.map((task: any) => (
+                  <Link
+                    key={task.id}
+                    href={task.link}
+                    className={`flex items-center gap-3 p-4 rounded-xl border transition-all hover:shadow-md ${
+                      task.priority === 'high'
+                        ? 'bg-red-50 border-red-200 hover:border-red-300'
+                        : task.priority === 'medium'
+                        ? 'bg-amber-50 border-amber-200 hover:border-amber-300'
+                        : 'bg-slate-50 border-slate-200 hover:border-slate-300'
+                    }`}
+                  >
+                    <span className="text-2xl">{task.icon}</span>
+                    <div className="flex-1 min-w-0">
+                      <div className="flex items-center gap-2">
+                        <p className={`font-semibold text-sm ${
+                          task.priority === 'high' ? 'text-red-800' 
+                          : task.priority === 'medium' ? 'text-amber-800' 
+                          : 'text-slate-800'
+                        }`}>
+                          {task.title}
+                        </p>
+                        <span className={`px-1.5 py-0.5 rounded text-xs font-bold ${
+                          task.priority === 'high' ? 'bg-red-500 text-white' 
+                          : task.priority === 'medium' ? 'bg-amber-500 text-white' 
+                          : 'bg-slate-400 text-white'
+                        }`}>
+                          {task.count}
+                        </span>
+                      </div>
+                      <p className="text-xs text-gray-500 truncate mt-0.5">{task.description}</p>
+                    </div>
+                  </Link>
+                ))}
+              </div>
+            </div>
+          )}
 
           {/* 하단 2단 레이아웃: 알림/미입고 + Quick Actions */}
           <div className="grid grid-cols-1 lg:grid-cols-2 gap-6 mb-6">

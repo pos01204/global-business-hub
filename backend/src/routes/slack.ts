@@ -412,4 +412,226 @@ async function sendDelayedResponse(responseUrl: string, message: any): Promise<v
   }
 }
 
+/**
+ * 미입고 7일 초과 자동 알림 (Webhook)
+ * GET /api/slack/notify/unreceived-delayed
+ * 
+ * Railway Cron 또는 외부 스케줄러에서 호출
+ * SLACK_WEBHOOK_URL 환경변수 필요
+ */
+router.get('/notify/unreceived-delayed', async (req: Request, res: Response) => {
+  try {
+    const webhookUrl = process.env.SLACK_WEBHOOK_URL;
+    if (!webhookUrl) {
+      return res.status(400).json({ error: 'SLACK_WEBHOOK_URL not configured' });
+    }
+
+    // Google Sheets에서 미입고 데이터 조회
+    const GoogleSheetsService = (await import('../services/googleSheets')).default;
+    const { sheetsConfig } = await import('../config/sheets');
+    const sheetsService = new GoogleSheetsService(sheetsConfig);
+    
+    const logisticsData = await sheetsService.getSheetDataAsJson(SHEET_NAMES.LOGISTICS, true);
+    const now = new Date();
+    
+    // 7일 이상 미입고 건 필터링
+    const delayedItems = logisticsData.filter((row: any) => {
+      const status = (row.logistics || '').toLowerCase();
+      if (!status.includes('미입고')) return false;
+      
+      const orderDate = new Date(row.order_created);
+      if (isNaN(orderDate.getTime())) return false;
+      
+      const daysDiff = Math.floor((now.getTime() - orderDate.getTime()) / (1000 * 60 * 60 * 24));
+      return daysDiff >= 7;
+    });
+
+    if (delayedItems.length === 0) {
+      return res.json({ success: true, message: 'No delayed items', sent: false });
+    }
+
+    // 작가별 그룹핑
+    const byArtist: Record<string, any[]> = {};
+    delayedItems.forEach((item: any) => {
+      const artistName = item['artist_name (kr)'] || item.artist_name || '알 수 없음';
+      if (!byArtist[artistName]) byArtist[artistName] = [];
+      byArtist[artistName].push(item);
+    });
+
+    // 상위 5개 작가만 표시
+    const topArtists = Object.entries(byArtist)
+      .sort((a, b) => b[1].length - a[1].length)
+      .slice(0, 5);
+
+    const artistSummary = topArtists
+      .map(([name, items]) => `• ${name}: ${items.length}건`)
+      .join('\n');
+
+    // Slack 메시지 전송
+    const axios = (await import('axios')).default;
+    const hubBaseUrl = process.env.HUB_BASE_URL || 'https://global-business-hub-7p2x.vercel.app';
+
+    await axios.post(webhookUrl, {
+      blocks: [
+        {
+          type: 'header',
+          text: {
+            type: 'plain_text',
+            text: '🚨 미입고 7일 이상 지연 알림',
+            emoji: true,
+          },
+        },
+        {
+          type: 'section',
+          text: {
+            type: 'mrkdwn',
+            text: `*${now.toISOString().split('T')[0]} 기준*\n\n총 *${delayedItems.length}건*의 미입고 지연이 발생했습니다.`,
+          },
+        },
+        {
+          type: 'divider',
+        },
+        {
+          type: 'section',
+          text: {
+            type: 'mrkdwn',
+            text: `*📋 작가별 현황 (상위 5개)*\n${artistSummary}`,
+          },
+        },
+        {
+          type: 'actions',
+          elements: [
+            {
+              type: 'button',
+              text: {
+                type: 'plain_text',
+                text: '📦 미입고 관리 바로가기',
+                emoji: true,
+              },
+              url: `${hubBaseUrl}/unreceived?delay=delayed`,
+              style: 'primary',
+            },
+          ],
+        },
+      ],
+    });
+
+    res.json({ 
+      success: true, 
+      sent: true, 
+      totalDelayed: delayedItems.length,
+      artistCount: Object.keys(byArtist).length,
+    });
+  } catch (error: any) {
+    console.error('[Slack] Notify unreceived error:', error?.message);
+    res.status(500).json({ error: 'Failed to send notification', details: error?.message });
+  }
+});
+
+/**
+ * 일일 요약 리포트 (Webhook)
+ * GET /api/slack/notify/daily-summary
+ */
+router.get('/notify/daily-summary', async (req: Request, res: Response) => {
+  try {
+    const webhookUrl = process.env.SLACK_WEBHOOK_URL;
+    if (!webhookUrl) {
+      return res.status(400).json({ error: 'SLACK_WEBHOOK_URL not configured' });
+    }
+
+    const GoogleSheetsService = (await import('../services/googleSheets')).default;
+    const { sheetsConfig } = await import('../config/sheets');
+    const sheetsService = new GoogleSheetsService(sheetsConfig);
+    
+    const logisticsData = await sheetsService.getSheetDataAsJson(SHEET_NAMES.LOGISTICS, true);
+    const now = new Date();
+    const today = now.toISOString().split('T')[0];
+
+    // 오늘 주문
+    const todayOrders = logisticsData.filter((row: any) => {
+      const orderDate = row.order_created?.split('T')[0] || row.order_created?.split(' ')[0];
+      return orderDate === today;
+    });
+
+    // 미입고 7일+
+    const delayedCount = logisticsData.filter((row: any) => {
+      const status = (row.logistics || '').toLowerCase();
+      if (!status.includes('미입고')) return false;
+      const orderDate = new Date(row.order_created);
+      if (isNaN(orderDate.getTime())) return false;
+      const daysDiff = Math.floor((now.getTime() - orderDate.getTime()) / (1000 * 60 * 60 * 24));
+      return daysDiff >= 7;
+    }).length;
+
+    // 배송 완료
+    const completedToday = logisticsData.filter((row: any) => {
+      const status = (row.logistics || '').toLowerCase();
+      return status.includes('배송완료') || status.includes('완료');
+    }).length;
+
+    const hubBaseUrl = process.env.HUB_BASE_URL || 'https://global-business-hub-7p2x.vercel.app';
+    const axios = (await import('axios')).default;
+
+    await axios.post(webhookUrl, {
+      blocks: [
+        {
+          type: 'header',
+          text: {
+            type: 'plain_text',
+            text: '📊 Global Business 일일 리포트',
+            emoji: true,
+          },
+        },
+        {
+          type: 'section',
+          text: {
+            type: 'mrkdwn',
+            text: `*${today}*`,
+          },
+        },
+        {
+          type: 'section',
+          fields: [
+            {
+              type: 'mrkdwn',
+              text: `*📦 오늘 신규 주문*\n${todayOrders.length}건`,
+            },
+            {
+              type: 'mrkdwn',
+              text: `*✅ 배송 완료*\n${completedToday}건`,
+            },
+            {
+              type: 'mrkdwn',
+              text: `*⚠️ 미입고 7일+ 지연*\n${delayedCount}건`,
+            },
+            {
+              type: 'mrkdwn',
+              text: `*📋 전체 주문*\n${logisticsData.length}건`,
+            },
+          ],
+        },
+        {
+          type: 'actions',
+          elements: [
+            {
+              type: 'button',
+              text: {
+                type: 'plain_text',
+                text: '📈 대시보드 보기',
+                emoji: true,
+              },
+              url: `${hubBaseUrl}/dashboard`,
+            },
+          ],
+        },
+      ],
+    });
+
+    res.json({ success: true, sent: true });
+  } catch (error: any) {
+    console.error('[Slack] Daily summary error:', error?.message);
+    res.status(500).json({ error: 'Failed to send daily summary', details: error?.message });
+  }
+});
+
 export default router;

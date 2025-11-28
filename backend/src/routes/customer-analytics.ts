@@ -121,7 +121,8 @@ router.get('/rfm', async (req, res) => {
       const orderDate = new Date(row.order_created);
       if (isNaN(orderDate.getTime())) return;
 
-      const amount = parseFloat(row['상품금액']) || 0;
+      // 다양한 금액 컬럼명 지원
+      const amount = parseFloat(row['상품금액']) || parseFloat(row['payment_amount']) || parseFloat(row['총금액']) || parseFloat(row['price']) || 0;
 
       if (!customerMap.has(userId)) {
         customerMap.set(userId, {
@@ -277,7 +278,8 @@ router.get('/churn-risk', async (req, res) => {
       const orderDate = new Date(row.order_created);
       if (isNaN(orderDate.getTime())) return;
 
-      const amount = parseFloat(row['상품금액']) || 0;
+      // 다양한 금액 컬럼명 지원
+      const amount = parseFloat(row['상품금액']) || parseFloat(row['payment_amount']) || parseFloat(row['총금액']) || parseFloat(row['price']) || 0;
 
       if (!customerMap.has(userId)) {
         customerMap.set(userId, {
@@ -541,7 +543,8 @@ router.get('/ltv', async (req, res) => {
       const orderDate = new Date(row.order_created);
       if (isNaN(orderDate.getTime())) return;
 
-      const amount = parseFloat(row['상품금액']) || 0;
+      // 다양한 금액 컬럼명 지원
+      const amount = parseFloat(row['상품금액']) || parseFloat(row['payment_amount']) || parseFloat(row['총금액']) || parseFloat(row['price']) || 0;
 
       if (!customerMap.has(userId)) {
         customerMap.set(userId, {
@@ -674,7 +677,8 @@ router.post('/coupon-simulate', async (req, res) => {
       const orderDate = new Date(row.order_created);
       if (isNaN(orderDate.getTime())) return;
 
-      const amount = parseFloat(row['상품금액']) || 0;
+      // 다양한 금액 컬럼명 지원
+      const amount = parseFloat(row['상품금액']) || parseFloat(row['payment_amount']) || parseFloat(row['총금액']) || parseFloat(row['price']) || 0;
 
       if (!customerMap.has(userId)) {
         customerMap.set(userId, {

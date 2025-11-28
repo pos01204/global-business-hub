@@ -106,6 +106,10 @@ export const dashboardApi = {
     const response = await api.get(`/api/dashboard/main?${params.toString()}`)
     return response.data
   },
+  getTasks: async () => {
+    const response = await api.get('/api/dashboard/tasks')
+    return response.data
+  },
 }
 
 // 미입고 관리 API
