@@ -701,9 +701,18 @@ router.get('/order-sheet/:artistName', async (req: Request, res: Response) => {
     }
 
     // 주문내역서 형식으로 변환
+    // 주문내역서는 작가 정산용이므로 "작품 판매 금액(KRW)" 사용
+    // (hidden fee, 배송비 등 idus 적용 부분 제외, 실제 작가 판매 금액 기준)
     const orderSheet = artistOrders.map((row: any) => {
-      const amountUSD = cleanAndParseFloat(row['Total GMV']);
-      const amountKRW = amountUSD * USD_TO_KRW;
+      // 작품 판매 금액(KRW) - 작가 정산 기준 금액
+      const productPriceKRW = cleanAndParseFloat(
+        row['작품 판매 금액(KRW)'] || 
+        row['작품판매금액(KRW)'] || 
+        row['작품 금액'] || 
+        row.product_price_krw ||
+        row.price_krw ||
+        0
+      );
       
       return {
         orderCode: row.order_code || '',
@@ -711,16 +720,13 @@ router.get('/order-sheet/:artistName', async (req: Request, res: Response) => {
         productName: row.product_name || row['작품명'] || '',
         option: row.option || row['옵션'] || '',
         quantity: parseInt(row['구매수량'] || row.quantity || '1') || 1,
-        amountUSD,
-        amountKRW,
-        // 기존 호환성
-        amount: amountKRW,
+        // 작품 금액 (KRW) - 작가 정산 기준
+        amount: productPriceKRW,
       };
     });
 
     // 합계 계산
-    const totalAmountUSD = orderSheet.reduce((sum, o) => sum + o.amountUSD, 0);
-    const totalAmountKRW = orderSheet.reduce((sum, o) => sum + o.amountKRW, 0);
+    const totalAmount = orderSheet.reduce((sum, o) => sum + o.amount, 0);
 
     res.json({
       success: true,
@@ -730,8 +736,7 @@ router.get('/order-sheet/:artistName', async (req: Request, res: Response) => {
         orders: orderSheet,
         summary: {
           orderCount: orderSheet.length,
-          totalAmountUSD,
-          totalAmountKRW,
+          totalAmount,
         },
         // CSV 형식 데이터 (다운로드용)
         csvData: generateOrderSheetCSV(artistName, orderSheet),
@@ -745,15 +750,17 @@ router.get('/order-sheet/:artistName', async (req: Request, res: Response) => {
 
 /**
  * 주문내역서 CSV 생성
+ * 기존 양식: 주문번호,주문상태,작품명,옵션,수량,작품 금액
+ * 금액: 작품 판매 금액(KRW) - 작가 정산 기준
  */
 function generateOrderSheetCSV(artistName: string, orders: any[]): string {
   const header = '*상기 주문 내역서의 항목은 변경 될 수 있습니다.';
-  const columns = '주문번호,주문상태,작품명,옵션,수량,금액(USD),금액(KRW)';
+  const columns = '주문번호,주문상태,작품명,옵션,수량,작품 금액';
   
   const rows = orders.map(order => {
-    const amountUSD = order.amountUSD?.toFixed(2) || '0.00';
-    const amountKRW = order.amountKRW?.toLocaleString('ko-KR') || '0';
-    return `${order.orderCode},${order.orderStatus},"${order.productName}","${order.option}",${order.quantity},"$${amountUSD}","₩${amountKRW}"`;
+    // 작품 금액 (KRW) - 천 단위 구분자 포함
+    const amount = order.amount ? order.amount.toLocaleString('ko-KR') : '0';
+    return `${order.orderCode},${order.orderStatus},"${order.productName}","${order.option}",${order.quantity},"${amount}"`;
   });
 
   return [header, columns, ...rows].join('\n');

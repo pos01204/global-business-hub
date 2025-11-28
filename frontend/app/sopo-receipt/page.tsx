@@ -124,13 +124,15 @@ export default function SopoReceiptPage() {
   }, [selectedPeriod, uploadMutation])
 
   // CSV 다운로드
+  // 기존 양식: 주문번호,주문상태,작품명,옵션,수량,작품 금액
+  // 금액: 작품 판매 금액(KRW) - 작가 정산 기준
   const handleDownloadOrderSheet = (artist: ArtistSummary) => {
     const header = '*상기 주문 내역서의 항목은 변경 될 수 있습니다.'
-    const columns = '주문번호,주문상태,작품명,옵션,수량,금액(USD),금액(KRW)'
+    const columns = '주문번호,주문상태,작품명,옵션,수량,작품 금액'
     const rows = artist.orders.map(order => {
-      const amountKRW = (order.amountKRW || order.amount || 0).toLocaleString('ko-KR')
-      const amountUSD = (order.amountUSD || 0).toFixed(2)
-      return `${order.orderCode},${order.orderStatus},"${order.productName}","${order.option}",${order.quantity},"$${amountUSD}","₩${amountKRW}"`
+      // 작품 금액 (KRW) - 작가 정산 기준
+      const amount = (order.amount || 0).toLocaleString('ko-KR')
+      return `${order.orderCode},${order.orderStatus},"${order.productName}","${order.option}",${order.quantity},"${amount}"`
     })
     
     const csvContent = [header, columns, ...rows].join('\n')
@@ -142,10 +144,10 @@ export default function SopoReceiptPage() {
     link.click()
   }
 
-  // 금액 포맷
+  // 금액 포맷 (작품 판매 금액 KRW - 작가 정산 기준)
   const formatAmount = (artist: ArtistSummary) => {
-    const krw = artist.totalAmountKRW || artist.totalAmount || 0
-    return `₩${krw.toLocaleString()}`
+    const amount = artist.totalAmount || 0
+    return `₩${amount.toLocaleString()}`
   }
 
   // 탭 설정
@@ -644,7 +646,7 @@ export default function SopoReceiptPage() {
                       </td>
                       <td className="px-3 py-2 text-center">{order.quantity}</td>
                       <td className="px-3 py-2 text-right">
-                        ₩{(order.amountKRW || order.amount || 0).toLocaleString()}
+                        ₩{(order.amount || 0).toLocaleString()}
                       </td>
                       <td className="px-3 py-2 text-center">
                         <span className="px-2 py-0.5 bg-blue-100 text-blue-700 rounded text-xs">
