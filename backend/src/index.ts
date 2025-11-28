@@ -27,6 +27,7 @@ import settlementRoutes from './routes/settlement';
 import costAnalysisRoutes from './routes/cost-analysis';
 import sopoReceiptRoutes from './routes/sopo-receipt';
 import reviewsRoutes from './routes/reviews';
+import slackRoutes from './routes/slack';
 
 // .env 파일 로드 (backend 폴더 기준)
 let envPath: string;
@@ -52,7 +53,16 @@ const corsOptions = {
   optionsSuccessStatus: 200,
 };
 app.use(cors(corsOptions));
-app.use(express.json());
+
+// Slack 서명 검증을 위한 raw body 저장
+app.use(express.json({
+  verify: (req: any, res, buf) => {
+    req.rawBody = buf.toString();
+  }
+}));
+
+// Slack 명령어는 URL-encoded form data로 전송됨
+app.use(express.urlencoded({ extended: true }));
 
 // Health check
 app.get('/health', (req, res) => {
@@ -90,6 +100,8 @@ app.use('/api/sopo-receipt', sopoReceiptRoutes);
 console.log('[Server] Sopo Receipt 라우터 등록 완료: /api/sopo-receipt');
 app.use('/api/reviews', reviewsRoutes);
 console.log('[Server] Reviews 라우터 등록 완료: /api/reviews');
+app.use('/api/slack', slackRoutes);
+console.log('[Server] Slack 라우터 등록 완료: /api/slack');
 
 app.get('/api', (req, res) => {
   res.json({ message: 'Global Business Hub API' });
