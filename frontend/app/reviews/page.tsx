@@ -25,6 +25,8 @@ export default function ReviewsPage() {
   const [currentPage, setCurrentPage] = useState(1)
   const [selectedReview, setSelectedReview] = useState<any>(null)
   const [featuredIndex, setFeaturedIndex] = useState(0)
+  const [searchQuery, setSearchQuery] = useState('')
+  const [sortOption, setSortOption] = useState<'latest' | 'rating' | 'popular'>('latest')
   const featuredRef = useRef<HTMLDivElement>(null)
 
   // 하이라이트 리뷰
@@ -36,13 +38,15 @@ export default function ReviewsPage() {
 
   // 갤러리 데이터
   const { data: galleryData, isLoading } = useQuery({
-    queryKey: ['reviews-gallery', selectedCountry, showImageOnly, currentPage],
+    queryKey: ['reviews-gallery', selectedCountry, showImageOnly, currentPage, searchQuery, sortOption],
     queryFn: () => reviewsApi.getGallery({
       country: selectedCountry || undefined,
       hasImage: showImageOnly || undefined,
       page: currentPage,
       pageSize: 24,
       minRating: 7,
+      search: searchQuery || undefined,
+      sort: sortOption,
     }),
     staleTime: 3 * 60 * 1000,
   })
@@ -191,6 +195,64 @@ export default function ReviewsPage() {
       {/* Filter Bar */}
       <div className="sticky top-0 z-30 bg-white/95 backdrop-blur-md border-b border-stone-200 shadow-sm">
         <div className="max-w-7xl mx-auto px-6 py-4">
+          {/* 상단: 검색 + 정렬 */}
+          <div className="flex items-center gap-4 mb-4">
+            {/* 검색 입력 */}
+            <div className="flex-1 relative">
+              <input
+                type="text"
+                value={searchQuery}
+                onChange={(e) => { setSearchQuery(e.target.value); setCurrentPage(1); }}
+                placeholder="작가명, 상품명, 리뷰 내용 검색..."
+                className="w-full pl-10 pr-4 py-2.5 rounded-full border border-stone-200 bg-white text-sm focus:outline-none focus:ring-2 focus:ring-amber-400 focus:border-transparent transition-all"
+              />
+              <span className="absolute left-3.5 top-1/2 -translate-y-1/2 text-stone-400">🔍</span>
+              {searchQuery && (
+                <button
+                  onClick={() => { setSearchQuery(''); setCurrentPage(1); }}
+                  className="absolute right-3 top-1/2 -translate-y-1/2 text-stone-400 hover:text-stone-600"
+                >
+                  ✕
+                </button>
+              )}
+            </div>
+
+            {/* 정렬 옵션 */}
+            <div className="flex items-center gap-2 bg-stone-100 rounded-full p-1">
+              <button
+                onClick={() => { setSortOption('latest'); setCurrentPage(1); }}
+                className={`px-4 py-2 rounded-full text-sm font-medium transition-all ${
+                  sortOption === 'latest'
+                    ? 'bg-white text-stone-800 shadow-sm'
+                    : 'text-stone-500 hover:text-stone-700'
+                }`}
+              >
+                최신순
+              </button>
+              <button
+                onClick={() => { setSortOption('rating'); setCurrentPage(1); }}
+                className={`px-4 py-2 rounded-full text-sm font-medium transition-all ${
+                  sortOption === 'rating'
+                    ? 'bg-white text-stone-800 shadow-sm'
+                    : 'text-stone-500 hover:text-stone-700'
+                }`}
+              >
+                평점순
+              </button>
+              <button
+                onClick={() => { setSortOption('popular'); setCurrentPage(1); }}
+                className={`px-4 py-2 rounded-full text-sm font-medium transition-all ${
+                  sortOption === 'popular'
+                    ? 'bg-white text-stone-800 shadow-sm'
+                    : 'text-stone-500 hover:text-stone-700'
+                }`}
+              >
+                인기순
+              </button>
+            </div>
+          </div>
+
+          {/* 하단: 국가 필터 + 포토 필터 */}
           <div className="flex items-center justify-between gap-4">
             {/* Country Pills */}
             <div className="flex items-center gap-2 overflow-x-auto pb-1 scrollbar-hide">

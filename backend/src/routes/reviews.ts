@@ -119,13 +119,24 @@ router.get('/gallery', async (req: Request, res: Response) => {
       page = '1',
       pageSize = '24',
       sort = 'latest',
+      search = '',
     } = req.query;
+
+    // 검색어 정규화
+    const searchTerm = (search as string).toLowerCase().trim();
 
     // 필터링
     let filtered = reviews.filter(r => {
       if (country && r.country !== country) return false;
       if (hasImage === 'true' && r.image_cnt === 0) return false;
       if (r.rating < parseInt(minRating as string)) return false;
+      // 검색어 필터
+      if (searchTerm) {
+        const matchesArtist = r.artist_name.toLowerCase().includes(searchTerm);
+        const matchesProduct = r.product_name.toLowerCase().includes(searchTerm);
+        const matchesContent = r.contents.toLowerCase().includes(searchTerm);
+        if (!matchesArtist && !matchesProduct && !matchesContent) return false;
+      }
       return true;
     });
 

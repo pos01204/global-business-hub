@@ -747,6 +747,7 @@ export const reviewsApi = {
     page?: number
     pageSize?: number
     sort?: string
+    search?: string
   }) => {
     const response = await api.get('/api/reviews/gallery', { params })
     return response.data

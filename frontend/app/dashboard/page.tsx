@@ -1,7 +1,8 @@
 'use client'
 
 import { useQuery } from '@tanstack/react-query'
-import { dashboardApi, trendAnalysisApi } from '@/lib/api'
+import { dashboardApi, trendAnalysisApi, reviewsApi } from '@/lib/api'
+import Link from 'next/link'
 import { useState, useEffect, useRef } from 'react'
 import { format } from 'date-fns'
 import {
@@ -56,6 +57,20 @@ export default function DashboardPage() {
     queryKey: ['trend-analysis', startDate, endDate],
     queryFn: () => trendAnalysisApi.getData(startDate, endDate, 'all'),
     enabled: !!startDate && !!endDate,
+  })
+
+  // 리뷰 요약 데이터
+  const { data: reviewStats } = useQuery({
+    queryKey: ['reviews-stats-dashboard'],
+    queryFn: reviewsApi.getStats,
+    staleTime: 5 * 60 * 1000,
+  })
+
+  // 최근 하이라이트 리뷰
+  const { data: recentReviews } = useQuery({
+    queryKey: ['reviews-highlights-dashboard'],
+    queryFn: () => reviewsApi.getHighlights(4),
+    staleTime: 5 * 60 * 1000,
   })
 
   const handleApply = () => {
@@ -488,6 +503,89 @@ export default function DashboardPage() {
                   </a>
                 </div>
               </div>
+            </div>
+
+            {/* 고객 리뷰 요약 */}
+            <div className="bg-white rounded-2xl border border-gray-200 p-6 shadow-sm">
+              <div className="flex items-center justify-between mb-5">
+                <div className="flex items-center gap-3">
+                  <div className="w-10 h-10 bg-gradient-to-br from-amber-400 to-orange-500 rounded-xl flex items-center justify-center shadow-md">
+                    <span className="text-white text-lg">⭐</span>
+                  </div>
+                  <div>
+                    <h3 className="font-bold text-slate-800">고객 리뷰</h3>
+                    <p className="text-xs text-slate-500">전 세계 고객들의 이야기</p>
+                  </div>
+                </div>
+                <Link 
+                  href="/reviews"
+                  className="text-sm text-blue-600 hover:text-blue-700 font-medium flex items-center gap-1"
+                >
+                  전체 보기 →
+                </Link>
+              </div>
+
+              {/* 리뷰 통계 */}
+              {reviewStats?.data && (
+                <div className="grid grid-cols-4 gap-4 mb-5">
+                  <div className="text-center p-3 bg-gradient-to-br from-amber-50 to-orange-50 rounded-xl">
+                    <p className="text-2xl font-bold text-amber-600">{reviewStats.data.totalReviews?.toLocaleString() || 0}</p>
+                    <p className="text-xs text-slate-500 mt-1">총 리뷰</p>
+                  </div>
+                  <div className="text-center p-3 bg-gradient-to-br from-emerald-50 to-teal-50 rounded-xl">
+                    <p className="text-2xl font-bold text-emerald-600">{reviewStats.data.avgRating || 0}</p>
+                    <p className="text-xs text-slate-500 mt-1">평균 평점</p>
+                  </div>
+                  <div className="text-center p-3 bg-gradient-to-br from-blue-50 to-indigo-50 rounded-xl">
+                    <p className="text-2xl font-bold text-blue-600">{reviewStats.data.imageReviewRate || 0}%</p>
+                    <p className="text-xs text-slate-500 mt-1">포토 리뷰</p>
+                  </div>
+                  <div className="text-center p-3 bg-gradient-to-br from-violet-50 to-purple-50 rounded-xl">
+                    <p className="text-2xl font-bold text-violet-600">{reviewStats.data.countries?.length || 0}</p>
+                    <p className="text-xs text-slate-500 mt-1">국가</p>
+                  </div>
+                </div>
+              )}
+
+              {/* 최근 베스트 리뷰 */}
+              {recentReviews?.data && recentReviews.data.length > 0 && (
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
+                  {recentReviews.data.slice(0, 4).map((review: any) => (
+                    <Link
+                      key={review.id}
+                      href="/reviews"
+                      className="flex gap-3 p-3 bg-slate-50 hover:bg-slate-100 rounded-xl transition-colors group"
+                    >
+                      {review.imageUrl && (
+                        <img 
+                          src={review.imageUrl} 
+                          alt="" 
+                          className="w-16 h-16 rounded-lg object-cover flex-shrink-0"
+                        />
+                      )}
+                      <div className="flex-1 min-w-0">
+                        <div className="flex items-center gap-2 mb-1">
+                          <span className="text-lg">{review.countryInfo?.emoji}</span>
+                          <span className="px-1.5 py-0.5 bg-amber-100 text-amber-700 rounded text-xs font-bold">★ {review.rating}</span>
+                        </div>
+                        <p className="text-sm text-slate-600 line-clamp-2 leading-snug">
+                          "{review.contents}"
+                        </p>
+                        <p className="text-xs text-slate-400 mt-1 truncate">
+                          {review.productName}
+                        </p>
+                      </div>
+                    </Link>
+                  ))}
+                </div>
+              )}
+
+              {(!recentReviews?.data || recentReviews.data.length === 0) && (
+                <div className="text-center py-8 text-slate-400">
+                  <span className="text-4xl mb-2 block">📭</span>
+                  <p className="text-sm">아직 등록된 리뷰가 없습니다</p>
+                </div>
+              )}
             </div>
                   </>
                 )}
