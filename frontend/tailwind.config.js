@@ -8,66 +8,74 @@ module.exports = {
   theme: {
     extend: {
       colors: {
-        // idus Brand Colors
+        // idus Brand - 포인트 컬러로만 사용
         idus: {
           DEFAULT: '#F78C3A',
-          50: '#FFF4EC',
-          100: '#FFE8D6',
-          200: '#FFD1AD',
-          300: '#FFB87A',
-          400: '#FFA45C',
+          50: '#FFF8F3',
+          100: '#FFEDD5',
           500: '#F78C3A',
           600: '#E67729',
-          700: '#D56820',
-          800: '#B85518',
-          900: '#994512',
         },
+        // Primary - 중립적 다크 톤
         primary: {
-          DEFAULT: '#F78C3A',
-          light: '#FFF4EC',
-          dark: '#E67729',
-          darker: '#D56820',
+          DEFAULT: '#1F2937',
+          light: '#F9FAFB',
+          dark: '#111827',
         },
-        secondary: {
-          DEFAULT: '#2D3436',
-          light: '#636E72',
+        // Neutral Gray Scale
+        slate: {
+          50: '#F8FAFC',
+          100: '#F1F5F9',
+          200: '#E2E8F0',
+          300: '#CBD5E1',
+          400: '#94A3B8',
+          500: '#64748B',
+          600: '#475569',
+          700: '#334155',
+          800: '#1E293B',
+          900: '#0F172A',
         },
-        accent: {
-          DEFAULT: '#FF6B35',
-          warm: '#F79F79',
-        },
+        // Status Colors
         success: {
-          DEFAULT: '#10B981',
-          light: '#D1FAE5',
+          DEFAULT: '#059669',
+          light: '#ECFDF5',
         },
         danger: {
-          DEFAULT: '#EF4444',
-          light: '#FEE2E2',
+          DEFAULT: '#DC2626',
+          light: '#FEF2F2',
         },
         warning: {
-          DEFAULT: '#F59E0B',
-          light: '#FEF3C7',
+          DEFAULT: '#D97706',
+          light: '#FFFBEB',
         },
         info: {
-          DEFAULT: '#3B82F6',
-          light: '#DBEAFE',
+          DEFAULT: '#2563EB',
+          light: '#EFF6FF',
+        },
+        // Chart Colors
+        chart: {
+          blue: '#3B82F6',
+          green: '#10B981',
+          purple: '#8B5CF6',
+          cyan: '#06B6D4',
+          rose: '#F43F5E',
+          amber: '#F59E0B',
         },
       },
       fontFamily: {
         sans: ['Pretendard', '-apple-system', 'BlinkMacSystemFont', 'Segoe UI', 'Roboto', 'Noto Sans KR', 'sans-serif'],
       },
       boxShadow: {
-        'sm': '0 1px 2px rgba(0, 0, 0, 0.05)',
-        'md': '0 4px 6px -1px rgba(0, 0, 0, 0.1), 0 2px 4px -1px rgba(0, 0, 0, 0.06)',
-        'lg': '0 10px 15px -3px rgba(0, 0, 0, 0.1), 0 4px 6px -2px rgba(0, 0, 0, 0.05)',
-        'xl': '0 20px 25px -5px rgba(0, 0, 0, 0.1), 0 10px 10px -5px rgba(0, 0, 0, 0.04)',
-        'orange': '0 4px 14px rgba(247, 140, 58, 0.25)',
-        'orange-lg': '0 8px 25px rgba(247, 140, 58, 0.35)',
+        'sm': '0 1px 2px rgba(0, 0, 0, 0.04)',
+        'md': '0 2px 4px rgba(0, 0, 0, 0.06)',
+        'lg': '0 4px 12px rgba(0, 0, 0, 0.08)',
+        'xl': '0 8px 24px rgba(0, 0, 0, 0.12)',
+        'card': '0 1px 3px rgba(0, 0, 0, 0.04), 0 1px 2px rgba(0, 0, 0, 0.02)',
       },
       borderRadius: {
-        'xl': '14px',
-        '2xl': '20px',
-        '3xl': '24px',
+        'xl': '12px',
+        '2xl': '16px',
+        '3xl': '20px',
       },
       animation: {
         'fade-in': 'fadeIn 0.2s ease-out',

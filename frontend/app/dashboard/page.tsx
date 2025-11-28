@@ -3,7 +3,6 @@
 import { useQuery } from '@tanstack/react-query'
 import { dashboardApi, trendAnalysisApi, reviewsApi } from '@/lib/api'
 import Link from 'next/link'
-import Image from 'next/image'
 import { useState, useEffect, useRef } from 'react'
 import { format } from 'date-fns'
 import {
@@ -20,10 +19,6 @@ import {
   Legend,
 } from 'chart.js'
 import { Chart } from 'react-chartjs-2'
-import { LoadingSpinner } from '@/components/BrandComponents'
-
-// 브랜드 리소스 경로
-const BRAND_PATH = '/brand/Rebranding Design Resources/Rebranding Design Resources'
 
 ChartJS.register(
   CategoryScale,
@@ -98,8 +93,11 @@ export default function DashboardPage() {
 
   if (isLoading) {
     return (
-      <div className="min-h-screen flex items-center justify-center">
-        <LoadingSpinner size="lg" text="대시보드를 불러오는 중..." />
+      <div className="min-h-[60vh] flex items-center justify-center">
+        <div className="text-center">
+          <div className="w-8 h-8 border-2 border-slate-200 border-t-slate-600 rounded-full animate-spin mx-auto mb-3"></div>
+          <p className="text-slate-500 text-sm">불러오는 중...</p>
+        </div>
       </div>
     )
   }
@@ -153,83 +151,51 @@ export default function DashboardPage() {
   }
 
   return (
-    <div className="animate-fade-in">
-      {/* 페이지 헤더 - idus 브랜드 스타일 */}
-      <div className="relative bg-gradient-to-r from-idus-500 to-idus-600 rounded-2xl p-6 mb-6 overflow-hidden shadow-orange">
-        {/* 배경 장식 */}
-        <div className="absolute top-0 right-0 w-64 h-64 bg-white/10 rounded-full -translate-y-1/2 translate-x-1/2"></div>
-        <div className="absolute bottom-0 left-0 w-32 h-32 bg-white/5 rounded-full translate-y-1/2 -translate-x-1/2"></div>
-        {/* 브랜드 패턴 */}
-        <div 
-          className="absolute inset-0 opacity-5 pointer-events-none"
-          style={{
-            backgroundImage: `url("${BRAND_PATH}/07. Cover images/logo_pattern.jpg")`,
-            backgroundSize: '150px',
-            backgroundRepeat: 'repeat',
-          }}
-        ></div>
+    <div className="space-y-6">
+      {/* 페이지 헤더 */}
+      <div className="flex items-center justify-between">
+        <div>
+          <h1 className="text-2xl font-bold text-slate-900">대시보드</h1>
+          <p className="text-slate-500 text-sm mt-1">Global Business 핵심 성과 지표</p>
+        </div>
         
-        <div className="relative flex items-center justify-between flex-wrap gap-4">
-          <div className="flex items-center gap-4">
-            <div className="w-14 h-14 bg-white/20 backdrop-blur rounded-xl flex items-center justify-center shadow-lg overflow-hidden">
-              <Image
-                src={`${BRAND_PATH}/02. Profile/thm_idus_512.png`}
-                alt="idus"
-                width={56}
-                height={56}
-                className="object-cover"
-              />
-            </div>
-            <div>
-              <h1 className="text-2xl font-extrabold text-white tracking-tight">대시보드</h1>
-              <p className="text-idus-100 text-sm font-medium">Global Business 핵심 성과 지표</p>
-            </div>
-          </div>
-          
-          {/* 인라인 날짜 필터 */}
-          <div className="flex items-center gap-3 bg-white/95 backdrop-blur rounded-xl px-4 py-2.5 shadow-lg">
-            <span className="text-idus-500 text-sm">📅</span>
-            <input
-              type="date"
-              value={startDate}
-              onChange={(e) => setStartDate(e.target.value)}
-              className="border-0 bg-transparent text-sm font-medium text-gray-700 focus:outline-none w-32"
-            />
-            <span className="text-gray-300">~</span>
-            <input
-              type="date"
-              value={endDate}
-              onChange={(e) => setEndDate(e.target.value)}
-              className="border-0 bg-transparent text-sm font-medium text-gray-700 focus:outline-none w-32"
-            />
-            <button
-              onClick={handleApply}
-              className="ml-2 px-4 py-1.5 bg-idus-500 text-white text-sm font-semibold rounded-lg hover:bg-idus-600 transition-colors shadow-sm"
-            >
-              조회
-            </button>
-          </div>
+        {/* 날짜 필터 */}
+        <div className="flex items-center gap-2 bg-white border border-slate-200 rounded-lg px-3 py-2">
+          <input
+            type="date"
+            value={startDate}
+            onChange={(e) => setStartDate(e.target.value)}
+            className="border-0 bg-transparent text-sm text-slate-700 focus:outline-none w-32"
+          />
+          <span className="text-slate-300">~</span>
+          <input
+            type="date"
+            value={endDate}
+            onChange={(e) => setEndDate(e.target.value)}
+            className="border-0 bg-transparent text-sm text-slate-700 focus:outline-none w-32"
+          />
+          <button
+            onClick={handleApply}
+            className="ml-2 px-3 py-1.5 bg-slate-900 text-white text-sm font-medium rounded-md hover:bg-slate-800 transition-colors"
+          >
+            조회
+          </button>
         </div>
       </div>
 
       {/* KPI 카드 */}
       {data && (
         <>
-          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4 mb-6">
+          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
             {/* GMV */}
-            <div className="relative bg-white rounded-2xl p-5 shadow-sm border border-gray-100 overflow-hidden group hover:shadow-lg transition-all duration-300">
-              <div className="absolute top-0 left-0 w-full h-1 bg-gradient-to-r from-idus-500 to-idus-400"></div>
+            <div className="bg-white rounded-xl p-5 border border-slate-200">
               <div className="flex items-center justify-between mb-3">
-                <h3 className="text-gray-500 text-sm font-semibold">Total GMV</h3>
-                <div className="w-10 h-10 bg-idus-50 rounded-xl flex items-center justify-center group-hover:scale-110 transition-transform">
-                  <span className="text-xl">💰</span>
-                </div>
+                <h3 className="text-slate-500 text-sm font-medium">Total GMV</h3>
+                <span className="text-lg">💰</span>
               </div>
-              <p className="text-2xl font-extrabold text-gray-900 mb-2">{formatCurrency(data.kpis.gmv.value)}</p>
-              <div className={`inline-flex items-center gap-1 px-2.5 py-1 rounded-lg text-xs font-bold ${
-                data.kpis.gmv.change >= 0 
-                  ? 'bg-emerald-50 text-emerald-600' 
-                  : 'bg-red-50 text-red-600'
+              <p className="text-2xl font-bold text-slate-900 mb-2">{formatCurrency(data.kpis.gmv.value)}</p>
+              <div className={`inline-flex items-center gap-1 text-xs font-medium ${
+                data.kpis.gmv.change >= 0 ? 'text-emerald-600' : 'text-red-600'
               }`}>
                 <span>{data.kpis.gmv.change >= 0 ? '↑' : '↓'}</span>
                 <span>{formatChange(data.kpis.gmv.change)}</span>
@@ -237,19 +203,14 @@ export default function DashboardPage() {
             </div>
 
             {/* AOV */}
-            <div className="relative bg-white rounded-2xl p-5 shadow-sm border border-gray-100 overflow-hidden group hover:shadow-lg transition-all duration-300">
-              <div className="absolute top-0 left-0 w-full h-1 bg-gradient-to-r from-blue-500 to-blue-400"></div>
+            <div className="bg-white rounded-xl p-5 border border-slate-200">
               <div className="flex items-center justify-between mb-3">
-                <h3 className="text-gray-500 text-sm font-semibold">객단가 (AOV)</h3>
-                <div className="w-10 h-10 bg-blue-50 rounded-xl flex items-center justify-center group-hover:scale-110 transition-transform">
-                  <span className="text-xl">📊</span>
-                </div>
+                <h3 className="text-slate-500 text-sm font-medium">객단가 (AOV)</h3>
+                <span className="text-lg">📊</span>
               </div>
-              <p className="text-2xl font-extrabold text-gray-900 mb-2">{formatCurrency(data.kpis.aov.value)}</p>
-              <div className={`inline-flex items-center gap-1 px-2.5 py-1 rounded-lg text-xs font-bold ${
-                data.kpis.aov.change >= 0 
-                  ? 'bg-emerald-50 text-emerald-600' 
-                  : 'bg-red-50 text-red-600'
+              <p className="text-2xl font-bold text-slate-900 mb-2">{formatCurrency(data.kpis.aov.value)}</p>
+              <div className={`inline-flex items-center gap-1 text-xs font-medium ${
+                data.kpis.aov.change >= 0 ? 'text-emerald-600' : 'text-red-600'
               }`}>
                 <span>{data.kpis.aov.change >= 0 ? '↑' : '↓'}</span>
                 <span>{formatChange(data.kpis.aov.change)}</span>
@@ -257,22 +218,17 @@ export default function DashboardPage() {
             </div>
 
             {/* 주문 건수 */}
-            <div className="relative bg-white rounded-2xl p-5 shadow-sm border border-gray-100 overflow-hidden group hover:shadow-lg transition-all duration-300">
-              <div className="absolute top-0 left-0 w-full h-1 bg-gradient-to-r from-violet-500 to-violet-400"></div>
+            <div className="bg-white rounded-xl p-5 border border-slate-200">
               <div className="flex items-center justify-between mb-3">
-                <h3 className="text-gray-500 text-sm font-semibold">주문 건수</h3>
-                <div className="w-10 h-10 bg-violet-50 rounded-xl flex items-center justify-center group-hover:scale-110 transition-transform">
-                  <span className="text-xl">📦</span>
-                </div>
+                <h3 className="text-slate-500 text-sm font-medium">주문 건수</h3>
+                <span className="text-lg">📦</span>
               </div>
-              <p className="text-2xl font-extrabold text-gray-900 mb-2">
+              <p className="text-2xl font-bold text-slate-900 mb-2">
                 {data.kpis.orderCount.value.toLocaleString()}
-                <span className="text-base font-normal text-gray-500 ml-1">건</span>
+                <span className="text-base font-normal text-slate-500 ml-1">건</span>
               </p>
-              <div className={`inline-flex items-center gap-1 px-2.5 py-1 rounded-lg text-xs font-bold ${
-                data.kpis.orderCount.change >= 0 
-                  ? 'bg-emerald-50 text-emerald-600' 
-                  : 'bg-red-50 text-red-600'
+              <div className={`inline-flex items-center gap-1 text-xs font-medium ${
+                data.kpis.orderCount.change >= 0 ? 'text-emerald-600' : 'text-red-600'
               }`}>
                 <span>{data.kpis.orderCount.change >= 0 ? '↑' : '↓'}</span>
                 <span>{formatChange(data.kpis.orderCount.change)}</span>
@@ -280,22 +236,17 @@ export default function DashboardPage() {
             </div>
 
             {/* 판매 작품 수 */}
-            <div className="relative bg-white rounded-2xl p-5 shadow-sm border border-gray-100 overflow-hidden group hover:shadow-lg transition-all duration-300">
-              <div className="absolute top-0 left-0 w-full h-1 bg-gradient-to-r from-amber-500 to-amber-400"></div>
+            <div className="bg-white rounded-xl p-5 border border-slate-200">
               <div className="flex items-center justify-between mb-3">
-                <h3 className="text-gray-500 text-sm font-semibold">판매 작품 수</h3>
-                <div className="w-10 h-10 bg-amber-50 rounded-xl flex items-center justify-center group-hover:scale-110 transition-transform">
-                  <span className="text-xl">🎨</span>
-                </div>
+                <h3 className="text-slate-500 text-sm font-medium">판매 작품 수</h3>
+                <span className="text-lg">🎨</span>
               </div>
-              <p className="text-2xl font-extrabold text-gray-900 mb-2">
+              <p className="text-2xl font-bold text-slate-900 mb-2">
                 {data.kpis.itemCount.value.toLocaleString()}
-                <span className="text-base font-normal text-gray-500 ml-1">개</span>
+                <span className="text-base font-normal text-slate-500 ml-1">개</span>
               </p>
-              <div className={`inline-flex items-center gap-1 px-2.5 py-1 rounded-lg text-xs font-bold ${
-                data.kpis.itemCount.change >= 0 
-                  ? 'bg-emerald-50 text-emerald-600' 
-                  : 'bg-red-50 text-red-600'
+              <div className={`inline-flex items-center gap-1 text-xs font-medium ${
+                data.kpis.itemCount.change >= 0 ? 'text-emerald-600' : 'text-red-600'
               }`}>
                 <span>{data.kpis.itemCount.change >= 0 ? '↑' : '↓'}</span>
                 <span>{formatChange(data.kpis.itemCount.change)}</span>
