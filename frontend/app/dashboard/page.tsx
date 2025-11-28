@@ -119,109 +119,135 @@ export default function DashboardPage() {
 
           return (
             <div>
-              <div className="mb-6">
-                <div className="flex items-center gap-3 mb-2">
-                  <div className="w-12 h-12 bg-gradient-to-br from-blue-500 to-purple-500 rounded-lg flex items-center justify-center shadow-lg">
+              {/* 헤더 + 날짜 필터 통합 */}
+              <div className="flex items-center justify-between mb-6 flex-wrap gap-4">
+                <div className="flex items-center gap-3">
+                  <div className="w-12 h-12 bg-gradient-to-br from-slate-700 to-slate-900 rounded-xl flex items-center justify-center shadow-lg">
                     <span className="text-white text-2xl">📊</span>
                   </div>
                   <div>
-                    <h1 className="text-3xl font-bold text-gray-900">메인 대시보드</h1>
-                    <p className="text-gray-600 text-sm mt-1">핵심 성과 지표 및 트렌드 분석</p>
+                    <h1 className="text-2xl font-bold text-gray-900">대시보드</h1>
+                    <p className="text-gray-500 text-sm">핵심 성과 지표</p>
                   </div>
                 </div>
+                
+                {/* 인라인 날짜 필터 */}
+                <div className="flex items-center gap-3 bg-white rounded-xl border border-gray-200 px-4 py-2 shadow-sm">
+                  <span className="text-gray-500 text-sm">📅</span>
+                  <input
+                    type="date"
+                    value={startDate}
+                    onChange={(e) => setStartDate(e.target.value)}
+                    className="border-0 bg-transparent text-sm font-medium text-gray-700 focus:outline-none w-32"
+                  />
+                  <span className="text-gray-400">~</span>
+                  <input
+                    type="date"
+                    value={endDate}
+                    onChange={(e) => setEndDate(e.target.value)}
+                    className="border-0 bg-transparent text-sm font-medium text-gray-700 focus:outline-none w-32"
+                  />
+                  <button
+                    onClick={handleApply}
+                    className="ml-2 px-4 py-1.5 bg-slate-800 text-white text-sm font-medium rounded-lg hover:bg-slate-700 transition-colors"
+                  >
+                    조회
+                  </button>
+                </div>
               </div>
-
-        {/* 날짜 필터 */}
-        <div className="card mb-6">
-          <div className="flex items-center gap-2 mb-4">
-            <span className="text-lg">📅</span>
-            <h2 className="text-lg font-semibold">분석 기간 설정</h2>
-          </div>
-          <div className="flex gap-4 items-end">
-            <div className="flex-1">
-              <label className="block text-sm font-medium mb-2 flex items-center gap-2">
-                <span>시작일</span>
-                <span className="text-xs text-gray-500 font-normal">(분석 시작 날짜)</span>
-              </label>
-              <input
-                type="date"
-                value={startDate}
-                onChange={(e) => setStartDate(e.target.value)}
-                className="w-full border border-gray-300 rounded-lg px-4 py-2.5 focus:ring-2 focus:ring-primary focus:border-primary transition-all"
-              />
-            </div>
-            <div className="flex-1">
-              <label className="block text-sm font-medium mb-2 flex items-center gap-2">
-                <span>종료일</span>
-                <span className="text-xs text-gray-500 font-normal">(분석 종료 날짜)</span>
-              </label>
-              <input
-                type="date"
-                value={endDate}
-                onChange={(e) => setEndDate(e.target.value)}
-                className="w-full border border-gray-300 rounded-lg px-4 py-2.5 focus:ring-2 focus:ring-primary focus:border-primary transition-all"
-              />
-            </div>
-            <button
-              onClick={handleApply}
-              className="btn btn-primary px-6 py-2.5"
-            >
-              조회
-            </button>
-          </div>
-          {startDate && endDate && (
-            <div className="mt-3 pt-3 border-t border-gray-200">
-              <p className="text-sm text-gray-600">
-                <span className="font-semibold">선택된 기간:</span> {startDate} ~ {endDate} 
-                <span className="ml-2 text-gray-500">
-                  (총 {Math.round((new Date(endDate).getTime() - new Date(startDate).getTime()) / (1000 * 60 * 60 * 24)) + 1}일)
-                </span>
-              </p>
-            </div>
-          )}
-        </div>
 
         {/* KPI 카드 */}
         {data && (
           <>
-            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6 mb-8">
-              <div className="card">
-                <h3 className="text-sm font-medium text-muted-color mb-2">Total GMV</h3>
-                <p className="text-2xl font-bold">{formatCurrency(data.kpis.gmv.value)}</p>
-                <p className={`text-sm mt-2 ${data.kpis.gmv.change >= 0 ? 'text-green-600' : 'text-red-600'}`}>
-                  {formatChange(data.kpis.gmv.change)} vs 이전 기간
-                </p>
+            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4 mb-6">
+              {/* GMV */}
+              <div className="bg-gradient-to-br from-emerald-500 to-teal-600 rounded-2xl p-5 text-white shadow-lg shadow-emerald-200/50">
+                <div className="flex items-center justify-between mb-3">
+                  <h3 className="text-emerald-100 text-sm font-medium">Total GMV</h3>
+                  <span className="text-2xl opacity-80">💰</span>
+                </div>
+                <p className="text-2xl font-bold mb-2">{formatCurrency(data.kpis.gmv.value)}</p>
+                <div className={`inline-flex items-center gap-1 px-2 py-1 rounded-lg text-xs font-medium ${
+                  data.kpis.gmv.change >= 0 
+                    ? 'bg-white/20 text-white' 
+                    : 'bg-red-400/30 text-red-100'
+                }`}>
+                  <span>{data.kpis.gmv.change >= 0 ? '↑' : '↓'}</span>
+                  <span>{formatChange(data.kpis.gmv.change)}</span>
+                </div>
               </div>
 
-              <div className="card">
-                <h3 className="text-sm font-medium text-muted-color mb-2">객단가 (AOV)</h3>
-                <p className="text-2xl font-bold">{formatCurrency(data.kpis.aov.value)}</p>
-                <p className={`text-sm mt-2 ${data.kpis.aov.change >= 0 ? 'text-green-600' : 'text-red-600'}`}>
-                  {formatChange(data.kpis.aov.change)} vs 이전 기간
-                </p>
+              {/* AOV */}
+              <div className="bg-gradient-to-br from-blue-500 to-indigo-600 rounded-2xl p-5 text-white shadow-lg shadow-blue-200/50">
+                <div className="flex items-center justify-between mb-3">
+                  <h3 className="text-blue-100 text-sm font-medium">객단가 (AOV)</h3>
+                  <span className="text-2xl opacity-80">📊</span>
+                </div>
+                <p className="text-2xl font-bold mb-2">{formatCurrency(data.kpis.aov.value)}</p>
+                <div className={`inline-flex items-center gap-1 px-2 py-1 rounded-lg text-xs font-medium ${
+                  data.kpis.aov.change >= 0 
+                    ? 'bg-white/20 text-white' 
+                    : 'bg-red-400/30 text-red-100'
+                }`}>
+                  <span>{data.kpis.aov.change >= 0 ? '↑' : '↓'}</span>
+                  <span>{formatChange(data.kpis.aov.change)}</span>
+                </div>
               </div>
 
-              <div className="card">
-                <h3 className="text-sm font-medium text-muted-color mb-2">주문 건수</h3>
-                <p className="text-2xl font-bold">{data.kpis.orderCount.value.toLocaleString()}</p>
-                <p className={`text-sm mt-2 ${data.kpis.orderCount.change >= 0 ? 'text-green-600' : 'text-red-600'}`}>
-                  {formatChange(data.kpis.orderCount.change)} vs 이전 기간
-                </p>
+              {/* 주문 건수 */}
+              <div className="bg-gradient-to-br from-violet-500 to-purple-600 rounded-2xl p-5 text-white shadow-lg shadow-violet-200/50">
+                <div className="flex items-center justify-between mb-3">
+                  <h3 className="text-violet-100 text-sm font-medium">주문 건수</h3>
+                  <span className="text-2xl opacity-80">📦</span>
+                </div>
+                <p className="text-2xl font-bold mb-2">{data.kpis.orderCount.value.toLocaleString()}<span className="text-lg font-normal ml-1">건</span></p>
+                <div className={`inline-flex items-center gap-1 px-2 py-1 rounded-lg text-xs font-medium ${
+                  data.kpis.orderCount.change >= 0 
+                    ? 'bg-white/20 text-white' 
+                    : 'bg-red-400/30 text-red-100'
+                }`}>
+                  <span>{data.kpis.orderCount.change >= 0 ? '↑' : '↓'}</span>
+                  <span>{formatChange(data.kpis.orderCount.change)}</span>
+                </div>
               </div>
 
-              <div className="card">
-                <h3 className="text-sm font-medium text-muted-color mb-2">판매 작품 수</h3>
-                <p className="text-2xl font-bold">{data.kpis.itemCount.value.toLocaleString()}</p>
-                <p className={`text-sm mt-2 ${data.kpis.itemCount.change >= 0 ? 'text-green-600' : 'text-red-600'}`}>
-                  {formatChange(data.kpis.itemCount.change)} vs 이전 기간
-                </p>
+              {/* 판매 작품 수 */}
+              <div className="bg-gradient-to-br from-amber-500 to-orange-500 rounded-2xl p-5 text-white shadow-lg shadow-amber-200/50">
+                <div className="flex items-center justify-between mb-3">
+                  <h3 className="text-amber-100 text-sm font-medium">판매 작품 수</h3>
+                  <span className="text-2xl opacity-80">🎨</span>
+                </div>
+                <p className="text-2xl font-bold mb-2">{data.kpis.itemCount.value.toLocaleString()}<span className="text-lg font-normal ml-1">개</span></p>
+                <div className={`inline-flex items-center gap-1 px-2 py-1 rounded-lg text-xs font-medium ${
+                  data.kpis.itemCount.change >= 0 
+                    ? 'bg-white/20 text-white' 
+                    : 'bg-red-400/30 text-red-100'
+                }`}>
+                  <span>{data.kpis.itemCount.change >= 0 ? '↑' : '↓'}</span>
+                  <span>{formatChange(data.kpis.itemCount.change)}</span>
+                </div>
               </div>
             </div>
 
             {/* 트렌드 차트 */}
-            <div className="card mb-6">
-              <h2 className="text-xl font-semibold mb-4">📊 GMV & 주문 추세 (7일 이동평균)</h2>
-              <div style={{ position: 'relative', height: '350px' }}>
+            <div className="bg-white rounded-2xl border border-gray-200 p-6 mb-6 shadow-sm">
+              <div className="flex items-center justify-between mb-5">
+                <div className="flex items-center gap-3">
+                  <div className="w-9 h-9 bg-gradient-to-br from-blue-500 to-indigo-600 rounded-lg flex items-center justify-center">
+                    <span className="text-white text-lg">📈</span>
+                  </div>
+                  <div>
+                    <h2 className="text-lg font-bold text-gray-800">GMV & 주문 추세</h2>
+                    <p className="text-xs text-gray-500">7일 이동평균 포함</p>
+                  </div>
+                </div>
+                {startDate && endDate && (
+                  <span className="text-xs text-gray-400 bg-gray-100 px-3 py-1 rounded-full">
+                    {startDate} ~ {endDate}
+                  </span>
+                )}
+              </div>
+              <div style={{ position: 'relative', height: '320px' }}>
                 {data.trend && (
                   <Chart
                     type="bar"
@@ -330,44 +356,139 @@ export default function DashboardPage() {
               </div>
             </div>
 
-            {/* 미입고 현황 */}
-            <div className="card mb-6">
-              <h2 className="text-xl font-semibold mb-4">📌 미입고 현황</h2>
-              <div className="grid grid-cols-2 gap-4">
-                <div>
-                  <p className="text-sm text-muted-color">총 미입고 작품</p>
-                  <p className="text-2xl font-bold">{data.inventoryStatus.total.toLocaleString()} 건</p>
+            {/* 하단 2단 레이아웃: 알림/미입고 + Quick Actions */}
+            <div className="grid grid-cols-1 lg:grid-cols-2 gap-6 mb-6">
+              {/* 알림 & 미입고 현황 */}
+              <div className="bg-gradient-to-br from-slate-50 to-slate-100 rounded-2xl border border-slate-200 p-6">
+                <div className="flex items-center justify-between mb-5">
+                  <div className="flex items-center gap-3">
+                    <div className="w-10 h-10 bg-gradient-to-br from-rose-500 to-orange-500 rounded-xl flex items-center justify-center shadow-md">
+                      <span className="text-white text-lg">🚨</span>
+                    </div>
+                    <div>
+                      <h3 className="font-bold text-slate-800">주의 필요</h3>
+                      <p className="text-xs text-slate-500">즉시 확인이 필요한 항목</p>
+                    </div>
+                  </div>
                 </div>
-                <div>
-                  <p className="text-sm text-muted-color">🚨 {data.inventoryStatus.threshold}일 이상 지연</p>
-                  <p className="text-2xl font-bold text-red-600">
-                    {data.inventoryStatus.delayed.toLocaleString()} 건
-                  </p>
+                
+                <div className="space-y-3">
+                  {/* 미입고 지연 알림 */}
+                  <a 
+                    href="/unreceived"
+                    className={`flex items-center justify-between p-4 rounded-xl transition-all hover:scale-[1.02] ${
+                      data.inventoryStatus.delayed > 0 
+                        ? 'bg-red-50 border border-red-200 hover:bg-red-100' 
+                        : 'bg-emerald-50 border border-emerald-200 hover:bg-emerald-100'
+                    }`}
+                  >
+                    <div className="flex items-center gap-3">
+                      <span className="text-2xl">{data.inventoryStatus.delayed > 0 ? '⚠️' : '✅'}</span>
+                      <div>
+                        <p className={`font-semibold ${data.inventoryStatus.delayed > 0 ? 'text-red-800' : 'text-emerald-800'}`}>
+                          미입고 {data.inventoryStatus.threshold}일 이상 지연
+                        </p>
+                        <p className={`text-xs ${data.inventoryStatus.delayed > 0 ? 'text-red-600' : 'text-emerald-600'}`}>
+                          총 미입고: {data.inventoryStatus.total}건
+                        </p>
+                      </div>
+                    </div>
+                    <div className="text-right">
+                      <p className={`text-2xl font-bold ${data.inventoryStatus.delayed > 0 ? 'text-red-600' : 'text-emerald-600'}`}>
+                        {data.inventoryStatus.delayed}건
+                      </p>
+                      <p className="text-xs text-slate-500">클릭하여 관리 →</p>
+                    </div>
+                  </a>
+
+                  {/* 성과 요약 (간략화) */}
+                  <div className="flex items-center justify-between p-4 bg-white rounded-xl border border-slate-200">
+                    <div className="flex items-center gap-3">
+                      <span className="text-2xl">📊</span>
+                      <div>
+                        <p className="font-semibold text-slate-800">기간 내 활동 현황</p>
+                        <p className="text-xs text-slate-500">{startDate} ~ {endDate}</p>
+                      </div>
+                    </div>
+                    <div className="flex items-center gap-4 text-center">
+                      <div className="px-3">
+                        <p className="text-lg font-bold text-blue-600">{data.snapshot.activeCountries}</p>
+                        <p className="text-xs text-slate-500">국가</p>
+                      </div>
+                      <div className="w-px h-8 bg-slate-200"></div>
+                      <div className="px-3">
+                        <p className="text-lg font-bold text-violet-600">{data.snapshot.activeArtists}</p>
+                        <p className="text-xs text-slate-500">작가</p>
+                      </div>
+                      <div className="w-px h-8 bg-slate-200"></div>
+                      <div className="px-3">
+                        <p className="text-lg font-bold text-amber-600">{data.snapshot.activeItems}</p>
+                        <p className="text-xs text-slate-500">상품</p>
+                      </div>
+                    </div>
+                  </div>
+                </div>
+              </div>
+
+              {/* Quick Actions */}
+              <div className="bg-gradient-to-br from-blue-50 to-indigo-50 rounded-2xl border border-blue-200 p-6">
+                <div className="flex items-center gap-3 mb-5">
+                  <div className="w-10 h-10 bg-gradient-to-br from-blue-500 to-indigo-600 rounded-xl flex items-center justify-center shadow-md">
+                    <span className="text-white text-lg">⚡</span>
+                  </div>
+                  <div>
+                    <h3 className="font-bold text-slate-800">빠른 이동</h3>
+                    <p className="text-xs text-slate-500">자주 사용하는 기능</p>
+                  </div>
+                </div>
+                
+                <div className="grid grid-cols-2 gap-3">
+                  <a 
+                    href="/unreceived" 
+                    className="flex items-center gap-3 p-4 bg-white rounded-xl border border-slate-200 hover:border-blue-400 hover:shadow-md transition-all group"
+                  >
+                    <span className="text-2xl group-hover:scale-110 transition-transform">📦</span>
+                    <div>
+                      <p className="font-semibold text-slate-800 group-hover:text-blue-600">미입고 관리</p>
+                      <p className="text-xs text-slate-500">입고 지연 처리</p>
+                    </div>
+                  </a>
+                  
+                  <a 
+                    href="/cost-analysis" 
+                    className="flex items-center gap-3 p-4 bg-white rounded-xl border border-slate-200 hover:border-blue-400 hover:shadow-md transition-all group"
+                  >
+                    <span className="text-2xl group-hover:scale-110 transition-transform">💰</span>
+                    <div>
+                      <p className="font-semibold text-slate-800 group-hover:text-blue-600">비용 분석</p>
+                      <p className="text-xs text-slate-500">손익 구조 확인</p>
+                    </div>
+                  </a>
+                  
+                  <a 
+                    href="/analytics" 
+                    className="flex items-center gap-3 p-4 bg-white rounded-xl border border-slate-200 hover:border-blue-400 hover:shadow-md transition-all group"
+                  >
+                    <span className="text-2xl group-hover:scale-110 transition-transform">📈</span>
+                    <div>
+                      <p className="font-semibold text-slate-800 group-hover:text-blue-600">성과 분석</p>
+                      <p className="text-xs text-slate-500">상세 분석 리포트</p>
+                    </div>
+                  </a>
+                  
+                  <a 
+                    href="/lookup" 
+                    className="flex items-center gap-3 p-4 bg-white rounded-xl border border-slate-200 hover:border-blue-400 hover:shadow-md transition-all group"
+                  >
+                    <span className="text-2xl group-hover:scale-110 transition-transform">🔍</span>
+                    <div>
+                      <p className="font-semibold text-slate-800 group-hover:text-blue-600">통합 검색</p>
+                      <p className="text-xs text-slate-500">주문/고객/작가</p>
+                    </div>
+                  </a>
                 </div>
               </div>
             </div>
-
-            {/* 스냅샷 */}
-            <div className="card">
-              <h2 className="text-xl font-semibold mb-4">📌 성과 스냅샷</h2>
-              <div className="grid grid-cols-3 gap-4">
-                <div className="text-center">
-                  <p className="text-3xl mb-2">🌍</p>
-                  <p className="text-sm text-muted-color">활성 국가</p>
-                  <p className="text-xl font-bold">{data.snapshot.activeCountries} 개국</p>
-                </div>
-                <div className="text-center">
-                  <p className="text-3xl mb-2">🧑‍🎨</p>
-                  <p className="text-sm text-muted-color">활성 작가</p>
-                  <p className="text-xl font-bold">{data.snapshot.activeArtists} 명</p>
-                </div>
-                <div className="text-center">
-                  <p className="text-3xl mb-2">🎨</p>
-                  <p className="text-sm text-muted-color">활성 상품</p>
-                  <p className="text-xl font-bold">{data.snapshot.activeItems} 개</p>
-                </div>
-              </div>
-                    </div>
                   </>
                 )}
             </div>
