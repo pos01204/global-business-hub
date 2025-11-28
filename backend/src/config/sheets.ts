@@ -64,5 +64,7 @@ export const SHEET_NAMES = {
   // 소포수령증 관련 시트
   SOPO_TRACKING: 'Sopo_tracking', // 소포수령증 발급 트래킹
   SOPO_JOTFORM: 'Sopo_jotform', // JotForm 신청 데이터 연동
+  // 리뷰 시트
+  REVIEW: 'review', // 글로벌 구매 후기
 } as const;
 

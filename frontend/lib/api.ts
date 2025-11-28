@@ -737,5 +737,39 @@ export const sopoReceiptApi = {
   },
 }
 
+// 리뷰 갤러리 API
+export const reviewsApi = {
+  // 갤러리 조회
+  getGallery: async (params?: {
+    country?: string
+    hasImage?: boolean
+    minRating?: number
+    page?: number
+    pageSize?: number
+    sort?: string
+  }) => {
+    const response = await api.get('/api/reviews/gallery', { params })
+    return response.data
+  },
+
+  // 하이라이트 리뷰 (쇼케이스용)
+  getHighlights: async (limit?: number) => {
+    const response = await api.get('/api/reviews/highlights', { params: { limit } })
+    return response.data
+  },
+
+  // 통계 조회
+  getStats: async () => {
+    const response = await api.get('/api/reviews/stats')
+    return response.data
+  },
+
+  // 캐시 새로고침
+  refresh: async () => {
+    const response = await api.post('/api/reviews/refresh')
+    return response.data
+  },
+}
+
 export default api
 
