@@ -13,16 +13,29 @@
 import express, { Request, Response } from 'express';
 import crypto from 'crypto';
 import { slackService } from '../services/slackService';
-import GoogleSheetsService from '../services/googleSheets';
-import { sheetsConfig } from '../config/sheets';
 
 // Request 타입 확장 (rawBody 지원)
 interface SlackRequest extends Request {
   rawBody?: string;
 }
 
-// Google Sheets 서비스 초기화
-const sheetsService = new GoogleSheetsService(sheetsConfig);
+// Google Sheets 서비스 - 지연 로딩
+let sheetsService: any = null;
+
+async function getSheetsService() {
+  if (!sheetsService) {
+    try {
+      const GoogleSheetsService = (await import('../services/googleSheets')).default;
+      const { sheetsConfig } = await import('../config/sheets');
+      sheetsService = new GoogleSheetsService(sheetsConfig);
+      console.log('[Slack] Google Sheets service initialized');
+    } catch (error: any) {
+      console.error('[Slack] Failed to initialize Google Sheets service:', error?.message);
+      return null;
+    }
+  }
+  return sheetsService;
+}
 
 const router = express.Router();
 
@@ -200,8 +213,18 @@ router.post('/commands/order', async (req: Request, res: Response) => {
     const responseUrl = req.body.response_url;
     
     try {
+      // Google Sheets 서비스 가져오기
+      const sheets = await getSheetsService();
+      if (!sheets) {
+        await sendDelayedResponse(responseUrl, {
+          response_type: 'ephemeral',
+          text: '❌ 데이터 서비스 연결에 실패했습니다.',
+        });
+        return;
+      }
+      
       // 주문 데이터 조회
-      const ordersData = await sheetsService.getSheetDataAsJson(SHEET_NAMES.ORDERS);
+      const ordersData = await sheets.getSheetDataAsJson(SHEET_NAMES.ORDERS);
       const order = ordersData.find((row: any) => 
         row.order_code === orderCode || 
         row.id === orderCode ||
@@ -210,7 +233,7 @@ router.post('/commands/order', async (req: Request, res: Response) => {
 
       if (!order) {
         // 물류 데이터에서도 검색
-        const logisticsData = await sheetsService.getSheetDataAsJson(SHEET_NAMES.LOGISTICS);
+        const logisticsData = await sheets.getSheetDataAsJson(SHEET_NAMES.LOGISTICS);
         const shipment = logisticsData.find((row: any) =>
           row.order_code === orderCode ||
           row.order_id === orderCode
@@ -231,7 +254,7 @@ router.post('/commands/order', async (req: Request, res: Response) => {
       }
 
       // 주문 정보에 배송 정보 추가
-      const logisticsData = await sheetsService.getSheetDataAsJson(SHEET_NAMES.LOGISTICS);
+      const logisticsData = await sheets.getSheetDataAsJson(SHEET_NAMES.LOGISTICS);
       const shipment = logisticsData.find((row: any) =>
         row.order_code === order.order_code ||
         row.order_id === order.order_code
@@ -295,7 +318,16 @@ router.post('/commands/track', async (req: Request, res: Response) => {
     const responseUrl = req.body.response_url;
 
     try {
-      const logisticsData = await sheetsService.getSheetDataAsJson(SHEET_NAMES.LOGISTICS);
+      const sheets = await getSheetsService();
+      if (!sheets) {
+        await sendDelayedResponse(responseUrl, {
+          response_type: 'ephemeral',
+          text: '❌ 데이터 서비스 연결에 실패했습니다.',
+        });
+        return;
+      }
+      
+      const logisticsData = await sheets.getSheetDataAsJson(SHEET_NAMES.LOGISTICS);
       const shipment = logisticsData.find((row: any) =>
         row.tracking_number === trackingNumber ||
         row.tracking_number?.includes(trackingNumber)
@@ -361,7 +393,16 @@ router.post('/commands/customer', async (req: Request, res: Response) => {
     const responseUrl = req.body.response_url;
 
     try {
-      const ordersData = await sheetsService.getSheetDataAsJson(SHEET_NAMES.ORDERS);
+      const sheets = await getSheetsService();
+      if (!sheets) {
+        await sendDelayedResponse(responseUrl, {
+          response_type: 'ephemeral',
+          text: '❌ 데이터 서비스 연결에 실패했습니다.',
+        });
+        return;
+      }
+      
+      const ordersData = await sheets.getSheetDataAsJson(SHEET_NAMES.ORDERS);
       const customerOrders = ordersData.filter((row: any) =>
         row.user_id === customerId ||
         row.customer_id === customerId ||
@@ -442,8 +483,17 @@ router.post('/commands/artist', async (req: Request, res: Response) => {
     const responseUrl = req.body.response_url;
 
     try {
+      const sheets = await getSheetsService();
+      if (!sheets) {
+        await sendDelayedResponse(responseUrl, {
+          response_type: 'ephemeral',
+          text: '❌ 데이터 서비스 연결에 실패했습니다.',
+        });
+        return;
+      }
+      
       // 주문 데이터에서 작가 검색
-      const ordersData = await sheetsService.getSheetDataAsJson(SHEET_NAMES.ORDERS);
+      const ordersData = await sheets.getSheetDataAsJson(SHEET_NAMES.ORDERS);
       const artistOrders = ordersData.filter((row: any) =>
         row.artist_name === artistName ||
         row.artist === artistName ||
@@ -452,7 +502,7 @@ router.post('/commands/artist', async (req: Request, res: Response) => {
       );
 
       // 미입고 데이터에서 지연 건 확인
-      const unreceivedData = await sheetsService.getSheetDataAsJson(SHEET_NAMES.UNRECEIVED);
+      const unreceivedData = await sheets.getSheetDataAsJson(SHEET_NAMES.UNRECEIVED);
       const delayedOrders = unreceivedData.filter((row: any) =>
         row.artist_name === artistName ||
         row.artist === artistName ||
