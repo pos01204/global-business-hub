@@ -2,6 +2,10 @@
 
 import { useQuery } from '@tanstack/react-query'
 import { orderApi } from '@/lib/api'
+import { useRouter } from 'next/navigation'
+import { useState } from 'react'
+import CustomerDetailModal from './CustomerDetailModal'
+import ArtistOrdersModal from './ArtistOrdersModal'
 
 interface OrderDetailModalProps {
   orderCode: string | null
@@ -9,6 +13,10 @@ interface OrderDetailModalProps {
 }
 
 export default function OrderDetailModal({ orderCode, onClose }: OrderDetailModalProps) {
+  const router = useRouter()
+  const [selectedCustomerId, setSelectedCustomerId] = useState<string | null>(null)
+  const [selectedArtistName, setSelectedArtistName] = useState<string | null>(null)
+  
   const { data, isLoading, error } = useQuery({
     queryKey: ['order', orderCode],
     queryFn: () => orderApi.getDetail(orderCode!),
@@ -19,6 +27,22 @@ export default function OrderDetailModal({ orderCode, onClose }: OrderDetailModa
 
   const formatCurrency = (value: number) => {
     return `₩${Math.round(value).toLocaleString()}`
+  }
+
+  // 물류 추적 페이지로 이동 (주문번호로 검색)
+  const handleGoToLogistics = () => {
+    onClose()
+    router.push(`/logistics?search=${encodeURIComponent(orderCode)}`)
+  }
+
+  // 고객 상세 모달 열기
+  const handleOpenCustomerDetail = (userId: string) => {
+    setSelectedCustomerId(userId)
+  }
+
+  // 작가 주문 내역 모달 열기
+  const handleOpenArtistOrders = (artistName: string) => {
+    setSelectedArtistName(artistName)
   }
 
   return (
@@ -45,6 +69,27 @@ export default function OrderDetailModal({ orderCode, onClose }: OrderDetailModa
 
           {data && !data.error && (
             <div className="space-y-6">
+              {/* 빠른 액션 버튼 */}
+              <div className="flex flex-wrap gap-2 p-3 bg-slate-50 rounded-lg border border-slate-200">
+                <span className="text-sm text-slate-500 self-center mr-2">빠른 이동:</span>
+                <button
+                  onClick={handleGoToLogistics}
+                  className="inline-flex items-center gap-1.5 px-3 py-1.5 bg-blue-100 text-blue-700 rounded-lg text-sm font-medium hover:bg-blue-200 transition-colors"
+                >
+                  <span>🚚</span>
+                  <span>물류 추적</span>
+                </button>
+                {data.customerInfo?.userId && (
+                  <button
+                    onClick={() => handleOpenCustomerDetail(String(data.customerInfo.userId))}
+                    className="inline-flex items-center gap-1.5 px-3 py-1.5 bg-purple-100 text-purple-700 rounded-lg text-sm font-medium hover:bg-purple-200 transition-colors"
+                  >
+                    <span>👤</span>
+                    <span>고객 상세</span>
+                  </button>
+                )}
+              </div>
+
               {/* 기본 정보 */}
               <div className="grid grid-cols-2 gap-4">
                 <div>
@@ -57,7 +102,16 @@ export default function OrderDetailModal({ orderCode, onClose }: OrderDetailModa
                 </div>
                 <div>
                   <p className="text-sm text-muted-color">고객명</p>
-                  <p className="font-semibold">{data.customerInfo.name}</p>
+                  {data.customerInfo?.userId ? (
+                    <button
+                      onClick={() => handleOpenCustomerDetail(String(data.customerInfo.userId))}
+                      className="font-semibold text-primary hover:underline"
+                    >
+                      {data.customerInfo.name}
+                    </button>
+                  ) : (
+                    <p className="font-semibold">{data.customerInfo.name}</p>
+                  )}
                 </div>
                 <div>
                   <p className="text-sm text-muted-color">고객 국가</p>
@@ -105,10 +159,15 @@ export default function OrderDetailModal({ orderCode, onClose }: OrderDetailModa
                       </thead>
                       <tbody>
                         {data.items.map((item: any, index: number) => (
-                          <tr key={index} className="border-b">
+                          <tr key={index} className="border-b hover:bg-gray-50">
                             <td className="py-2 px-4">
                               <div>
-                                <div className="font-medium">{item.artistName}</div>
+                                <button
+                                  onClick={() => handleOpenArtistOrders(item.artistName)}
+                                  className="font-medium text-primary hover:underline text-left"
+                                >
+                                  {item.artistName}
+                                </button>
                                 {item.artistEmail && (
                                   <div className="text-xs text-blue-600 mt-1">
                                     📧 {item.artistEmail}
@@ -178,12 +237,28 @@ export default function OrderDetailModal({ orderCode, onClose }: OrderDetailModa
                       </div>
                     )}
                   </div>
-                </div>
-              )}
+                  </div>
+                )}
             </div>
           )}
         </div>
       </div>
+
+      {/* 고객 상세 모달 */}
+      {selectedCustomerId && (
+        <CustomerDetailModal 
+          userId={selectedCustomerId} 
+          onClose={() => setSelectedCustomerId(null)} 
+        />
+      )}
+
+      {/* 작가 주문 내역 모달 */}
+      {selectedArtistName && (
+        <ArtistOrdersModal 
+          artistName={selectedArtistName} 
+          onClose={() => setSelectedArtistName(null)} 
+        />
+      )}
     </div>
   )
 }

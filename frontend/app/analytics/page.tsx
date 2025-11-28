@@ -40,9 +40,11 @@ ChartJS.register(
 function LogisticsPerformanceTab({
   dateRange,
   countryFilter,
+  onArtistClick,
 }: {
   dateRange: string
   countryFilter: string
+  onArtistClick?: (artistName: string) => void
 }) {
   const { data, isLoading, error } = useQuery({
     queryKey: ['logistics-performance', dateRange, countryFilter],
@@ -203,7 +205,18 @@ function LogisticsPerformanceTab({
               <tbody>
                 {data.artistStats.map((artist: any, index: number) => (
                   <tr key={index} className="border-b hover:bg-gray-50">
-                    <td className="py-2 px-4">{artist.artistName}</td>
+                    <td className="py-2 px-4">
+                      {onArtistClick ? (
+                        <button
+                          onClick={() => onArtistClick(artist.artistName)}
+                          className="text-primary hover:underline font-medium"
+                        >
+                          {artist.artistName}
+                        </button>
+                      ) : (
+                        artist.artistName
+                      )}
+                    </td>
                     <td className="py-2 px-4 text-right">{artist.orderCount}</td>
                     <td className="py-2 px-4 text-right">{formatDays(artist.avgOrderToShip)}</td>
                     <td className="py-2 px-4 text-right">{formatDays(artist.avgShipToInspection)}</td>
@@ -333,9 +346,11 @@ function LogisticsPerformanceTab({
 function ComparisonTab({
   dateRange,
   countryFilter,
+  onArtistClick,
 }: {
   dateRange: string
   countryFilter: string
+  onArtistClick?: (artistName: string) => void
 }) {
   const [comparisonType, setComparisonType] = useState<'period' | 'artist' | 'country'>('period')
   const [periods, setPeriods] = useState(3)
@@ -809,7 +824,18 @@ function ComparisonTab({
                 <tbody>
                   {artistData.artists.map((artist: any, index: number) => (
                     <tr key={index} className="border-b hover:bg-gray-50">
-                      <td className="py-2 px-4 font-medium">{artist.artistName}</td>
+                      <td className="py-2 px-4">
+                        {onArtistClick ? (
+                          <button
+                            onClick={() => onArtistClick(artist.artistName)}
+                            className="text-primary hover:underline font-medium"
+                          >
+                            {artist.artistName}
+                          </button>
+                        ) : (
+                          <span className="font-medium">{artist.artistName}</span>
+                        )}
+                      </td>
                       <td className="py-2 px-4 text-right">{formatCurrency(artist.gmv)}</td>
                       <td className="py-2 px-4 text-right">{formatCurrency(artist.aov)}</td>
                       <td className="py-2 px-4 text-right">{artist.orderCount}</td>
@@ -2120,12 +2146,20 @@ export default function AnalyticsPage() {
 
         {/* 물류 처리 시간 분석 탭 */}
         {activeTab === 'logistics-performance' && (
-          <LogisticsPerformanceTab dateRange={dateRange} countryFilter={countryFilter} />
+          <LogisticsPerformanceTab 
+            dateRange={dateRange} 
+            countryFilter={countryFilter}
+            onArtistClick={openArtistOrdersModal}
+          />
         )}
 
         {/* 비교 분석 탭 */}
         {activeTab === 'comparison' && (
-          <ComparisonTab dateRange={dateRange} countryFilter={countryFilter} />
+          <ComparisonTab 
+            dateRange={dateRange} 
+            countryFilter={countryFilter}
+            onArtistClick={openArtistOrdersModal}
+          />
         )}
 
       {/* 모달 */}

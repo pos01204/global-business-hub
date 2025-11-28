@@ -389,8 +389,8 @@ export default function DashboardPage() {
                 
                 <div className="space-y-3">
                   {/* 미입고 지연 알림 */}
-                  <a 
-                    href="/unreceived"
+                  <Link 
+                    href={data.inventoryStatus.delayed > 0 ? "/unreceived?delay=delayed" : "/unreceived"}
                     className={`flex items-center justify-between p-4 rounded-xl transition-all hover:scale-[1.02] ${
                       data.inventoryStatus.delayed > 0 
                         ? 'bg-red-50 border border-red-200 hover:bg-red-100' 
@@ -414,7 +414,7 @@ export default function DashboardPage() {
                       </p>
                       <p className="text-xs text-slate-500">클릭하여 관리 →</p>
                     </div>
-                  </a>
+                  </Link>
 
                   {/* 성과 요약 (간략화) */}
                   <div className="flex items-center justify-between p-4 bg-white rounded-xl border border-slate-200">
@@ -458,7 +458,7 @@ export default function DashboardPage() {
                 </div>
                 
                 <div className="grid grid-cols-2 gap-3">
-                  <a 
+                  <Link 
                     href="/unreceived" 
                     className="flex items-center gap-3 p-4 bg-white rounded-xl border border-slate-200 hover:border-blue-400 hover:shadow-md transition-all group"
                   >
@@ -467,9 +467,9 @@ export default function DashboardPage() {
                       <p className="font-semibold text-slate-800 group-hover:text-blue-600">미입고 관리</p>
                       <p className="text-xs text-slate-500">입고 지연 처리</p>
                     </div>
-                  </a>
+                  </Link>
                   
-                  <a 
+                  <Link 
                     href="/cost-analysis" 
                     className="flex items-center gap-3 p-4 bg-white rounded-xl border border-slate-200 hover:border-blue-400 hover:shadow-md transition-all group"
                   >
@@ -478,9 +478,9 @@ export default function DashboardPage() {
                       <p className="font-semibold text-slate-800 group-hover:text-blue-600">비용 분석</p>
                       <p className="text-xs text-slate-500">손익 구조 확인</p>
                     </div>
-                  </a>
+                  </Link>
                   
-                  <a 
+                  <Link 
                     href="/analytics" 
                     className="flex items-center gap-3 p-4 bg-white rounded-xl border border-slate-200 hover:border-blue-400 hover:shadow-md transition-all group"
                   >
@@ -489,9 +489,9 @@ export default function DashboardPage() {
                       <p className="font-semibold text-slate-800 group-hover:text-blue-600">성과 분석</p>
                       <p className="text-xs text-slate-500">상세 분석 리포트</p>
                     </div>
-                  </a>
+                  </Link>
                   
-                  <a 
+                  <Link 
                     href="/lookup" 
                     className="flex items-center gap-3 p-4 bg-white rounded-xl border border-slate-200 hover:border-blue-400 hover:shadow-md transition-all group"
                   >
@@ -500,7 +500,7 @@ export default function DashboardPage() {
                       <p className="font-semibold text-slate-800 group-hover:text-blue-600">통합 검색</p>
                       <p className="text-xs text-slate-500">주문/고객/작가</p>
                     </div>
-                  </a>
+                  </Link>
                 </div>
               </div>
             </div>

@@ -2,7 +2,8 @@
 
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
 import { unreceivedApi } from '@/lib/api'
-import { useState } from 'react'
+import { useState, useEffect } from 'react'
+import { useSearchParams, useRouter } from 'next/navigation'
 import OrderDetailModal from '@/components/OrderDetailModal'
 
 // 경과일에 따른 위험도 배지 (한 줄로 표시)
@@ -38,13 +39,47 @@ function DelayBadge({ days }: { days: number }) {
 }
 
 export default function UnreceivedPage() {
-  const [searchTerm, setSearchTerm] = useState('')
-  const [delayFilter, setDelayFilter] = useState('all')
-  const [bundleFilter, setBundleFilter] = useState('all')
+  const searchParams = useSearchParams()
+  const router = useRouter()
+  
+  // URL 쿼리 파라미터에서 초기값 로드
+  const initialDelay = searchParams.get('delay') || 'all'
+  const initialSearch = searchParams.get('search') || ''
+  const initialBundle = searchParams.get('bundle') || 'all'
+  
+  const [searchTerm, setSearchTerm] = useState(initialSearch)
+  const [delayFilter, setDelayFilter] = useState(initialDelay)
+  const [bundleFilter, setBundleFilter] = useState(initialBundle)
   const [editingOrderCode, setEditingOrderCode] = useState<string | null>(null)
   const [memoText, setMemoText] = useState('')
   const [isOrderDetailModalOpen, setIsOrderDetailModalOpen] = useState(false)
   const [selectedOrderCode, setSelectedOrderCode] = useState<string | null>(null)
+
+  // URL 파라미터 변경 시 상태 동기화
+  useEffect(() => {
+    const delay = searchParams.get('delay')
+    const search = searchParams.get('search')
+    const bundle = searchParams.get('bundle')
+    
+    if (delay) setDelayFilter(delay)
+    if (search) setSearchTerm(decodeURIComponent(search))
+    if (bundle) setBundleFilter(bundle)
+  }, [searchParams])
+
+  // 필터 변경 시 URL 업데이트
+  const updateUrlParams = (newDelay?: string, newSearch?: string, newBundle?: string) => {
+    const params = new URLSearchParams()
+    const delay = newDelay ?? delayFilter
+    const search = newSearch ?? searchTerm
+    const bundle = newBundle ?? bundleFilter
+    
+    if (delay && delay !== 'all') params.set('delay', delay)
+    if (search) params.set('search', search)
+    if (bundle && bundle !== 'all') params.set('bundle', bundle)
+    
+    const queryString = params.toString()
+    router.replace(`/unreceived${queryString ? `?${queryString}` : ''}`, { scroll: false })
+  }
 
   const openOrderDetailModal = (orderCode: string) => {
     setSelectedOrderCode(orderCode)

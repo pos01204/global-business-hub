@@ -2,7 +2,8 @@
 
 import { useQuery } from '@tanstack/react-query'
 import { logisticsApi } from '@/lib/api'
-import { useState, useMemo } from 'react'
+import { useState, useMemo, useEffect } from 'react'
+import { useSearchParams, useRouter } from 'next/navigation'
 import Link from 'next/link'
 import OrderDetailModal from '@/components/OrderDetailModal'
 
@@ -118,12 +119,46 @@ function StatusBadge({ status }: { status: string }) {
 }
 
 export default function LogisticsPage() {
-  const [searchTerm, setSearchTerm] = useState('')
-  const [selectedCountry, setSelectedCountry] = useState('모든 국가')
-  const [selectedStatus, setSelectedStatus] = useState('모든 상태')
+  const searchParams = useSearchParams()
+  const router = useRouter()
+  
+  // URL 쿼리 파라미터에서 초기값 로드
+  const initialStatus = searchParams.get('status') || '모든 상태'
+  const initialCountry = searchParams.get('country') || '모든 국가'
+  const initialSearch = searchParams.get('search') || ''
+  
+  const [searchTerm, setSearchTerm] = useState(initialSearch)
+  const [selectedCountry, setSelectedCountry] = useState(initialCountry)
+  const [selectedStatus, setSelectedStatus] = useState(initialStatus)
   const [expandedItems, setExpandedItems] = useState<Set<string>>(new Set())
   const [isOrderDetailModalOpen, setIsOrderDetailModalOpen] = useState(false)
   const [selectedOrderCode, setSelectedOrderCode] = useState<string | null>(null)
+
+  // URL 파라미터 변경 시 상태 동기화
+  useEffect(() => {
+    const status = searchParams.get('status')
+    const country = searchParams.get('country')
+    const search = searchParams.get('search')
+    
+    if (status) setSelectedStatus(decodeURIComponent(status))
+    if (country) setSelectedCountry(decodeURIComponent(country))
+    if (search) setSearchTerm(decodeURIComponent(search))
+  }, [searchParams])
+
+  // 필터 변경 시 URL 업데이트 (선택적 - 브라우저 히스토리 유지)
+  const updateUrlParams = (newStatus?: string, newCountry?: string, newSearch?: string) => {
+    const params = new URLSearchParams()
+    const status = newStatus ?? selectedStatus
+    const country = newCountry ?? selectedCountry
+    const search = newSearch ?? searchTerm
+    
+    if (status && status !== '모든 상태') params.set('status', status)
+    if (country && country !== '모든 국가') params.set('country', country)
+    if (search) params.set('search', search)
+    
+    const queryString = params.toString()
+    router.replace(`/logistics${queryString ? `?${queryString}` : ''}`, { scroll: false })
+  }
 
   const openOrderDetailModal = (orderCode: string) => {
     setSelectedOrderCode(orderCode)

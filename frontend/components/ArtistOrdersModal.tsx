@@ -3,6 +3,7 @@
 import { useQuery } from '@tanstack/react-query'
 import { artistApi } from '@/lib/api'
 import { useState } from 'react'
+import OrderDetailModal from './OrderDetailModal'
 
 interface ArtistOrdersModalProps {
   artistName: string | null
@@ -11,6 +12,7 @@ interface ArtistOrdersModalProps {
 
 export default function ArtistOrdersModal({ artistName, onClose }: ArtistOrdersModalProps) {
   const [dateRange, setDateRange] = useState('30d')
+  const [selectedOrderCode, setSelectedOrderCode] = useState<string | null>(null)
 
   const { data, isLoading, error } = useQuery({
     queryKey: ['artist', artistName, 'orders', dateRange],
@@ -22,6 +24,11 @@ export default function ArtistOrdersModal({ artistName, onClose }: ArtistOrdersM
 
   const formatCurrency = (value: number) => {
     return `₩${Math.round(value).toLocaleString()}`
+  }
+
+  // 주문 상세 모달 열기
+  const handleOpenOrderDetail = (orderCode: string) => {
+    setSelectedOrderCode(orderCode)
   }
 
   return (
@@ -78,10 +85,18 @@ export default function ArtistOrdersModal({ artistName, onClose }: ArtistOrdersM
               {data.orders && data.orders.length > 0 ? (
                 <div className="space-y-4">
                   {data.orders.map((order: any, index: number) => (
-                    <div key={index} className="card">
+                    <div key={index} className="card hover:shadow-md transition-shadow">
                       <div className="flex justify-between items-start mb-3">
                         <div>
-                          <p className="font-semibold">주문번호: {order.orderCode}</p>
+                          <p className="font-semibold">
+                            <span className="text-gray-500">주문번호: </span>
+                            <button
+                              onClick={() => handleOpenOrderDetail(order.orderCode)}
+                              className="text-primary hover:underline"
+                            >
+                              {order.orderCode}
+                            </button>
+                          </p>
                           <p className="text-sm text-muted-color">주문일: {order.date}</p>
                         </div>
                         <p className="text-lg font-bold text-primary">
@@ -129,6 +144,14 @@ export default function ArtistOrdersModal({ artistName, onClose }: ArtistOrdersM
           )}
         </div>
       </div>
+
+      {/* 주문 상세 모달 */}
+      {selectedOrderCode && (
+        <OrderDetailModal 
+          orderCode={selectedOrderCode} 
+          onClose={() => setSelectedOrderCode(null)} 
+        />
+      )}
     </div>
   )
 }

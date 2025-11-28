@@ -1,16 +1,31 @@
 'use client'
 
-import { useState } from 'react'
+import { useState, useEffect } from 'react'
 import { useQuery } from '@tanstack/react-query'
 import { lookupApi } from '@/lib/api'
-import { useSearchParams } from 'next/navigation'
+import { useSearchParams, useRouter } from 'next/navigation'
 import OrderDetailModal from '@/components/OrderDetailModal'
 import CustomerDetailModal from '@/components/CustomerDetailModal'
 
 export default function LookupPage() {
   const searchParams = useSearchParams()
-  const [query, setQuery] = useState(searchParams.get('query') || '')
-  const [searchType, setSearchType] = useState(searchParams.get('type') || 'order_code')
+  const router = useRouter()
+  
+  // URL 파라미터에서 초기값 로드 (query 또는 search 파라미터 지원)
+  const initialQuery = searchParams.get('query') || searchParams.get('search') || ''
+  const initialType = searchParams.get('type') || 'order_code'
+  
+  const [query, setQuery] = useState(initialQuery)
+  const [searchType, setSearchType] = useState(initialType)
+  
+  // URL 파라미터 변경 시 상태 동기화
+  useEffect(() => {
+    const urlQuery = searchParams.get('query') || searchParams.get('search')
+    const urlType = searchParams.get('type')
+    
+    if (urlQuery) setQuery(urlQuery)
+    if (urlType) setSearchType(urlType)
+  }, [searchParams])
   const [isOrderDetailModalOpen, setIsOrderDetailModalOpen] = useState(false)
   const [selectedOrderCode, setSelectedOrderCode] = useState<string | null>(null)
   const [isCustomerDetailModalOpen, setIsCustomerDetailModalOpen] = useState(false)
