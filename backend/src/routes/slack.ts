@@ -177,7 +177,7 @@ router.post('/commands/order', async (req: Request, res: Response) => {
     
     try {
       // 주문 데이터 조회
-      const ordersData = await sheetsService.getSheetData(SHEET_NAMES.ORDERS);
+      const ordersData = await sheetsService.getSheetDataAsJson(SHEET_NAMES.ORDERS);
       const order = ordersData.find((row: any) => 
         row.order_code === orderCode || 
         row.id === orderCode ||
@@ -186,7 +186,7 @@ router.post('/commands/order', async (req: Request, res: Response) => {
 
       if (!order) {
         // 물류 데이터에서도 검색
-        const logisticsData = await sheetsService.getSheetData(SHEET_NAMES.LOGISTICS);
+        const logisticsData = await sheetsService.getSheetDataAsJson(SHEET_NAMES.LOGISTICS);
         const shipment = logisticsData.find((row: any) =>
           row.order_code === orderCode ||
           row.order_id === orderCode
@@ -207,7 +207,7 @@ router.post('/commands/order', async (req: Request, res: Response) => {
       }
 
       // 주문 정보에 배송 정보 추가
-      const logisticsData = await sheetsService.getSheetData(SHEET_NAMES.LOGISTICS);
+      const logisticsData = await sheetsService.getSheetDataAsJson(SHEET_NAMES.LOGISTICS);
       const shipment = logisticsData.find((row: any) =>
         row.order_code === order.order_code ||
         row.order_id === order.order_code
@@ -269,7 +269,7 @@ router.post('/commands/track', async (req: Request, res: Response) => {
     const responseUrl = req.body.response_url;
 
     try {
-      const logisticsData = await sheetsService.getSheetData(SHEET_NAMES.LOGISTICS);
+      const logisticsData = await sheetsService.getSheetDataAsJson(SHEET_NAMES.LOGISTICS);
       const shipment = logisticsData.find((row: any) =>
         row.tracking_number === trackingNumber ||
         row.tracking_number?.includes(trackingNumber)
@@ -333,7 +333,7 @@ router.post('/commands/customer', async (req: Request, res: Response) => {
     const responseUrl = req.body.response_url;
 
     try {
-      const ordersData = await sheetsService.getSheetData(SHEET_NAMES.ORDERS);
+      const ordersData = await sheetsService.getSheetDataAsJson(SHEET_NAMES.ORDERS);
       const customerOrders = ordersData.filter((row: any) =>
         row.user_id === customerId ||
         row.customer_id === customerId ||
@@ -413,7 +413,7 @@ router.post('/commands/artist', async (req: Request, res: Response) => {
 
     try {
       // 주문 데이터에서 작가 검색
-      const ordersData = await sheetsService.getSheetData(SHEET_NAMES.ORDERS);
+      const ordersData = await sheetsService.getSheetDataAsJson(SHEET_NAMES.ORDERS);
       const artistOrders = ordersData.filter((row: any) =>
         row.artist_name === artistName ||
         row.artist === artistName ||
@@ -422,7 +422,7 @@ router.post('/commands/artist', async (req: Request, res: Response) => {
       );
 
       // 미입고 데이터에서 지연 건 확인
-      const unreceivedData = await sheetsService.getSheetData(SHEET_NAMES.UNRECEIVED);
+      const unreceivedData = await sheetsService.getSheetDataAsJson(SHEET_NAMES.UNRECEIVED);
       const delayedOrders = unreceivedData.filter((row: any) =>
         row.artist_name === artistName ||
         row.artist === artistName ||
