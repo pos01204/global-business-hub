@@ -13,7 +13,7 @@ export default function LookupPage() {
   
   // URL 파라미터에서 초기값 로드 (query 또는 search 파라미터 지원)
   const initialQuery = searchParams.get('query') || searchParams.get('search') || ''
-  const initialType = searchParams.get('type') || 'order_code'
+  const initialType = searchParams.get('searchType') || searchParams.get('type') || 'order_code'
   
   const [query, setQuery] = useState(initialQuery)
   const [searchType, setSearchType] = useState(initialType)
@@ -21,7 +21,7 @@ export default function LookupPage() {
   // URL 파라미터 변경 시 상태 동기화
   useEffect(() => {
     const urlQuery = searchParams.get('query') || searchParams.get('search')
-    const urlType = searchParams.get('type')
+    const urlType = searchParams.get('searchType') || searchParams.get('type')
     
     if (urlQuery) setQuery(urlQuery)
     if (urlType) setSearchType(urlType)
