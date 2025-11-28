@@ -13,7 +13,16 @@
 import express, { Request, Response } from 'express';
 import crypto from 'crypto';
 import { slackService } from '../services/slackService';
-import { sheetsService } from '../services/googleSheets';
+import GoogleSheetsService from '../services/googleSheets';
+import { sheetsConfig } from '../config/sheets';
+
+// Request 타입 확장 (rawBody 지원)
+interface SlackRequest extends Request {
+  rawBody?: string;
+}
+
+// Google Sheets 서비스 초기화
+const sheetsService = new GoogleSheetsService(sheetsConfig);
 
 const router = express.Router();
 
@@ -60,7 +69,7 @@ function buildChannelRestrictedMessage(): any {
 /**
  * Slack 요청 서명 검증
  */
-function verifySlackSignature(req: Request): boolean {
+function verifySlackSignature(req: SlackRequest): boolean {
   const signingSecret = process.env.SLACK_SIGNING_SECRET;
   if (!signingSecret) {
     console.warn('[Slack] Signing secret not configured, skipping verification');
