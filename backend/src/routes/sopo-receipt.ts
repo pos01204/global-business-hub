@@ -528,11 +528,6 @@ router.post('/upload', upload.single('file'), async (req: Request, res: Response
     if (trackingResult.error) {
       warnings.push(`트래킹 시트 저장 실패: ${trackingResult.error}. Sopo_tracking 시트가 존재하는지 확인해주세요.`);
     }
-    if (trackingResult.added === 0 && artistSummaries.length > 0 && !trackingResult.error) {
-      if (trackingResult.skipped === artistSummaries.length) {
-        warnings.push(`모든 작가(${trackingResult.skipped}명)가 이미 등록되어 있습니다.`);
-      }
-    }
 
     res.json({
       success: true,
@@ -550,7 +545,8 @@ router.post('/upload', upload.single('file'), async (req: Request, res: Response
         // 트래킹 저장 결과
         trackingStats: {
           newlyAdded: trackingResult.added,
-          duplicatesSkipped: trackingResult.skipped,
+          updated: trackingResult.updated,
+          skipped: trackingResult.skipped,
           saveError: trackingResult.error,
         },
         // 경고 메시지
@@ -565,7 +561,9 @@ router.post('/upload', upload.single('file'), async (req: Request, res: Response
 });
 
 /**
- * 트래킹 데이터 저장 (중복 체크 포함)
+ * 트래킹 데이터 저장 (중복 시 업데이트)
+ * - 같은 period + artist_name이 있으면 order_count, total_amount, artist_email, updated_at 업데이트
+ * - 새로운 작가는 추가
  */
 async function saveTrackingData(period: string, artists: any[]): Promise<{ added: number; updated: number; skipped: number }> {
   const headers = [
@@ -608,59 +606,92 @@ async function saveTrackingData(period: string, artists: any[]): Promise<{ added
     }
   }
 
-  // 기존 데이터에서 period + artist_name으로 인덱싱 (중복 체크용)
-  const existingKeys = new Set<string>();
-  existingData.forEach((row: any) => {
+  // 기존 데이터에서 period + artist_name으로 인덱싱 (행 번호 포함)
+  const existingMap = new Map<string, { rowIndex: number; data: any }>();
+  existingData.forEach((row: any, index: number) => {
     const key = `${row.period}|${row.artist_name}`;
-    existingKeys.add(key);
+    existingMap.set(key, { rowIndex: index + 2, data: row }); // +2: 헤더 행 + 0-indexed
   });
 
-  console.log(`[Sopo] 기존 트래킹 데이터: ${existingData.length}건, 고유 키: ${existingKeys.size}개`);
+  console.log(`[Sopo] 기존 트래킹 데이터: ${existingData.length}건, 고유 키: ${existingMap.size}개`);
 
   const now = new Date().toISOString();
   const newRows: any[][] = [];
-  let skippedCount = 0;
   let updatedCount = 0;
+  let skippedCount = 0;
 
   for (const artist of artists) {
     const key = `${period}|${artist.artistName}`;
+    const existing = existingMap.get(key);
     
-    if (existingKeys.has(key)) {
-      // 이미 존재하는 경우 건너뛰기 (중복 방지)
-      skippedCount++;
-      continue;
+    if (existing) {
+      // 기존 데이터가 있으면 업데이트 (order_count, total_amount, artist_email, updated_at)
+      try {
+        const rowNum = existing.rowIndex;
+        const updates: { cell: string; value: any }[] = [];
+        
+        // C열: artist_id (있으면 업데이트)
+        if (artist.artistId && !existing.data.artist_id) {
+          updates.push({ cell: `C${rowNum}`, value: artist.artistId });
+        }
+        
+        // D열: artist_email (있으면 업데이트)
+        if (artist.artistEmail && !existing.data.artist_email) {
+          updates.push({ cell: `D${rowNum}`, value: artist.artistEmail });
+        }
+        
+        // E열: order_count (항상 업데이트)
+        updates.push({ cell: `E${rowNum}`, value: artist.orderCount });
+        
+        // F열: total_amount (항상 업데이트)
+        updates.push({ cell: `F${rowNum}`, value: artist.totalAmount || 0 });
+        
+        // M열: updated_at (항상 업데이트)
+        updates.push({ cell: `M${rowNum}`, value: now });
+        
+        // 업데이트 실행
+        for (const update of updates) {
+          await sheetsService.updateCell(SHEET_NAMES.SOPO_TRACKING, update.cell, update.value);
+        }
+        
+        updatedCount++;
+        console.log(`[Sopo] 업데이트: ${artist.artistName} (행 ${rowNum})`);
+      } catch (updateErr: any) {
+        console.warn(`[Sopo] 업데이트 실패: ${artist.artistName} - ${updateErr.message}`);
+        skippedCount++;
+      }
+    } else {
+      // 새로운 데이터 추가
+      newRows.push([
+        period,
+        artist.artistName,
+        artist.artistId || '',
+        artist.artistEmail || '',
+        artist.orderCount,
+        artist.totalAmount || 0, // 작품 판매 금액(KRW) 합계
+        '', // notification_sent_at
+        'pending', // application_status
+        '', // application_submitted_at
+        '', // jotform_submission_id
+        '', // reminder_sent_at
+        '', // receipt_issued_at
+        now, // updated_at
+      ]);
     }
-
-    // 새로운 데이터 추가
-    newRows.push([
-      period,
-      artist.artistName,
-      artist.artistId || '',
-      artist.artistEmail || '',
-      artist.orderCount,
-      artist.totalAmount || 0, // 작품 판매 금액(KRW) 합계
-      '', // notification_sent_at
-      'pending', // application_status
-      '', // application_submitted_at
-      '', // jotform_submission_id
-      '', // reminder_sent_at
-      '', // receipt_issued_at
-      now, // updated_at
-    ]);
   }
 
   if (newRows.length > 0) {
     try {
-      console.log(`[Sopo] ${newRows.length}건 데이터 저장 시도...`);
+      console.log(`[Sopo] ${newRows.length}건 신규 데이터 저장 시도...`);
       await sheetsService.appendRows(SHEET_NAMES.SOPO_TRACKING, newRows);
-      console.log(`[Sopo] ✅ 트래킹 데이터 ${newRows.length}건 저장 완료, 중복 ${skippedCount}건 건너뜀`);
+      console.log(`[Sopo] ✅ 신규 ${newRows.length}건 저장 완료`);
     } catch (appendError: any) {
       console.error(`[Sopo] ❌ 데이터 저장 실패: ${appendError.message}`);
       throw new Error(`데이터 저장 실패: ${appendError.message}`);
     }
-  } else {
-    console.log(`[Sopo] 모든 데이터가 이미 존재합니다 (${skippedCount}건 중복)`);
   }
+  
+  console.log(`[Sopo] ✅ 트래킹 저장 완료 - 신규: ${newRows.length}, 업데이트: ${updatedCount}, 건너뜀: ${skippedCount}`);
 
   return {
     added: newRows.length,
