@@ -939,8 +939,8 @@ router.get('/detail/:artistName', async (req, res) => {
     const orderCodes = new Set<string>();
     const productIds = new Set<string>();
     const countryGmv = new Map<string, { gmv: number; orderCount: number }>();
-    let firstSaleDate: Date | null = null;
-    let lastSaleDate: Date | null = null;
+    let firstSaleDateValue: Date | null = null;
+    let lastSaleDateValue: Date | null = null;
     
     periodLogistics.forEach((row: any) => {
       const gmv = cleanAndParseFloat(row['Total GMV']) * USD_TO_KRW;
@@ -957,18 +957,22 @@ router.get('/detail/:artistName', async (req, res) => {
       data.orderCount++;
       
       const orderDate = new Date(row.order_created);
-      if (!firstSaleDate || orderDate < firstSaleDate) firstSaleDate = orderDate;
-      if (!lastSaleDate || orderDate > lastSaleDate) lastSaleDate = orderDate;
+      if (!firstSaleDateValue || orderDate < firstSaleDateValue) firstSaleDateValue = orderDate;
+      if (!lastSaleDateValue || orderDate > lastSaleDateValue) lastSaleDateValue = orderDate;
     });
     
+    const lastSaleDate = lastSaleDateValue;
+    
     // 전체 기간 첫 판매일
-    let overallFirstSale: Date | null = null;
+    let overallFirstSaleValue: Date | null = null;
     artistLogistics.forEach((row: any) => {
       const orderDate = new Date(row.order_created);
-      if (!overallFirstSale || orderDate < overallFirstSale) {
-        overallFirstSale = orderDate;
+      if (!overallFirstSaleValue || orderDate < overallFirstSaleValue) {
+        overallFirstSaleValue = orderDate;
       }
     });
+    
+    const overallFirstSale = overallFirstSaleValue;
     
     // 국가별 분포
     const byCountry = Array.from(countryGmv.entries())
@@ -1054,7 +1058,7 @@ router.get('/detail/:artistName', async (req, res) => {
     
     // 건강도 및 세그먼트
     const daysSinceLastSale = lastSaleDate
-      ? Math.floor((now.getTime() - lastSaleDate.getTime()) / (1000 * 60 * 60 * 24))
+      ? Math.floor((now.getTime() - (lastSaleDate as Date).getTime()) / (1000 * 60 * 60 * 24))
       : 999;
     
     res.json({
@@ -1067,7 +1071,7 @@ router.get('/detail/:artistName', async (req, res) => {
           kr: parseInt(artistInfo?.['(KR)Live 작품수']) || 0,
           global: parseInt(artistInfo?.['(Global)Live 작품수']) || 0,
         },
-        firstSaleDate: overallFirstSale?.toISOString().split('T')[0] || null,
+        firstSaleDate: overallFirstSale ? (overallFirstSale as Date).toISOString().split('T')[0] : null,
         segment: getRevenueSegment(totalGmv),
         healthStatus: getHealthStatus(daysSinceLastSale, avgRating),
         growthRate: 0, // TODO: 이전 기간 대비 계산
