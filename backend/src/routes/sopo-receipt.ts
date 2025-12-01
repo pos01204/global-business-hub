@@ -1400,11 +1400,24 @@ router.post('/sync-jotform', async (req: Request, res: Response) => {
         continue;
       }
 
-      // 트래킹에서 해당 작가 + 해당 월 찾기 (정규화된 이름 + period 비교)
+      // 신청월의 전월 계산 (N월 선적 → (N+1)월 신청)
+      // 예: 12월에 신청 → 11월 선적 내역과 매칭
+      const [year, month] = submissionPeriod.split('-').map(Number);
+      let targetYear = year;
+      let targetMonth = month - 1;
+      if (targetMonth === 0) {
+        targetMonth = 12;
+        targetYear = year - 1;
+      }
+      const targetPeriod = `${targetYear}-${String(targetMonth).padStart(2, '0')}`;
+      
+      console.log(`[Sopo] 신청일 ${submissionDate} → 신청월 ${submissionPeriod} → 대상월 ${targetPeriod}`);
+
+      // 트래킹에서 해당 작가 + 전월(대상월) 찾기
       const trackingIndex = trackingData.findIndex((t: any) => {
         const normalizedTrackingName = normalizeArtistName(t.artist_name);
         return normalizedTrackingName === normalizedSubmissionName && 
-               t.period === submissionPeriod &&  // 같은 월만 매칭
+               t.period === targetPeriod &&  // 전월(선적월)과 매칭
                t.application_status !== 'submitted' &&
                t.application_status !== 'completed';
       });
