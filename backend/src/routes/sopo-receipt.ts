@@ -418,8 +418,7 @@ router.post('/upload', upload.single('file'), async (req: Request, res: Response
       artistId?: string;
       artistEmail?: string;
       orders: OrderDetail[];
-      totalAmount: number; // 작품 개수 (quantity 합계)
-      totalAmountKRW: number; // 작품 판매 금액(KRW) 합계 (이메일 표시용)
+      totalAmount: number; // 작품 판매 금액(KRW) 합계
       orderCount: number;
     }
 
@@ -450,8 +449,7 @@ router.post('/upload', upload.single('file'), async (req: Request, res: Response
             artistId: artistInfo.id,
             artistEmail: artistInfo.email,
             orders: [],
-            totalAmount: 0, // 작품 개수 (quantity 합계)
-            totalAmountKRW: 0, // 작품 판매 금액(KRW) 합계 (이메일 표시용)
+            totalAmount: 0, // 작품 판매 금액(KRW) 합계
             orderCount: 0,
           });
         }
@@ -493,10 +491,8 @@ router.post('/upload', upload.single('file'), async (req: Request, res: Response
             recipient: shipment.recipient,
           });
 
-          // totalAmount: 작품 개수 (quantity 합계)
-          artistSummary.totalAmount += quantity;
-          // totalAmountKRW: 금액 합계 (이메일 표시용)
-          artistSummary.totalAmountKRW += productPriceKRW;
+          // totalAmount: 작품 판매 금액(KRW) 합계
+          artistSummary.totalAmount += productPriceKRW;
         }
       }
     }
@@ -1029,7 +1025,7 @@ router.post('/notify', async (req: Request, res: Response) => {
     const now = new Date().toISOString();
 
     // 기본 JotForm 링크
-    const formLink = jotformLink || 'https://form.jotform.com/idusglobal/230940786344057';
+    const formLink = jotformLink || 'https://form.jotform.com/230940786344057';
 
     // logistics 데이터 로드 (주문내역서 생성용)
     let logisticsData: any[] = [];
@@ -1452,7 +1448,7 @@ router.post('/reminder', async (req: Request, res: Response) => {
             <p>${periodDisplay} 소포수령증 발급 신청이 아직 완료되지 않았습니다.</p>
             <p>마감일이 임박했으니, 빠른 시일 내 신청 부탁드립니다.</p>
             <p style="margin-top: 30px;">
-              <a href="https://form.jotform.com/idusglobal/230940786344057" 
+              <a href="https://form.jotform.com/230940786344057" 
                  style="background: #FF6B35; color: white; padding: 12px 24px; text-decoration: none; border-radius: 6px;">
                 지금 신청하기
               </a>
