@@ -210,3 +210,5 @@ const artistInfo = getArtistInfo(artistId);
 **마지막 업데이트**: 2025-01-XX
 **작성자**: AI Assistant
 
+
+

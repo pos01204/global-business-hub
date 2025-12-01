@@ -776,6 +776,64 @@ export const reviewsApi = {
   },
 }
 
+// 글로벌 마케팅 캘린더 API
+export const calendarApi = {
+  // 기념일 목록 조회
+  getHolidays: async (params?: {
+    year?: number
+    month?: number
+    countries?: string
+    tier?: number
+    category?: string
+    importance?: string
+  }) => {
+    const response = await api.get('/api/calendar/holidays', { params })
+    return response.data
+  },
+
+  // 특정 기념일 상세 조회
+  getHolidayById: async (id: string) => {
+    const response = await api.get(`/api/calendar/holidays/${id}`)
+    return response.data
+  },
+
+  // 다가오는 기념일 조회
+  getUpcoming: async (days?: number, countries?: string) => {
+    const response = await api.get('/api/calendar/upcoming', {
+      params: { days, countries },
+    })
+    return response.data
+  },
+
+  // 국가 목록 조회
+  getCountries: async (tier?: number) => {
+    const response = await api.get('/api/calendar/countries', {
+      params: { tier },
+    })
+    return response.data
+  },
+
+  // 카테고리 추천 생성
+  recommendCategories: async (holidayId: string, country: string) => {
+    const response = await api.post('/api/calendar/recommend-categories', {
+      holidayId,
+      country,
+    })
+    return response.data
+  },
+
+  // AI 마케팅 전략 생성
+  generateStrategy: async (params: {
+    holidayId: string
+    country: string
+    budget?: 'low' | 'medium' | 'high'
+    channels?: string[]
+  }) => {
+    const response = await api.post('/api/calendar/generate-strategy', params)
+    return response.data
+  },
+}
+
 // 고객 분석 API
 export const customerAnalyticsApi = {
   // RFM 세그먼테이션

@@ -172,3 +172,5 @@ label: function (context) {
 - 2025-01-XX: 초기 작성 - formatCurrency 및 tooltip callback 타입 안전성 강화
 
 
+
+

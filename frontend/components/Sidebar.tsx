@@ -63,7 +63,7 @@ const navGroups: NavGroup[] = [
   {
     title: '도구',
     items: [
-      { href: '/marketer', label: '퍼포먼스 마케터', icon: '🎯', external: true },
+      { href: '/marketer', label: '퍼포먼스 마케터', icon: '🎯' },
       { href: '/chat', label: 'AI 어시스턴트', icon: '🤖' },
     ],
   },
