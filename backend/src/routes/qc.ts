@@ -230,36 +230,48 @@ async function loadTextQCData() {
     let pending = 0;
     let completed = 0;
     let archived = 0;
+    
+    // 첫 번째 레코드로 컬럼명 확인 (디버깅용)
+    if (textData.length > 0) {
+      const columns = Object.keys(textData[0]);
+      console.log('[QC] 텍스트 시트 컬럼명:', columns.join(', '));
+      console.log('[QC] 텍스트 시트 첫 번째 레코드 샘플:', JSON.stringify({
+        status: textData[0].status,
+        completedAt: textData[0].completedAt,
+        needsRevision: textData[0].needsRevision,
+      }));
+    }
 
     for (const record of textData) {
       const id = generateId('text', record);
       
-      // 상태 확인 (status 컬럼 - 비어있으면 pending)
-      const rawStatus = String(record.status || '').trim().toLowerCase();
-      const status: 'pending' | 'approved' | 'needs_revision' | 'excluded' | 'archived' = 
-        rawStatus === 'approved' ? 'approved' :
-        rawStatus === 'needs_revision' ? 'needs_revision' :
-        rawStatus === 'excluded' ? 'excluded' :
-        rawStatus === 'archived' ? 'archived' :
-        'pending'; // 비어있거나 알 수 없는 값은 pending
-      
-      // completedAt 확인
+      // completedAt 확인 - 이 값이 있으면 QC 완료된 항목
       const completedAtValue = record.completedAt || record.completed_at || record.CompletedAt;
       const hasCompletedAt = completedAtValue && String(completedAtValue).trim() !== '';
       
-      // QC 완료 조건: status가 approved/needs_revision/excluded/archived 이거나 completedAt이 있음
-      const isCompleted = status !== 'pending' || hasCompletedAt;
+      // status 컬럼 확인 (QC 상태: approved, needs_revision, excluded, archived)
+      const rawStatus = String(record.status || '').trim().toLowerCase();
+      
+      // QC 상태로 인정되는 값들만 체크
+      const validQcStatuses = ['approved', 'needs_revision', 'excluded', 'archived'];
+      const isValidQcStatus = validQcStatuses.includes(rawStatus);
+      
+      // QC 완료 조건: completedAt이 있음 (가장 확실한 기준)
+      const isCompleted = hasCompletedAt;
       
       if (isCompleted) {
         // 완료된 항목은 아카이브로
+        const status: 'pending' | 'approved' | 'needs_revision' | 'excluded' | 'archived' = 
+          isValidQcStatus ? rawStatus as any : 'approved';
+        
         const qcItem: QCItem = {
           id,
           type: 'text',
           data: record,
-          status: status === 'pending' ? 'approved' : status, // completedAt만 있는 경우 approved로
-          needsRevision: status === 'needs_revision',
+          status,
+          needsRevision: status === 'needs_revision' || record.needsRevision === true || String(record.needsRevision).toUpperCase() === 'TRUE',
           createdAt: record.createdAt ? new Date(record.createdAt) : new Date(),
-          completedAt: hasCompletedAt ? new Date(completedAtValue) : new Date(),
+          completedAt: new Date(completedAtValue),
         };
         qcDataStore.archive.set(id, qcItem);
         if (status === 'archived') {
@@ -270,7 +282,7 @@ async function loadTextQCData() {
         continue;
       }
       
-      // 미검수 항목 (status가 비어있거나 pending)
+      // 미검수 항목 (completedAt이 없음)
       const qcItem: QCItem = {
         id,
         type: 'text',
@@ -301,36 +313,50 @@ async function loadImageQCData() {
     let pending = 0;
     let completed = 0;
     let archived = 0;
+    
+    // 첫 번째 레코드로 컬럼명 확인 (디버깅용)
+    if (imageData.length > 0) {
+      const columns = Object.keys(imageData[0]);
+      console.log('[QC] 이미지 시트 컬럼명:', columns.join(', '));
+      console.log('[QC] 이미지 시트 첫 번째 레코드 샘플:', JSON.stringify({
+        status: imageData[0].status,
+        completedAt: imageData[0].completedAt,
+        needsRevision: imageData[0].needsRevision,
+        cmd_type: imageData[0].cmd_type,
+      }));
+    }
 
     for (const record of imageData) {
       const id = generateId('image', record);
       
-      // 상태 확인 (status 컬럼 - 비어있으면 pending)
-      const rawStatus = String(record.status || '').trim().toLowerCase();
-      const status: 'pending' | 'approved' | 'needs_revision' | 'excluded' | 'archived' = 
-        rawStatus === 'approved' ? 'approved' :
-        rawStatus === 'needs_revision' ? 'needs_revision' :
-        rawStatus === 'excluded' ? 'excluded' :
-        rawStatus === 'archived' ? 'archived' :
-        'pending'; // 비어있거나 알 수 없는 값은 pending
-      
-      // completedAt 확인
+      // completedAt 확인 - 이 값이 있으면 QC 완료된 항목
       const completedAtValue = record.completedAt || record.completed_at || record.CompletedAt;
       const hasCompletedAt = completedAtValue && String(completedAtValue).trim() !== '';
       
-      // QC 완료 조건: status가 approved/needs_revision/excluded/archived 이거나 completedAt이 있음
-      const isCompleted = status !== 'pending' || hasCompletedAt;
+      // status 컬럼 확인 (QC 상태: approved, needs_revision, excluded, archived)
+      const rawStatus = String(record.status || '').trim().toLowerCase();
+      
+      // QC 상태로 인정되는 값들만 체크 (NOCHANGE, NEW 등은 cmd_type이므로 제외)
+      const validQcStatuses = ['approved', 'needs_revision', 'excluded', 'archived'];
+      const isValidQcStatus = validQcStatuses.includes(rawStatus);
+      
+      // QC 완료 조건: completedAt이 있음 (가장 확실한 기준)
+      // status가 유효한 QC 상태인 경우도 완료로 처리
+      const isCompleted = hasCompletedAt;
       
       if (isCompleted) {
         // 완료된 항목은 아카이브로
+        const status: 'pending' | 'approved' | 'needs_revision' | 'excluded' | 'archived' = 
+          isValidQcStatus ? rawStatus as any : 'approved';
+        
         const qcItem: QCItem = {
           id,
           type: 'image',
           data: record,
-          status: status === 'pending' ? 'approved' : status, // completedAt만 있는 경우 approved로
-          needsRevision: status === 'needs_revision',
+          status,
+          needsRevision: status === 'needs_revision' || record.needsRevision === true || String(record.needsRevision).toUpperCase() === 'TRUE',
           createdAt: record.createdAt ? new Date(record.createdAt) : new Date(),
-          completedAt: hasCompletedAt ? new Date(completedAtValue) : new Date(),
+          completedAt: new Date(completedAtValue),
         };
         qcDataStore.archive.set(id, qcItem);
         if (status === 'archived') {
@@ -341,7 +367,7 @@ async function loadImageQCData() {
         continue;
       }
       
-      // 미검수 항목 (status가 비어있거나 pending)
+      // 미검수 항목 (completedAt이 없음)
       const qcItem: QCItem = {
         id,
         type: 'image',
