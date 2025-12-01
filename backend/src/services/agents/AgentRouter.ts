@@ -3,6 +3,7 @@ import { PerformanceMarketerAgent } from './PerformanceMarketerAgent'
 import { BusinessManagerAgent } from './BusinessManagerAgent'
 import { AgentContext } from './BaseAgent'
 import { conversationManager } from './ConversationManager'
+import { agentOrchestrator } from './AgentOrchestrator'
 
 export type AgentType = 'data_analyst' | 'performance_marketer' | 'business_manager' | 'auto'
 
@@ -237,6 +238,100 @@ export class AgentRouter {
         description: '질문 내용에 따라 자동으로 적절한 Agent를 선택합니다.',
       },
     ]
+  }
+
+  /**
+   * 복합 질문 오케스트레이션 (다중 Agent 협업)
+   */
+  async orchestratedRoute(
+    query: string,
+    context: EnhancedAgentContext = {}
+  ): Promise<{
+    agent: string
+    response: string
+    data?: any
+    charts?: any[]
+    actions?: Array<{ label: string; action: string; data?: any }>
+    isComplex: boolean
+    agentsUsed: string[]
+  }> {
+    // 오케스트레이터로 복합 질문 분석
+    const analysis = agentOrchestrator.analyzeQuery(query)
+
+    if (analysis.isComplex) {
+      // 복합 질문: 오케스트레이터 사용
+      const result = await agentOrchestrator.orchestrate(query, context)
+      
+      return {
+        agent: result.agentsUsed.map(a => this.getAgentName(a)).join(' + '),
+        response: result.primaryResponse,
+        data: result.combinedData,
+        charts: result.charts,
+        actions: result.actions,
+        isComplex: true,
+        agentsUsed: result.agentsUsed,
+      }
+    }
+
+    // 단순 질문: 기존 라우팅 사용
+    const routeResult = await this.route(query, 'auto', context)
+    
+    return {
+      ...routeResult,
+      isComplex: false,
+      agentsUsed: [this.getAgentTypeFromName(routeResult.agent)],
+    }
+  }
+
+  /**
+   * Agent 타입에서 이름 반환
+   */
+  private getAgentName(agentType: string): string {
+    const names: Record<string, string> = {
+      data_analyst: '데이터 분석가',
+      performance_marketer: '퍼포먼스 마케터',
+      business_manager: '비즈니스 매니저',
+    }
+    return names[agentType] || agentType
+  }
+
+  /**
+   * Agent 이름에서 타입 반환
+   */
+  private getAgentTypeFromName(name: string): string {
+    const types: Record<string, string> = {
+      '데이터 분석가': 'data_analyst',
+      '퍼포먼스 마케터': 'performance_marketer',
+      '비즈니스 매니저': 'business_manager',
+    }
+    return types[name] || 'data_analyst'
+  }
+
+  /**
+   * 심층 분석 실행
+   */
+  async deepAnalysis(
+    query: string,
+    analysisType: 'correlation' | 'trend' | 'comparison',
+    context: EnhancedAgentContext = {}
+  ): Promise<{
+    agent: string
+    response: string
+    data?: any
+    charts?: any[]
+    actions?: Array<{ label: string; action: string; data?: any }>
+    insights?: any[]
+  }> {
+    const result = await agentOrchestrator.deepAnalysis(query, analysisType, context)
+    
+    return {
+      agent: '데이터 분석가 (심층 분석)',
+      response: result.primaryResponse,
+      data: result.combinedData,
+      charts: result.charts,
+      actions: result.actions,
+      insights: result.analysisInsights,
+    }
   }
 }
 

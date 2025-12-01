@@ -482,6 +482,32 @@ export const chatApi = {
     const response = await api.post('/api/chat/cache/clear')
     return response.data
   },
+  // 복합 질문 오케스트레이션 (다중 Agent 협업)
+  orchestrate: async (
+    message: string,
+    history: Array<{ role: 'user' | 'assistant'; content: string }> = [],
+    sessionId?: string
+  ) => {
+    const response = await api.post('/api/chat/orchestrate', {
+      message,
+      history,
+      sessionId,
+    })
+    return response.data
+  },
+  // 심층 분석 (상관관계, 트렌드, 비교)
+  deepAnalysis: async (
+    message: string,
+    analysisType: 'correlation' | 'trend' | 'comparison' = 'correlation',
+    sessionId?: string
+  ) => {
+    const response = await api.post('/api/chat/deep-analysis', {
+      message,
+      analysisType,
+      sessionId,
+    })
+    return response.data
+  },
 }
 
 // 물류비 정산 API

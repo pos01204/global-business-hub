@@ -313,5 +313,123 @@ router.post('/cache/clear', async (req, res) => {
   }
 })
 
+// 복합 질문 오케스트레이션 (다중 Agent 협업)
+router.post('/orchestrate', async (req, res) => {
+  try {
+    const { message, history = [], sessionId } = req.body
+
+    if (!message || typeof message !== 'string') {
+      return res.status(400).json({
+        success: false,
+        error: '메시지가 필요합니다.',
+      })
+    }
+
+    const isConnected = await openaiService.checkConnection()
+    if (!isConnected) {
+      return res.status(503).json({
+        success: false,
+        error: 'OpenAI 서비스에 연결할 수 없습니다.',
+      })
+    }
+
+    const effectiveSessionId = sessionId || `temp-${Date.now()}`
+    const enhancedHistory = history.slice(-10).map((h: any) => ({
+      role: h.role,
+      content: h.content,
+    }))
+
+    const agentRouter = new AgentRouter({
+      sessionId: effectiveSessionId,
+      history: enhancedHistory,
+    })
+
+    const result = await agentRouter.orchestratedRoute(message, {
+      sessionId: effectiveSessionId,
+      history: enhancedHistory,
+    })
+
+    res.json({
+      success: true,
+      data: {
+        message: result.response,
+        agent: result.agent,
+        data: result.data,
+        charts: result.charts,
+        actions: result.actions,
+        isComplex: result.isComplex,
+        agentsUsed: result.agentsUsed,
+        timestamp: new Date().toISOString(),
+      },
+    })
+  } catch (error: any) {
+    console.error('오케스트레이션 오류:', error)
+    res.status(500).json({
+      success: false,
+      error: error.message || '처리 중 오류가 발생했습니다.',
+    })
+  }
+})
+
+// 심층 분석 (상관관계, 트렌드, 비교)
+router.post('/deep-analysis', async (req, res) => {
+  try {
+    const { message, analysisType = 'correlation', sessionId } = req.body
+
+    if (!message || typeof message !== 'string') {
+      return res.status(400).json({
+        success: false,
+        error: '메시지가 필요합니다.',
+      })
+    }
+
+    const validTypes = ['correlation', 'trend', 'comparison']
+    if (!validTypes.includes(analysisType)) {
+      return res.status(400).json({
+        success: false,
+        error: `분석 유형은 ${validTypes.join(', ')} 중 하나여야 합니다.`,
+      })
+    }
+
+    const isConnected = await openaiService.checkConnection()
+    if (!isConnected) {
+      return res.status(503).json({
+        success: false,
+        error: 'OpenAI 서비스에 연결할 수 없습니다.',
+      })
+    }
+
+    const effectiveSessionId = sessionId || `temp-${Date.now()}`
+
+    const agentRouter = new AgentRouter({
+      sessionId: effectiveSessionId,
+    })
+
+    const result = await agentRouter.deepAnalysis(message, analysisType, {
+      sessionId: effectiveSessionId,
+    })
+
+    res.json({
+      success: true,
+      data: {
+        message: result.response,
+        agent: result.agent,
+        data: result.data,
+        charts: result.charts,
+        actions: result.actions,
+        insights: result.insights,
+        analysisType,
+        timestamp: new Date().toISOString(),
+      },
+    })
+  } catch (error: any) {
+    console.error('심층 분석 오류:', error)
+    res.status(500).json({
+      success: false,
+      error: error.message || '분석 중 오류가 발생했습니다.',
+    })
+  }
+})
+
 export default router
 

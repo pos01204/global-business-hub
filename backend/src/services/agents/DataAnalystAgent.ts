@@ -3,6 +3,9 @@ import { intentClassifier, ExtractedIntent } from './IntentClassifier'
 import { queryOptimizer, OptimizedQuery } from './QueryOptimizer'
 import { getSchemaSummaryForPrompt } from '../../config/sheetsSchema'
 import { smartSuggestionEngine, SuggestionContext } from './SmartSuggestionEngine'
+import { openaiRetryHandler } from './RetryHandler'
+import { dataAnalystValidator } from './ResponseValidator'
+import { correlationAnalyzer } from './CorrelationAnalyzer'
 
 export class DataAnalystAgent extends BaseAgent {
   private getSystemPrompt(): string {
@@ -672,7 +675,7 @@ ${getSchemaSummaryForPrompt()}
   }
 
   /**
-   * 자연어 응답 생성 (고도화)
+   * 자연어 응답 생성 (고도화 + 재시도 + 검증)
    */
   private async generateResponse(
     query: string,
@@ -702,6 +705,19 @@ ${getSchemaSummaryForPrompt()}
     // 데이터 요약 생성
     const dataSummary = this.generateDetailedSummary(results.data, intentType)
 
+    // 상관관계 인사이트 추가 (데이터가 충분한 경우)
+    let correlationInsight = ''
+    if (Array.isArray(results.data) && results.data.length >= 10) {
+      try {
+        const analysis = correlationAnalyzer.analyze(results.data)
+        if (analysis.insights.length > 0) {
+          correlationInsight = `\n\n추가 발견 사항:\n${analysis.insights.slice(0, 2).map(i => `- ${i.title}: ${i.description}`).join('\n')}`
+        }
+      } catch (e) {
+        // 상관관계 분석 실패 무시
+      }
+    }
+
     const prompt = `${this.getSystemPrompt()}
 
 사용자 질문: "${query}"
@@ -709,7 +725,7 @@ ${getSchemaSummaryForPrompt()}
 분석 유형: ${this.getIntentLabel(intentType)}
 
 분석 데이터:
-${dataSummary}
+${dataSummary}${correlationInsight}
 
 위 데이터를 바탕으로 응답 형식에 맞춰 분석 결과를 작성해주세요.
 - 핵심 수치를 먼저 제시하고, 의미를 해석해주세요
@@ -718,10 +734,69 @@ ${dataSummary}
 - 마크다운 형식을 사용하지 말고 일반 텍스트로 작성해주세요
 - 이모지는 섹션 구분에만 사용해주세요`
 
-    return await this.openaiService.generate(prompt, {
-      temperature: 0.6,
-      maxTokens: 1500,
+    // 재시도 핸들러로 LLM 호출
+    const retryResult = await openaiRetryHandler.execute(
+      () => this.openaiService.generate(prompt, {
+        temperature: 0.6,
+        maxTokens: 1500,
+      }),
+      'DataAnalyst LLM 응답 생성'
+    )
+
+    if (!retryResult.success) {
+      console.error('[DataAnalystAgent] LLM 응답 생성 실패:', retryResult.error)
+      return this.generateFallbackResponse(results.data, intentType, dateRangeInfo)
+    }
+
+    const response = retryResult.data!
+
+    // 응답 품질 검증
+    const validation = dataAnalystValidator.validate(response, {
+      query,
+      intent: intentType,
+      hasData: true,
     })
+
+    if (!validation.isValid && validation.score < 40) {
+      console.warn('[DataAnalystAgent] 응답 품질 낮음:', validation.issues)
+      // 품질이 매우 낮으면 폴백 응답 사용
+      return this.generateFallbackResponse(results.data, intentType, dateRangeInfo)
+    }
+
+    return response
+  }
+
+  /**
+   * 폴백 응답 생성 (LLM 실패 시)
+   */
+  private generateFallbackResponse(data: any, intentType: string, dateRangeInfo: string): string {
+    const lines: string[] = []
+    
+    lines.push(`📊 분석 결과 요약 (${dateRangeInfo})`)
+    lines.push('')
+
+    if (Array.isArray(data) && data.length > 0) {
+      lines.push(`총 ${data.length}건의 데이터가 조회되었습니다.`)
+      
+      // 숫자 컬럼 합계 계산
+      const sampleRow = data[0]
+      const numericColumns = Object.keys(sampleRow).filter(k => {
+        const val = sampleRow[k]
+        return typeof val === 'number' || !isNaN(Number(val))
+      })
+
+      for (const col of numericColumns.slice(0, 3)) {
+        const sum = data.reduce((s, row) => s + (Number(row[col]) || 0), 0)
+        if (sum > 0) {
+          lines.push(`- ${col}: ${this.formatNumber(sum)}`)
+        }
+      }
+    }
+
+    lines.push('')
+    lines.push('💡 더 자세한 분석이 필요하시면 구체적인 질문을 해주세요.')
+
+    return lines.join('\n')
   }
 
   /**
