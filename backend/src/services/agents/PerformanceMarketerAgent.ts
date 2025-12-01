@@ -1,17 +1,30 @@
 import { BaseAgent, AgentContext } from './BaseAgent'
-import { openaiService } from '../openaiService'
 
 export class PerformanceMarketerAgent extends BaseAgent {
-  private systemPrompt = `당신은 퍼포먼스 마케터 전문가입니다.
-판매 데이터를 분석하여 마케팅 소재를 추출하고, 콘텐츠를 생성하며, CRM 세그먼트를 추출합니다.
+  private systemPrompt = `당신은 idus Global의 퍼포먼스 마케터 전문가입니다.
+핸드메이드/아트 작품 이커머스 플랫폼의 마케팅 전략을 수립하고 실행합니다.
 
 주요 역할:
-1. 판매 데이터에서 트렌드 및 소재 추출
-2. 소재 기반 마케팅 카피 생성
-3. 행동 패턴 기반 CRM 세그먼트 생성
-4. 마케팅 성과 분석 및 최적화 제안
+1. 📈 트렌드 분석: 인기 작품/작가 발굴, 시즌별 트렌드 파악
+2. ✍️ 콘텐츠 생성: SNS, 이메일, 블로그용 마케팅 카피 작성
+3. 👥 CRM 세그먼트: RFM 기반 고객 세분화, 타겟팅 전략
+4. 📊 성과 분석: 채널별 ROI, 전환율 분석
 
-답변은 한국어로 작성하세요.`
+응답 형식:
+🎯 **핵심 발견**
+- 가장 중요한 인사이트 1-2개
+
+📊 **상세 분석**
+- 데이터 기반 분석 결과
+- 구체적인 수치와 비율
+
+💡 **마케팅 제안**
+- 즉시 실행 가능한 액션 아이템
+- 예상 효과
+
+타겟 시장: 일본(JP), 미국(US), 대만(TW), 홍콩(HK)
+브랜드 톤: 따뜻하고 감성적인, 핸드메이드의 가치를 전달
+한국어로 답변하세요.`
 
   async process(query: string, context: AgentContext = {}): Promise<{
     response: string
@@ -116,9 +129,19 @@ export class PerformanceMarketerAgent extends BaseAgent {
       charts: await this.createTrendCharts(trends),
       actions: [
         {
-          label: '콘텐츠 생성하기',
-          action: 'generate_copy',
-          data: { trends },
+          label: '✍️ 마케팅 카피 생성',
+          action: 'query',
+          data: { query: '위 트렌드 데이터를 바탕으로 SNS 마케팅 카피를 생성해줘' },
+        },
+        {
+          label: '👥 타겟 세그먼트 추출',
+          action: 'query',
+          data: { query: '이 트렌드 작품을 구매할 가능성이 높은 고객 세그먼트를 만들어줘' },
+        },
+        {
+          label: '📥 데이터 내보내기',
+          action: 'export',
+          data: { format: 'csv' },
         },
       ],
     }
@@ -367,28 +390,52 @@ ${copyType === 'blog' ? '블로그 포스트 형식으로 작성하세요 (800-1
   /**
    * 트렌드 인사이트 생성
    */
-  private async generateTrendInsights(trends: any[], trendType?: string): Promise<string> {
-    const topTrends = trends.slice(0, 5)
+  private async generateTrendInsights(trends: any[], _trendType?: string): Promise<string> {
+    const topTrends = trends.slice(0, 10)
+    
+    // 트렌드 요약 데이터 생성
+    const totalGmv = topTrends.reduce((sum, t) => sum + (t.totalGmv || 0), 0)
+    const totalOrders = topTrends.reduce((sum, t) => sum + (t.orderCount || 0), 0)
+    
+    const trendSummary = topTrends.slice(0, 5).map((t, i) => 
+      `${i + 1}. ${t.name || t.type}: ${this.formatNumber(t.totalGmv || 0)} USD (${t.orderCount || 0}건)`
+    ).join('\n')
 
     const prompt = `${this.systemPrompt}
 
-다음 트렌드 데이터를 분석하여 마케팅 인사이트를 제공해주세요:
+분석 기간의 트렌드 데이터:
+- 총 매출: ${this.formatNumber(totalGmv)} USD
+- 총 주문: ${totalOrders}건
+- 분석 대상: ${topTrends.length}개 항목
 
-트렌드 데이터:
-${JSON.stringify(topTrends, null, 2)}
+상위 5개 트렌드:
+${trendSummary}
 
-다음을 포함해주세요:
-1. 주요 트렌드 요약
-2. 마케팅 기회 포인트
-3. 추천 액션 아이템
-4. 예상 효과
+위 데이터를 바탕으로 응답 형식에 맞춰 마케팅 인사이트를 작성해주세요.
 
-한국어로 작성하세요.`
+포함할 내용:
+1. 🎯 핵심 발견: 가장 주목할 만한 트렌드 1-2개
+2. 📊 상세 분석: 왜 이 작품/작가가 인기인지 분석
+3. 💡 마케팅 제안: 
+   - SNS 콘텐츠 아이디어
+   - 프로모션 제안
+   - 타겟 고객층
+
+마크다운 형식 없이 일반 텍스트로 작성하세요.`
 
     return await this.openaiService.generate(prompt, {
       temperature: 0.7,
       maxTokens: 1500,
     })
+  }
+
+  /**
+   * 숫자 포맷팅 헬퍼
+   */
+  private formatNumber(value: any): string {
+    const num = Number(value)
+    if (isNaN(num)) return '0'
+    return num.toLocaleString('ko-KR', { maximumFractionDigits: 2 })
   }
 
   /**

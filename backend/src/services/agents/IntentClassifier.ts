@@ -33,101 +33,179 @@ export interface ExtractedIntent {
   }
 }
 
+// Function Calling을 위한 함수 정의
+const INTENT_CLASSIFICATION_FUNCTION = {
+  name: 'classify_query_intent',
+  description: '사용자의 자연어 질문을 분석하여 데이터 분석에 필요한 구조화된 의도와 엔티티를 추출합니다.',
+  parameters: {
+    type: 'object',
+    properties: {
+      intent: {
+        type: 'string',
+        enum: ['general_query', 'trend_analysis', 'comparison', 'aggregation', 'ranking', 'filter', 'join'],
+        description: '질문의 의도 유형',
+      },
+      confidence: {
+        type: 'number',
+        minimum: 0,
+        maximum: 1,
+        description: '의도 분류 신뢰도 (0.0 ~ 1.0)',
+      },
+      sheets: {
+        type: 'array',
+        items: {
+          type: 'string',
+          enum: ['order', 'logistics', 'users', 'artists'],
+        },
+        description: '필요한 데이터 시트 목록',
+      },
+      dateRange: {
+        type: 'object',
+        properties: {
+          start: { type: 'string', description: '시작 날짜 (YYYY-MM-DD)' },
+          end: { type: 'string', description: '종료 날짜 (YYYY-MM-DD)' },
+          type: { type: 'string', enum: ['absolute', 'relative', 'month', 'year', 'quarter'] },
+        },
+        description: '날짜 범위',
+      },
+      filters: {
+        type: 'array',
+        items: {
+          type: 'object',
+          properties: {
+            column: { type: 'string', description: '필터링할 컬럼명' },
+            operator: { type: 'string', enum: ['equals', 'contains', 'greater_than', 'less_than', 'in', 'between'] },
+            value: { description: '필터 값' },
+          },
+        },
+        description: '필터 조건 목록',
+      },
+      aggregations: {
+        type: 'array',
+        items: {
+          type: 'object',
+          properties: {
+            column: { type: 'string', description: '집계할 컬럼명' },
+            function: { type: 'string', enum: ['sum', 'avg', 'count', 'max', 'min'] },
+          },
+        },
+        description: '집계 함수 목록',
+      },
+      groupBy: {
+        type: 'array',
+        items: { type: 'string' },
+        description: '그룹화할 컬럼 목록',
+      },
+      orderBy: {
+        type: 'array',
+        items: {
+          type: 'object',
+          properties: {
+            column: { type: 'string' },
+            direction: { type: 'string', enum: ['asc', 'desc'] },
+          },
+        },
+        description: '정렬 조건',
+      },
+      limit: {
+        type: 'number',
+        description: '결과 제한 수',
+      },
+    },
+    required: ['intent', 'confidence', 'sheets'],
+  },
+}
+
 export class IntentClassifier {
   private systemPrompt = `당신은 데이터 분석 쿼리 의도 분류 전문가입니다.
 사용자의 자연어 질문을 분석하여 구조화된 의도와 엔티티를 추출합니다.
 
 사용 가능한 데이터 소스:
 - order: 주문 정보 (order_code, order_created, user_id, Total GMV, platform, PG사, method)
-- logistics: 물류 추적 정보 (order_code, shipment_id, country, product_name, artist_name, 처리상태 등)
+- logistics: 물류 추적 정보 (order_code, shipment_id, country, product_name, artist_name (kr), 처리상태 등)
 - users: 사용자 정보 (ID, NAME, EMAIL, COUNTRY, CREATED_AT)
 - artists: 작가 정보 (작가명, 작품수 등)
 
 의도 유형:
-- general_query: 일반적인 질의
-- trend_analysis: 트렌드 분석
-- comparison: 비교 분석
-- aggregation: 집계 분석
-- ranking: 랭킹 분석
-- filter: 필터링
+- general_query: 일반적인 질의 (현황, 상태 확인)
+- trend_analysis: 트렌드/추이 분석 (시간에 따른 변화)
+- comparison: 비교 분석 (국가별, 플랫폼별 비교)
+- aggregation: 집계 분석 (합계, 평균 등)
+- ranking: 랭킹 분석 (상위 N개, 순위)
+- filter: 필터링 (특정 조건 검색)
 - join: 조인 분석 (여러 시트 결합)
 
-날짜 형식:
-- 절대 날짜: "2025년 11월", "2025-11-01"
-- 상대 날짜: "최근 30일", "지난 주", "이번 달"
-- 월/년: "11월", "2025년"
+중요한 컬럼명:
+- order 시트: order_code, order_created, user_id, Total GMV, platform, PG사, method
+- logistics 시트: order_code, shipment_id, country, product_name, artist_name (kr), 처리상태, 구매수량
+- users 시트: ID, NAME, EMAIL, COUNTRY, CREATED_AT
 
-필터 연산자:
-- equals: 정확히 일치
-- contains: 포함
-- greater_than: 초과
-- less_than: 미만
-- in: 목록에 포함
-- between: 범위
+국가 코드: JP(일본), US(미국), KR(한국), CN(중국), TW(대만), HK(홍콩)
 
-JSON 형식으로 응답하세요:
-{
-  "intent": "의도",
-  "confidence": 0.0-1.0,
-  "entities": {
-    "dateRange": {"start": "YYYY-MM-DD", "end": "YYYY-MM-DD", "type": "absolute|relative|month|year"},
-    "sheets": ["order"],
-    "filters": [{"column": "country", "operator": "equals", "value": "JP"}],
-    "aggregations": [{"column": "Total GMV", "function": "sum"}],
-    "groupBy": ["country"],
-    "orderBy": [{"column": "Total GMV", "direction": "desc"}],
-    "limit": 10
-  },
-  "context": {
-    "clarificationNeeded": false,
-    "suggestedQuestions": []
-  }
-}`
+오늘 날짜: ${new Date().toISOString().split('T')[0]}`
 
   async classify(query: string, history?: Array<{ role: string; content: string }>): Promise<ExtractedIntent> {
     try {
-      // LLM을 통한 의도 분류
-      const prompt = `${this.systemPrompt}
+      // Function Calling을 통한 의도 분류
+      const messages: Array<{ role: 'user' | 'assistant' | 'system'; content: string }> = [
+        { role: 'system', content: this.systemPrompt },
+      ]
 
-사용자 질문: ${query}
-
-${history && history.length > 0 
-  ? `대화 히스토리:\n${history.slice(-3).map(h => `${h.role}: ${h.content}`).join('\n')}`
-  : ''}
-
-위 질문을 분석하여 구조화된 의도와 엔티티를 추출해주세요.
-JSON 형식으로만 응답하세요.`
-
-      const response = await openaiService.generate(prompt, {
-        temperature: 0.3, // 낮은 temperature로 일관성 확보
-        maxTokens: 1000,
-      })
-
-      // JSON 파싱
-      let parsed: ExtractedIntent
-      try {
-        const jsonMatch = response.match(/\{[\s\S]*\}/)
-        if (jsonMatch) {
-          parsed = JSON.parse(jsonMatch[0])
-        } else {
-          parsed = JSON.parse(response)
+      // 대화 히스토리 추가
+      if (history && history.length > 0) {
+        const recentHistory = history.slice(-3)
+        for (const h of recentHistory) {
+          messages.push({
+            role: h.role === 'user' ? 'user' : 'assistant',
+            content: h.content,
+          })
         }
-      } catch (e) {
-        // 파싱 실패 시 폴백 로직
-        return this.fallbackClassification(query)
       }
 
-      // 날짜 범위 정규화
-      if (parsed.entities.dateRange) {
-        parsed.entities.dateRange = this.normalizeDateRange(
-          parsed.entities.dateRange,
-          query
-        )
+      messages.push({ role: 'user', content: query })
+
+      const result = await openaiService.generateWithFunctions(
+        messages,
+        [INTENT_CLASSIFICATION_FUNCTION],
+        {
+          temperature: 0.2,
+          maxTokens: 1000,
+          functionCall: { name: 'classify_query_intent' },
+        }
+      )
+
+      // Function Call 결과 처리
+      if (result.functionCall && result.functionCall.name === 'classify_query_intent') {
+        const args = result.functionCall.arguments
+        
+        const extracted: ExtractedIntent = {
+          intent: args.intent || 'general_query',
+          confidence: args.confidence || 0.8,
+          entities: {
+            sheets: args.sheets || ['order'],
+            dateRange: args.dateRange ? this.normalizeDateRange(args.dateRange, query) : undefined,
+            filters: args.filters,
+            aggregations: args.aggregations,
+            groupBy: args.groupBy,
+            orderBy: args.orderBy,
+            limit: args.limit,
+          },
+        }
+
+        console.log('[IntentClassifier] Function Calling 성공:', {
+          intent: extracted.intent,
+          sheets: extracted.entities.sheets,
+          dateRange: extracted.entities.dateRange,
+        })
+
+        return extracted
       }
 
-      return parsed
+      // Function Call 실패 시 폴백
+      console.warn('[IntentClassifier] Function Call 응답 없음, 폴백 사용')
+      return this.fallbackClassification(query)
     } catch (error: any) {
-      console.error('[IntentClassifier] 오류:', error)
+      console.error('[IntentClassifier] 오류:', error.message)
       return this.fallbackClassification(query)
     }
   }

@@ -87,8 +87,11 @@ export class BusinessManagerAgent extends BaseAgent {
     // 전략 제안 생성
     const strategies = await this.generateStrategies(currentState, focusArea, goals)
 
+    // 전략 요약 응답 생성
+    const summaryResponse = await this.generateStrategySummary(currentState, strategies.data)
+
     return {
-      response: strategies.response,
+      response: summaryResponse,
       data: {
         currentState,
         strategies: strategies.data,
@@ -96,12 +99,66 @@ export class BusinessManagerAgent extends BaseAgent {
       charts: await this.createStrategyCharts(currentState, strategies.data),
       actions: [
         {
-          label: '전략 상세 보기',
-          action: 'view_strategy',
-          data: { strategies: strategies.data },
+          label: '📋 전략 실행 계획 보기',
+          action: 'query',
+          data: { query: '제안된 전략의 구체적인 실행 계획과 타임라인을 알려줘' },
+        },
+        {
+          label: '📊 예상 ROI 분석',
+          action: 'query',
+          data: { query: '각 전략별 예상 ROI와 투자 대비 효과를 분석해줘' },
+        },
+        {
+          label: '🎯 우선순위 추천',
+          action: 'query',
+          data: { query: '전략들의 우선순위를 추천해줘' },
         },
       ],
     }
+  }
+
+  /**
+   * 전략 요약 응답 생성
+   */
+  private async generateStrategySummary(currentState: any, strategies: any[]): Promise<string> {
+    const metrics = currentState.metrics || {}
+    const totalGmv = this.formatNumber(metrics.totalGmv || 0)
+    const orderCount = metrics.orderCount || 0
+    const avgOrderValue = this.formatNumber(metrics.avgOrderValue || 0)
+
+    const prompt = `${this.systemPrompt}
+
+현재 비즈니스 현황:
+- 총 매출: ${totalGmv} USD
+- 주문 수: ${orderCount}건
+- 평균 주문 금액: ${avgOrderValue} USD
+
+제안된 전략:
+${JSON.stringify(strategies, null, 2)}
+
+위 정보를 바탕으로 경영진에게 보고할 수 있는 수준의 전략 요약을 작성해주세요.
+
+포함할 내용:
+1. 현재 상황 요약 (2-3문장)
+2. 핵심 전략 제안 (각 전략별 1-2문장)
+3. 예상 효과 (구체적인 수치 포함)
+4. 즉시 실행 가능한 액션 아이템 (3개)
+
+전문적이고 간결하게 작성하세요. 한국어로 답변하세요.`
+
+    return await this.openaiService.generate(prompt, {
+      temperature: 0.6,
+      maxTokens: 1500,
+    })
+  }
+
+  /**
+   * 숫자 포맷팅 헬퍼
+   */
+  private formatNumber(value: any): string {
+    const num = Number(value)
+    if (isNaN(num)) return '0'
+    return num.toLocaleString('ko-KR', { maximumFractionDigits: 2 })
   }
 
   /**

@@ -296,6 +296,106 @@ export class OpenAIService {
       'gpt-3.5-turbo',
     ]
   }
+
+  /**
+   * Function Calling을 사용한 구조화된 응답 생성
+   */
+  async generateWithFunctions(
+    messages: Array<{ role: 'user' | 'assistant' | 'system'; content: string }>,
+    functions: Array<{
+      name: string
+      description: string
+      parameters: {
+        type: string
+        properties: Record<string, any>
+        required?: string[]
+      }
+    }>,
+    options?: { temperature?: number; maxTokens?: number; functionCall?: string | { name: string } }
+  ): Promise<{
+    content: string | null
+    functionCall?: {
+      name: string
+      arguments: Record<string, any>
+    }
+  }> {
+    try {
+      if (!this.apiKey) {
+        throw new Error('OpenAI API 키가 설정되지 않았습니다.')
+      }
+
+      console.log(`[OpenAI] Function Calling 요청 - 모델: ${this.model}, 함수 수: ${functions.length}`)
+
+      const requestBody: any = {
+        model: this.model,
+        messages: messages.map(msg => ({
+          role: msg.role,
+          content: msg.content,
+        })),
+        temperature: options?.temperature || 0.3,
+        max_tokens: options?.maxTokens || 2000,
+        tools: functions.map(fn => ({
+          type: 'function',
+          function: {
+            name: fn.name,
+            description: fn.description,
+            parameters: fn.parameters,
+          },
+        })),
+      }
+
+      // 특정 함수 강제 호출
+      if (options?.functionCall) {
+        requestBody.tool_choice = typeof options.functionCall === 'string'
+          ? options.functionCall
+          : { type: 'function', function: { name: options.functionCall.name } }
+      }
+
+      const response = await axios.post(
+        `${this.baseUrl}/chat/completions`,
+        requestBody,
+        {
+          headers: {
+            'Authorization': `Bearer ${this.apiKey}`,
+            'Content-Type': 'application/json',
+          },
+          timeout: 60000,
+        }
+      )
+
+      const choice = response.data.choices[0]
+      const message = choice?.message
+
+      // Function Call 응답 처리
+      if (message?.tool_calls && message.tool_calls.length > 0) {
+        const toolCall = message.tool_calls[0]
+        let parsedArgs: Record<string, any> = {}
+        
+        try {
+          parsedArgs = JSON.parse(toolCall.function.arguments)
+        } catch (e) {
+          console.warn('[OpenAI] Function arguments 파싱 실패:', toolCall.function.arguments)
+        }
+
+        console.log(`[OpenAI] Function Call 성공 - 함수: ${toolCall.function.name}`)
+        
+        return {
+          content: message.content,
+          functionCall: {
+            name: toolCall.function.name,
+            arguments: parsedArgs,
+          },
+        }
+      }
+
+      return {
+        content: message?.content || '',
+      }
+    } catch (error: any) {
+      console.error('[OpenAI] Function Calling 오류:', error.message)
+      throw error
+    }
+  }
 }
 
 export const openaiService = new OpenAIService()

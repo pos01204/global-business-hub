@@ -147,11 +147,77 @@ export default function ChatPage() {
         sendMessageMutation.mutate(`이전 데이터를 ${action.data?.type || '차트'}로 시각화해줘`)
         break
       case 'export':
-        // 데이터 내보내기 (현재는 알림만)
-        alert('데이터 내보내기 기능은 준비 중입니다.')
+        // 데이터 내보내기
+        handleExportData(action.data)
+        break
+      case 'view_strategy':
+        // 전략 상세 보기
+        if (action.data?.strategies) {
+          sendMessageMutation.mutate(`전략을 더 자세히 설명해줘: ${JSON.stringify(action.data.strategies.slice(0, 2))}`)
+        } else {
+          sendMessageMutation.mutate('제안된 전략에 대해 더 자세히 설명해줘')
+        }
+        break
+      case 'generate_copy':
+        // 마케팅 카피 생성
+        sendMessageMutation.mutate('위 트렌드 데이터를 바탕으로 마케팅 카피를 생성해줘')
+        break
+      case 'export_segment':
+        // 세그먼트 내보내기
+        handleExportData(action.data)
+        break
+      case 'detail':
+        // 상세 분석
+        sendMessageMutation.mutate('이전 결과에 대해 더 자세히 분석해줘')
         break
       default:
-        console.log('Unknown action:', action)
+        // 알 수 없는 액션은 질문으로 변환
+        sendMessageMutation.mutate(`${action.label}에 대해 더 알려줘`)
+    }
+  }
+
+  // 데이터 내보내기 핸들러
+  const handleExportData = (data: any) => {
+    try {
+      // 마지막 메시지에서 데이터 찾기
+      const lastAssistantMessage = [...messages].reverse().find(m => m.role === 'assistant' && m.data)
+      const exportData = data?.segments || data || lastAssistantMessage?.data
+
+      if (!exportData || (Array.isArray(exportData) && exportData.length === 0)) {
+        alert('내보낼 데이터가 없습니다.')
+        return
+      }
+
+      // CSV 변환
+      const dataArray = Array.isArray(exportData) ? exportData : [exportData]
+      const headers = Object.keys(dataArray[0])
+      const csvContent = [
+        headers.join(','),
+        ...dataArray.map(row => 
+          headers.map(h => {
+            const val = row[h]
+            // 쉼표나 줄바꿈이 있으면 따옴표로 감싸기
+            if (typeof val === 'string' && (val.includes(',') || val.includes('\n'))) {
+              return `"${val.replace(/"/g, '""')}"`
+            }
+            return val ?? ''
+          }).join(',')
+        )
+      ].join('\n')
+
+      // 다운로드
+      const blob = new Blob(['\uFEFF' + csvContent], { type: 'text/csv;charset=utf-8;' })
+      const url = URL.createObjectURL(blob)
+      const link = document.createElement('a')
+      link.href = url
+      link.download = `export_${new Date().toISOString().split('T')[0]}.csv`
+      document.body.appendChild(link)
+      link.click()
+      document.body.removeChild(link)
+      URL.revokeObjectURL(url)
+    } catch (error) {
+      console.error('Export error:', error)
+      alert('데이터 내보내기 중 오류가 발생했습니다.')
     }
   }
 

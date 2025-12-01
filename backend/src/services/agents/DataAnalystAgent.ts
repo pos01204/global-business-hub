@@ -1,25 +1,39 @@
-import { BaseAgent, AgentContext, ToolResult } from './BaseAgent'
+import { BaseAgent, AgentContext } from './BaseAgent'
 import { intentClassifier, ExtractedIntent } from './IntentClassifier'
 import { queryOptimizer, OptimizedQuery } from './QueryOptimizer'
 
 export class DataAnalystAgent extends BaseAgent {
-  private systemPrompt = `당신은 데이터 분석 전문가입니다. 
-사용자의 자연어 질문을 분석하여 적절한 데이터 조회 및 분석을 수행합니다.
+  private systemPrompt = `당신은 글로벌 이커머스 데이터 분석 전문가입니다.
+idus Global의 크로스보더 이커머스 데이터를 분석하여 비즈니스 인사이트를 제공합니다.
 
 사용 가능한 데이터 소스:
 - order: 주문 정보 (order_code, order_created, user_id, Total GMV, platform, PG사, method)
-- logistics: 물류 추적 정보 (order_code, shipment_id, country, product_name, artist_name, 처리상태 등)
+- logistics: 물류 추적 정보 (order_code, shipment_id, country, product_name, artist_name (kr), 처리상태, 구매수량)
 - users: 사용자 정보 (ID, NAME, EMAIL, COUNTRY, CREATED_AT)
 - artists: 작가 정보 (작가명, 작품수 등)
 
-분석 시 다음을 고려하세요:
-1. 날짜 범위가 명시되지 않으면 최근 30일 데이터를 기본으로 사용
-2. 숫자 데이터는 USD 단위이며, 필요시 KRW로 변환 (환율 1350)
-3. 데이터가 없거나 부족한 경우 명확히 알려주세요
-4. 분석 결과는 구체적인 숫자와 함께 제시하세요
-5. 가능하면 트렌드나 패턴을 설명하세요
+분석 원칙:
+1. 구체적인 숫자와 함께 설명 (예: "매출 1,234 USD", "전월 대비 15% 증가")
+2. 데이터 기반 인사이트 제공 (단순 나열이 아닌 의미 해석)
+3. 비즈니스 관점의 시사점 포함
+4. 추가 분석이 필요한 경우 제안
 
-답변은 한국어로 작성하세요.`
+응답 형식:
+📊 **분석 결과 요약**
+- 핵심 지표 1~3개를 먼저 제시
+
+📈 **상세 분석**
+- 데이터에서 발견한 패턴이나 트렌드
+- 주목할 만한 포인트
+
+💡 **인사이트**
+- 비즈니스 관점의 해석
+- 개선 기회나 주의점
+
+참고:
+- 금액 단위: USD (필요시 KRW 환산, 환율 1,350원)
+- 국가 코드: JP(일본), US(미국), KR(한국), CN(중국), TW(대만), HK(홍콩)
+- 한국어로 답변하세요.`
 
   async process(query: string, context: AgentContext = {}): Promise<{
     response: string
@@ -658,45 +672,129 @@ export class DataAnalystAgent extends BaseAgent {
     query: string,
     results: { data: any; charts?: any[]; actions?: any[] },
     intent: ExtractedIntent | any,
-    suggestions?: string[]
+    _suggestions?: string[]
   ): Promise<string> {
     const intentType = typeof intent === 'object' && intent.intent ? intent.intent : (intent.intent || 'general_query')
-    const dataSummary = this.formatDataSummary(results.data, intentType)
 
     // 실제 데이터가 있는지 확인
     const hasData = Array.isArray(results.data) 
       ? results.data.length > 0 
       : results.data && Object.keys(results.data).length > 0
 
-    // 날짜 범위 정보 추가
+    if (!hasData) {
+      return this.getNoDataMessage(query, intent)
+    }
+
+    // 날짜 범위 정보
     const dateRange = typeof intent === 'object' && intent.entities?.dateRange
       ? intent.entities.dateRange
       : null
     const dateRangeInfo = dateRange
-      ? `\n요청한 날짜 범위: ${dateRange.start} ~ ${dateRange.end}`
-      : '\n날짜 범위: 전체 데이터'
+      ? `${dateRange.start} ~ ${dateRange.end}`
+      : '전체 기간'
+
+    // 데이터 요약 생성
+    const dataSummary = this.generateDetailedSummary(results.data, intentType)
 
     const prompt = `${this.systemPrompt}
 
-사용자 질문: ${query}
-${dateRangeInfo}
+사용자 질문: "${query}"
+분석 기간: ${dateRangeInfo}
+분석 유형: ${this.getIntentLabel(intentType)}
 
-분석 결과:
-${hasData ? JSON.stringify(dataSummary, null, 2) : '데이터가 없습니다.'}
+분석 데이터:
+${dataSummary}
 
-${hasData 
-  ? '위 분석 결과를 바탕으로 사용자에게 친절하고 전문적인 답변을 작성해주세요.'
-  : '데이터가 조회되지 않았습니다. 실제로 데이터가 존재하는지 확인하고, 날짜 범위가 올바른지 확인해주세요.'}
-- 구체적인 숫자와 함께 설명하세요
-- 트렌드나 패턴이 있다면 설명하세요
-- 인사이트나 제안이 있다면 포함하세요
-- 데이터가 없는 경우, 실제 데이터 범위를 확인한 후 정확히 알려주세요
-- 한국어로 답변하세요.`
+위 데이터를 바탕으로 응답 형식에 맞춰 분석 결과를 작성해주세요.
+- 핵심 수치를 먼저 제시하고, 의미를 해석해주세요
+- 비교 가능한 경우 증감률이나 순위 변화를 언급해주세요
+- 비즈니스 관점의 인사이트를 포함해주세요
+- 마크다운 형식을 사용하지 말고 일반 텍스트로 작성해주세요
+- 이모지는 섹션 구분에만 사용해주세요`
 
     return await this.openaiService.generate(prompt, {
-      temperature: 0.7,
+      temperature: 0.6,
       maxTokens: 1500,
     })
+  }
+
+  /**
+   * 의도 유형 라벨
+   */
+  private getIntentLabel(intent: string): string {
+    const labels: Record<string, string> = {
+      trend_analysis: '트렌드 분석',
+      comparison: '비교 분석',
+      aggregation: '집계 분석',
+      ranking: '랭킹 분석',
+      general_query: '일반 조회',
+      filter: '필터링',
+      join: '조인 분석',
+    }
+    return labels[intent] || '데이터 분석'
+  }
+
+  /**
+   * 상세 데이터 요약 생성
+   */
+  private generateDetailedSummary(data: any, intent: string): string {
+    if (!Array.isArray(data) || data.length === 0) {
+      return '데이터 없음'
+    }
+
+    const lines: string[] = []
+    lines.push(`총 ${data.length}건의 데이터`)
+
+    if (intent === 'trend_analysis') {
+      const totalGmv = data.reduce((sum: number, d: any) => sum + (Number(d.gmv) || 0), 0)
+      const totalOrders = data.reduce((sum: number, d: any) => sum + (Number(d.orderCount) || 0), 0)
+      const avgGmv = data.length > 0 ? totalGmv / data.length : 0
+      
+      lines.push(`- 총 매출: ${this.formatNumber(totalGmv)} USD`)
+      lines.push(`- 총 주문: ${totalOrders}건`)
+      lines.push(`- 일평균 매출: ${this.formatNumber(avgGmv)} USD`)
+      
+      // 트렌드 방향 계산
+      if (data.length >= 2) {
+        const firstHalf = data.slice(0, Math.floor(data.length / 2))
+        const secondHalf = data.slice(Math.floor(data.length / 2))
+        const firstAvg = firstHalf.reduce((s: number, d: any) => s + (Number(d.gmv) || 0), 0) / firstHalf.length
+        const secondAvg = secondHalf.reduce((s: number, d: any) => s + (Number(d.gmv) || 0), 0) / secondHalf.length
+        const changeRate = firstAvg > 0 ? ((secondAvg - firstAvg) / firstAvg * 100) : 0
+        lines.push(`- 추세: ${changeRate > 0 ? '상승' : changeRate < 0 ? '하락' : '유지'} (${changeRate > 0 ? '+' : ''}${changeRate.toFixed(1)}%)`)
+      }
+    } else if (intent === 'ranking') {
+      lines.push('\n상위 항목:')
+      data.slice(0, 5).forEach((d: any, i: number) => {
+        const name = d.name || d.category || d.artist_name || '알 수 없음'
+        const value = d.gmv || d.totalGmv || d['Total GMV'] || d.count || 0
+        lines.push(`${i + 1}. ${name}: ${this.formatNumber(value)} ${typeof value === 'number' && value > 100 ? 'USD' : '건'}`)
+      })
+    } else if (intent === 'comparison') {
+      lines.push('\n비교 항목:')
+      data.forEach((d: any) => {
+        const category = d.category || d.country || d.platform || '기타'
+        const gmv = d.gmv || d.totalGmv || 0
+        const count = d.count || d.orderCount || 0
+        lines.push(`- ${category}: ${this.formatNumber(gmv)} USD (${count}건)`)
+      })
+    } else {
+      // 일반 데이터
+      const sampleRow = data[0]
+      const keys = Object.keys(sampleRow).slice(0, 5)
+      lines.push(`컬럼: ${keys.join(', ')}`)
+      
+      // 숫자 컬럼 합계
+      for (const key of keys) {
+        const values = data.map((d: any) => Number(d[key])).filter((v: number) => !isNaN(v))
+        if (values.length > 0 && values.length === data.length) {
+          const sum = values.reduce((a: number, b: number) => a + b, 0)
+          lines.push(`- ${key} 합계: ${this.formatNumber(sum)}`)
+        }
+      }
+    }
+
+    return lines.join('\n')
   }
 
   /**
