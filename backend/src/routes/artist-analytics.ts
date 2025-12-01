@@ -810,7 +810,7 @@ router.get('/trend', async (req, res) => {
         };
       });
     
-    // 성장률 분포 계산
+    // 성장률 분포 계산 - 작가별 월간 GMV 기반
     const growthDistribution = {
       rapid: { count: 0, rate: 0 },
       growing: { count: 0, rate: 0 },
@@ -819,23 +819,57 @@ router.get('/trend', async (req, res) => {
       critical: { count: 0, rate: 0 },
     };
     
-    // 현재 월과 이전 월 비교
-    if (monthly.length >= 2) {
-      const currentMonthData = monthlyData.get(currentMonth);
-      const prevMonthKey = monthly[monthly.length - 2]?.month;
-      const prevMonthData = monthlyData.get(prevMonthKey);
+    // 작가별 월간 GMV 집계
+    const artistMonthlyGmv = new Map<string, Map<string, number>>();
+    
+    logisticsData.forEach((row: any) => {
+      const artistName = row['artist_name (kr)'];
+      if (!artistName) return;
       
-      if (currentMonthData && prevMonthData) {
-        // 각 작가별 성장률 계산 (간단 버전)
-        const activeCount = currentMonthData.activeArtists.size;
-        // 임시로 분포 설정
-        growthDistribution.growing.count = Math.round(activeCount * 0.3);
-        growthDistribution.stable.count = Math.round(activeCount * 0.4);
-        growthDistribution.declining.count = Math.round(activeCount * 0.2);
-        growthDistribution.rapid.count = Math.round(activeCount * 0.05);
-        growthDistribution.critical.count = Math.round(activeCount * 0.05);
+      const orderDate = new Date(row.order_created);
+      if (isNaN(orderDate.getTime())) return;
+      
+      const monthKey = `${orderDate.getFullYear()}-${String(orderDate.getMonth() + 1).padStart(2, '0')}`;
+      const gmv = cleanAndParseFloat(row['Total GMV']) * USD_TO_KRW;
+      
+      if (!artistMonthlyGmv.has(artistName)) {
+        artistMonthlyGmv.set(artistName, new Map());
       }
-    }
+      const artistData = artistMonthlyGmv.get(artistName)!;
+      artistData.set(monthKey, (artistData.get(monthKey) || 0) + gmv);
+    });
+    
+    // 현재 월과 이전 월 비교하여 성장률 계산
+    const prevMonth = new Date(now.getFullYear(), now.getMonth() - 1, 1);
+    const prevMonthKey = `${prevMonth.getFullYear()}-${String(prevMonth.getMonth() + 1).padStart(2, '0')}`;
+    
+    artistMonthlyGmv.forEach((monthlyGmv, artistName) => {
+      const currentGmv = monthlyGmv.get(currentMonth) || 0;
+      const prevGmv = monthlyGmv.get(prevMonthKey) || 0;
+      
+      // 두 달 모두 데이터가 있는 경우만 성장률 계산
+      if (currentGmv > 0 || prevGmv > 0) {
+        let growthRate = 0;
+        if (prevGmv > 0) {
+          growthRate = ((currentGmv - prevGmv) / prevGmv) * 100;
+        } else if (currentGmv > 0) {
+          growthRate = 100; // 신규 진입은 급성장으로 분류
+        }
+        
+        // 성장률에 따른 분류
+        if (growthRate >= 50) {
+          growthDistribution.rapid.count++;
+        } else if (growthRate >= 10) {
+          growthDistribution.growing.count++;
+        } else if (growthRate >= -10) {
+          growthDistribution.stable.count++;
+        } else if (growthRate >= -50) {
+          growthDistribution.declining.count++;
+        } else {
+          growthDistribution.critical.count++;
+        }
+      }
+    });
     
     const totalForRate = Object.values(growthDistribution).reduce((sum, d) => sum + d.count, 0);
     Object.keys(growthDistribution).forEach((key) => {

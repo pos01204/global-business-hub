@@ -16,6 +16,7 @@ export default function PerformanceTab({ dateRange, countryFilter }: Performance
   const [sortOrder, setSortOrder] = useState('desc')
   const [page, setPage] = useState(1)
   const [selectedArtist, setSelectedArtist] = useState<string | null>(null)
+  const [searchQuery, setSearchQuery] = useState('')
 
   const { data, isLoading, error } = useQuery({
     queryKey: ['artist-analytics-performance', dateRange, countryFilter, segment, sortBy, sortOrder, page],
@@ -130,7 +131,19 @@ export default function PerformanceTab({ dateRange, countryFilter }: Performance
       {/* 필터 및 액션 */}
       <div className="card">
         <div className="flex flex-wrap items-center justify-between gap-4">
-          <div className="flex items-center gap-4">
+          <div className="flex items-center gap-4 flex-wrap">
+            {/* 작가 검색 */}
+            <div className="flex items-center gap-2">
+              <span className="text-sm text-gray-500">🔍</span>
+              <input
+                type="text"
+                placeholder="작가명 검색..."
+                value={searchQuery}
+                onChange={(e) => { setSearchQuery(e.target.value); setPage(1); }}
+                className="px-3 py-1.5 border rounded-lg text-sm w-48 focus:ring-2 focus:ring-violet-500 focus:outline-none"
+              />
+            </div>
+            {/* 세그먼트 필터 */}
             <div className="flex items-center gap-2">
               <span className="text-sm text-gray-500">세그먼트:</span>
               <select
@@ -189,7 +202,11 @@ export default function PerformanceTab({ dateRange, countryFilter }: Performance
             </tr>
           </thead>
           <tbody>
-            {data.artists.map((artist: any) => (
+            {data.artists
+              .filter((artist: any) => 
+                !searchQuery || artist.artistName.toLowerCase().includes(searchQuery.toLowerCase())
+              )
+              .map((artist: any) => (
               <tr key={artist.artistName} className="border-b border-gray-100 hover:bg-gray-50">
                 <td className="py-3 px-4 font-medium">{artist.rank}</td>
                 <td className="py-3 px-4">
