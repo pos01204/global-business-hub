@@ -1399,11 +1399,13 @@ router.get('/selection', async (req, res) => {
       ], 0) || '';
     };
     
+    // I열 = 인덱스 8 (0부터 시작) - 작가 등록일 (Global)
     const getRegistrationDate = (artist: any): Date | null => {
       const value = findColumnValue(artist, [
-        '등록일', 'registration_date', 'created_at', '가입일', '입점일',
-        '계약일', 'contract_date', '시작일', 'start_date'
-      ]);
+        '작가 등록일 (Global)', '작가 등록일(Global)', '작가등록일(Global)',
+        '작가 등록일', '등록일', 'registration_date', 'created_at', 
+        '가입일', '입점일', '계약일', 'contract_date', '시작일', 'start_date'
+      ], 8);
       return parseDate(value);
     };
     
