@@ -510,12 +510,28 @@ router.post('/upload', upload.single('file'), async (req: Request, res: Response
     const withoutEmail = artistSummaries.length - withEmail;
     console.log(`[Sopo] 작가 ${artistSummaries.length}명 중 이메일 보유 ${withEmail}명, 미보유 ${withoutEmail}명`);
 
-    // 트래킹 시트에 저장 (중복 체크 포함)
-    let trackingResult = { added: 0, updated: 0, skipped: 0 };
+    // 트래킹 시트에 저장 (중복 체크 포함) - 필수 단계
+    let trackingResult = { added: 0, updated: 0, skipped: 0, error: null as string | null };
     try {
+      console.log(`[Sopo] 트래킹 데이터 저장 시작: ${artistSummaries.length}건`);
       trackingResult = await saveTrackingData(period, artistSummaries);
+      console.log(`[Sopo] 트래킹 데이터 저장 완료:`, trackingResult);
     } catch (e: any) {
-      console.warn('[Sopo] 트래킹 데이터 저장 실패:', e.message);
+      console.error('[Sopo] ❌ 트래킹 데이터 저장 실패:', e.message);
+      trackingResult.error = e.message;
+      
+      // 저장 실패 시에도 응답은 반환하되, 경고 포함
+    }
+
+    // 저장 실패 시 경고 메시지 포함
+    const warnings: string[] = [];
+    if (trackingResult.error) {
+      warnings.push(`트래킹 시트 저장 실패: ${trackingResult.error}. Sopo_tracking 시트가 존재하는지 확인해주세요.`);
+    }
+    if (trackingResult.added === 0 && artistSummaries.length > 0 && !trackingResult.error) {
+      if (trackingResult.skipped === artistSummaries.length) {
+        warnings.push(`모든 작가(${trackingResult.skipped}명)가 이미 등록되어 있습니다.`);
+      }
     }
 
     res.json({
@@ -535,7 +551,10 @@ router.post('/upload', upload.single('file'), async (req: Request, res: Response
         trackingStats: {
           newlyAdded: trackingResult.added,
           duplicatesSkipped: trackingResult.skipped,
+          saveError: trackingResult.error,
         },
+        // 경고 메시지
+        warnings: warnings.length > 0 ? warnings : undefined,
         artists: artistSummaries,
       },
     });
@@ -556,18 +575,37 @@ async function saveTrackingData(period: string, artists: any[]): Promise<{ added
     'jotform_submission_id', 'reminder_sent_at', 'receipt_issued_at', 'updated_at'
   ];
 
+  console.log(`[Sopo] saveTrackingData 시작 - period: ${period}, artists: ${artists.length}명`);
+  console.log(`[Sopo] 시트명: ${SHEET_NAMES.SOPO_TRACKING}`);
+
   let existingData: any[] = [];
+  let needsHeader = false;
   
   // 시트 존재 확인 및 헤더 생성
   try {
+    console.log('[Sopo] 기존 트래킹 데이터 조회 시도...');
     existingData = await sheetsService.getSheetDataAsJson(SHEET_NAMES.SOPO_TRACKING, false);
+    console.log(`[Sopo] 기존 데이터 조회 성공: ${existingData.length}건`);
+    
     if (existingData.length === 0) {
-      await sheetsService.appendRows(SHEET_NAMES.SOPO_TRACKING, [headers]);
-      console.log('[Sopo] 트래킹 시트 헤더 생성 완료');
+      needsHeader = true;
     }
-  } catch (e) {
-    console.log('[Sopo] 트래킹 시트 생성 시도');
-    await sheetsService.appendRows(SHEET_NAMES.SOPO_TRACKING, [headers]);
+  } catch (e: any) {
+    console.log(`[Sopo] 기존 데이터 조회 실패 (시트가 없거나 비어있음): ${e.message}`);
+    needsHeader = true;
+    existingData = [];
+  }
+
+  // 헤더가 필요한 경우 먼저 추가
+  if (needsHeader) {
+    try {
+      console.log('[Sopo] 헤더 행 추가 시도...');
+      await sheetsService.appendRows(SHEET_NAMES.SOPO_TRACKING, [headers]);
+      console.log('[Sopo] 헤더 행 추가 완료');
+    } catch (headerError: any) {
+      console.error(`[Sopo] ❌ 헤더 추가 실패: ${headerError.message}`);
+      throw new Error(`시트 헤더 생성 실패: ${headerError.message}. Google Sheets에 '${SHEET_NAMES.SOPO_TRACKING}' 시트가 존재하는지 확인해주세요.`);
+    }
   }
 
   // 기존 데이터에서 period + artist_name으로 인덱싱 (중복 체크용)
@@ -612,8 +650,14 @@ async function saveTrackingData(period: string, artists: any[]): Promise<{ added
   }
 
   if (newRows.length > 0) {
-    await sheetsService.appendRows(SHEET_NAMES.SOPO_TRACKING, newRows);
-    console.log(`[Sopo] 트래킹 데이터 신규 ${newRows.length}건 저장, 중복 ${skippedCount}건 건너뜀`);
+    try {
+      console.log(`[Sopo] ${newRows.length}건 데이터 저장 시도...`);
+      await sheetsService.appendRows(SHEET_NAMES.SOPO_TRACKING, newRows);
+      console.log(`[Sopo] ✅ 트래킹 데이터 ${newRows.length}건 저장 완료, 중복 ${skippedCount}건 건너뜀`);
+    } catch (appendError: any) {
+      console.error(`[Sopo] ❌ 데이터 저장 실패: ${appendError.message}`);
+      throw new Error(`데이터 저장 실패: ${appendError.message}`);
+    }
   } else {
     console.log(`[Sopo] 모든 데이터가 이미 존재합니다 (${skippedCount}건 중복)`);
   }
