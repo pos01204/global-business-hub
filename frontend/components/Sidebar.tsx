@@ -51,6 +51,7 @@ const navGroups: NavGroup[] = [
     items: [
       { href: '/analytics', label: '성과 분석', icon: '📈' },
       { href: '/customer-analytics', label: '고객 분석', icon: '👥' },
+      { href: '/artist-analytics', label: '작가 분석', icon: '👨‍🎨' },
       { href: '/cost-analysis', label: '비용 & 손익', icon: '💰' },
     ],
   },

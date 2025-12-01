@@ -1014,5 +1014,52 @@ export const customerAnalyticsApi = {
   },
 }
 
+// 작가 분석 API
+export const artistAnalyticsApi = {
+  // 개요
+  getOverview: async (params?: { dateRange?: string; countryFilter?: string }) => {
+    const response = await api.get('/api/artist-analytics/overview', { params })
+    return response.data
+  },
+
+  // 작가 성과 리스트
+  getPerformance: async (params?: {
+    dateRange?: string
+    country?: string
+    segment?: string
+    sort?: string
+    order?: string
+    page?: number
+    limit?: number
+  }) => {
+    const response = await api.get('/api/artist-analytics/performance', { params })
+    return response.data
+  },
+
+  // 작품 분석
+  getProducts: async (params?: { dateRange?: string; sort?: string; limit?: number }) => {
+    const response = await api.get('/api/artist-analytics/products', { params })
+    return response.data
+  },
+
+  // 성장 추이
+  getTrend: async (params?: { months?: number }) => {
+    const response = await api.get('/api/artist-analytics/trend', { params })
+    return response.data
+  },
+
+  // 건강도
+  getHealth: async () => {
+    const response = await api.get('/api/artist-analytics/health')
+    return response.data
+  },
+
+  // 작가 상세
+  getDetail: async (artistName: string, params?: { dateRange?: string }) => {
+    const response = await api.get(`/api/artist-analytics/detail/${encodeURIComponent(artistName)}`, { params })
+    return response.data
+  },
+}
+
 export default api
 
