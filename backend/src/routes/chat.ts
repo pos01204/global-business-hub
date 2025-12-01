@@ -9,6 +9,28 @@ interface ChatMessage {
   content: string
 }
 
+// 세션별 대화 컨텍스트 저장 (메모리 기반, 프로덕션에서는 Redis 등 사용 권장)
+const sessionContexts = new Map<string, {
+  lastQuery?: string
+  lastIntent?: string
+  lastData?: any
+  conversationCount: number
+  createdAt: Date
+}>()
+
+// 오래된 세션 정리 (1시간 이상)
+const cleanupOldSessions = () => {
+  const oneHourAgo = new Date(Date.now() - 60 * 60 * 1000)
+  for (const [sessionId, context] of sessionContexts.entries()) {
+    if (context.createdAt < oneHourAgo) {
+      sessionContexts.delete(sessionId)
+    }
+  }
+}
+
+// 5분마다 정리 실행
+setInterval(cleanupOldSessions, 5 * 60 * 1000)
+
 // 챗봇 메시지 전송 (고도화된 Agent 기반)
 router.post('/message', async (req, res) => {
   try {
@@ -35,17 +57,50 @@ router.post('/message', async (req, res) => {
       })
     }
 
+    // 세션 컨텍스트 가져오기 또는 생성
+    const effectiveSessionId = sessionId || `temp-${Date.now()}`
+    let sessionContext = sessionContexts.get(effectiveSessionId)
+    if (!sessionContext) {
+      sessionContext = {
+        conversationCount: 0,
+        createdAt: new Date(),
+      }
+      sessionContexts.set(effectiveSessionId, sessionContext)
+    }
+
+    // 대화 컨텍스트 강화
+    const enhancedHistory = history.slice(-10).map((h: any) => ({
+      role: h.role,
+      content: h.content,
+    }))
+
+    // 이전 대화 참조 감지 ("이전", "아까", "그", "그것" 등)
+    const referenceKeywords = ['이전', '아까', '그것', '그거', '위', '방금', '다시', '더']
+    const hasReference = referenceKeywords.some(kw => message.includes(kw))
+    
     // Agent Router 초기화
-    const router = new AgentRouter({
-      sessionId,
-      history: history.slice(-10), // 최근 10개 메시지만 사용
+    const agentRouter = new AgentRouter({
+      sessionId: effectiveSessionId,
+      history: enhancedHistory,
+      previousQuery: sessionContext.lastQuery,
+      previousIntent: sessionContext.lastIntent,
+      previousData: hasReference ? sessionContext.lastData : undefined,
     })
 
     // Agent를 통한 처리
-    const result = await router.route(message, agentType as AgentType, {
-      sessionId,
-      history: history.slice(-10),
+    const result = await agentRouter.route(message, agentType as AgentType, {
+      sessionId: effectiveSessionId,
+      history: enhancedHistory,
+      previousQuery: sessionContext.lastQuery,
+      previousIntent: sessionContext.lastIntent,
+      previousData: hasReference ? sessionContext.lastData : undefined,
     })
+
+    // 세션 컨텍스트 업데이트
+    sessionContext.lastQuery = message
+    sessionContext.lastIntent = agentType
+    sessionContext.lastData = result.data
+    sessionContext.conversationCount++
 
     res.json({
       success: true,
@@ -56,6 +111,10 @@ router.post('/message', async (req, res) => {
         charts: result.charts,
         actions: result.actions,
         timestamp: new Date().toISOString(),
+        sessionInfo: {
+          sessionId: effectiveSessionId,
+          conversationCount: sessionContext.conversationCount,
+        },
       },
     })
   } catch (error: any) {
@@ -63,6 +122,7 @@ router.post('/message', async (req, res) => {
     res.status(500).json({
       success: false,
       error: error.message || '메시지 처리 중 오류가 발생했습니다.',
+      suggestion: '잠시 후 다시 시도하거나, 다른 방식으로 질문해보세요.',
     })
   }
 })

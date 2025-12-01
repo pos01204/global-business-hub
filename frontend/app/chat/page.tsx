@@ -127,6 +127,34 @@ export default function ChatPage() {
     setInput('')
   }
 
+  // 액션 버튼 클릭 핸들러
+  const handleActionClick = (action: { label: string; action: string; data?: any }) => {
+    switch (action.action) {
+      case 'query':
+        // 새로운 질문 전송
+        if (action.data?.query) {
+          sendMessageMutation.mutate(action.data.query)
+        }
+        break
+      case 'switch_agent':
+        // Agent 전환
+        if (action.data?.agent) {
+          setSelectedAgent(action.data.agent as AgentType)
+        }
+        break
+      case 'visualize':
+        // 시각화 요청
+        sendMessageMutation.mutate(`이전 데이터를 ${action.data?.type || '차트'}로 시각화해줘`)
+        break
+      case 'export':
+        // 데이터 내보내기 (현재는 알림만)
+        alert('데이터 내보내기 기능은 준비 중입니다.')
+        break
+      default:
+        console.log('Unknown action:', action)
+    }
+  }
+
   // Enter 키 처리
   const handleKeyDown = (e: React.KeyboardEvent<HTMLTextAreaElement>) => {
     if (e.key === 'Enter' && !e.shiftKey) {
@@ -146,8 +174,13 @@ export default function ChatPage() {
       setMessages([
         {
           role: 'assistant',
-          content: '안녕하세요! 글로벌 비즈니스 허브 AI 어시스턴트입니다. 😊\n\n저는 다음과 같은 역할로 도움을 드릴 수 있습니다:\n\n📊 데이터 분석가: 데이터 조회, 분석, 통계, 트렌드 분석\n📈 퍼포먼스 마케터: 트렌드 추출, 마케팅 카피 생성, CRM 세그먼트\n💼 비즈니스 매니저: 전략 수립, 메트릭 예측, 시나리오 시뮬레이션\n\n위에서 역할을 선택하거나 "자동 선택"으로 두시면 질문 내용에 따라 자동으로 적절한 역할이 선택됩니다.\n\n무엇을 도와드릴까요?',
+          content: '안녕하세요! 글로벌 비즈니스 허브 AI 어시스턴트입니다. 😊\n\n저는 다음과 같은 역할로 도움을 드릴 수 있습니다:\n\n📊 **데이터 분석가**: 매출 조회, 트렌드 분석, 랭킹, 비교 분석\n📈 **퍼포먼스 마케터**: 트렌드 추출, 마케팅 카피 생성, CRM 세그먼트\n💼 **비즈니스 매니저**: 전략 수립, 메트릭 예측, 시나리오 시뮬레이션\n\n💡 **Tip**: "자동 선택"으로 두시면 질문에 맞는 역할이 자동 선택됩니다.\n\n아래 빠른 시작 버튼을 클릭하거나, 자유롭게 질문해주세요!',
           timestamp: new Date().toISOString(),
+          actions: [
+            { label: '📊 최근 매출 현황', action: 'query', data: { query: '최근 30일 매출 현황 알려줘' } },
+            { label: '🏆 작가 랭킹', action: 'query', data: { query: '상위 10개 작가 매출 순위' } },
+            { label: '🌏 국가별 비교', action: 'query', data: { query: '국가별 주문 현황 비교해줘' } },
+          ],
         },
       ])
     }
@@ -300,6 +333,29 @@ export default function ChatPage() {
             </div>
           )}
 
+          {/* 추가 빠른 질문 버튼 (대화 진행 중) */}
+          {messages.length > 1 && messages.length < 4 && isConnected && (
+            <div className="bg-blue-50 border border-blue-100 rounded-lg p-3">
+              <p className="text-xs text-blue-600 mb-2">💡 더 시도해볼 수 있는 질문</p>
+              <div className="flex flex-wrap gap-2">
+                {[
+                  '일본 주문 트렌드 분석해줘',
+                  '이번 달 국가별 주문 비교',
+                  '마케팅 성과 분석해줘',
+                ].map((quickQuery, idx) => (
+                  <button
+                    key={idx}
+                    onClick={() => sendMessageMutation.mutate(quickQuery)}
+                    disabled={sendMessageMutation.isPending}
+                    className="px-2 py-1 bg-white hover:bg-blue-100 rounded text-xs transition-colors disabled:opacity-50 border border-blue-200"
+                  >
+                    {quickQuery}
+                  </button>
+                ))}
+              </div>
+            </div>
+          )}
+
           {messages.map((message, index) => (
             <div
               key={index}
@@ -375,11 +431,9 @@ export default function ChatPage() {
                     {message.actions.map((action, actionIndex) => (
                       <button
                         key={actionIndex}
-                        onClick={() => {
-                          // 액션 처리 로직 (필요시 구현)
-                          console.log('Action clicked:', action)
-                        }}
-                        className="px-3 py-1.5 bg-gray-100 hover:bg-gray-200 rounded-lg text-sm font-medium transition-colors"
+                        onClick={() => handleActionClick(action)}
+                        disabled={sendMessageMutation.isPending}
+                        className="px-3 py-1.5 bg-gray-100 hover:bg-gray-200 rounded-lg text-sm font-medium transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
                       >
                         {action.label}
                       </button>

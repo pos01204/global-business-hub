@@ -5,12 +5,20 @@ import { AgentContext } from './BaseAgent'
 
 export type AgentType = 'data_analyst' | 'performance_marketer' | 'business_manager' | 'auto'
 
+export interface EnhancedAgentContext extends AgentContext {
+  previousQuery?: string
+  previousIntent?: string
+  previousData?: any
+}
+
 export class AgentRouter {
   private dataAnalyst: DataAnalystAgent
   private performanceMarketer: PerformanceMarketerAgent
   private businessManager: BusinessManagerAgent
+  private context: EnhancedAgentContext
 
-  constructor(context: AgentContext = {}) {
+  constructor(context: EnhancedAgentContext = {}) {
+    this.context = context
     this.dataAnalyst = new DataAnalystAgent(context)
     this.performanceMarketer = new PerformanceMarketerAgent(context)
     this.businessManager = new BusinessManagerAgent(context)
@@ -19,15 +27,18 @@ export class AgentRouter {
   /**
    * Agent 선택 및 라우팅
    */
-  async route(query: string, agentType: AgentType = 'auto', context: AgentContext = {}): Promise<{
+  async route(query: string, agentType: AgentType = 'auto', context: EnhancedAgentContext = {}): Promise<{
     agent: string
     response: string
     data?: any
     charts?: any[]
     actions?: Array<{ label: string; action: string; data?: any }>
   }> {
+    // 이전 대화 참조 처리
+    const enhancedQuery = this.enhanceQueryWithContext(query, context)
+    
     // Agent 타입 결정
-    const selectedAgentType = agentType === 'auto' ? await this.classifyIntent(query) : agentType
+    const selectedAgentType = agentType === 'auto' ? await this.classifyIntent(enhancedQuery) : agentType
 
     // 적절한 Agent 선택
     let agent: DataAnalystAgent | PerformanceMarketerAgent | BusinessManagerAgent
@@ -51,13 +62,45 @@ export class AgentRouter {
         agentName = '데이터 분석가'
     }
 
-    // Agent 실행
-    const result = await agent.process(query, context)
+    // Agent 실행 (강화된 컨텍스트 전달)
+    const result = await agent.process(enhancedQuery, {
+      ...context,
+      previousQuery: this.context.previousQuery,
+      previousData: this.context.previousData,
+    })
 
     return {
       agent: agentName,
       ...result,
     }
+  }
+
+  /**
+   * 이전 대화 컨텍스트를 활용하여 쿼리 강화
+   */
+  private enhanceQueryWithContext(query: string, context: EnhancedAgentContext): string {
+    // 참조 키워드 감지
+    const referencePatterns = [
+      { pattern: /^(그|그것|그거|이것|이거)을?\s*(더|자세히|상세히)/i, type: 'detail' },
+      { pattern: /^(이전|아까|방금)\s*(데이터|결과|분석)/i, type: 'previous' },
+      { pattern: /^(다시|한번\s*더)/i, type: 'repeat' },
+      { pattern: /(위|위의)\s*(데이터|결과|내용)/i, type: 'previous' },
+    ]
+
+    for (const { pattern, type } of referencePatterns) {
+      if (pattern.test(query) && context.previousQuery) {
+        switch (type) {
+          case 'detail':
+            return `${context.previousQuery}에 대해 더 자세히 분석해줘. 추가 요청: ${query}`
+          case 'previous':
+            return `이전 질문 "${context.previousQuery}"의 결과를 바탕으로: ${query}`
+          case 'repeat':
+            return context.previousQuery
+        }
+      }
+    }
+
+    return query
   }
 
   /**

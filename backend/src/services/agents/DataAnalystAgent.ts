@@ -66,11 +66,20 @@ export class DataAnalystAgent extends BaseAgent {
       if (!validation.valid && validation.errors.length > 0) {
         return {
           response: `쿼리 오류가 발견되었습니다:\n${validation.errors.join('\n')}\n\n제안: ${validation.suggestions.join('\n')}`,
+          actions: this.getSuggestedActions(query),
         }
       }
 
       // 최적화된 쿼리 실행
       const results = await this.executeOptimizedQuery(optimizedQuery, extractedIntent.intent)
+
+      // 데이터가 없는 경우 친화적 메시지
+      if (!results.data || (Array.isArray(results.data) && results.data.length === 0)) {
+        return {
+          response: this.getNoDataMessage(query, extractedIntent),
+          actions: this.getSuggestedActions(query),
+        }
+      }
 
       // LLM을 통한 자연어 응답 생성
       const response = await this.generateResponse(
@@ -84,7 +93,7 @@ export class DataAnalystAgent extends BaseAgent {
         response,
         data: results.data,
         charts: results.charts,
-        actions: results.actions,
+        actions: this.getContextualActions(extractedIntent.intent, results.data),
       }
     } catch (error: any) {
       console.error('[DataAnalystAgent] 오류:', error)
@@ -98,14 +107,93 @@ export class DataAnalystAgent extends BaseAgent {
           response,
           data: results.data,
           charts: results.charts,
-          actions: results.actions,
+          actions: this.getContextualActions(analysis.intent, results.data),
         }
       } catch (fallbackError: any) {
+        console.error('[DataAnalystAgent] 폴백도 실패:', fallbackError)
         return {
-          response: `분석 중 오류가 발생했습니다: ${error.message}`,
+          response: this.getUserFriendlyErrorMessage(error),
+          actions: this.getSuggestedActions(query),
         }
       }
     }
+  }
+
+  /**
+   * 사용자 친화적 에러 메시지 생성
+   */
+  private getUserFriendlyErrorMessage(error: any): string {
+    const errorMessage = error?.message || '알 수 없는 오류'
+    
+    if (errorMessage.includes('API') || errorMessage.includes('OpenAI')) {
+      return '🔄 AI 서비스 연결에 일시적인 문제가 있습니다. 잠시 후 다시 시도해주세요.'
+    }
+    if (errorMessage.includes('timeout') || errorMessage.includes('TIMEOUT')) {
+      return '⏱️ 요청 처리 시간이 초과되었습니다. 더 구체적인 조건으로 다시 질문해주세요.'
+    }
+    if (errorMessage.includes('sheet') || errorMessage.includes('Sheet')) {
+      return '📊 데이터 소스 연결에 문제가 있습니다. 관리자에게 문의해주세요.'
+    }
+    
+    return `분석 중 문제가 발생했습니다. 다른 방식으로 질문해보시거나, 잠시 후 다시 시도해주세요.\n\n💡 예시 질문:\n- "최근 30일 매출 현황 알려줘"\n- "일본 주문 트렌드 분석해줘"\n- "상위 10개 작가 매출 순위"`
+  }
+
+  /**
+   * 데이터 없음 메시지 생성
+   */
+  private getNoDataMessage(query: string, intent: ExtractedIntent): string {
+    const dateRange = intent.entities.dateRange
+    const dateInfo = dateRange 
+      ? `(${dateRange.start} ~ ${dateRange.end})` 
+      : '(전체 기간)'
+    
+    return `📭 요청하신 조건에 해당하는 데이터가 없습니다 ${dateInfo}\n\n다음을 확인해보세요:\n- 날짜 범위가 올바른지 확인\n- 필터 조건이 너무 제한적이지 않은지 확인\n- 다른 기간이나 조건으로 다시 시도`
+  }
+
+  /**
+   * 제안 액션 생성
+   */
+  private getSuggestedActions(query: string): Array<{ label: string; action: string; data?: any }> {
+    return [
+      { label: '📊 최근 30일 매출 보기', action: 'query', data: { query: '최근 30일 매출 현황 알려줘' } },
+      { label: '🏆 작가 랭킹 보기', action: 'query', data: { query: '상위 10개 작가 매출 순위' } },
+      { label: '🌏 국가별 현황', action: 'query', data: { query: '국가별 주문 현황 비교' } },
+    ]
+  }
+
+  /**
+   * 컨텍스트 기반 액션 생성
+   */
+  private getContextualActions(intent: string, data: any): Array<{ label: string; action: string; data?: any }> {
+    const actions: Array<{ label: string; action: string; data?: any }> = []
+
+    switch (intent) {
+      case 'trend_analysis':
+        actions.push(
+          { label: '📈 기간 확장하기', action: 'query', data: { query: '최근 90일 트렌드 분석' } },
+          { label: '🔍 상세 분석', action: 'query', data: { query: '일별 상세 매출 데이터' } }
+        )
+        break
+      case 'ranking':
+        actions.push(
+          { label: '📊 차트로 보기', action: 'visualize', data: { type: 'bar' } },
+          { label: '📥 데이터 내보내기', action: 'export', data: { format: 'csv' } }
+        )
+        break
+      case 'comparison':
+        actions.push(
+          { label: '📈 트렌드 비교', action: 'query', data: { query: '월별 추이 비교' } },
+          { label: '🎯 세그먼트 분석', action: 'switch_agent', data: { agent: 'performance_marketer' } }
+        )
+        break
+      default:
+        actions.push(
+          { label: '📊 시각화하기', action: 'visualize', data: { type: 'auto' } },
+          { label: '🔄 더 자세히', action: 'query', data: { query: '더 자세한 분석 부탁해' } }
+        )
+    }
+
+    return actions
   }
 
   /**
@@ -621,23 +709,39 @@ ${hasData
       }
 
       if (intent === 'trend_analysis') {
-        const totalGmv = data.reduce((sum: number, d: any) => sum + (d.gmv || 0), 0)
-        const totalOrders = data.reduce((sum: number, d: any) => sum + (d.orderCount || 0), 0)
-        return `총 ${data.length}일간의 데이터: 총 매출 ${totalGmv.toLocaleString()} USD, 총 주문 ${totalOrders}건`
+        const totalGmv = data.reduce((sum: number, d: any) => sum + (Number(d.gmv) || 0), 0)
+        const totalOrders = data.reduce((sum: number, d: any) => sum + (Number(d.orderCount) || 0), 0)
+        return `총 ${data.length}일간의 데이터: 총 매출 ${this.formatNumber(totalGmv)} USD, 총 주문 ${totalOrders}건`
       }
 
       if (intent === 'ranking') {
-        return `상위 ${data.length}개 항목:\n${data.slice(0, 5).map((d, i) => `${i + 1}. ${d.name}: ${d.gmv.toLocaleString()} USD`).join('\n')}`
+        const validData = data.filter((d: any) => d && d.name != null)
+        if (validData.length === 0) {
+          return `총 ${data.length}건의 데이터 (랭킹 형식 아님)`
+        }
+        return `상위 ${validData.length}개 항목:\n${validData.slice(0, 5).map((d: any, i: number) => `${i + 1}. ${d.name || '알 수 없음'}: ${this.formatNumber(d.gmv || d.totalGmv || d['Total GMV'] || 0)} USD`).join('\n')}`
       }
 
-      return `총 ${data.length}건의 데이터`
+      // 일반 데이터 요약
+      const sampleRow = data[0]
+      const columns = Object.keys(sampleRow || {}).slice(0, 5)
+      return `총 ${data.length}건의 데이터 (컬럼: ${columns.join(', ')}${Object.keys(sampleRow || {}).length > 5 ? ' 외 ' + (Object.keys(sampleRow || {}).length - 5) + '개' : ''})`
     }
 
-    if (typeof data === 'object') {
+    if (typeof data === 'object' && data !== null) {
       return JSON.stringify(data, null, 2)
     }
 
-    return String(data)
+    return String(data || '데이터 없음')
+  }
+
+  /**
+   * 숫자 포맷팅 헬퍼
+   */
+  private formatNumber(value: any): string {
+    const num = Number(value)
+    if (isNaN(num)) return '0'
+    return num.toLocaleString('ko-KR', { maximumFractionDigits: 2 })
   }
 
   /**

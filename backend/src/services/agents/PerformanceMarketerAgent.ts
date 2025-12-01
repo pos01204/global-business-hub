@@ -35,10 +35,36 @@ export class PerformanceMarketerAgent extends BaseAgent {
           return await this.handleGeneralQuery(query)
       }
     } catch (error: any) {
+      console.error('[PerformanceMarketerAgent] 오류:', error)
       return {
-        response: `마케팅 분석 중 오류가 발생했습니다: ${error.message}`,
+        response: this.getUserFriendlyErrorMessage(error),
+        actions: this.getSuggestedActions(),
       }
     }
+  }
+
+  /**
+   * 사용자 친화적 에러 메시지
+   */
+  private getUserFriendlyErrorMessage(error: any): string {
+    const errorMessage = error?.message || '알 수 없는 오류'
+    
+    if (errorMessage.includes('API') || errorMessage.includes('OpenAI')) {
+      return '🔄 AI 서비스 연결에 일시적인 문제가 있습니다. 잠시 후 다시 시도해주세요.'
+    }
+    
+    return `마케팅 분석 중 문제가 발생했습니다. 다시 시도해주세요.\n\n💡 시도해볼 수 있는 질문:\n- "최근 트렌드 작품 추출해줘"\n- "VIP 고객 세그먼트 만들어줘"\n- "마케팅 성과 분석해줘"`
+  }
+
+  /**
+   * 제안 액션
+   */
+  private getSuggestedActions(): Array<{ label: string; action: string; data?: any }> {
+    return [
+      { label: '📈 트렌드 분석', action: 'query', data: { query: '최근 30일 트렌드 작품 추출해줘' } },
+      { label: '👥 세그먼트 생성', action: 'query', data: { query: 'VIP 고객 세그먼트 만들어줘' } },
+      { label: '📊 성과 분석', action: 'query', data: { query: '마케팅 채널별 성과 분석해줘' } },
+    ]
   }
 
   /**

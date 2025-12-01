@@ -35,10 +35,36 @@ export class BusinessManagerAgent extends BaseAgent {
           return await this.handleGeneralQuery(query)
       }
     } catch (error: any) {
+      console.error('[BusinessManagerAgent] 오류:', error)
       return {
-        response: `비즈니스 분석 중 오류가 발생했습니다: ${error.message}`,
+        response: this.getUserFriendlyErrorMessage(error),
+        actions: this.getSuggestedActions(),
       }
     }
+  }
+
+  /**
+   * 사용자 친화적 에러 메시지
+   */
+  private getUserFriendlyErrorMessage(error: any): string {
+    const errorMessage = error?.message || '알 수 없는 오류'
+    
+    if (errorMessage.includes('API') || errorMessage.includes('OpenAI')) {
+      return '🔄 AI 서비스 연결에 일시적인 문제가 있습니다. 잠시 후 다시 시도해주세요.'
+    }
+    
+    return `비즈니스 분석 중 문제가 발생했습니다. 다시 시도해주세요.\n\n💡 시도해볼 수 있는 질문:\n- "매출 증대 전략 제안해줘"\n- "다음 분기 매출 예측해줘"\n- "비즈니스 인사이트 생성해줘"`
+  }
+
+  /**
+   * 제안 액션
+   */
+  private getSuggestedActions(): Array<{ label: string; action: string; data?: any }> {
+    return [
+      { label: '📋 전략 분석', action: 'query', data: { query: '매출 증대 전략 제안해줘' } },
+      { label: '🔮 매출 예측', action: 'query', data: { query: '다음 분기 매출 예측해줘' } },
+      { label: '💡 인사이트', action: 'query', data: { query: '비즈니스 인사이트 생성해줘' } },
+    ]
   }
 
   /**
