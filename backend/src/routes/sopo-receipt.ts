@@ -312,8 +312,22 @@ router.post('/upload', upload.single('file'), async (req: Request, res: Response
       return res.status(400).json({ success: false, error: '파일이 없습니다.' });
     }
 
-    const period = req.body.period || new Date().toISOString().slice(0, 7);
-    console.log(`[Sopo] 선적 CSV 업로드: ${req.file.originalname}, 기간: ${period}`);
+    // 파일명에서 기간 자동 추출 (예: "BACKPA_11월_선적내역_추출_20251201" → "2025-11")
+    const filename = req.file.originalname;
+    let period = req.body.period || new Date().toISOString().slice(0, 7);
+    
+    // 파일명에서 월 추출 시도 (예: "11월", "12월")
+    const monthMatch = filename.match(/(\d{1,2})월/);
+    if (monthMatch) {
+      const month = parseInt(monthMatch[1]);
+      // 파일명에서 연도 추출 시도 (예: "20251201" 또는 "2025")
+      const yearMatch = filename.match(/20(\d{2})/);
+      const year = yearMatch ? `20${yearMatch[1]}` : new Date().getFullYear().toString();
+      period = `${year}-${String(month).padStart(2, '0')}`;
+      console.log(`[Sopo] 파일명에서 기간 추출: ${filename} → ${period}`);
+    }
+    
+    console.log(`[Sopo] 선적 CSV 업로드: ${filename}, 기간: ${period}`);
 
     // CSV 파싱
     const csvContent = req.file.buffer.toString('utf-8');
@@ -570,12 +584,12 @@ router.post('/upload', upload.single('file'), async (req: Request, res: Response
  * - 새로운 작가는 추가
  */
 async function saveTrackingData(period: string, artists: any[]): Promise<{ added: number; updated: number; skipped: number }> {
-  // 시트 컬럼 순서 (artist_id 제외)
+  // 시트 컬럼 순서 (shipment_ids 추가 - 이메일 발송 시 해당 기간 주문 필터링용)
   const headers = [
     'period', 'artist_name', 'artist_email', 'order_count', 
     'total_amount', 'notification_sent_at', 'application_status', 
     'application_submitted_at', 'jotform_submission_id', 'reminder_sent_at', 
-    'receipt_issued_at', 'updated_at'
+    'receipt_issued_at', 'updated_at', 'shipment_ids'
   ];
 
   console.log(`[Sopo] ========================================`);
@@ -665,9 +679,16 @@ async function saveTrackingData(period: string, artists: any[]): Promise<{ added
       // L열: updated_at (항상 업데이트)
       updateBatch.push({ range: `L${rowNum}`, value: now });
       
+      // M열: shipment_ids (항상 업데이트 - 해당 기간 선적 ID 목록)
+      const shipmentIds = [...new Set(artist.orders?.map((o: any) => o.shipmentId) || [])].join(',');
+      updateBatch.push({ range: `M${rowNum}`, value: shipmentIds });
+      
       updatedCount++;
     } else {
       // 새로운 데이터 추가 (시트 컬럼 순서에 맞춤)
+      // shipment_ids: 해당 기간 선적 ID 목록 (이메일 발송 시 주문 필터링용)
+      const shipmentIds = [...new Set(artist.orders?.map((o: any) => o.shipmentId) || [])].join(',');
+      
       newRows.push([
         period,                      // A: period
         artist.artistName,           // B: artist_name
@@ -681,6 +702,7 @@ async function saveTrackingData(period: string, artists: any[]): Promise<{ added
         '',                          // J: reminder_sent_at
         '',                          // K: receipt_issued_at
         now,                         // L: updated_at
+        shipmentIds,                 // M: shipment_ids
       ]);
     }
   }
@@ -1041,12 +1063,23 @@ router.post('/notify', async (req: Request, res: Response) => {
         const periodDisplay = formatPeriodDisplay(period);
         const orderCount = parseInt(artist.order_count) || 0;
         
-        // 해당 작가의 주문내역서 생성 (금액 계산 + CSV 첨부용)
+        // 해당 기간의 선적 ID 목록 (트래킹 시트에서 가져온 shipment_ids)
+        const shipmentIdList = (artist.shipment_ids || '').split(',').filter((id: string) => id.trim());
+        
+        // 해당 작가 + 해당 기간 선적 ID에 해당하는 주문만 필터링
         const artistOrders = logisticsData.filter((row: any) => {
           const rowArtist = row['artist_name (kr)'] || row['artist_name(kr)'] || 
                             row.artist_name_kr || row.artist_name || row.artist || '';
-          return rowArtist === artist.artist_name;
+          const rowShipmentId = String(row.shipment_id || '').trim();
+          
+          // 작가명 일치 + (shipment_ids가 있으면 해당 선적만, 없으면 전체)
+          const isArtistMatch = rowArtist === artist.artist_name;
+          const isShipmentMatch = shipmentIdList.length === 0 || shipmentIdList.includes(rowShipmentId);
+          
+          return isArtistMatch && isShipmentMatch;
         });
+
+        console.log(`[Sopo] ${artist.artist_name}: ${artistOrders.length}건 주문 (shipment_ids: ${shipmentIdList.length}개)`);
 
         // 주문내역서 형식으로 변환
         const orderSheet = artistOrders.map((row: any) => {
