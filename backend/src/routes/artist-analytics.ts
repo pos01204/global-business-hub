@@ -81,6 +81,45 @@ function getDateRange(dateRange: string): { start: Date; end: Date; prevStart: D
 
 
 /**
+ * 디버그 API - 시트 데이터 구조 확인
+ * GET /api/artist-analytics/debug
+ */
+router.get('/debug', async (req, res) => {
+  try {
+    const [logisticsData, artistsData, reviewData] = await Promise.all([
+      sheetsService.getSheetDataAsJson(SHEET_NAMES.LOGISTICS, true),
+      sheetsService.getSheetDataAsJson(SHEET_NAMES.ARTISTS, false),
+      sheetsService.getSheetDataAsJson(SHEET_NAMES.REVIEW, false).catch(() => []),
+    ]);
+    
+    res.json({
+      success: true,
+      sheets: {
+        logistics: {
+          count: logisticsData.length,
+          columns: logisticsData[0] ? Object.keys(logisticsData[0]) : [],
+          sample: logisticsData.slice(0, 3),
+        },
+        artists: {
+          count: artistsData.length,
+          columns: artistsData[0] ? Object.keys(artistsData[0]) : [],
+          sample: artistsData.slice(0, 3),
+        },
+        review: {
+          count: reviewData.length,
+          columns: reviewData[0] ? Object.keys(reviewData[0]) : [],
+          sample: reviewData.slice(0, 3),
+        },
+      },
+      sheetNames: SHEET_NAMES,
+    });
+  } catch (error: any) {
+    res.status(500).json({ success: false, error: error.message });
+  }
+});
+
+
+/**
  * 작가 분석 개요 API
  * GET /api/artist-analytics/overview
  */
@@ -99,6 +138,15 @@ router.get('/overview', async (req, res) => {
       sheetsService.getSheetDataAsJson(SHEET_NAMES.ARTISTS, false),
       sheetsService.getSheetDataAsJson(SHEET_NAMES.REVIEW, false).catch(() => []),
     ]);
+    
+    // 디버깅 로그
+    console.log('[ArtistAnalytics] Data loaded:', {
+      logisticsCount: logisticsData.length,
+      artistsCount: artistsData.length,
+      reviewCount: reviewData.length,
+      logisticsSample: logisticsData[0] ? Object.keys(logisticsData[0]) : [],
+      artistsSample: artistsData[0] ? Object.keys(artistsData[0]) : [],
+    });
     
     // 기간 필터링
     const filteredLogistics = logisticsData.filter((row: any) => {
@@ -238,6 +286,16 @@ router.get('/overview', async (req, res) => {
       .sort((a, b) => b.gmv - a.gmv)
       .slice(0, 10);
     
+    // 디버그 정보 추가
+    console.log('[ArtistAnalytics] Overview result:', {
+      totalArtists,
+      activeArtists,
+      totalProducts,
+      soldProducts,
+      filteredLogisticsCount: filteredLogistics.length,
+      dateRange: { start: start.toISOString(), end: end.toISOString() },
+    });
+    
     res.json({
       success: true,
       summary: {
@@ -256,6 +314,13 @@ router.get('/overview', async (req, res) => {
       distribution: {
         byRevenue: revenueDistribution,
         byCountry,
+      },
+      _debug: {
+        logisticsTotal: logisticsData.length,
+        logisticsFiltered: filteredLogistics.length,
+        artistsTotal: artistsData.length,
+        reviewsTotal: reviewData.length,
+        dateRange: { start: start.toISOString(), end: end.toISOString() },
       },
     });
   } catch (error: any) {

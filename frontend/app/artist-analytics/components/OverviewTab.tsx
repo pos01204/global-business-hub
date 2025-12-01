@@ -42,11 +42,23 @@ export default function OverviewTab({ dateRange, countryFilter }: OverviewTabPro
     return (
       <div className="card bg-red-50 border-red-200 p-6">
         <p className="text-red-600">데이터를 불러오는 중 오류가 발생했습니다.</p>
+        <p className="text-sm text-gray-500 mt-2">
+          {error?.message || data?.error || '알 수 없는 오류'}
+        </p>
       </div>
     )
   }
 
   const { summary, distribution } = data
+  
+  // 데이터가 없는 경우 기본값 설정
+  if (!summary || !distribution) {
+    return (
+      <div className="card bg-yellow-50 border-yellow-200 p-6">
+        <p className="text-yellow-600">데이터가 없습니다. 시트 연결 상태를 확인해주세요.</p>
+      </div>
+    )
+  }
 
   // 매출 구간별 분포 차트 데이터
   const segmentChartData = {
