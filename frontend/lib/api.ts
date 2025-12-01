@@ -1059,6 +1059,12 @@ export const artistAnalyticsApi = {
     const response = await api.get(`/api/artist-analytics/detail/${encodeURIComponent(artistName)}`, { params })
     return response.data
   },
+
+  // 셀렉션 관리
+  getSelection: async (params?: { months?: number }) => {
+    const response = await api.get('/api/artist-analytics/selection', { params })
+    return response.data
+  },
 }
 
 export default api

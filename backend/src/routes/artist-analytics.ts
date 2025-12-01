@@ -1312,4 +1312,277 @@ router.get('/detail/:artistName', async (req, res) => {
   }
 });
 
+/**
+ * 셀렉션 관리 API
+ * GET /api/artist-analytics/selection
+ */
+router.get('/selection', async (req, res) => {
+  try {
+    const months = parseInt(req.query.months as string) || 12;
+    
+    const [artistsData, logisticsData] = await Promise.all([
+      sheetsService.getSheetDataAsJson(SHEET_NAMES.ARTISTS, false),
+      sheetsService.getSheetDataAsJson(SHEET_NAMES.LOGISTICS, true),
+    ]);
+    
+    const now = new Date();
+    
+    // 작가별 판매 데이터 집계
+    const artistSalesData = new Map<string, {
+      firstSaleDate: Date | null;
+      lastSaleDate: Date | null;
+      totalGmv: number;
+      orderCount: number;
+    }>();
+    
+    logisticsData.forEach((row: any) => {
+      const artistName = row['artist_name (kr)'];
+      if (!artistName) return;
+      
+      const orderDate = new Date(row.order_created);
+      if (isNaN(orderDate.getTime())) return;
+      
+      if (!artistSalesData.has(artistName)) {
+        artistSalesData.set(artistName, {
+          firstSaleDate: null,
+          lastSaleDate: null,
+          totalGmv: 0,
+          orderCount: 0,
+        });
+      }
+      
+      const data = artistSalesData.get(artistName)!;
+      if (!data.firstSaleDate || orderDate < data.firstSaleDate) {
+        data.firstSaleDate = orderDate;
+      }
+      if (!data.lastSaleDate || orderDate > data.lastSaleDate) {
+        data.lastSaleDate = orderDate;
+      }
+      data.totalGmv += cleanAndParseFloat(row['Total GMV']) * USD_TO_KRW;
+      data.orderCount++;
+    });
+    
+    // 작가 데이터 파싱 - 다양한 컬럼명 패턴 지원
+    const parseDate = (value: any): Date | null => {
+      if (!value) return null;
+      const date = new Date(value);
+      return isNaN(date.getTime()) ? null : date;
+    };
+    
+    const getArtistName = (artist: any): string => {
+      return artist['(KR)작가명'] || artist['artist_name (kr)'] || artist['작가명'] || 
+             artist.artist_name_kr || artist.name_kr || artist.name || '';
+    };
+    
+    const getRegistrationDate = (artist: any): Date | null => {
+      return parseDate(
+        artist['등록일'] || artist['registration_date'] || artist['created_at'] || 
+        artist['가입일'] || artist['입점일']
+      );
+    };
+    
+    const getDeletionDate = (artist: any): Date | null => {
+      return parseDate(
+        artist['삭제일'] || artist['deletion_date'] || artist['deleted_at'] || 
+        artist['탈퇴일'] || artist['이탈일']
+      );
+    };
+    
+    const getProductCount = (artist: any): { kr: number; global: number } => {
+      return {
+        kr: parseInt(artist['(KR)Live 작품수'] || artist['KR Live 작품수'] || artist.kr_live_products || 0) || 0,
+        global: parseInt(artist['(Global)Live 작품수'] || artist['Global Live 작품수'] || artist.global_live_products || 0) || 0,
+      };
+    };
+    
+    // 작가 분류
+    let totalRegistered = 0;
+    let activeArtists = 0;
+    let deletedArtists = 0;
+    let noProductArtists = 0;
+    
+    const deletedArtistsList: any[] = [];
+    const recentRegistrations: any[] = [];
+    const noProductList: any[] = [];
+    
+    // 월별 등록/삭제 추이
+    const monthlyStats = new Map<string, { registered: number; deleted: number }>();
+    
+    // 최근 N개월 초기화
+    for (let i = months - 1; i >= 0; i--) {
+      const d = new Date(now.getFullYear(), now.getMonth() - i, 1);
+      const monthKey = `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}`;
+      monthlyStats.set(monthKey, { registered: 0, deleted: 0 });
+    }
+    
+    artistsData.forEach((artist: any) => {
+      const artistName = getArtistName(artist);
+      if (!artistName) return;
+      
+      totalRegistered++;
+      
+      const registrationDate = getRegistrationDate(artist);
+      const deletionDate = getDeletionDate(artist);
+      const products = getProductCount(artist);
+      const salesData = artistSalesData.get(artistName);
+      
+      // 등록일 기준 월별 집계
+      if (registrationDate) {
+        const regMonthKey = `${registrationDate.getFullYear()}-${String(registrationDate.getMonth() + 1).padStart(2, '0')}`;
+        if (monthlyStats.has(regMonthKey)) {
+          monthlyStats.get(regMonthKey)!.registered++;
+        }
+        
+        // 최근 30일 신규 등록
+        const daysSinceReg = Math.floor((now.getTime() - registrationDate.getTime()) / (1000 * 60 * 60 * 24));
+        if (daysSinceReg <= 30 && !deletionDate) {
+          recentRegistrations.push({
+            artistName,
+            registrationDate: registrationDate.toISOString().split('T')[0],
+            products,
+            hasSales: !!salesData?.orderCount,
+            firstSaleDate: salesData?.firstSaleDate?.toISOString().split('T')[0] || null,
+            daysToFirstSale: salesData?.firstSaleDate 
+              ? Math.floor((salesData.firstSaleDate.getTime() - registrationDate.getTime()) / (1000 * 60 * 60 * 24))
+              : null,
+          });
+        }
+      }
+      
+      // 삭제 여부 확인
+      if (deletionDate) {
+        deletedArtists++;
+        
+        const delMonthKey = `${deletionDate.getFullYear()}-${String(deletionDate.getMonth() + 1).padStart(2, '0')}`;
+        if (monthlyStats.has(delMonthKey)) {
+          monthlyStats.get(delMonthKey)!.deleted++;
+        }
+        
+        // 이탈 사유 분류
+        let churnReason = '판매 없이 이탈';
+        if (salesData && salesData.orderCount > 0) {
+          const segment = getRevenueSegment(salesData.totalGmv);
+          if (segment === 'vip' || segment === 'high') {
+            churnReason = '활발한 활동 후 이탈';
+          } else {
+            churnReason = '저조한 판매 후 이탈';
+          }
+        }
+        
+        deletedArtistsList.push({
+          artistName,
+          deletionDate: deletionDate.toISOString().split('T')[0],
+          registrationDate: registrationDate?.toISOString().split('T')[0] || null,
+          lastSaleDate: salesData?.lastSaleDate?.toISOString().split('T')[0] || null,
+          totalGmv: Math.round(salesData?.totalGmv || 0),
+          orderCount: salesData?.orderCount || 0,
+          products,
+          churnReason,
+        });
+      } else {
+        activeArtists++;
+        
+        // 작품 미등록 작가
+        if (products.kr === 0 && products.global === 0) {
+          noProductArtists++;
+          noProductList.push({
+            artistName,
+            registrationDate: registrationDate?.toISOString().split('T')[0] || null,
+            daysSinceRegistration: registrationDate 
+              ? Math.floor((now.getTime() - registrationDate.getTime()) / (1000 * 60 * 60 * 24))
+              : null,
+            hasSales: !!salesData?.orderCount,
+          });
+        }
+      }
+    });
+    
+    // 월별 추이 배열로 변환
+    const monthlyTrend = Array.from(monthlyStats.entries())
+      .sort((a, b) => a[0].localeCompare(b[0]))
+      .map(([month, data]) => ({
+        month,
+        registered: data.registered,
+        deleted: data.deleted,
+        netChange: data.registered - data.deleted,
+      }));
+    
+    // 이탈 사유 분포
+    const churnReasons = {
+      noSales: { count: 0, rate: 0 },
+      lowSales: { count: 0, rate: 0 },
+      activeThenChurn: { count: 0, rate: 0 },
+    };
+    
+    deletedArtistsList.forEach((artist) => {
+      if (artist.churnReason === '판매 없이 이탈') churnReasons.noSales.count++;
+      else if (artist.churnReason === '저조한 판매 후 이탈') churnReasons.lowSales.count++;
+      else churnReasons.activeThenChurn.count++;
+    });
+    
+    if (deletedArtists > 0) {
+      churnReasons.noSales.rate = Math.round((churnReasons.noSales.count / deletedArtists) * 1000) / 10;
+      churnReasons.lowSales.rate = Math.round((churnReasons.lowSales.count / deletedArtists) * 1000) / 10;
+      churnReasons.activeThenChurn.rate = Math.round((churnReasons.activeThenChurn.count / deletedArtists) * 1000) / 10;
+    }
+    
+    // 신규 작가 온보딩 통계
+    const recentWithSales = recentRegistrations.filter(a => a.hasSales);
+    const avgDaysToFirstSale = recentWithSales.length > 0
+      ? Math.round(recentWithSales.reduce((sum, a) => sum + (a.daysToFirstSale || 0), 0) / recentWithSales.length)
+      : null;
+    const firstSaleConversionRate = recentRegistrations.length > 0
+      ? Math.round((recentWithSales.length / recentRegistrations.length) * 1000) / 10
+      : 0;
+    
+    // 작가당 평균 작품 수
+    let totalKrProducts = 0;
+    let totalGlobalProducts = 0;
+    artistsData.forEach((artist: any) => {
+      if (!getDeletionDate(artist)) {
+        const products = getProductCount(artist);
+        totalKrProducts += products.kr;
+        totalGlobalProducts += products.global;
+      }
+    });
+    
+    const avgProductsPerArtist = {
+      kr: activeArtists > 0 ? Math.round((totalKrProducts / activeArtists) * 10) / 10 : 0,
+      global: activeArtists > 0 ? Math.round((totalGlobalProducts / activeArtists) * 10) / 10 : 0,
+    };
+    
+    res.json({
+      success: true,
+      summary: {
+        totalRegistered,
+        activeArtists,
+        deletedArtists,
+        churnRate: totalRegistered > 0 ? Math.round((deletedArtists / totalRegistered) * 1000) / 10 : 0,
+        noProductArtists,
+        avgProductsPerArtist,
+      },
+      monthlyTrend,
+      churnReasons,
+      onboarding: {
+        recentCount: recentRegistrations.length,
+        withSalesCount: recentWithSales.length,
+        avgDaysToFirstSale,
+        firstSaleConversionRate,
+      },
+      deletedArtists: deletedArtistsList
+        .sort((a, b) => new Date(b.deletionDate).getTime() - new Date(a.deletionDate).getTime())
+        .slice(0, 30),
+      recentRegistrations: recentRegistrations
+        .sort((a, b) => new Date(b.registrationDate).getTime() - new Date(a.registrationDate).getTime())
+        .slice(0, 20),
+      noProductArtists: noProductList
+        .sort((a, b) => (b.daysSinceRegistration || 0) - (a.daysSinceRegistration || 0))
+        .slice(0, 20),
+    });
+  } catch (error: any) {
+    console.error('[ArtistAnalytics] Selection error:', error?.message);
+    res.status(500).json({ success: false, error: 'Failed to get selection data', details: error?.message });
+  }
+});
+
 export default router;

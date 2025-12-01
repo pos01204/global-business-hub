@@ -94,6 +94,8 @@ export const SHEETS_SCHEMA: Record<string, SheetSchema> = {
       { name: '(Global)Live 작품수', type: 'number', description: '글로벌 라이브 작품 수', examples: ['30'] },
       { name: 'artist_id', type: 'string', description: '작가 ID', examples: ['ART-001'] },
       { name: 'email', type: 'string', description: '작가 이메일', examples: ['artist@example.com'] },
+      { name: '등록일', type: 'date', description: '작가 등록일', examples: ['2024-01-15'] },
+      { name: '삭제일', type: 'date', description: '작가 삭제일 (이탈일)', examples: ['2024-11-20'] },
     ],
   },
 

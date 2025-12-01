@@ -6,8 +6,9 @@ import PerformanceTab from './components/PerformanceTab'
 import ProductsTab from './components/ProductsTab'
 import TrendTab from './components/TrendTab'
 import HealthTab from './components/HealthTab'
+import SelectionTab from './components/SelectionTab'
 
-type TabType = 'overview' | 'performance' | 'products' | 'trend' | 'health'
+type TabType = 'overview' | 'performance' | 'products' | 'trend' | 'health' | 'selection'
 
 export default function ArtistAnalyticsPage() {
   const [activeTab, setActiveTab] = useState<TabType>('overview')
@@ -19,6 +20,7 @@ export default function ArtistAnalyticsPage() {
     { id: 'performance' as const, label: '작가 성과', icon: '🏆' },
     { id: 'products' as const, label: '작품 분석', icon: '📦' },
     { id: 'trend' as const, label: '성장 추이', icon: '📈' },
+    { id: 'selection' as const, label: '셀렉션 관리', icon: '👥' },
     { id: 'health' as const, label: '건강도', icon: '⚠️' },
   ]
 
@@ -93,6 +95,7 @@ export default function ArtistAnalyticsPage() {
       {activeTab === 'performance' && <PerformanceTab dateRange={dateRange} countryFilter={countryFilter} />}
       {activeTab === 'products' && <ProductsTab dateRange={dateRange} />}
       {activeTab === 'trend' && <TrendTab />}
+      {activeTab === 'selection' && <SelectionTab />}
       {activeTab === 'health' && <HealthTab />}
     </div>
   )
