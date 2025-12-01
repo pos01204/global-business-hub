@@ -658,34 +658,23 @@ async function saveTrackingData(period: string, artists: any[]): Promise<{ added
   }
 
   let existingData: any[] = [];
-  let needsHeader = false;
   
-  // 시트 존재 확인 및 헤더 생성
+  // 시트에서 기존 데이터 조회 (헤더 행은 getSheetDataAsJson에서 자동 처리)
+  // 시트가 존재하고 헤더가 있으면 데이터만 반환됨
   try {
     console.log('[Sopo] 1. 기존 트래킹 데이터 조회 시도...');
     existingData = await sheetsService.getSheetDataAsJson(SHEET_NAMES.SOPO_TRACKING, false);
     console.log(`[Sopo]    → 조회 성공: ${existingData.length}건`);
-    
-    if (existingData.length === 0) {
-      needsHeader = true;
-    }
   } catch (e: any) {
     console.log(`[Sopo]    → 조회 실패: ${e.message}`);
-    needsHeader = true;
     existingData = [];
   }
-
-  // 헤더가 필요한 경우 먼저 추가
-  if (needsHeader) {
-    try {
-      console.log('[Sopo] 2. 헤더 행 추가 시도...');
-      await sheetsService.appendRows(SHEET_NAMES.SOPO_TRACKING, [headers]);
-      console.log('[Sopo]    → 헤더 추가 완료');
-    } catch (headerError: any) {
-      console.error(`[Sopo]    → ❌ 헤더 추가 실패: ${headerError.message}`);
-      throw new Error(`시트 헤더 생성 실패: ${headerError.message}. Google Sheets에 '${SHEET_NAMES.SOPO_TRACKING}' 시트가 존재하는지 확인해주세요.`);
-    }
-  }
+  
+  // 참고: 시트에 헤더가 없는 경우 수동으로 추가 필요
+  // Google Sheets에서 Sopo_tracking 시트의 1행에 다음 헤더가 있어야 함:
+  // period, artist_name, artist_email, order_count, total_amount, notification_sent_at, 
+  // application_status, application_submitted_at, jotform_submission_id, reminder_sent_at, 
+  // receipt_issued_at, updated_at, shipment_ids
 
   // 기존 데이터에서 period + artist_name으로 인덱싱 (행 번호 포함)
   const existingMap = new Map<string, { rowIndex: number; data: any }>();
@@ -1522,17 +1511,22 @@ router.post('/reminder', async (req: Request, res: Response) => {
         const periodDisplay = formatPeriodDisplay(period);
         const subject = `[리마인더] ${periodDisplay} 소포수령증 발급 신청을 잊지 마세요!`;
         
+        const jotformUrl = 'https://form.jotform.com/230940786344057';
         const htmlContent = `
           <div style="font-family: sans-serif; max-width: 600px; margin: 0 auto; padding: 20px;">
             <h2>⏰ 소포수령증 신청 리마인더</h2>
             <p><strong>${artist.artist_name}</strong> 작가님, 안녕하세요.</p>
             <p>${periodDisplay} 소포수령증 발급 신청이 아직 완료되지 않았습니다.</p>
             <p>마감일이 임박했으니, 빠른 시일 내 신청 부탁드립니다.</p>
-            <p style="margin-top: 30px;">
-              <a href="https://form.jotform.com/230940786344057" 
-                 style="background: #FF6B35; color: white; padding: 12px 24px; text-decoration: none; border-radius: 6px;">
+            <p style="margin-top: 30px; text-align: center;">
+              <a href="${jotformUrl}" 
+                 style="background: #FF6B35; color: white; padding: 12px 24px; text-decoration: none; border-radius: 6px; display: inline-block;">
                 지금 신청하기
               </a>
+            </p>
+            <p style="font-size: 12px; color: #666; text-align: center; margin-top: 15px;">
+              버튼이 작동하지 않으면 아래 링크를 복사하여 브라우저에 붙여넣으세요:<br/>
+              <span style="color: #FF6B35; word-break: break-all;">${jotformUrl}</span>
             </p>
           </div>
         `;
