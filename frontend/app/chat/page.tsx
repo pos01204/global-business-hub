@@ -42,16 +42,70 @@ interface Message {
 
 type AgentType = 'data_analyst' | 'performance_marketer' | 'business_manager' | 'auto'
 
+// Agent 메타 정보
+const AGENT_META: Record<AgentType, { icon: string; color: string; bgColor: string; description: string }> = {
+  auto: { 
+    icon: '🤖', 
+    color: 'text-slate-700', 
+    bgColor: 'bg-slate-100 hover:bg-slate-200 border-slate-300',
+    description: '질문에 맞는 역할 자동 선택'
+  },
+  data_analyst: { 
+    icon: '📊', 
+    color: 'text-blue-700', 
+    bgColor: 'bg-blue-50 hover:bg-blue-100 border-blue-300',
+    description: '매출, 트렌드, 랭킹 분석'
+  },
+  performance_marketer: { 
+    icon: '📈', 
+    color: 'text-purple-700', 
+    bgColor: 'bg-purple-50 hover:bg-purple-100 border-purple-300',
+    description: '마케팅 카피, CRM 세그먼트'
+  },
+  business_manager: { 
+    icon: '💼', 
+    color: 'text-emerald-700', 
+    bgColor: 'bg-emerald-50 hover:bg-emerald-100 border-emerald-300',
+    description: '전략 수립, 예측, 시뮬레이션'
+  },
+}
+
+// 빠른 질문 카테고리
+const QUICK_QUESTIONS = [
+  { category: '📊 매출 분석', questions: [
+    '최근 30일 매출 현황 알려줘',
+    '이번 달 vs 지난 달 매출 비교',
+    '일별 매출 추이 보여줘',
+  ]},
+  { category: '🏆 랭킹', questions: [
+    '상위 10개 작가 매출 순위',
+    '베스트셀러 상품 TOP 10',
+    '국가별 매출 순위',
+  ]},
+  { category: '🌏 국가 분석', questions: [
+    '국가별 주문 현황 비교해줘',
+    '일본 시장 트렌드 분석',
+    '미국 고객 구매 패턴',
+  ]},
+  { category: '📈 마케팅', questions: [
+    '마케팅 성과 분석해줘',
+    '고객 세그먼트 분석',
+    '재구매율 높은 고객 특성',
+  ]},
+]
+
 export default function ChatPage() {
   const [messages, setMessages] = useState<Message[]>([])
   const [input, setInput] = useState('')
   const [isConnected, setIsConnected] = useState(false)
   const [selectedAgent, setSelectedAgent] = useState<AgentType>('auto')
   const [sessionId] = useState(() => `session-${Date.now()}`)
-  const [useStreaming, setUseStreaming] = useState(true) // 스트리밍 모드
-  const [streamingContent, setStreamingContent] = useState('') // 스트리밍 중인 콘텐츠
-  const [isStreaming, setIsStreaming] = useState(false) // 스트리밍 상태
-  const streamingContentRef = useRef('') // 스트리밍 콘텐츠 ref (클로저 문제 해결)
+  const [useStreaming, setUseStreaming] = useState(true)
+  const [streamingContent, setStreamingContent] = useState('')
+  const [isStreaming, setIsStreaming] = useState(false)
+  const [sidebarOpen, setSidebarOpen] = useState(true)
+  const [expandedCategory, setExpandedCategory] = useState<string | null>('📊 매출 분석')
+  const streamingContentRef = useRef('')
   const messagesEndRef = useRef<HTMLDivElement>(null)
   const inputRef = useRef<HTMLTextAreaElement>(null)
 
@@ -311,23 +365,7 @@ export default function ChatPage() {
     messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' })
   }, [messages])
 
-  // 초기 환영 메시지
-  useEffect(() => {
-    if (messages.length === 0 && isConnected) {
-      setMessages([
-        {
-          role: 'assistant',
-          content: '안녕하세요! 글로벌 비즈니스 허브 AI 어시스턴트입니다. 😊\n\n저는 다음과 같은 역할로 도움을 드릴 수 있습니다:\n\n📊 **데이터 분석가**: 매출 조회, 트렌드 분석, 랭킹, 비교 분석\n📈 **퍼포먼스 마케터**: 트렌드 추출, 마케팅 카피 생성, CRM 세그먼트\n💼 **비즈니스 매니저**: 전략 수립, 메트릭 예측, 시나리오 시뮬레이션\n\n💡 **Tip**: "자동 선택"으로 두시면 질문에 맞는 역할이 자동 선택됩니다.\n\n아래 빠른 시작 버튼을 클릭하거나, 자유롭게 질문해주세요!',
-          timestamp: new Date().toISOString(),
-          actions: [
-            { label: '📊 최근 매출 현황', action: 'query', data: { query: '최근 30일 매출 현황 알려줘' } },
-            { label: '🏆 작가 랭킹', action: 'query', data: { query: '상위 10개 작가 매출 순위' } },
-            { label: '🌏 국가별 비교', action: 'query', data: { query: '국가별 주문 현황 비교해줘' } },
-          ],
-        },
-      ])
-    }
-  }, [isConnected])
+  // 초기 환영 메시지는 빈 상태 UI로 대체됨 (messages.length === 0 && isConnected 조건에서 렌더링)
 
   // 차트 렌더링
   const renderChart = (chartData: any) => {
@@ -414,107 +452,202 @@ export default function ChatPage() {
     return null
   }
 
+  // 빠른 질문 전송
+  const handleQuickQuestion = (question: string) => {
+    if (useStreaming) {
+      setInput(question)
+      setTimeout(() => handleSend(), 100)
+    } else {
+      sendMessageMutation.mutate(question)
+    }
+  }
+
   return (
-    <div className="min-h-screen bg-gray-50 flex flex-col">
-      {/* 헤더 */}
-      <div className="bg-white border-b border-gray-200 px-6 py-4">
-        <div className="max-w-4xl mx-auto">
-          <div className="flex items-center justify-between mb-4">
-            <div>
-              <h1 className="text-2xl font-bold text-gray-900">💬 AI 어시스턴트</h1>
-              <p className="text-sm text-gray-600 mt-1">
-                자연어 기반 데이터 분석 및 질의응답 서비스
-              </p>
+    <div className="min-h-screen bg-gradient-to-br from-slate-50 to-slate-100 flex">
+      {/* 사이드바 */}
+      <div className={`${sidebarOpen ? 'w-72' : 'w-0'} transition-all duration-300 bg-white border-r border-slate-200 flex flex-col overflow-hidden`}>
+        {sidebarOpen && (
+          <>
+            {/* 사이드바 헤더 */}
+            <div className="p-4 border-b border-slate-200">
+              <div className="flex items-center justify-between">
+                <h2 className="font-semibold text-slate-800">💡 빠른 질문</h2>
+                <button
+                  onClick={() => setSidebarOpen(false)}
+                  className="p-1 hover:bg-slate-100 rounded text-slate-400 hover:text-slate-600"
+                >
+                  ✕
+                </button>
+              </div>
             </div>
+
+            {/* 빠른 질문 카테고리 */}
+            <div className="flex-1 overflow-y-auto p-3 space-y-2">
+              {QUICK_QUESTIONS.map((cat) => (
+                <div key={cat.category} className="rounded-lg border border-slate-200 overflow-hidden">
+                  <button
+                    onClick={() => setExpandedCategory(expandedCategory === cat.category ? null : cat.category)}
+                    className="w-full px-3 py-2.5 bg-slate-50 hover:bg-slate-100 flex items-center justify-between text-sm font-medium text-slate-700 transition-colors"
+                  >
+                    <span>{cat.category}</span>
+                    <span className={`transition-transform ${expandedCategory === cat.category ? 'rotate-180' : ''}`}>▼</span>
+                  </button>
+                  {expandedCategory === cat.category && (
+                    <div className="p-2 space-y-1 bg-white">
+                      {cat.questions.map((q, idx) => (
+                        <button
+                          key={idx}
+                          onClick={() => handleQuickQuestion(q)}
+                          disabled={sendMessageMutation.isPending || isStreaming}
+                          className="w-full text-left px-3 py-2 text-sm text-slate-600 hover:bg-slate-50 hover:text-slate-900 rounded transition-colors disabled:opacity-50"
+                        >
+                          {q}
+                        </button>
+                      ))}
+                    </div>
+                  )}
+                </div>
+              ))}
+            </div>
+
+            {/* 새 대화 버튼 */}
+            <div className="p-3 border-t border-slate-200">
+              <button
+                onClick={() => {
+                  setMessages([])
+                  setInput('')
+                }}
+                className="w-full py-2.5 bg-slate-100 hover:bg-slate-200 rounded-lg text-sm font-medium text-slate-700 transition-colors flex items-center justify-center gap-2"
+              >
+                <span>🔄</span> 새 대화 시작
+              </button>
+            </div>
+          </>
+        )}
+      </div>
+
+      {/* 메인 영역 */}
+      <div className="flex-1 flex flex-col min-w-0">
+        {/* 헤더 */}
+        <div className="bg-white border-b border-slate-200 px-6 py-4">
+          <div className="flex items-center justify-between">
             <div className="flex items-center gap-4">
+              {!sidebarOpen && (
+                <button
+                  onClick={() => setSidebarOpen(true)}
+                  className="p-2 hover:bg-slate-100 rounded-lg text-slate-500 hover:text-slate-700 transition-colors"
+                  title="사이드바 열기"
+                >
+                  ☰
+                </button>
+              )}
+              <div>
+                <h1 className="text-xl font-bold text-slate-900 flex items-center gap-2">
+                  <span className="text-2xl">💬</span> AI 어시스턴트
+                </h1>
+                <p className="text-xs text-slate-500 mt-0.5">
+                  자연어 기반 데이터 분석 및 질의응답
+                </p>
+              </div>
+            </div>
+            
+            <div className="flex items-center gap-3">
               {/* 스트리밍 토글 */}
               <button
                 onClick={() => setUseStreaming(!useStreaming)}
-                className={`flex items-center gap-1.5 px-2 py-1 rounded text-xs font-medium transition-colors ${
+                className={`flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-medium transition-all ${
                   useStreaming 
-                    ? 'bg-green-100 text-green-700' 
-                    : 'bg-gray-100 text-gray-600'
+                    ? 'bg-emerald-100 text-emerald-700 ring-1 ring-emerald-300' 
+                    : 'bg-slate-100 text-slate-600'
                 }`}
                 title={useStreaming ? '스트리밍 모드 (실시간 응답)' : '일반 모드'}
               >
-                <span className={`w-2 h-2 rounded-full ${useStreaming ? 'bg-green-500' : 'bg-gray-400'}`} />
-                {useStreaming ? '⚡ 스트리밍' : '📦 일반'}
+                <span className={`w-2 h-2 rounded-full ${useStreaming ? 'bg-emerald-500 animate-pulse' : 'bg-slate-400'}`} />
+                {useStreaming ? '⚡ 실시간' : '📦 일반'}
               </button>
               
               {/* 연결 상태 */}
-              <div className="flex items-center gap-2">
-                <div
-                  className={`w-3 h-3 rounded-full ${
-                    isConnected ? 'bg-green-500' : 'bg-red-500'
-                  }`}
-                />
-                <span className="text-sm text-gray-600">
-                  {isConnected ? '연결됨' : '연결 안 됨'}
-                </span>
+              <div className={`flex items-center gap-2 px-3 py-1.5 rounded-lg text-xs font-medium ${
+                isConnected ? 'bg-emerald-50 text-emerald-700' : 'bg-red-50 text-red-700'
+              }`}>
+                <div className={`w-2 h-2 rounded-full ${isConnected ? 'bg-emerald-500' : 'bg-red-500'}`} />
+                {isConnected ? 'AI 연결됨' : '연결 안 됨'}
               </div>
             </div>
           </div>
 
-          {/* Agent 선택 */}
-          {agentsData?.success && agentsData?.data && (
-            <div className="flex flex-wrap gap-2">
-              {agentsData.data.map((agent: any) => (
+          {/* Agent 선택 - 카드 형태 */}
+          <div className="mt-4 grid grid-cols-4 gap-2">
+            {(['auto', 'data_analyst', 'performance_marketer', 'business_manager'] as AgentType[]).map((agentType) => {
+              const meta = AGENT_META[agentType]
+              const agentInfo = agentsData?.data?.find((a: any) => a.type === agentType)
+              const isSelected = selectedAgent === agentType
+              
+              return (
                 <button
-                  key={agent.type}
-                  onClick={() => setSelectedAgent(agent.type)}
-                  className={`px-3 py-1.5 rounded-lg text-sm font-medium transition-colors ${
-                    selectedAgent === agent.type
-                      ? 'bg-primary text-white'
-                      : 'bg-gray-100 text-gray-700 hover:bg-gray-200'
+                  key={agentType}
+                  onClick={() => setSelectedAgent(agentType)}
+                  className={`p-3 rounded-xl border-2 transition-all text-left ${
+                    isSelected 
+                      ? `${meta.bgColor} border-current ring-2 ring-offset-1 ${meta.color}` 
+                      : 'bg-white border-slate-200 hover:border-slate-300 hover:bg-slate-50'
                   }`}
                 >
-                  {agent.name}
+                  <div className="flex items-center gap-2 mb-1">
+                    <span className="text-lg">{meta.icon}</span>
+                    <span className={`text-sm font-semibold ${isSelected ? meta.color : 'text-slate-700'}`}>
+                      {agentInfo?.name || agentType}
+                    </span>
+                  </div>
+                  <p className={`text-xs ${isSelected ? meta.color : 'text-slate-500'}`}>
+                    {meta.description}
+                  </p>
                 </button>
-              ))}
-            </div>
-          )}
+              )
+            })}
+          </div>
         </div>
-      </div>
 
-      {/* 메시지 영역 */}
-      <div className="flex-1 overflow-y-auto px-6 py-6">
-        <div className="max-w-4xl mx-auto space-y-4">
-          {messages.length === 0 && !isConnected && (
-            <div className="text-center py-12">
-              <div className="text-6xl mb-4">🤖</div>
-              <h2 className="text-xl font-semibold text-gray-900 mb-2">
-                AI 어시스턴트 연결 중...
-              </h2>
-              <p className="text-gray-600">
-                OpenAI 서비스에 연결할 수 없습니다.
-                <br />
-                Railway Variables에서 OPENAI_API_KEY를 설정해주세요.
-              </p>
-            </div>
-          )}
-
-          {/* 추가 빠른 질문 버튼 (대화 진행 중) */}
-          {messages.length > 1 && messages.length < 4 && isConnected && (
-            <div className="bg-blue-50 border border-blue-100 rounded-lg p-3">
-              <p className="text-xs text-blue-600 mb-2">💡 더 시도해볼 수 있는 질문</p>
-              <div className="flex flex-wrap gap-2">
-                {[
-                  '일본 주문 트렌드 분석해줘',
-                  '이번 달 국가별 주문 비교',
-                  '마케팅 성과 분석해줘',
-                ].map((quickQuery, idx) => (
-                  <button
-                    key={idx}
-                    onClick={() => sendMessageMutation.mutate(quickQuery)}
-                    disabled={sendMessageMutation.isPending}
-                    className="px-2 py-1 bg-white hover:bg-blue-100 rounded text-xs transition-colors disabled:opacity-50 border border-blue-200"
-                  >
-                    {quickQuery}
-                  </button>
-                ))}
+        {/* 메시지 영역 */}
+        <div className="flex-1 overflow-y-auto px-6 py-6">
+          <div className="max-w-3xl mx-auto space-y-4">
+            {messages.length === 0 && !isConnected && (
+              <div className="text-center py-16">
+                <div className="text-7xl mb-4">🤖</div>
+                <h2 className="text-xl font-semibold text-slate-900 mb-2">
+                  AI 어시스턴트 연결 중...
+                </h2>
+                <p className="text-slate-600">
+                  OpenAI 서비스에 연결할 수 없습니다.
+                  <br />
+                  <span className="text-sm text-slate-500">Railway Variables에서 OPENAI_API_KEY를 설정해주세요.</span>
+                </p>
               </div>
-            </div>
-          )}
+            )}
+
+            {/* 빈 상태 - 시작 가이드 */}
+            {messages.length === 0 && isConnected && (
+              <div className="text-center py-12">
+                <div className="text-6xl mb-4">👋</div>
+                <h2 className="text-xl font-semibold text-slate-900 mb-2">
+                  무엇을 도와드릴까요?
+                </h2>
+                <p className="text-slate-600 mb-6">
+                  왼쪽 사이드바에서 빠른 질문을 선택하거나, 아래에 직접 질문해보세요.
+                </p>
+                <div className="flex flex-wrap justify-center gap-2">
+                  {['최근 30일 매출 현황', '상위 작가 랭킹', '국가별 주문 비교'].map((q, idx) => (
+                    <button
+                      key={idx}
+                      onClick={() => handleQuickQuestion(q)}
+                      className="px-4 py-2 bg-white border border-slate-200 hover:border-primary hover:bg-primary/5 rounded-full text-sm text-slate-700 hover:text-primary transition-all"
+                    >
+                      {q}
+                    </button>
+                  ))}
+                </div>
+              </div>
+            )}
 
           {messages.map((message, index) => (
             <div
@@ -524,18 +657,19 @@ export default function ChatPage() {
               }`}
             >
               <div
-                className={`max-w-[80%] rounded-lg px-4 py-3 ${
+                className={`max-w-[85%] rounded-2xl px-4 py-3 shadow-sm ${
                   message.role === 'user'
-                    ? 'bg-primary text-white'
-                    : 'bg-white border border-gray-200 text-gray-900'
+                    ? 'bg-gradient-to-br from-primary to-primary/90 text-white'
+                    : 'bg-white border border-slate-200 text-slate-900'
                 }`}
               >
                 {message.agent && message.role === 'assistant' && (
-                  <div className="text-xs font-semibold text-gray-500 mb-2">
-                    {message.agent}
+                  <div className="flex items-center gap-1.5 text-xs font-semibold text-slate-500 mb-2">
+                    <span>{AGENT_META[message.agent.toLowerCase().replace(/ /g, '_') as AgentType]?.icon || '🤖'}</span>
+                    <span>{message.agent}</span>
                   </div>
                 )}
-                <div className="whitespace-pre-wrap break-words">
+                <div className="whitespace-pre-wrap break-words leading-relaxed">
                   {message.content}
                 </div>
 
@@ -592,8 +726,8 @@ export default function ChatPage() {
                       <button
                         key={actionIndex}
                         onClick={() => handleActionClick(action)}
-                        disabled={sendMessageMutation.isPending}
-                        className="px-3 py-1.5 bg-gray-100 hover:bg-gray-200 rounded-lg text-sm font-medium transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+                        disabled={sendMessageMutation.isPending || isStreaming}
+                        className="px-3 py-1.5 bg-slate-100 hover:bg-slate-200 rounded-lg text-sm font-medium transition-all hover:shadow-sm disabled:opacity-50 disabled:cursor-not-allowed border border-slate-200"
                       >
                         {action.label}
                       </button>
@@ -602,16 +736,18 @@ export default function ChatPage() {
                 )}
 
                 <div
-                  className={`text-xs mt-2 ${
+                  className={`text-xs mt-2 flex items-center gap-1 ${
                     message.role === 'user'
-                      ? 'text-white/70'
-                      : 'text-gray-500'
+                      ? 'text-white/70 justify-end'
+                      : 'text-slate-400'
                   }`}
                 >
-                  {new Date(message.timestamp).toLocaleTimeString('ko-KR', {
-                    hour: '2-digit',
-                    minute: '2-digit',
-                  })}
+                  <span>
+                    {new Date(message.timestamp).toLocaleTimeString('ko-KR', {
+                      hour: '2-digit',
+                      minute: '2-digit',
+                    })}
+                  </span>
                 </div>
               </div>
             </div>
@@ -620,10 +756,14 @@ export default function ChatPage() {
           {/* 스트리밍 중인 메시지 표시 */}
           {isStreaming && streamingContent && (
             <div className="flex justify-start">
-              <div className="max-w-[80%] rounded-lg px-4 py-3 bg-white border border-gray-200 text-gray-900">
-                <div className="whitespace-pre-wrap break-words">
+              <div className="max-w-[85%] rounded-2xl px-4 py-3 bg-white border border-slate-200 text-slate-900 shadow-sm">
+                <div className="flex items-center gap-1.5 text-xs font-semibold text-slate-500 mb-2">
+                  <span>{AGENT_META[selectedAgent]?.icon || '🤖'}</span>
+                  <span>응답 중...</span>
+                </div>
+                <div className="whitespace-pre-wrap break-words leading-relaxed">
                   {streamingContent}
-                  <span className="inline-block w-2 h-4 bg-primary animate-pulse ml-1" />
+                  <span className="inline-block w-2 h-4 bg-primary animate-pulse ml-1 rounded" />
                 </div>
               </div>
             </div>
@@ -631,20 +771,14 @@ export default function ChatPage() {
 
           {(sendMessageMutation.isPending || (isStreaming && !streamingContent)) && (
             <div className="flex justify-start">
-              <div className="bg-white border border-gray-200 rounded-lg px-4 py-3">
-                <div className="flex items-center gap-2">
+              <div className="bg-white border border-slate-200 rounded-2xl px-4 py-3 shadow-sm">
+                <div className="flex items-center gap-3">
                   <div className="flex gap-1">
-                    <div className="w-2 h-2 bg-gray-400 rounded-full animate-bounce" />
-                    <div
-                      className="w-2 h-2 bg-gray-400 rounded-full animate-bounce"
-                      style={{ animationDelay: '0.1s' }}
-                    />
-                    <div
-                      className="w-2 h-2 bg-gray-400 rounded-full animate-bounce"
-                      style={{ animationDelay: '0.2s' }}
-                    />
+                    <div className="w-2 h-2 bg-primary/60 rounded-full animate-bounce" />
+                    <div className="w-2 h-2 bg-primary/60 rounded-full animate-bounce" style={{ animationDelay: '0.1s' }} />
+                    <div className="w-2 h-2 bg-primary/60 rounded-full animate-bounce" style={{ animationDelay: '0.2s' }} />
                   </div>
-                  <span className="text-sm text-gray-500">
+                  <span className="text-sm text-slate-500">
                     {isStreaming ? '응답 수신 중...' : '답변 생성 중...'}
                   </span>
                 </div>
@@ -656,46 +790,64 @@ export default function ChatPage() {
         </div>
       </div>
 
-      {/* 입력 영역 */}
-      <div className="bg-white border-t border-gray-200 px-6 py-4">
-        <div className="max-w-4xl mx-auto">
-          <div className="flex items-end gap-3">
-            <textarea
-              ref={inputRef}
-              value={input}
-              onChange={(e) => setInput(e.target.value)}
-              onKeyDown={handleKeyDown}
-              placeholder={
-                isConnected
-                  ? '메시지를 입력하세요... (Enter: 전송, Shift+Enter: 줄바꿈)'
-                  : 'AI 어시스턴트가 연결되지 않았습니다.'
-              }
-              disabled={!isConnected || sendMessageMutation.isPending}
-              rows={1}
-              className="flex-1 resize-none border border-gray-300 rounded-lg px-4 py-3 focus:outline-none focus:ring-2 focus:ring-primary focus:border-transparent disabled:bg-gray-100 disabled:cursor-not-allowed"
-              style={{
-                minHeight: '48px',
-                maxHeight: '120px',
-              }}
-              onInput={(e) => {
-                const target = e.target as HTMLTextAreaElement
-                target.style.height = 'auto'
-                target.style.height = `${Math.min(target.scrollHeight, 120)}px`
-              }}
-            />
-            <button
-              onClick={handleSend}
-              disabled={!input.trim() || !isConnected || sendMessageMutation.isPending || isStreaming}
-              className="px-6 py-3 bg-primary text-white rounded-lg hover:bg-primary-dark transition-colors disabled:bg-gray-300 disabled:cursor-not-allowed font-medium"
-            >
-              전송
-            </button>
+        {/* 입력 영역 */}
+        <div className="bg-white border-t border-slate-200 px-6 py-4">
+          <div className="max-w-3xl mx-auto">
+            <div className="flex items-end gap-3">
+              <div className="flex-1 relative">
+                <textarea
+                  ref={inputRef}
+                  value={input}
+                  onChange={(e) => setInput(e.target.value)}
+                  onKeyDown={handleKeyDown}
+                  placeholder={
+                    isConnected
+                      ? '메시지를 입력하세요... (Enter: 전송, Shift+Enter: 줄바꿈)'
+                      : 'AI 어시스턴트가 연결되지 않았습니다.'
+                  }
+                  disabled={!isConnected || sendMessageMutation.isPending || isStreaming}
+                  rows={1}
+                  className="w-full resize-none border border-slate-300 rounded-xl px-4 py-3 pr-12 focus:outline-none focus:ring-2 focus:ring-primary focus:border-transparent disabled:bg-slate-100 disabled:cursor-not-allowed transition-all"
+                  style={{
+                    minHeight: '48px',
+                    maxHeight: '120px',
+                  }}
+                  onInput={(e) => {
+                    const target = e.target as HTMLTextAreaElement
+                    target.style.height = 'auto'
+                    target.style.height = `${Math.min(target.scrollHeight, 120)}px`
+                  }}
+                />
+              </div>
+              <button
+                onClick={handleSend}
+                disabled={!input.trim() || !isConnected || sendMessageMutation.isPending || isStreaming}
+                className="px-5 py-3 bg-gradient-to-r from-primary to-primary/90 text-white rounded-xl hover:shadow-lg hover:scale-[1.02] transition-all disabled:from-slate-300 disabled:to-slate-300 disabled:cursor-not-allowed font-medium flex items-center gap-2"
+              >
+                <span>전송</span>
+                <span>→</span>
+              </button>
+            </div>
+            <div className="flex items-center justify-between mt-2 text-xs text-slate-500">
+              <span>
+                {isConnected && (
+                  <>
+                    <span className="inline-flex items-center gap-1">
+                      {AGENT_META[selectedAgent]?.icon}
+                      <span>{agentsData?.data?.find((a: any) => a.type === selectedAgent)?.name || '자동 선택'}</span>
+                    </span>
+                    <span className="mx-2">•</span>
+                    <span>Enter로 전송</span>
+                  </>
+                )}
+              </span>
+              {messages.length > 0 && (
+                <span className="text-slate-400">
+                  {messages.filter(m => m.role === 'user').length}개 질문
+                </span>
+              )}
+            </div>
           </div>
-          <p className="text-xs text-gray-500 mt-2 text-center">
-            {isConnected
-              ? `현재 역할: ${agentsData?.data?.find((a: any) => a.type === selectedAgent)?.name || '자동 선택'}`
-              : 'OpenAI API 키를 설정하면 AI 어시스턴트를 사용할 수 있습니다.'}
-          </p>
         </div>
       </div>
     </div>
