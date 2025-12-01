@@ -99,93 +99,47 @@ export default function OverviewTab({ dateRange, countryFilter }: OverviewTabPro
 
   return (
     <div className="space-y-6">
-      {/* KPI 카드 그리드 */}
+      {/* 핵심 KPI 카드 */}
       <div className="grid grid-cols-2 lg:grid-cols-4 gap-4">
-        {/* 전체 작가 */}
-        <div className="card hover:shadow-lg transition-shadow">
-          <div className="flex items-start justify-between">
-            <div>
-              <p className="text-sm text-gray-500 mb-1">전체 작가</p>
-              <p className="text-3xl font-bold text-gray-900">{summary.totalArtists.toLocaleString()}<span className="text-lg font-normal text-gray-500">명</span></p>
-            </div>
-            <div className="w-12 h-12 bg-violet-100 rounded-xl flex items-center justify-center">
-              <span className="text-2xl">👨‍🎨</span>
-            </div>
-          </div>
-        </div>
-
-        {/* 활성 작가 */}
         <div className="card hover:shadow-lg transition-shadow">
           <div className="flex items-start justify-between">
             <div>
               <p className="text-sm text-gray-500 mb-1">활성 작가</p>
               <p className="text-3xl font-bold text-emerald-600">{summary.activeArtists.toLocaleString()}<span className="text-lg font-normal text-gray-500">명</span></p>
-              <p className="text-xs text-gray-400 mt-1">전체의 {summary.activeRate}%</p>
+              <p className="text-xs text-gray-400 mt-1">전체 {summary.totalArtists}명 중 {summary.activeRate}%</p>
             </div>
             <div className="w-12 h-12 bg-emerald-100 rounded-xl flex items-center justify-center">
-              <span className="text-2xl">✅</span>
+              <span className="text-2xl">👨‍🎨</span>
             </div>
           </div>
         </div>
 
-        {/* 등록 작품 */}
         <div className="card hover:shadow-lg transition-shadow">
           <div className="flex items-start justify-between">
             <div>
-              <p className="text-sm text-gray-500 mb-1">등록 작품</p>
-              <p className="text-3xl font-bold text-gray-900">{summary.totalProducts.toLocaleString()}<span className="text-lg font-normal text-gray-500">개</span></p>
-            </div>
-            <div className="w-12 h-12 bg-amber-100 rounded-xl flex items-center justify-center">
-              <span className="text-2xl">📦</span>
-            </div>
-          </div>
-        </div>
-
-        {/* 작가당 매출 */}
-        <div className="card hover:shadow-lg transition-shadow">
-          <div className="flex items-start justify-between">
-            <div>
-              <p className="text-sm text-gray-500 mb-1">작가당 매출</p>
+              <p className="text-sm text-gray-500 mb-1">작가당 평균 매출</p>
               <p className="text-3xl font-bold text-violet-600">{formatCurrency(summary.avgGmvPerArtist)}</p>
-              <p className="text-xs text-gray-400 mt-1">활성 작가 평균</p>
+              <p className="text-xs text-gray-400 mt-1">활성 작가 기준</p>
             </div>
             <div className="w-12 h-12 bg-violet-100 rounded-xl flex items-center justify-center">
               <span className="text-2xl">💰</span>
             </div>
           </div>
         </div>
-      </div>
 
-      {/* 2행 KPI */}
-      <div className="grid grid-cols-2 lg:grid-cols-4 gap-4">
-        {/* 판매 작품 */}
         <div className="card hover:shadow-lg transition-shadow">
           <div className="flex items-start justify-between">
             <div>
-              <p className="text-sm text-gray-500 mb-1">판매 작품</p>
-              <p className="text-3xl font-bold text-gray-900">{summary.soldProducts.toLocaleString()}<span className="text-lg font-normal text-gray-500">개</span></p>
-            </div>
-            <div className="w-12 h-12 bg-blue-100 rounded-xl flex items-center justify-center">
-              <span className="text-2xl">🛒</span>
-            </div>
-          </div>
-        </div>
-
-        {/* 판매율 */}
-        <div className="card hover:shadow-lg transition-shadow">
-          <div className="flex items-start justify-between">
-            <div>
-              <p className="text-sm text-gray-500 mb-1">판매율</p>
+              <p className="text-sm text-gray-500 mb-1">작품 판매율</p>
               <p className="text-3xl font-bold text-blue-600">{summary.productSellRate}<span className="text-lg font-normal text-gray-500">%</span></p>
-              <p className="text-xs text-gray-400 mt-1">판매/등록 비율</p>
+              <p className="text-xs text-gray-400 mt-1">{summary.soldProducts.toLocaleString()} / {summary.totalProducts.toLocaleString()}개</p>
             </div>
             <div className="w-12 h-12 bg-blue-100 rounded-xl flex items-center justify-center">
-              <span className="text-2xl">📈</span>
+              <span className="text-2xl">📦</span>
             </div>
           </div>
         </div>
 
-        {/* 평균 평점 */}
         <div className="card hover:shadow-lg transition-shadow">
           <div className="flex items-start justify-between">
             <div>
@@ -197,23 +151,10 @@ export default function OverviewTab({ dateRange, countryFilter }: OverviewTabPro
                   <span className="text-gray-400">N/A</span>
                 )}
               </p>
-              <p className="text-xs text-gray-400 mt-1">전체 리뷰 기준</p>
+              <p className="text-xs text-gray-400 mt-1">{summary.totalReviews.toLocaleString()}건 리뷰</p>
             </div>
             <div className="w-12 h-12 bg-amber-100 rounded-xl flex items-center justify-center">
               <span className="text-2xl">⭐</span>
-            </div>
-          </div>
-        </div>
-
-        {/* 리뷰 수 */}
-        <div className="card hover:shadow-lg transition-shadow">
-          <div className="flex items-start justify-between">
-            <div>
-              <p className="text-sm text-gray-500 mb-1">리뷰 수</p>
-              <p className="text-3xl font-bold text-gray-900">{summary.totalReviews.toLocaleString()}<span className="text-lg font-normal text-gray-500">건</span></p>
-            </div>
-            <div className="w-12 h-12 bg-pink-100 rounded-xl flex items-center justify-center">
-              <span className="text-2xl">📝</span>
             </div>
           </div>
         </div>
@@ -248,44 +189,26 @@ export default function OverviewTab({ dateRange, countryFilter }: OverviewTabPro
             </div>
           </div>
           
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-            <div className="p-4 bg-gray-50 rounded-xl">
-              <div className="flex items-center justify-between mb-2">
-                <span className="text-sm font-medium">매출 50% 달성 작가 수</span>
-                <span className="text-lg font-bold text-gray-700">{concentration.top50Percent.count}명</span>
-              </div>
-              <p className="text-xs text-gray-500">
-                전체 활성 작가의 {concentration.top50Percent.share}%가 매출의 절반을 차지
-              </p>
-              <div className="mt-2 h-2 bg-gray-200 rounded-full overflow-hidden">
-                <div 
-                  className="h-full bg-violet-500 rounded-full" 
-                  style={{ width: `${Math.min(concentration.top50Percent.share, 100)}%` }}
-                />
-              </div>
+          <div className="p-4 bg-gray-50 rounded-xl">
+            <div className="flex items-center justify-between mb-2">
+              <span className="text-sm font-medium">지니 계수 (매출 불평등 지표)</span>
+              <span className="text-lg font-bold text-gray-700">{concentration.giniCoefficient}</span>
             </div>
-            
-            <div className="p-4 bg-gray-50 rounded-xl">
-              <div className="flex items-center justify-between mb-2">
-                <span className="text-sm font-medium">지니 계수</span>
-                <span className="text-lg font-bold text-gray-700">{concentration.giniCoefficient}</span>
-              </div>
-              <p className="text-xs text-gray-500">
-                {concentration.giniCoefficient >= 0.6 
-                  ? '⚠️ 매출이 소수 작가에 집중됨 (리스크 주의)' 
-                  : concentration.giniCoefficient >= 0.4 
-                    ? '📊 적정 수준의 매출 집중도' 
-                    : '✅ 매출이 고르게 분산됨'}
-              </p>
-              <div className="mt-2 h-2 bg-gray-200 rounded-full overflow-hidden">
-                <div 
-                  className={`h-full rounded-full ${
-                    concentration.giniCoefficient >= 0.6 ? 'bg-red-500' : 
-                    concentration.giniCoefficient >= 0.4 ? 'bg-amber-500' : 'bg-emerald-500'
-                  }`}
-                  style={{ width: `${concentration.giniCoefficient * 100}%` }}
-                />
-              </div>
+            <p className="text-xs text-gray-500">
+              {concentration.giniCoefficient >= 0.6 
+                ? '⚠️ 매출이 소수 작가에 집중됨 - 상위 작가 이탈 시 리스크 주의' 
+                : concentration.giniCoefficient >= 0.4 
+                  ? '📊 적정 수준의 매출 집중도 - 핸드메이드 플랫폼 평균 수준' 
+                  : '✅ 매출이 고르게 분산됨 - 안정적인 매출 구조'}
+            </p>
+            <div className="mt-2 h-2 bg-gray-200 rounded-full overflow-hidden">
+              <div 
+                className={`h-full rounded-full ${
+                  concentration.giniCoefficient >= 0.6 ? 'bg-red-500' : 
+                  concentration.giniCoefficient >= 0.4 ? 'bg-amber-500' : 'bg-emerald-500'
+                }`}
+                style={{ width: `${concentration.giniCoefficient * 100}%` }}
+              />
             </div>
           </div>
         </div>
