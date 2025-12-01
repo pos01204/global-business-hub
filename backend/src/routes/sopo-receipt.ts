@@ -569,11 +569,12 @@ router.post('/upload', upload.single('file'), async (req: Request, res: Response
  * - 새로운 작가는 추가
  */
 async function saveTrackingData(period: string, artists: any[]): Promise<{ added: number; updated: number; skipped: number }> {
+  // 시트 컬럼 순서 (artist_id 제외)
   const headers = [
-    'period', 'artist_name', 'artist_id', 'artist_email', 'order_count', 
-    'total_amount', // 작품 판매 금액(KRW) 합계
-    'notification_sent_at', 'application_status', 'application_submitted_at',
-    'jotform_submission_id', 'reminder_sent_at', 'receipt_issued_at', 'updated_at'
+    'period', 'artist_name', 'artist_email', 'order_count', 
+    'total_amount', 'notification_sent_at', 'application_status', 
+    'application_submitted_at', 'jotform_submission_id', 'reminder_sent_at', 
+    'receipt_issued_at', 'updated_at'
   ];
 
   console.log(`[Sopo] ========================================`);
@@ -649,42 +650,36 @@ async function saveTrackingData(period: string, artists: any[]): Promise<{ added
       // 기존 데이터가 있으면 배치 업데이트 준비
       const rowNum = existing.rowIndex;
       
-      // C열: artist_id (있으면 업데이트)
-      if (artist.artistId && !existing.data.artist_id) {
-        updateBatch.push({ range: `C${rowNum}`, value: artist.artistId });
-      }
-      
-      // D열: artist_email (있으면 업데이트)
+      // C열: artist_email (있으면 업데이트)
       if (artist.artistEmail && !existing.data.artist_email) {
-        updateBatch.push({ range: `D${rowNum}`, value: artist.artistEmail });
+        updateBatch.push({ range: `C${rowNum}`, value: artist.artistEmail });
       }
       
-      // E열: order_count (항상 업데이트)
-      updateBatch.push({ range: `E${rowNum}`, value: artist.orderCount });
+      // D열: order_count (항상 업데이트)
+      updateBatch.push({ range: `D${rowNum}`, value: artist.orderCount });
       
-      // F열: total_amount (항상 업데이트)
-      updateBatch.push({ range: `F${rowNum}`, value: artist.totalAmount || 0 });
+      // E열: total_amount (항상 업데이트)
+      updateBatch.push({ range: `E${rowNum}`, value: artist.totalAmount || 0 });
       
-      // M열: updated_at (항상 업데이트)
-      updateBatch.push({ range: `M${rowNum}`, value: now });
+      // L열: updated_at (항상 업데이트)
+      updateBatch.push({ range: `L${rowNum}`, value: now });
       
       updatedCount++;
     } else {
-      // 새로운 데이터 추가
+      // 새로운 데이터 추가 (시트 컬럼 순서에 맞춤)
       newRows.push([
-        period,
-        artist.artistName,
-        artist.artistId || '',
-        artist.artistEmail || '',
-        artist.orderCount,
-        artist.totalAmount || 0, // 작품 판매 금액(KRW) 합계
-        '', // notification_sent_at
-        'pending', // application_status
-        '', // application_submitted_at
-        '', // jotform_submission_id
-        '', // reminder_sent_at
-        '', // receipt_issued_at
-        now, // updated_at
+        period,                      // A: period
+        artist.artistName,           // B: artist_name
+        artist.artistEmail || '',    // C: artist_email
+        artist.orderCount,           // D: order_count
+        artist.totalAmount || 0,     // E: total_amount
+        '',                          // F: notification_sent_at
+        'pending',                   // G: application_status
+        '',                          // H: application_submitted_at
+        '',                          // I: jotform_submission_id
+        '',                          // J: reminder_sent_at
+        '',                          // K: receipt_issued_at
+        now,                         // L: updated_at
       ]);
     }
   }
@@ -1100,11 +1095,11 @@ async function updateTrackingNotificationSent(period: string, artistName: string
     );
     
     if (rowIndex >= 0) {
-      // notification_sent_at 컬럼 업데이트 (7번째 컬럼, 0-indexed: 6)
+      // notification_sent_at 컬럼 업데이트 (F열, 6번째 컬럼)
       // 헤더 행 포함하므로 rowIndex + 2
       await sheetsService.updateCell(
         SHEET_NAMES.SOPO_TRACKING, 
-        `G${rowIndex + 2}`, 
+        `F${rowIndex + 2}`, 
         sentAt
       );
     }
