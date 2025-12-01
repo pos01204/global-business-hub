@@ -139,7 +139,7 @@ export default function OrderDetailModal({ orderCode, onClose }: OrderDetailModa
                   
                   {/* 상태별 집계 */}
                   <div className="flex flex-wrap gap-2 mb-3">
-                    {Object.entries(data.bundleAnalysis.statusBreakdown).map(([stage, count]) => {
+                    {Object.entries(data.bundleAnalysis.statusBreakdown as Record<string, number>).map(([stage, count]) => {
                       if (count === 0) return null;
                       const config = STAGE_CONFIG[stage];
                       return (
