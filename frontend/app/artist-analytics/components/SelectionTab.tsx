@@ -249,14 +249,14 @@ export default function SelectionTab() {
           </div>
         </div>
 
-        {/* 글로벌 확장 현황 */}
+        {/* 작품 판매 현황 */}
         <div className="card">
-          <h3 className="text-lg font-semibold mb-4">🌍 글로벌 확장 현황</h3>
+          <h3 className="text-lg font-semibold mb-4">🛒 작품 판매 현황</h3>
           <div className="space-y-4">
-            {/* Global 진출 작가 */}
+            {/* Global 작품 판매중 작가 */}
             <div className="p-4 bg-violet-50 rounded-xl">
               <div className="flex items-center justify-between mb-2">
-                <span className="text-sm font-medium text-gray-700">Global 진출 작가</span>
+                <span className="text-sm font-medium text-gray-700">Global 작품 판매중 작가</span>
                 <span className="text-xl font-bold text-violet-600">
                   {(globalExpansion?.globalArtistCount || 0).toLocaleString()}명
                 </span>
@@ -268,13 +268,13 @@ export default function SelectionTab() {
                 />
               </div>
               <p className="text-xs text-gray-500 mt-2">
-                전체 활성 작가의 {globalExpansion?.globalArtistRate || 0}%
+                전체 등록 작가 중 {globalExpansion?.globalArtistRate || 0}%가 작품 판매중
               </p>
             </div>
 
-            {/* 언어별 커버리지 */}
+            {/* 언어별 판매 작가 */}
             <div className="p-4 bg-gray-50 rounded-xl">
-              <p className="text-sm font-medium text-gray-700 mb-3">언어별 커버리지 (Global Live 기준)</p>
+              <p className="text-sm font-medium text-gray-700 mb-3">언어별 판매 작가 (Global 판매중 작가 기준)</p>
               <div className="space-y-3">
                 <div>
                   <div className="flex items-center justify-between mb-1">
