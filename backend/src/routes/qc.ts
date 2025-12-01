@@ -230,6 +230,7 @@ async function loadTextQCData() {
     let imported = 0;
     let skipped = 0;
     let archived = 0;
+    let completed = 0;
 
     for (const record of textData) {
       const id = generateId('text', record);
@@ -237,19 +238,27 @@ async function loadTextQCData() {
       // 상태 확인 (status 컬럼이 있으면 사용, 없으면 'pending')
       const status = (record.status as 'pending' | 'approved' | 'needs_revision' | 'excluded' | 'archived') || 'pending';
       
-      // 아카이브된 항목은 아카이브 저장소에만 저장
-      if (status === 'archived' || record.archived === true) {
+      // completedAt에 값이 있으면 이미 완료된 QC 건 - 아카이브로 처리
+      const completedAtValue = record.completedAt || record.completed_at || record.CompletedAt;
+      const hasCompletedAt = completedAtValue && String(completedAtValue).trim() !== '';
+      
+      // 아카이브된 항목 또는 completedAt이 있는 항목은 아카이브 저장소에만 저장
+      if (status === 'archived' || record.archived === true || hasCompletedAt) {
         const qcItem: QCItem = {
           id,
           type: 'text',
           data: record,
-          status: 'approved', // 아카이브는 완료된 것으로 간주
+          status: 'approved', // 아카이브/완료는 완료된 것으로 간주
           needsRevision: false,
           createdAt: record.createdAt ? new Date(record.createdAt) : new Date(),
-          completedAt: record.completedAt ? new Date(record.completedAt) : new Date(),
+          completedAt: hasCompletedAt ? new Date(completedAtValue) : new Date(),
         };
         qcDataStore.archive.set(id, qcItem);
-        archived++;
+        if (hasCompletedAt && status !== 'archived') {
+          completed++;
+        } else {
+          archived++;
+        }
         continue;
       }
       
@@ -266,14 +275,14 @@ async function loadTextQCData() {
         status,
         needsRevision: record.needsRevision === true || record.needs_revision === true,
         createdAt: record.createdAt ? new Date(record.createdAt) : new Date(),
-        completedAt: record.completedAt ? new Date(record.completedAt) : undefined,
+        completedAt: undefined,
       };
 
       qcDataStore.text.set(id, qcItem);
       imported++;
     }
 
-    console.log(`[QC] 텍스트 QC 데이터 로드 완료: ${imported}개 가져옴, ${archived}개 아카이브, ${skipped}개 스킵`);
+    console.log(`[QC] 텍스트 QC 데이터 로드 완료: ${imported}개 대기, ${completed}개 완료(completedAt), ${archived}개 아카이브, ${skipped}개 스킵`);
   } catch (error) {
     console.error('[QC] 텍스트 QC 데이터 로드 실패:', error);
   }
@@ -289,6 +298,7 @@ async function loadImageQCData() {
     let imported = 0;
     let skipped = 0;
     let archived = 0;
+    let completed = 0;
 
     for (const record of imageData) {
       const id = generateId('image', record);
@@ -296,19 +306,27 @@ async function loadImageQCData() {
       // 상태 확인 (status 컬럼이 있으면 사용, 없으면 'pending')
       const status = (record.status as 'pending' | 'approved' | 'needs_revision' | 'excluded' | 'archived') || 'pending';
       
-      // 아카이브된 항목은 아카이브 저장소에만 저장
-      if (status === 'archived' || record.archived === true) {
+      // completedAt에 값이 있으면 이미 완료된 QC 건 - 아카이브로 처리
+      const completedAtValue = record.completedAt || record.completed_at || record.CompletedAt;
+      const hasCompletedAt = completedAtValue && String(completedAtValue).trim() !== '';
+      
+      // 아카이브된 항목 또는 completedAt이 있는 항목은 아카이브 저장소에만 저장
+      if (status === 'archived' || record.archived === true || hasCompletedAt) {
         const qcItem: QCItem = {
           id,
           type: 'image',
           data: record,
-          status: 'approved', // 아카이브는 완료된 것으로 간주
+          status: 'approved', // 아카이브/완료는 완료된 것으로 간주
           needsRevision: false,
           createdAt: record.createdAt ? new Date(record.createdAt) : new Date(),
-          completedAt: record.completedAt ? new Date(record.completedAt) : new Date(),
+          completedAt: hasCompletedAt ? new Date(completedAtValue) : new Date(),
         };
         qcDataStore.archive.set(id, qcItem);
-        archived++;
+        if (hasCompletedAt && status !== 'archived') {
+          completed++;
+        } else {
+          archived++;
+        }
         continue;
       }
       
@@ -325,14 +343,14 @@ async function loadImageQCData() {
         status,
         needsRevision: record.needsRevision === true || record.needs_revision === true,
         createdAt: record.createdAt ? new Date(record.createdAt) : new Date(),
-        completedAt: record.completedAt ? new Date(record.completedAt) : undefined,
+        completedAt: undefined,
       };
 
       qcDataStore.image.set(id, qcItem);
       imported++;
     }
 
-    console.log(`[QC] 이미지 QC 데이터 로드 완료: ${imported}개 가져옴, ${archived}개 아카이브, ${skipped}개 스킵`);
+    console.log(`[QC] 이미지 QC 데이터 로드 완료: ${imported}개 대기, ${completed}개 완료(completedAt), ${archived}개 아카이브, ${skipped}개 스킵`);
   } catch (error) {
     console.error('[QC] 이미지 QC 데이터 로드 실패:', error);
   }
@@ -396,6 +414,12 @@ router.post('/sync', async (req, res) => {
     const beforeImageCount = qcDataStore.image.size;
     const beforeArchiveCount = qcDataStore.archive.size;
 
+    // 기존 데이터 클리어 (완전 새로고침)
+    qcDataStore.text.clear();
+    qcDataStore.image.clear();
+    qcDataStore.archive.clear();
+    console.log('[QC] 기존 데이터 클리어 완료');
+
     // 데이터 다시 로드
     await loadArtists();
     await loadTextQCData();
@@ -446,6 +470,12 @@ router.get('/sync', async (req, res) => {
     const beforeTextCount = qcDataStore.text.size;
     const beforeImageCount = qcDataStore.image.size;
     const beforeArchiveCount = qcDataStore.archive.size;
+
+    // 기존 데이터 클리어 (완전 새로고침)
+    qcDataStore.text.clear();
+    qcDataStore.image.clear();
+    qcDataStore.archive.clear();
+    console.log('[QC] 기존 데이터 클리어 완료');
 
     // 데이터 다시 로드
     await loadArtists();

@@ -353,12 +353,20 @@ router.get('/tasks', async (req, res) => {
       
       const qcTextPending = qcTextData.filter((row: any) => {
         const status = (row['처리 상태'] || row.status || '').toLowerCase();
-        return !status.includes('완료') && !status.includes('skip');
+        // completedAt이 있으면 이미 완료된 건 - 제외
+        const completedAt = row.completedAt || row.completed_at || row.CompletedAt;
+        const hasCompletedAt = completedAt && String(completedAt).trim() !== '';
+        if (hasCompletedAt) return false;
+        return !status.includes('완료') && !status.includes('skip') && !status.includes('archived');
       }).length;
       
       const qcImagePending = qcImageData.filter((row: any) => {
         const status = (row['처리 상태'] || row.status || '').toLowerCase();
-        return !status.includes('완료') && !status.includes('skip');
+        // completedAt이 있으면 이미 완료된 건 - 제외
+        const completedAt = row.completedAt || row.completed_at || row.CompletedAt;
+        const hasCompletedAt = completedAt && String(completedAt).trim() !== '';
+        if (hasCompletedAt) return false;
+        return !status.includes('완료') && !status.includes('skip') && !status.includes('archived');
       }).length;
       
       const totalQcPending = qcTextPending + qcImagePending;
