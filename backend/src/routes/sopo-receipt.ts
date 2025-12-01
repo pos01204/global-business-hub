@@ -418,7 +418,8 @@ router.post('/upload', upload.single('file'), async (req: Request, res: Response
       artistId?: string;
       artistEmail?: string;
       orders: OrderDetail[];
-      totalAmount: number; // 작품 판매 금액(KRW) 합계
+      totalAmount: number; // 작품 개수 (quantity 합계)
+      totalAmountKRW: number; // 작품 판매 금액(KRW) 합계 (이메일 표시용)
       orderCount: number;
     }
 
@@ -449,7 +450,8 @@ router.post('/upload', upload.single('file'), async (req: Request, res: Response
             artistId: artistInfo.id,
             artistEmail: artistInfo.email,
             orders: [],
-            totalAmount: 0, // 작품 판매 금액(KRW) 합계
+            totalAmount: 0, // 작품 개수 (quantity 합계)
+            totalAmountKRW: 0, // 작품 판매 금액(KRW) 합계 (이메일 표시용)
             orderCount: 0,
           });
         }
@@ -491,7 +493,10 @@ router.post('/upload', upload.single('file'), async (req: Request, res: Response
             recipient: shipment.recipient,
           });
 
-          artistSummary.totalAmount += productPriceKRW;
+          // totalAmount: 작품 개수 (quantity 합계)
+          artistSummary.totalAmount += quantity;
+          // totalAmountKRW: 금액 합계 (이메일 표시용)
+          artistSummary.totalAmountKRW += productPriceKRW;
         }
       }
     }
@@ -1026,27 +1031,68 @@ router.post('/notify', async (req: Request, res: Response) => {
     // 기본 JotForm 링크
     const formLink = jotformLink || 'https://form.jotform.com/idusglobal/230940786344057';
 
+    // logistics 데이터 로드 (주문내역서 생성용)
+    let logisticsData: any[] = [];
+    try {
+      logisticsData = await sheetsService.getSheetDataAsJson(SHEET_NAMES.LOGISTICS, false);
+    } catch (e) {
+      console.warn('[Sopo] Logistics 데이터 로드 실패, 첨부파일 없이 발송');
+    }
+
     for (const artist of artistsWithEmail) {
       try {
         // 이메일 발송
         const periodDisplay = formatPeriodDisplay(period);
-        const totalAmount = parseFloat(artist.total_amount_krw) || parseFloat(artist.total_amount) || 0;
+        const orderCount = parseInt(artist.order_count) || 0;
+        
+        // 해당 작가의 주문내역서 생성 (금액 계산 + CSV 첨부용)
+        const artistOrders = logisticsData.filter((row: any) => {
+          const rowArtist = row['artist_name (kr)'] || row['artist_name(kr)'] || 
+                            row.artist_name_kr || row.artist_name || row.artist || '';
+          return rowArtist === artist.artist_name;
+        });
+
+        // 주문내역서 형식으로 변환
+        const orderSheet = artistOrders.map((row: any) => {
+          const productPriceKRW = cleanAndParseFloat(row['작품 판매 금액(KRW)']);
+          return {
+            orderCode: row.order_code || '',
+            orderStatus: '배송완료',
+            productName: row.product_name || row['작품명'] || '',
+            option: row.option || row['옵션'] || '',
+            quantity: parseInt(row['구매수량'] || row.quantity || '1') || 1,
+            amount: productPriceKRW,
+          };
+        });
+
+        // 금액 합계 계산 (이메일 표시용)
+        const totalAmountKRW = orderSheet.reduce((sum, o) => sum + o.amount, 0);
+        
         const subject = `[아이디어스 글로벌] ${periodDisplay} 소포수령증 발급 신청 안내`;
         
         const htmlContent = generateNotificationEmailHTML({
           artistName: artist.artist_name,
           period: periodDisplay,
-          orderCount: parseInt(artist.order_count) || 0,
-          totalAmount,
+          orderCount,
+          totalAmount: totalAmountKRW,
           jotformLink: formLink,
           deadline: getDeadlineDate(),
         });
+
+        // 주문내역서 CSV 생성 (첨부파일용)
+        const csvContent = generateOrderSheetCSV(artist.artist_name, orderSheet);
+        const periodShort = period.replace('-', '').slice(2); // 2025-12 -> 2512
+        const csvFilename = `${periodShort} 소포수령증 발급신청용 주문내역서_${artist.artist_name}.csv`;
+
+        // BOM 추가하여 한글 깨짐 방지
+        const csvWithBOM = '\uFEFF' + csvContent;
 
         const result = await emailService.sendEmail(
           artist.artist_email,
           subject,
           htmlContent,
-          `${artist.artist_name} 작가님 소포수령증 신청 안내`
+          `${artist.artist_name} 작가님 소포수령증 신청 안내`,
+          orderSheet.length > 0 ? [{ filename: csvFilename, content: csvWithBOM }] : undefined
         );
 
         if (result.success) {

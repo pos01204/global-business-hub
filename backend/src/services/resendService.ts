@@ -6,6 +6,12 @@ interface EmailConfig {
   fromName: string;
 }
 
+interface Attachment {
+  filename: string;
+  content: string; // UTF-8 string content
+  contentType?: string;
+}
+
 class ResendService {
   private resend: Resend | null = null;
   private fromEmail: string;
@@ -31,9 +37,15 @@ class ResendService {
   }
 
   /**
-   * 이메일 발송
+   * 이메일 발송 (첨부파일 지원)
    */
-  async sendEmail(to: string, subject: string, htmlBody: string, textBody?: string): Promise<{ success: boolean; messageId?: string; error?: string }> {
+  async sendEmail(
+    to: string, 
+    subject: string, 
+    htmlBody: string, 
+    textBody?: string,
+    attachments?: Attachment[]
+  ): Promise<{ success: boolean; messageId?: string; error?: string }> {
     console.log(`[Resend] sendEmail 시작: ${to}`);
     
     if (!this.isConfigured || !this.resend) {
@@ -54,14 +66,21 @@ class ResendService {
         };
       }
 
-      console.log(`[Resend] 이메일 발송 중...`);
+      console.log(`[Resend] 이메일 발송 중...${attachments?.length ? ` (첨부파일 ${attachments.length}개)` : ''}`);
       
+      // Resend 첨부파일 형식으로 변환
+      const resendAttachments = attachments?.map(att => ({
+        filename: att.filename,
+        content: Buffer.from(att.content, 'utf-8'),
+      }));
+
       const { data, error } = await this.resend.emails.send({
         from: `${this.fromName} <${this.fromEmail}>`,
         to: [to],
         subject: subject,
         html: htmlBody,
         text: textBody || '',
+        attachments: resendAttachments,
       });
 
       if (error) {
@@ -90,8 +109,3 @@ class ResendService {
 }
 
 export default ResendService;
-
-
-
-
-
