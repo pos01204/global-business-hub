@@ -314,25 +314,66 @@ router.post('/upload', upload.single('file'), async (req: Request, res: Response
 
     // 파일명에서 기간 자동 추출 (예: "BACKPA_11월_선적내역_추출_20251201" → "2025-11")
     // 파일명에서 추출한 기간이 우선 적용됨 (프론트엔드에서 전달한 period보다 우선)
-    const filename = req.file.originalname;
+    const rawFilename = req.file.originalname;
+    // URL 인코딩된 파일명 디코딩
+    const filename = decodeURIComponent(rawFilename);
+    
+    console.log(`[Sopo] 파일명 분석: raw="${rawFilename}", decoded="${filename}"`);
+    
     let period = new Date().toISOString().slice(0, 7); // 기본값: 현재 월
     let periodSource = 'default';
     
-    // 파일명에서 월 추출 시도 (예: "11월", "12월")
-    const monthMatch = filename.match(/(\d{1,2})월/);
-    if (monthMatch) {
-      const month = parseInt(monthMatch[1]);
-      // 파일명에서 연도 추출 시도 (예: "20251201" 또는 "2025")
-      const yearMatch = filename.match(/20(\d{2})/);
-      const year = yearMatch ? `20${yearMatch[1]}` : new Date().getFullYear().toString();
-      period = `${year}-${String(month).padStart(2, '0')}`;
+    // 파일명에서 월 추출 시도 (예: "11월", "12월", "_11_", "-11-")
+    // 다양한 패턴 지원: "11월", "_11월", "11월_"
+    const monthPatterns = [
+      /(\d{1,2})월/,           // "11월"
+      /_(\d{1,2})_/,           // "_11_"
+      /[-_](\d{1,2})[-_]/,     // "-11-" 또는 "_11_"
+    ];
+    
+    let extractedMonth: number | null = null;
+    for (const pattern of monthPatterns) {
+      const match = filename.match(pattern);
+      if (match) {
+        const monthNum = parseInt(match[1]);
+        // 월은 1-12 사이여야 함
+        if (monthNum >= 1 && monthNum <= 12) {
+          extractedMonth = monthNum;
+          console.log(`[Sopo] 월 추출 성공: 패턴=${pattern}, 결과=${monthNum}`);
+          break;
+        }
+      }
+    }
+    
+    if (extractedMonth !== null) {
+      // 파일명에서 연도 추출 시도 (예: "20251201" → 2025, "2025" → 2025)
+      // _YYYYMMDD 패턴 또는 YYYY 패턴
+      const yearPatterns = [
+        /[_-]?(20\d{2})\d{4}/,  // "20251201" → "2025"
+        /[_-]?(20\d{2})[_-]/,   // "_2025_" → "2025"
+        /(20\d{2})/,            // 단순 "2025"
+      ];
+      
+      let extractedYear = new Date().getFullYear();
+      for (const pattern of yearPatterns) {
+        const match = filename.match(pattern);
+        if (match) {
+          extractedYear = parseInt(match[1]);
+          console.log(`[Sopo] 연도 추출 성공: 패턴=${pattern}, 결과=${extractedYear}`);
+          break;
+        }
+      }
+      
+      period = `${extractedYear}-${String(extractedMonth).padStart(2, '0')}`;
       periodSource = 'filename';
-      console.log(`[Sopo] ✅ 파일명에서 기간 추출: "${filename}" → ${period}`);
+      console.log(`[Sopo] ✅ 파일명에서 기간 추출 완료: "${filename}" → ${period}`);
     } else if (req.body.period) {
       // 파일명에서 추출 실패 시에만 프론트엔드 전달 값 사용
       period = req.body.period;
       periodSource = 'request';
-      console.log(`[Sopo] 프론트엔드 전달 기간 사용: ${period}`);
+      console.log(`[Sopo] ⚠️ 파일명에서 기간 추출 실패, 프론트엔드 전달 기간 사용: ${period}`);
+    } else {
+      console.log(`[Sopo] ⚠️ 기간 추출 실패, 기본값 사용: ${period}`);
     }
     
     console.log(`[Sopo] 선적 CSV 업로드: ${filename}, 기간: ${period} (source: ${periodSource})`);
@@ -1255,14 +1296,8 @@ function generateNotificationEmailHTML(params: {
       
       <div class="info-box">
         <h3 style="margin-top: 0;">📋 발급 대상 주문 요약</h3>
-        <div class="info-item">
-          <span>주문 건수</span>
-          <strong>${orderCount}건</strong>
-        </div>
-        <div class="info-item">
-          <span>총 금액</span>
-          <strong>₩${amountFormatted}</strong>
-        </div>
+        <p style="margin: 10px 0; font-size: 15px;">주문 건수 <strong>${orderCount}건</strong></p>
+        <p style="margin: 10px 0; font-size: 15px;">총 금액 <strong>₩${amountFormatted}</strong></p>
       </div>
       
       <h3>🔗 신청 방법</h3>
