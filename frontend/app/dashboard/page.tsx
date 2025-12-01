@@ -541,7 +541,7 @@ export default function DashboardPage() {
                 </Link>
               </div>
               
-              {pipelineData?.data ? (
+              {pipelineData?.pipeline ? (
                 <>
                   {/* 파이프라인 시각화 */}
                   <div className="flex items-center justify-between mb-4 p-4 bg-gradient-to-r from-slate-50 to-blue-50 rounded-xl">
@@ -549,10 +549,10 @@ export default function DashboardPage() {
                       <div className="w-12 h-12 mx-auto bg-blue-100 rounded-xl flex items-center justify-center mb-1">
                         <span className="text-xl">📦</span>
                       </div>
-                      <p className="text-lg font-bold text-gray-800">{pipelineData.data.unreceived?.total || 0}</p>
+                      <p className="text-lg font-bold text-gray-800">{pipelineData.pipeline.unreceived?.orderCount || 0}</p>
                       <p className="text-xs text-gray-500">미입고</p>
-                      {(pipelineData.data.unreceived?.critical || 0) > 0 && (
-                        <span className="text-xs text-red-500 font-medium">⚠️ {pipelineData.data.unreceived?.critical}</span>
+                      {(pipelineData.pipeline.unreceived?.criticalCount || 0) > 0 && (
+                        <span className="text-xs text-red-500 font-medium">⚠️ {pipelineData.pipeline.unreceived?.criticalCount}</span>
                       )}
                     </div>
                     <span className="text-gray-300">→</span>
@@ -560,10 +560,10 @@ export default function DashboardPage() {
                       <div className="w-12 h-12 mx-auto bg-green-100 rounded-xl flex items-center justify-center mb-1">
                         <span className="text-xl">🚚</span>
                       </div>
-                      <p className="text-lg font-bold text-gray-800">{pipelineData.data.domesticShipping?.total || 0}</p>
+                      <p className="text-lg font-bold text-gray-800">{pipelineData.pipeline.artistShipping?.orderCount || 0}</p>
                       <p className="text-xs text-gray-500">국내배송</p>
-                      {(pipelineData.data.domesticShipping?.delayed || 0) > 0 && (
-                        <span className="text-xs text-red-500 font-medium">⚠️ {pipelineData.data.domesticShipping?.delayed}</span>
+                      {(pipelineData.pipeline.artistShipping?.criticalCount || 0) > 0 && (
+                        <span className="text-xs text-red-500 font-medium">⚠️ {pipelineData.pipeline.artistShipping?.criticalCount}</span>
                       )}
                     </div>
                     <span className="text-gray-300">→</span>
@@ -571,10 +571,10 @@ export default function DashboardPage() {
                       <div className="w-12 h-12 mx-auto bg-purple-100 rounded-xl flex items-center justify-center mb-1">
                         <span className="text-xl">🔍</span>
                       </div>
-                      <p className="text-lg font-bold text-gray-800">{pipelineData.data.awaitingInspection?.total || 0}</p>
+                      <p className="text-lg font-bold text-gray-800">{pipelineData.pipeline.awaitingInspection?.orderCount || 0}</p>
                       <p className="text-xs text-gray-500">검수대기</p>
-                      {(pipelineData.data.awaitingInspection?.criticalCount || 0) > 0 && (
-                        <span className="text-xs text-red-500 font-medium">⚠️ {pipelineData.data.awaitingInspection?.criticalCount}</span>
+                      {(pipelineData.pipeline.awaitingInspection?.criticalCount || 0) > 0 && (
+                        <span className="text-xs text-red-500 font-medium">⚠️ {pipelineData.pipeline.awaitingInspection?.criticalCount}</span>
                       )}
                     </div>
                     <span className="text-gray-300">→</span>
@@ -582,10 +582,10 @@ export default function DashboardPage() {
                       <div className="w-12 h-12 mx-auto bg-indigo-100 rounded-xl flex items-center justify-center mb-1">
                         <span className="text-xl">✈️</span>
                       </div>
-                      <p className="text-lg font-bold text-gray-800">{pipelineData.data.internationalShipping?.total || 0}</p>
+                      <p className="text-lg font-bold text-gray-800">{pipelineData.pipeline.internationalShipping?.orderCount || 0}</p>
                       <p className="text-xs text-gray-500">국제배송</p>
-                      {(pipelineData.data.internationalShipping?.criticalCount || 0) > 0 && (
-                        <span className="text-xs text-red-500 font-medium">⚠️ {pipelineData.data.internationalShipping?.criticalCount}</span>
+                      {(pipelineData.pipeline.internationalShipping?.criticalCount || 0) > 0 && (
+                        <span className="text-xs text-red-500 font-medium">⚠️ {pipelineData.pipeline.internationalShipping?.criticalCount}</span>
                       )}
                     </div>
                   </div>
@@ -594,19 +594,19 @@ export default function DashboardPage() {
                   <div className="grid grid-cols-3 gap-3">
                     <div className="text-center p-3 bg-slate-50 rounded-xl">
                       <p className="text-lg font-bold text-slate-800">
-                        {(pipelineData.data.unreceived?.total || 0) + (pipelineData.data.domesticShipping?.total || 0) + (pipelineData.data.awaitingInspection?.total || 0) + (pipelineData.data.internationalShipping?.total || 0)}
+                        {(pipelineData.pipeline.unreceived?.orderCount || 0) + (pipelineData.pipeline.artistShipping?.orderCount || 0) + (pipelineData.pipeline.awaitingInspection?.orderCount || 0) + (pipelineData.pipeline.internationalShipping?.orderCount || 0)}
                       </p>
                       <p className="text-xs text-gray-500">처리중</p>
                     </div>
                     <div className="text-center p-3 bg-red-50 rounded-xl">
                       <p className="text-lg font-bold text-red-600">
-                        {(pipelineData.data.unreceived?.critical || 0) + (pipelineData.data.domesticShipping?.delayed || 0) + (pipelineData.data.awaitingInspection?.criticalCount || 0) + (pipelineData.data.internationalShipping?.criticalCount || 0)}
+                        {(pipelineData.pipeline.unreceived?.criticalCount || 0) + (pipelineData.pipeline.artistShipping?.criticalCount || 0) + (pipelineData.pipeline.awaitingInspection?.criticalCount || 0) + (pipelineData.pipeline.internationalShipping?.criticalCount || 0)}
                       </p>
                       <p className="text-xs text-gray-500">위험</p>
                     </div>
                     <div className="text-center p-3 bg-blue-50 rounded-xl">
-                      <p className="text-lg font-bold text-blue-600">{pipelineData.data.avgProcessingDays?.toFixed(1) || '0.0'}</p>
-                      <p className="text-xs text-gray-500">평균(일)</p>
+                      <p className="text-lg font-bold text-blue-600">{pipelineData.pipeline.unreceived?.maxDays || 0}</p>
+                      <p className="text-xs text-gray-500">최대(일)</p>
                     </div>
                   </div>
                 </>
@@ -638,21 +638,21 @@ export default function DashboardPage() {
                 </Link>
               </div>
               
-              {artistData?.data ? (
+              {artistData?.summary ? (
                 <>
                   {/* 작가 통계 */}
                   <div className="grid grid-cols-3 gap-4 mb-4">
                     <div className="text-center p-4 bg-gradient-to-br from-pink-50 to-rose-50 rounded-xl border border-pink-100">
-                      <p className="text-2xl font-bold text-pink-600">{artistData.data.totalArtists || data.snapshot.activeArtists || 0}</p>
+                      <p className="text-2xl font-bold text-pink-600">{artistData.summary.activeArtists || data.snapshot.activeArtists || 0}</p>
                       <p className="text-xs text-gray-500 mt-1">활성 작가</p>
                     </div>
                     <div className="text-center p-4 bg-gradient-to-br from-emerald-50 to-teal-50 rounded-xl border border-emerald-100">
-                      <p className="text-2xl font-bold text-emerald-600">+{artistData.data.newArtistsThisWeek || Math.floor(Math.random() * 5) + 1}</p>
-                      <p className="text-xs text-gray-500 mt-1">신규 (이번 주)</p>
+                      <p className="text-2xl font-bold text-emerald-600">{artistData.summary.totalArtists || 0}</p>
+                      <p className="text-xs text-gray-500 mt-1">전체 작가</p>
                     </div>
-                    <div className="text-center p-4 bg-gradient-to-br from-red-50 to-orange-50 rounded-xl border border-red-100">
-                      <p className="text-2xl font-bold text-red-600">⚠️ {artistData.data.atRiskArtists || Math.floor(Math.random() * 8) + 2}</p>
-                      <p className="text-xs text-gray-500 mt-1">이탈 위험</p>
+                    <div className="text-center p-4 bg-gradient-to-br from-blue-50 to-indigo-50 rounded-xl border border-blue-100">
+                      <p className="text-2xl font-bold text-blue-600">{artistData.summary.activeRate?.toFixed(1) || 0}%</p>
+                      <p className="text-xs text-gray-500 mt-1">활성률</p>
                     </div>
                   </div>
                   
@@ -664,13 +664,13 @@ export default function DashboardPage() {
                         <span className="text-sm font-medium text-gray-700">매출 집중도</span>
                       </div>
                       <span className="text-sm font-bold text-pink-600">
-                        상위 20% → 매출 {artistData.data.concentrationRate || 68}%
+                        상위 20% → 매출 {artistData.concentration?.top20Percent?.toFixed(1) || 68}%
                       </span>
                     </div>
                     <div className="mt-2 h-2 bg-gray-200 rounded-full overflow-hidden">
                       <div 
                         className="h-full bg-gradient-to-r from-pink-400 to-rose-500 rounded-full"
-                        style={{ width: `${artistData.data.concentrationRate || 68}%` }}
+                        style={{ width: `${artistData.concentration?.top20Percent || 68}%` }}
                       ></div>
                     </div>
                   </div>

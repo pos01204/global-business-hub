@@ -441,6 +441,93 @@ router.get('/tasks', async (req, res) => {
       console.error('[Tasks] Error checking churn:', e);
     }
 
+    // 5. 검수 대기 2일+ (긴급)
+    try {
+      const logisticsData = await sheetsService.getSheetDataAsJson(SHEET_NAMES.LOGISTICS, true);
+      const awaitingInspection = logisticsData.filter((row: any) => {
+        const status = (row.logistics || '').trim();
+        if (status !== '입고 완료') return false;
+        
+        const updateDate = new Date(row.logistics_updated || row.order_created);
+        if (isNaN(updateDate.getTime())) return false;
+        
+        const daysDiff = Math.floor((now.getTime() - updateDate.getTime()) / (1000 * 60 * 60 * 24));
+        return daysDiff >= 2;
+      });
+
+      if (awaitingInspection.length > 0) {
+        tasks.push({
+          id: 'inspection-delayed',
+          title: '검수 대기 2일+',
+          count: awaitingInspection.length,
+          priority: 'high',
+          icon: '🔍',
+          link: '/control-tower',
+          description: '검수 지연 건 즉시 처리 필요',
+        });
+      }
+    } catch (e) {
+      console.error('[Tasks] Error checking inspection:', e);
+    }
+
+    // 6. 국제배송 14일+ 지연
+    try {
+      const logisticsData = await sheetsService.getSheetDataAsJson(SHEET_NAMES.LOGISTICS, true);
+      const intlShippingDelayed = logisticsData.filter((row: any) => {
+        const status = (row.logistics || '').trim();
+        if (!status.includes('국제배송') && !status.includes('해외배송')) return false;
+        
+        const updateDate = new Date(row.logistics_updated || row.order_created);
+        if (isNaN(updateDate.getTime())) return false;
+        
+        const daysDiff = Math.floor((now.getTime() - updateDate.getTime()) / (1000 * 60 * 60 * 24));
+        return daysDiff >= 14;
+      });
+
+      if (intlShippingDelayed.length > 0) {
+        tasks.push({
+          id: 'intl-shipping-delayed',
+          title: '국제배송 14일+ 지연',
+          count: intlShippingDelayed.length,
+          priority: 'medium',
+          icon: '✈️',
+          link: '/logistics?status=국제배송',
+          description: '배송 지연 건 확인 필요',
+        });
+      }
+    } catch (e) {
+      console.error('[Tasks] Error checking intl shipping:', e);
+    }
+
+    // 7. 미입고 14일+ (긴급 - 기존 7일과 별도)
+    try {
+      const logisticsData = await sheetsService.getSheetDataAsJson(SHEET_NAMES.LOGISTICS, true);
+      const unreceived14Days = logisticsData.filter((row: any) => {
+        const status = (row.logistics || '').trim();
+        if (status !== '결제 완료') return false;
+        
+        const orderDate = new Date(row.order_created);
+        if (isNaN(orderDate.getTime())) return false;
+        
+        const daysDiff = Math.floor((now.getTime() - orderDate.getTime()) / (1000 * 60 * 60 * 24));
+        return daysDiff >= 14;
+      });
+
+      if (unreceived14Days.length > 0) {
+        tasks.push({
+          id: 'unreceived-critical',
+          title: '미입고 14일+ 긴급',
+          count: unreceived14Days.length,
+          priority: 'high',
+          icon: '🚨',
+          link: '/unreceived?delay=critical',
+          description: '즉시 작가 연락 필요',
+        });
+      }
+    } catch (e) {
+      console.error('[Tasks] Error checking critical unreceived:', e);
+    }
+
     // 우선순위 정렬
     const priorityOrder = { high: 0, medium: 1, low: 2 };
     tasks.sort((a, b) => priorityOrder[a.priority] - priorityOrder[b.priority]);
