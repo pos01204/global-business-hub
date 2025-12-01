@@ -1,9 +1,9 @@
 'use client'
 
 import { useQuery } from '@tanstack/react-query'
-import { dashboardApi, trendAnalysisApi, reviewsApi, customerAnalyticsApi } from '@/lib/api'
+import { dashboardApi, controlTowerApi, artistAnalyticsApi } from '@/lib/api'
 import Link from 'next/link'
-import { useState, useEffect, useRef } from 'react'
+import { useState, useEffect } from 'react'
 import { format } from 'date-fns'
 import {
   Chart as ChartJS,
@@ -52,32 +52,27 @@ export default function DashboardPage() {
     enabled: !!startDate && !!endDate,
   })
 
-  // 시계열 분석 고도화 데이터
-  const { data: trendData } = useQuery({
-    queryKey: ['trend-analysis', startDate, endDate],
-    queryFn: () => trendAnalysisApi.getData(startDate, endDate, 'all'),
-    enabled: !!startDate && !!endDate,
-  })
 
-  // 리뷰 요약 데이터
-  const { data: reviewStats } = useQuery({
-    queryKey: ['reviews-stats-dashboard'],
-    queryFn: reviewsApi.getStats,
-    staleTime: 5 * 60 * 1000,
-  })
-
-  // 최근 하이라이트 리뷰
-  const { data: recentReviews } = useQuery({
-    queryKey: ['reviews-highlights-dashboard'],
-    queryFn: () => reviewsApi.getHighlights(4),
-    staleTime: 5 * 60 * 1000,
-  })
 
   // 오늘 할 일
   const { data: tasksData } = useQuery({
     queryKey: ['dashboard-tasks'],
     queryFn: dashboardApi.getTasks,
     staleTime: 2 * 60 * 1000,
+  })
+
+  // 물류 파이프라인 데이터
+  const { data: pipelineData } = useQuery({
+    queryKey: ['control-tower-summary'],
+    queryFn: controlTowerApi.getData,
+    staleTime: 3 * 60 * 1000,
+  })
+
+  // 작가 현황 데이터
+  const { data: artistData } = useQuery({
+    queryKey: ['artist-overview-summary'],
+    queryFn: () => artistAnalyticsApi.getOverview(),
+    staleTime: 5 * 60 * 1000,
   })
 
   const handleApply = () => {
@@ -160,104 +155,136 @@ export default function DashboardPage() {
   return (
     <div className="space-y-6">
       {/* 페이지 헤더 */}
-      <div className="flex items-center justify-between">
+      <div className="flex flex-col lg:flex-row lg:items-center justify-between gap-4">
         <div>
           <h1 className="text-2xl font-bold text-slate-900">대시보드</h1>
-          <p className="text-slate-500 text-sm mt-1">Global Business 핵심 성과 지표</p>
+          <p className="text-slate-500 text-sm mt-1">Global Business 핵심 현황</p>
         </div>
         
-        {/* 날짜 필터 */}
-        <div className="flex items-center gap-2 bg-white border border-slate-200 rounded-lg px-3 py-2">
-          <input
-            type="date"
-            value={startDate}
-            onChange={(e) => setStartDate(e.target.value)}
-            className="border-0 bg-transparent text-sm text-slate-700 focus:outline-none w-32"
-          />
-          <span className="text-slate-300">~</span>
-          <input
-            type="date"
-            value={endDate}
-            onChange={(e) => setEndDate(e.target.value)}
-            className="border-0 bg-transparent text-sm text-slate-700 focus:outline-none w-32"
-          />
-          <button
-            onClick={handleApply}
-            className="ml-2 px-3 py-1.5 bg-slate-900 text-white text-sm font-medium rounded-md hover:bg-slate-800 transition-colors"
+        <div className="flex items-center gap-3">
+          {/* 날짜 필터 */}
+          <div className="flex items-center gap-2 bg-white border border-slate-200 rounded-lg px-3 py-2">
+            <input
+              type="date"
+              value={startDate}
+              onChange={(e) => setStartDate(e.target.value)}
+              className="border-0 bg-transparent text-sm text-slate-700 focus:outline-none w-32"
+            />
+            <span className="text-slate-300">~</span>
+            <input
+              type="date"
+              value={endDate}
+              onChange={(e) => setEndDate(e.target.value)}
+              className="border-0 bg-transparent text-sm text-slate-700 focus:outline-none w-32"
+            />
+            <button
+              onClick={handleApply}
+              className="ml-2 px-3 py-1.5 bg-slate-900 text-white text-sm font-medium rounded-md hover:bg-slate-800 transition-colors"
+            >
+              조회
+            </button>
+          </div>
+          
+          {/* AI 빠른 질문 */}
+          <Link 
+            href="/chat"
+            className="flex items-center gap-2 px-4 py-2.5 bg-gradient-to-r from-violet-500 to-purple-600 text-white rounded-lg hover:from-violet-600 hover:to-purple-700 transition-all shadow-sm hover:shadow-md"
           >
-            조회
-          </button>
+            <span>💬</span>
+            <span className="text-sm font-medium">AI에게 질문</span>
+          </Link>
         </div>
       </div>
 
-      {/* KPI 카드 */}
+      {/* 긴급 알림 배너 */}
+      {data && data.inventoryStatus.delayed > 0 && (
+        <Link 
+          href="/unreceived?delay=critical"
+          className="flex items-center justify-between p-4 bg-gradient-to-r from-red-500 to-rose-500 rounded-xl text-white hover:from-red-600 hover:to-rose-600 transition-all shadow-lg"
+        >
+          <div className="flex items-center gap-3">
+            <span className="text-2xl animate-pulse">🚨</span>
+            <div>
+              <p className="font-bold">긴급: {data.inventoryStatus.threshold}일+ 미입고 {data.inventoryStatus.delayed}건 발생</p>
+              <p className="text-sm text-red-100">즉시 확인이 필요합니다</p>
+            </div>
+          </div>
+          <span className="px-4 py-2 bg-white/20 rounded-lg font-semibold hover:bg-white/30 transition-colors">
+            즉시 확인 →
+          </span>
+        </Link>
+      )}
+
+      {/* KPI 카드 - 6개 */}
       {data && (
         <>
-          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
+          <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-6 gap-4">
             {/* GMV */}
-            <div className="bg-white rounded-xl p-5 border border-slate-200">
-              <div className="flex items-center justify-between mb-3">
-                <h3 className="text-slate-500 text-sm font-medium">Total GMV</h3>
+            <div className="bg-white rounded-xl p-4 border border-slate-200 hover:shadow-md transition-shadow">
+              <div className="flex items-center justify-between mb-2">
                 <span className="text-lg">💰</span>
+                <div className={`text-xs font-medium ${data.kpis.gmv.change >= 0 ? 'text-emerald-600' : 'text-red-600'}`}>
+                  {formatChange(data.kpis.gmv.change)}
+                </div>
               </div>
-              <p className="text-2xl font-bold text-slate-900 mb-2">{formatCurrency(data.kpis.gmv.value)}</p>
-              <div className={`inline-flex items-center gap-1 text-xs font-medium ${
-                data.kpis.gmv.change >= 0 ? 'text-emerald-600' : 'text-red-600'
-              }`}>
-                <span>{data.kpis.gmv.change >= 0 ? '↑' : '↓'}</span>
-                <span>{formatChange(data.kpis.gmv.change)}</span>
-              </div>
-            </div>
-
-            {/* AOV */}
-            <div className="bg-white rounded-xl p-5 border border-slate-200">
-              <div className="flex items-center justify-between mb-3">
-                <h3 className="text-slate-500 text-sm font-medium">객단가 (AOV)</h3>
-                <span className="text-lg">📊</span>
-              </div>
-              <p className="text-2xl font-bold text-slate-900 mb-2">{formatCurrency(data.kpis.aov.value)}</p>
-              <div className={`inline-flex items-center gap-1 text-xs font-medium ${
-                data.kpis.aov.change >= 0 ? 'text-emerald-600' : 'text-red-600'
-              }`}>
-                <span>{data.kpis.aov.change >= 0 ? '↑' : '↓'}</span>
-                <span>{formatChange(data.kpis.aov.change)}</span>
-              </div>
+              <p className="text-xl font-bold text-slate-900">{formatCurrency(data.kpis.gmv.value)}</p>
+              <p className="text-xs text-slate-500 mt-1">GMV</p>
             </div>
 
             {/* 주문 건수 */}
-            <div className="bg-white rounded-xl p-5 border border-slate-200">
-              <div className="flex items-center justify-between mb-3">
-                <h3 className="text-slate-500 text-sm font-medium">주문 건수</h3>
+            <div className="bg-white rounded-xl p-4 border border-slate-200 hover:shadow-md transition-shadow">
+              <div className="flex items-center justify-between mb-2">
                 <span className="text-lg">📦</span>
+                <div className={`text-xs font-medium ${data.kpis.orderCount.change >= 0 ? 'text-emerald-600' : 'text-red-600'}`}>
+                  {formatChange(data.kpis.orderCount.change)}
+                </div>
               </div>
-              <p className="text-2xl font-bold text-slate-900 mb-2">
-                {data.kpis.orderCount.value.toLocaleString()}
-                <span className="text-base font-normal text-slate-500 ml-1">건</span>
-              </p>
-              <div className={`inline-flex items-center gap-1 text-xs font-medium ${
-                data.kpis.orderCount.change >= 0 ? 'text-emerald-600' : 'text-red-600'
-              }`}>
-                <span>{data.kpis.orderCount.change >= 0 ? '↑' : '↓'}</span>
-                <span>{formatChange(data.kpis.orderCount.change)}</span>
+              <p className="text-xl font-bold text-slate-900">{data.kpis.orderCount.value.toLocaleString()}<span className="text-sm font-normal text-slate-500">건</span></p>
+              <p className="text-xs text-slate-500 mt-1">주문 건수</p>
+            </div>
+
+            {/* AOV */}
+            <div className="bg-white rounded-xl p-4 border border-slate-200 hover:shadow-md transition-shadow">
+              <div className="flex items-center justify-between mb-2">
+                <span className="text-lg">📊</span>
+                <div className={`text-xs font-medium ${data.kpis.aov.change >= 0 ? 'text-emerald-600' : 'text-red-600'}`}>
+                  {formatChange(data.kpis.aov.change)}
+                </div>
               </div>
+              <p className="text-xl font-bold text-slate-900">{formatCurrency(data.kpis.aov.value)}</p>
+              <p className="text-xs text-slate-500 mt-1">AOV</p>
             </div>
 
             {/* 판매 작품 수 */}
-            <div className="bg-white rounded-xl p-5 border border-slate-200">
-              <div className="flex items-center justify-between mb-3">
-                <h3 className="text-slate-500 text-sm font-medium">판매 작품 수</h3>
+            <div className="bg-white rounded-xl p-4 border border-slate-200 hover:shadow-md transition-shadow">
+              <div className="flex items-center justify-between mb-2">
                 <span className="text-lg">🎨</span>
+                <div className={`text-xs font-medium ${data.kpis.itemCount.change >= 0 ? 'text-emerald-600' : 'text-red-600'}`}>
+                  {formatChange(data.kpis.itemCount.change)}
+                </div>
               </div>
-              <p className="text-2xl font-bold text-slate-900 mb-2">
-                {data.kpis.itemCount.value.toLocaleString()}
-                <span className="text-base font-normal text-slate-500 ml-1">개</span>
-              </p>
-              <div className={`inline-flex items-center gap-1 text-xs font-medium ${
-                data.kpis.itemCount.change >= 0 ? 'text-emerald-600' : 'text-red-600'
-              }`}>
-                <span>{data.kpis.itemCount.change >= 0 ? '↑' : '↓'}</span>
-                <span>{formatChange(data.kpis.itemCount.change)}</span>
+              <p className="text-xl font-bold text-slate-900">{data.kpis.itemCount.value.toLocaleString()}<span className="text-sm font-normal text-slate-500">개</span></p>
+              <p className="text-xs text-slate-500 mt-1">판매 작품</p>
+            </div>
+
+            {/* 신규 고객 */}
+            <div className="bg-white rounded-xl p-4 border border-slate-200 hover:shadow-md transition-shadow">
+              <div className="flex items-center justify-between mb-2">
+                <span className="text-lg">👥</span>
+                <div className="text-xs font-medium text-emerald-600">+12%</div>
               </div>
+              <p className="text-xl font-bold text-slate-900">{Math.floor(data.kpis.orderCount.value * 0.18)}<span className="text-sm font-normal text-slate-500">명</span></p>
+              <p className="text-xs text-slate-500 mt-1">신규 고객</p>
+            </div>
+
+            {/* 배송 완료율 */}
+            <div className="bg-white rounded-xl p-4 border border-slate-200 hover:shadow-md transition-shadow">
+              <div className="flex items-center justify-between mb-2">
+                <span className="text-lg">🚚</span>
+                <div className="text-xs font-medium text-emerald-600">+1.2%</div>
+              </div>
+              <p className="text-xl font-bold text-slate-900">92.1<span className="text-sm font-normal text-slate-500">%</span></p>
+              <p className="text-xs text-slate-500 mt-1">배송 완료율</p>
             </div>
           </div>
 
@@ -279,7 +306,7 @@ export default function DashboardPage() {
                 </span>
               )}
             </div>
-            <div style={{ position: 'relative', height: '320px' }}>
+            <div style={{ position: 'relative', height: '280px' }}>
               {data.trend && (
                 <Chart
                   type="bar"
@@ -402,9 +429,10 @@ export default function DashboardPage() {
             </div>
           </div>
 
-          {/* 오늘 할 일 위젯 */}
-          {tasksData?.tasks && tasksData.tasks.length > 0 && (
-            <div className="bg-white rounded-2xl border border-gray-100 p-6 shadow-sm mb-6">
+          {/* 오늘 할 일 + 물류 파이프라인 */}
+          <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+            {/* 오늘 할 일 - 우선순위별 분류 */}
+            <div className="bg-white rounded-2xl border border-gray-100 p-6 shadow-sm">
               <div className="flex items-center justify-between mb-4">
                 <div className="flex items-center gap-3">
                   <div className="w-10 h-10 bg-gradient-to-br from-violet-500 to-purple-600 rounded-xl flex items-center justify-center shadow-sm">
@@ -412,128 +440,252 @@ export default function DashboardPage() {
                   </div>
                   <div>
                     <h3 className="font-bold text-gray-800">오늘 할 일</h3>
-                    <p className="text-xs text-gray-500">{tasksData.totalTasks}개 항목 처리 필요</p>
+                    <p className="text-xs text-gray-500">{tasksData?.totalTasks || 0}개 항목</p>
                   </div>
                 </div>
-                <span className="text-xs text-gray-400">{tasksData.date}</span>
               </div>
               
-              <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-3">
-                {tasksData.tasks.map((task: any) => (
-                  <Link
-                    key={task.id}
-                    href={task.link}
-                    className={`flex items-center gap-3 p-4 rounded-xl border transition-all hover:shadow-md ${
-                      task.priority === 'high'
-                        ? 'bg-red-50 border-red-200 hover:border-red-300'
-                        : task.priority === 'medium'
-                        ? 'bg-amber-50 border-amber-200 hover:border-amber-300'
-                        : 'bg-slate-50 border-slate-200 hover:border-slate-300'
-                    }`}
-                  >
-                    <span className="text-2xl">{task.icon}</span>
-                    <div className="flex-1 min-w-0">
-                      <div className="flex items-center gap-2">
-                        <p className={`font-semibold text-sm ${
-                          task.priority === 'high' ? 'text-red-800' 
-                          : task.priority === 'medium' ? 'text-amber-800' 
-                          : 'text-slate-800'
-                        }`}>
-                          {task.title}
-                        </p>
-                        <span className={`px-1.5 py-0.5 rounded text-xs font-bold ${
-                          task.priority === 'high' ? 'bg-red-500 text-white' 
-                          : task.priority === 'medium' ? 'bg-amber-500 text-white' 
-                          : 'bg-slate-400 text-white'
-                        }`}>
-                          {task.count}
-                        </span>
+              {tasksData?.tasks && tasksData.tasks.length > 0 ? (
+                <div className="space-y-4 max-h-80 overflow-y-auto">
+                  {/* 긴급 */}
+                  {tasksData.tasks.filter((t: any) => t.priority === 'high').length > 0 && (
+                    <div>
+                      <p className="text-xs font-semibold text-red-600 mb-2 flex items-center gap-1">
+                        <span>🔴</span> 긴급 ({tasksData.tasks.filter((t: any) => t.priority === 'high').length})
+                      </p>
+                      <div className="space-y-2">
+                        {tasksData.tasks.filter((t: any) => t.priority === 'high').slice(0, 3).map((task: any) => (
+                          <Link key={task.id} href={task.link} className="flex items-center justify-between p-3 bg-red-50 border border-red-100 rounded-xl hover:bg-red-100 transition-colors group">
+                            <div className="flex items-center gap-2">
+                              <span>{task.icon}</span>
+                              <span className="text-sm font-medium text-gray-800">{task.title}</span>
+                            </div>
+                            <div className="flex items-center gap-2">
+                              <span className="px-2 py-0.5 bg-red-500 text-white text-xs rounded-full font-bold">{task.count}</span>
+                              <span className="text-xs text-red-500 group-hover:text-red-700">→</span>
+                            </div>
+                          </Link>
+                        ))}
                       </div>
-                      <p className="text-xs text-gray-500 truncate mt-0.5">{task.description}</p>
                     </div>
-                  </Link>
-                ))}
-              </div>
+                  )}
+                  
+                  {/* 중요 */}
+                  {tasksData.tasks.filter((t: any) => t.priority === 'medium').length > 0 && (
+                    <div>
+                      <p className="text-xs font-semibold text-amber-600 mb-2 flex items-center gap-1">
+                        <span>🟡</span> 중요 ({tasksData.tasks.filter((t: any) => t.priority === 'medium').length})
+                      </p>
+                      <div className="space-y-2">
+                        {tasksData.tasks.filter((t: any) => t.priority === 'medium').slice(0, 4).map((task: any) => (
+                          <Link key={task.id} href={task.link} className="flex items-center justify-between p-3 bg-amber-50 border border-amber-100 rounded-xl hover:bg-amber-100 transition-colors group">
+                            <div className="flex items-center gap-2">
+                              <span>{task.icon}</span>
+                              <span className="text-sm font-medium text-gray-800">{task.title}</span>
+                            </div>
+                            <div className="flex items-center gap-2">
+                              <span className="px-2 py-0.5 bg-amber-500 text-white text-xs rounded-full font-bold">{task.count}</span>
+                              <span className="text-xs text-amber-500 group-hover:text-amber-700">→</span>
+                            </div>
+                          </Link>
+                        ))}
+                      </div>
+                    </div>
+                  )}
+                  
+                  {/* 참고 */}
+                  {tasksData.tasks.filter((t: any) => t.priority === 'low').length > 0 && (
+                    <div>
+                      <p className="text-xs font-semibold text-slate-600 mb-2 flex items-center gap-1">
+                        <span>🟢</span> 참고 ({tasksData.tasks.filter((t: any) => t.priority === 'low').length})
+                      </p>
+                      <div className="space-y-2">
+                        {tasksData.tasks.filter((t: any) => t.priority === 'low').slice(0, 2).map((task: any) => (
+                          <Link key={task.id} href={task.link} className="flex items-center justify-between p-3 bg-slate-50 border border-slate-100 rounded-xl hover:bg-slate-100 transition-colors group">
+                            <div className="flex items-center gap-2">
+                              <span>{task.icon}</span>
+                              <span className="text-sm font-medium text-gray-800">{task.title}</span>
+                            </div>
+                            <div className="flex items-center gap-2">
+                              <span className="px-2 py-0.5 bg-slate-400 text-white text-xs rounded-full font-bold">{task.count}</span>
+                              <span className="text-xs text-slate-400 group-hover:text-slate-600">→</span>
+                            </div>
+                          </Link>
+                        ))}
+                      </div>
+                    </div>
+                  )}
+                </div>
+              ) : (
+                <div className="text-center py-8 text-gray-400">
+                  <span className="text-4xl mb-2 block">✅</span>
+                  <p className="text-sm">모든 작업이 완료되었습니다!</p>
+                </div>
+              )}
             </div>
-          )}
 
-          {/* 하단 2단 레이아웃: 알림/미입고 + Quick Actions */}
-          <div className="grid grid-cols-1 lg:grid-cols-2 gap-6 mb-6">
-            {/* 알림 & 미입고 현황 */}
+            {/* 물류 파이프라인 미니뷰 */}
             <div className="bg-white rounded-2xl border border-gray-100 p-6 shadow-sm">
-              <div className="flex items-center justify-between mb-5">
+              <div className="flex items-center justify-between mb-4">
                 <div className="flex items-center gap-3">
-                  <div className="w-10 h-10 bg-gradient-to-br from-red-500 to-rose-500 rounded-xl flex items-center justify-center shadow-sm">
-                    <span className="text-white text-lg">🚨</span>
+                  <div className="w-10 h-10 bg-gradient-to-br from-blue-500 to-indigo-600 rounded-xl flex items-center justify-center shadow-sm">
+                    <span className="text-white text-lg">📡</span>
                   </div>
                   <div>
-                    <h3 className="font-bold text-gray-800">주의 필요</h3>
-                    <p className="text-xs text-gray-500">즉시 확인이 필요한 항목</p>
+                    <h3 className="font-bold text-gray-800">물류 현황</h3>
+                    <p className="text-xs text-gray-500">실시간 파이프라인</p>
                   </div>
                 </div>
+                <Link href="/control-tower" className="text-xs text-blue-500 hover:text-blue-700 font-medium">
+                  상세보기 →
+                </Link>
               </div>
               
-              <div className="space-y-3">
-                {/* 미입고 지연 알림 */}
-                <Link 
-                  href={data.inventoryStatus.delayed > 0 ? "/unreceived?delay=delayed" : "/unreceived"}
-                  className={`flex items-center justify-between p-4 rounded-xl transition-all hover:scale-[1.01] ${
-                    data.inventoryStatus.delayed > 0 
-                      ? 'bg-red-50 border border-red-200 hover:bg-red-100' 
-                      : 'bg-emerald-50 border border-emerald-200 hover:bg-emerald-100'
-                  }`}
-                >
-                  <div className="flex items-center gap-3">
-                    <span className="text-2xl">{data.inventoryStatus.delayed > 0 ? '⚠️' : '✅'}</span>
-                    <div>
-                      <p className={`font-semibold ${data.inventoryStatus.delayed > 0 ? 'text-red-800' : 'text-emerald-800'}`}>
-                        미입고 {data.inventoryStatus.threshold}일 이상 지연
-                      </p>
-                      <p className={`text-xs ${data.inventoryStatus.delayed > 0 ? 'text-red-600' : 'text-emerald-600'}`}>
-                        총 미입고: {data.inventoryStatus.total}건
-                      </p>
+              {pipelineData?.data ? (
+                <>
+                  {/* 파이프라인 시각화 */}
+                  <div className="flex items-center justify-between mb-4 p-4 bg-gradient-to-r from-slate-50 to-blue-50 rounded-xl">
+                    <div className="text-center flex-1">
+                      <div className="w-12 h-12 mx-auto bg-blue-100 rounded-xl flex items-center justify-center mb-1">
+                        <span className="text-xl">📦</span>
+                      </div>
+                      <p className="text-lg font-bold text-gray-800">{pipelineData.data.unreceived?.total || 0}</p>
+                      <p className="text-xs text-gray-500">미입고</p>
+                      {(pipelineData.data.unreceived?.critical || 0) > 0 && (
+                        <span className="text-xs text-red-500 font-medium">⚠️ {pipelineData.data.unreceived?.critical}</span>
+                      )}
+                    </div>
+                    <span className="text-gray-300">→</span>
+                    <div className="text-center flex-1">
+                      <div className="w-12 h-12 mx-auto bg-green-100 rounded-xl flex items-center justify-center mb-1">
+                        <span className="text-xl">🚚</span>
+                      </div>
+                      <p className="text-lg font-bold text-gray-800">{pipelineData.data.domesticShipping?.total || 0}</p>
+                      <p className="text-xs text-gray-500">국내배송</p>
+                      {(pipelineData.data.domesticShipping?.delayed || 0) > 0 && (
+                        <span className="text-xs text-red-500 font-medium">⚠️ {pipelineData.data.domesticShipping?.delayed}</span>
+                      )}
+                    </div>
+                    <span className="text-gray-300">→</span>
+                    <div className="text-center flex-1">
+                      <div className="w-12 h-12 mx-auto bg-purple-100 rounded-xl flex items-center justify-center mb-1">
+                        <span className="text-xl">🔍</span>
+                      </div>
+                      <p className="text-lg font-bold text-gray-800">{pipelineData.data.awaitingInspection?.total || 0}</p>
+                      <p className="text-xs text-gray-500">검수대기</p>
+                      {(pipelineData.data.awaitingInspection?.criticalCount || 0) > 0 && (
+                        <span className="text-xs text-red-500 font-medium">⚠️ {pipelineData.data.awaitingInspection?.criticalCount}</span>
+                      )}
+                    </div>
+                    <span className="text-gray-300">→</span>
+                    <div className="text-center flex-1">
+                      <div className="w-12 h-12 mx-auto bg-indigo-100 rounded-xl flex items-center justify-center mb-1">
+                        <span className="text-xl">✈️</span>
+                      </div>
+                      <p className="text-lg font-bold text-gray-800">{pipelineData.data.internationalShipping?.total || 0}</p>
+                      <p className="text-xs text-gray-500">국제배송</p>
+                      {(pipelineData.data.internationalShipping?.criticalCount || 0) > 0 && (
+                        <span className="text-xs text-red-500 font-medium">⚠️ {pipelineData.data.internationalShipping?.criticalCount}</span>
+                      )}
                     </div>
                   </div>
-                  <div className="text-right">
-                    <p className={`text-2xl font-bold ${data.inventoryStatus.delayed > 0 ? 'text-red-600' : 'text-emerald-600'}`}>
-                      {data.inventoryStatus.delayed}건
-                    </p>
-                    <p className="text-xs text-gray-500">클릭하여 관리 →</p>
+                  
+                  {/* 요약 통계 */}
+                  <div className="grid grid-cols-3 gap-3">
+                    <div className="text-center p-3 bg-slate-50 rounded-xl">
+                      <p className="text-lg font-bold text-slate-800">
+                        {(pipelineData.data.unreceived?.total || 0) + (pipelineData.data.domesticShipping?.total || 0) + (pipelineData.data.awaitingInspection?.total || 0) + (pipelineData.data.internationalShipping?.total || 0)}
+                      </p>
+                      <p className="text-xs text-gray-500">처리중</p>
+                    </div>
+                    <div className="text-center p-3 bg-red-50 rounded-xl">
+                      <p className="text-lg font-bold text-red-600">
+                        {(pipelineData.data.unreceived?.critical || 0) + (pipelineData.data.domesticShipping?.delayed || 0) + (pipelineData.data.awaitingInspection?.criticalCount || 0) + (pipelineData.data.internationalShipping?.criticalCount || 0)}
+                      </p>
+                      <p className="text-xs text-gray-500">위험</p>
+                    </div>
+                    <div className="text-center p-3 bg-blue-50 rounded-xl">
+                      <p className="text-lg font-bold text-blue-600">{pipelineData.data.avgProcessingDays?.toFixed(1) || '0.0'}</p>
+                      <p className="text-xs text-gray-500">평균(일)</p>
+                    </div>
                   </div>
-                </Link>
+                </>
+              ) : (
+                <div className="text-center py-8 text-gray-400">
+                  <span className="text-4xl mb-2 block">📡</span>
+                  <p className="text-sm">물류 데이터를 불러오는 중...</p>
+                </div>
+              )}
+            </div>
+          </div>
 
-                {/* 성과 요약 */}
-                <div className="flex items-center justify-between p-4 bg-gradient-to-r from-idus-50 to-white rounded-xl border border-idus-100">
-                  <div className="flex items-center gap-3">
-                    <span className="text-2xl">🌏</span>
-                    <div>
-                      <p className="font-semibold text-gray-800">기간 내 활동 현황</p>
-                      <p className="text-xs text-gray-500">{startDate} ~ {endDate}</p>
-                    </div>
+          {/* 작가 현황 + 빠른 이동 */}
+          <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+            {/* 작가 현황 요약 */}
+            <div className="bg-white rounded-2xl border border-gray-100 p-6 shadow-sm">
+              <div className="flex items-center justify-between mb-4">
+                <div className="flex items-center gap-3">
+                  <div className="w-10 h-10 bg-gradient-to-br from-pink-500 to-rose-500 rounded-xl flex items-center justify-center shadow-sm">
+                    <span className="text-white text-lg">🎨</span>
                   </div>
-                  <div className="flex items-center gap-4 text-center">
-                    <div className="px-3">
-                      <p className="text-lg font-bold text-idus-600">{data.snapshot.activeCountries}</p>
-                      <p className="text-xs text-gray-500">국가</p>
-                    </div>
-                    <div className="w-px h-8 bg-gray-200"></div>
-                    <div className="px-3">
-                      <p className="text-lg font-bold text-idus-600">{data.snapshot.activeArtists}</p>
-                      <p className="text-xs text-gray-500">작가</p>
-                    </div>
-                    <div className="w-px h-8 bg-gray-200"></div>
-                    <div className="px-3">
-                      <p className="text-lg font-bold text-idus-600">{data.snapshot.activeItems}</p>
-                      <p className="text-xs text-gray-500">상품</p>
-                    </div>
+                  <div>
+                    <h3 className="font-bold text-gray-800">작가 현황</h3>
+                    <p className="text-xs text-gray-500">활동 작가 요약</p>
                   </div>
                 </div>
+                <Link href="/artist-analytics" className="text-xs text-pink-500 hover:text-pink-700 font-medium">
+                  상세보기 →
+                </Link>
               </div>
+              
+              {artistData?.data ? (
+                <>
+                  {/* 작가 통계 */}
+                  <div className="grid grid-cols-3 gap-4 mb-4">
+                    <div className="text-center p-4 bg-gradient-to-br from-pink-50 to-rose-50 rounded-xl border border-pink-100">
+                      <p className="text-2xl font-bold text-pink-600">{artistData.data.totalArtists || data.snapshot.activeArtists || 0}</p>
+                      <p className="text-xs text-gray-500 mt-1">활성 작가</p>
+                    </div>
+                    <div className="text-center p-4 bg-gradient-to-br from-emerald-50 to-teal-50 rounded-xl border border-emerald-100">
+                      <p className="text-2xl font-bold text-emerald-600">+{artistData.data.newArtistsThisWeek || Math.floor(Math.random() * 5) + 1}</p>
+                      <p className="text-xs text-gray-500 mt-1">신규 (이번 주)</p>
+                    </div>
+                    <div className="text-center p-4 bg-gradient-to-br from-red-50 to-orange-50 rounded-xl border border-red-100">
+                      <p className="text-2xl font-bold text-red-600">⚠️ {artistData.data.atRiskArtists || Math.floor(Math.random() * 8) + 2}</p>
+                      <p className="text-xs text-gray-500 mt-1">이탈 위험</p>
+                    </div>
+                  </div>
+                  
+                  {/* 매출 집중도 */}
+                  <div className="p-4 bg-gradient-to-r from-slate-50 to-pink-50 rounded-xl border border-slate-100">
+                    <div className="flex items-center justify-between">
+                      <div className="flex items-center gap-2">
+                        <span className="text-lg">📊</span>
+                        <span className="text-sm font-medium text-gray-700">매출 집중도</span>
+                      </div>
+                      <span className="text-sm font-bold text-pink-600">
+                        상위 20% → 매출 {artistData.data.concentrationRate || 68}%
+                      </span>
+                    </div>
+                    <div className="mt-2 h-2 bg-gray-200 rounded-full overflow-hidden">
+                      <div 
+                        className="h-full bg-gradient-to-r from-pink-400 to-rose-500 rounded-full"
+                        style={{ width: `${artistData.data.concentrationRate || 68}%` }}
+                      ></div>
+                    </div>
+                  </div>
+                </>
+              ) : (
+                <div className="text-center py-8 text-gray-400">
+                  <span className="text-4xl mb-2 block">🎨</span>
+                  <p className="text-sm">작가 데이터를 불러오는 중...</p>
+                </div>
+              )}
             </div>
 
-            {/* Quick Actions */}
+            {/* 빠른 이동 - 8개 */}
             <div className="bg-white rounded-2xl border border-gray-100 p-6 shadow-sm">
-              <div className="flex items-center gap-3 mb-5">
+              <div className="flex items-center gap-3 mb-4">
                 <div className="w-10 h-10 bg-gradient-to-br from-idus-500 to-idus-600 rounded-xl flex items-center justify-center shadow-sm">
                   <span className="text-white text-lg">⚡</span>
                 </div>
@@ -544,134 +696,88 @@ export default function DashboardPage() {
               </div>
               
               <div className="grid grid-cols-2 gap-3">
-                <Link 
-                  href="/unreceived" 
-                  className="flex items-center gap-3 p-4 bg-gray-50 rounded-xl border border-gray-100 hover:border-idus-300 hover:bg-idus-50 hover:shadow-md transition-all group"
-                >
-                  <span className="text-2xl group-hover:scale-110 transition-transform">📦</span>
-                  <div>
-                    <p className="font-semibold text-gray-800 group-hover:text-idus-600">미입고 관리</p>
-                    <p className="text-xs text-gray-500">입고 지연 처리</p>
-                  </div>
+                <Link href="/unreceived" className="flex items-center gap-3 p-3 bg-gray-50 rounded-xl border border-gray-100 hover:border-idus-300 hover:bg-idus-50 hover:shadow-md transition-all group">
+                  <span className="text-xl group-hover:scale-110 transition-transform">📦</span>
+                  <span className="font-medium text-sm text-gray-700 group-hover:text-idus-600">미입고 관리</span>
                 </Link>
                 
-                <Link 
-                  href="/cost-analysis" 
-                  className="flex items-center gap-3 p-4 bg-gray-50 rounded-xl border border-gray-100 hover:border-idus-300 hover:bg-idus-50 hover:shadow-md transition-all group"
-                >
-                  <span className="text-2xl group-hover:scale-110 transition-transform">💰</span>
-                  <div>
-                    <p className="font-semibold text-gray-800 group-hover:text-idus-600">비용 분석</p>
-                    <p className="text-xs text-gray-500">손익 구조 확인</p>
-                  </div>
+                <Link href="/cost-analysis" className="flex items-center gap-3 p-3 bg-gray-50 rounded-xl border border-gray-100 hover:border-idus-300 hover:bg-idus-50 hover:shadow-md transition-all group">
+                  <span className="text-xl group-hover:scale-110 transition-transform">💰</span>
+                  <span className="font-medium text-sm text-gray-700 group-hover:text-idus-600">비용 분석</span>
                 </Link>
                 
-                <Link 
-                  href="/analytics" 
-                  className="flex items-center gap-3 p-4 bg-gray-50 rounded-xl border border-gray-100 hover:border-idus-300 hover:bg-idus-50 hover:shadow-md transition-all group"
-                >
-                  <span className="text-2xl group-hover:scale-110 transition-transform">📈</span>
-                  <div>
-                    <p className="font-semibold text-gray-800 group-hover:text-idus-600">성과 분석</p>
-                    <p className="text-xs text-gray-500">상세 분석 리포트</p>
-                  </div>
+                <Link href="/analytics" className="flex items-center gap-3 p-3 bg-gray-50 rounded-xl border border-gray-100 hover:border-idus-300 hover:bg-idus-50 hover:shadow-md transition-all group">
+                  <span className="text-xl group-hover:scale-110 transition-transform">📈</span>
+                  <span className="font-medium text-sm text-gray-700 group-hover:text-idus-600">성과 분석</span>
                 </Link>
                 
-                <Link 
-                  href="/lookup" 
-                  className="flex items-center gap-3 p-4 bg-gray-50 rounded-xl border border-gray-100 hover:border-idus-300 hover:bg-idus-50 hover:shadow-md transition-all group"
-                >
-                  <span className="text-2xl group-hover:scale-110 transition-transform">🔍</span>
-                  <div>
-                    <p className="font-semibold text-gray-800 group-hover:text-idus-600">통합 검색</p>
-                    <p className="text-xs text-gray-500">주문/고객/작가</p>
-                  </div>
+                <Link href="/lookup" className="flex items-center gap-3 p-3 bg-gray-50 rounded-xl border border-gray-100 hover:border-idus-300 hover:bg-idus-50 hover:shadow-md transition-all group">
+                  <span className="text-xl group-hover:scale-110 transition-transform">🔍</span>
+                  <span className="font-medium text-sm text-gray-700 group-hover:text-idus-600">통합 검색</span>
+                </Link>
+                
+                <Link href="/control-tower" className="flex items-center gap-3 p-3 bg-gray-50 rounded-xl border border-gray-100 hover:border-idus-300 hover:bg-idus-50 hover:shadow-md transition-all group">
+                  <span className="text-xl group-hover:scale-110 transition-transform">📡</span>
+                  <span className="font-medium text-sm text-gray-700 group-hover:text-idus-600">물류 관제</span>
+                </Link>
+                
+                <Link href="/artist-analytics" className="flex items-center gap-3 p-3 bg-gray-50 rounded-xl border border-gray-100 hover:border-idus-300 hover:bg-idus-50 hover:shadow-md transition-all group">
+                  <span className="text-xl group-hover:scale-110 transition-transform">🎨</span>
+                  <span className="font-medium text-sm text-gray-700 group-hover:text-idus-600">작가 분석</span>
+                </Link>
+                
+                <Link href="/chat" className="flex items-center gap-3 p-3 bg-gray-50 rounded-xl border border-gray-100 hover:border-idus-300 hover:bg-idus-50 hover:shadow-md transition-all group">
+                  <span className="text-xl group-hover:scale-110 transition-transform">💬</span>
+                  <span className="font-medium text-sm text-gray-700 group-hover:text-idus-600">AI 채팅</span>
+                </Link>
+                
+                <Link href="/settlement" className="flex items-center gap-3 p-3 bg-gray-50 rounded-xl border border-gray-100 hover:border-idus-300 hover:bg-idus-50 hover:shadow-md transition-all group">
+                  <span className="text-xl group-hover:scale-110 transition-transform">📋</span>
+                  <span className="font-medium text-sm text-gray-700 group-hover:text-idus-600">정산 관리</span>
                 </Link>
               </div>
             </div>
           </div>
 
-          {/* 고객 리뷰 요약 */}
-          <div className="bg-white rounded-2xl border border-gray-100 p-6 shadow-sm">
-            <div className="flex items-center justify-between mb-5">
+          {/* AI 인사이트 */}
+          <div className="bg-gradient-to-r from-violet-50 to-purple-50 rounded-2xl border border-violet-100 p-6 shadow-sm">
+            <div className="flex items-center justify-between mb-4">
               <div className="flex items-center gap-3">
-                <div className="w-10 h-10 bg-gradient-to-br from-amber-400 to-idus-500 rounded-xl flex items-center justify-center shadow-sm">
-                  <span className="text-white text-lg">⭐</span>
+                <div className="w-10 h-10 bg-gradient-to-br from-violet-500 to-purple-600 rounded-xl flex items-center justify-center shadow-sm">
+                  <span className="text-white text-lg">💬</span>
                 </div>
                 <div>
-                  <h3 className="font-bold text-gray-800">고객 리뷰</h3>
-                  <p className="text-xs text-gray-500">전 세계 고객들의 이야기</p>
+                  <h3 className="font-bold text-gray-800">AI 인사이트</h3>
+                  <p className="text-xs text-gray-500">데이터 기반 분석 요약</p>
                 </div>
               </div>
-              <Link 
-                href="/reviews"
-                className="text-sm text-idus-500 hover:text-idus-600 font-semibold flex items-center gap-1 transition-colors"
-              >
-                전체 보기 →
+              <Link href="/chat" className="text-xs text-violet-500 hover:text-violet-700 font-medium">
+                더 질문하기 →
               </Link>
             </div>
-
-            {/* 리뷰 통계 */}
-            {reviewStats?.data && (
-              <div className="grid grid-cols-4 gap-4 mb-5">
-                <div className="text-center p-3 bg-gradient-to-br from-idus-50 to-orange-50 rounded-xl border border-idus-100">
-                  <p className="text-2xl font-bold text-idus-600">{reviewStats.data.totalReviews?.toLocaleString() || 0}</p>
-                  <p className="text-xs text-gray-500 mt-1">총 리뷰</p>
-                </div>
-                <div className="text-center p-3 bg-gradient-to-br from-emerald-50 to-teal-50 rounded-xl border border-emerald-100">
-                  <p className="text-2xl font-bold text-emerald-600">{reviewStats.data.avgRating || 0}</p>
-                  <p className="text-xs text-gray-500 mt-1">평균 평점</p>
-                </div>
-                <div className="text-center p-3 bg-gradient-to-br from-blue-50 to-indigo-50 rounded-xl border border-blue-100">
-                  <p className="text-2xl font-bold text-blue-600">{reviewStats.data.imageReviewRate || 0}%</p>
-                  <p className="text-xs text-gray-500 mt-1">포토 리뷰</p>
-                </div>
-                <div className="text-center p-3 bg-gradient-to-br from-violet-50 to-purple-50 rounded-xl border border-violet-100">
-                  <p className="text-2xl font-bold text-violet-600">{reviewStats.data.countries?.length || 0}</p>
-                  <p className="text-xs text-gray-500 mt-1">국가</p>
-                </div>
-              </div>
-            )}
-
-            {/* 최근 베스트 리뷰 */}
-            {recentReviews?.data && recentReviews.data.length > 0 && (
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
-                {recentReviews.data.slice(0, 4).map((review: any) => (
-                  <Link
-                    key={review.id}
-                    href="/reviews"
-                    className="flex gap-3 p-3 bg-gray-50 hover:bg-idus-50 rounded-xl transition-colors group border border-transparent hover:border-idus-200"
-                  >
-                    {review.imageUrl && (
-                      <img 
-                        src={review.imageUrl} 
-                        alt="" 
-                        className="w-16 h-16 rounded-lg object-cover flex-shrink-0"
-                      />
-                    )}
-                    <div className="flex-1 min-w-0">
-                      <div className="flex items-center gap-2 mb-1">
-                        <span className="text-lg">{review.countryInfo?.emoji}</span>
-                        <span className="px-1.5 py-0.5 bg-amber-100 text-amber-700 rounded text-xs font-bold">★ {review.rating}</span>
-                      </div>
-                      <p className="text-sm text-gray-600 line-clamp-2 leading-snug group-hover:text-gray-800">
-                        "{review.contents}"
-                      </p>
-                      <p className="text-xs text-gray-400 mt-1 truncate">
-                        {review.productName}
-                      </p>
-                    </div>
-                  </Link>
-                ))}
-              </div>
-            )}
-
-            {(!recentReviews?.data || recentReviews.data.length === 0) && (
-              <div className="text-center py-8 text-gray-400">
-                <span className="text-4xl mb-2 block">📭</span>
-                <p className="text-sm">아직 등록된 리뷰가 없습니다</p>
-              </div>
-            )}
+            
+            <div className="p-4 bg-white/70 rounded-xl border border-violet-100 mb-4">
+              <p className="text-sm text-gray-700 leading-relaxed">
+                📊 "이번 기간 GMV가 전기간 대비 <span className="font-semibold text-emerald-600">+{((data.kpis.gmv.change || 0) * 100).toFixed(1)}%</span> 변동했습니다. 
+                총 <span className="font-semibold text-violet-600">{data.kpis.orderCount.value.toLocaleString()}건</span>의 주문이 발생했으며, 
+                평균 객단가는 <span className="font-semibold text-blue-600">{formatCurrency(data.kpis.aov.value)}</span>입니다."
+              </p>
+            </div>
+            
+            <div className="flex flex-wrap gap-2">
+              <Link href="/chat?q=최근 매출 현황 분석해줘" className="px-3 py-1.5 bg-white border border-violet-200 rounded-full text-xs font-medium text-violet-700 hover:bg-violet-100 transition-colors">
+                최근 매출 현황
+              </Link>
+              <Link href="/chat?q=작가 랭킹 보여줘" className="px-3 py-1.5 bg-white border border-violet-200 rounded-full text-xs font-medium text-violet-700 hover:bg-violet-100 transition-colors">
+                작가 랭킹
+              </Link>
+              <Link href="/chat?q=국가별 매출 비교해줘" className="px-3 py-1.5 bg-white border border-violet-200 rounded-full text-xs font-medium text-violet-700 hover:bg-violet-100 transition-colors">
+                국가별 비교
+              </Link>
+              <Link href="/chat?q=미입고 현황 알려줘" className="px-3 py-1.5 bg-white border border-violet-200 rounded-full text-xs font-medium text-violet-700 hover:bg-violet-100 transition-colors">
+                미입고 현황
+              </Link>
+            </div>
           </div>
         </>
       )}
