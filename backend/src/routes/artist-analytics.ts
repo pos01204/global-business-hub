@@ -308,6 +308,60 @@ router.get('/overview', async (req, res) => {
       .sort((a, b) => b.gmv - a.gmv)
       .slice(0, 10);
     
+    // 매출 집중도 분석 (파레토 분석)
+    const artistGmvList = Array.from(artistMetrics.entries())
+      .map(([name, metrics]) => ({ name, gmv: metrics.gmv }))
+      .sort((a, b) => b.gmv - a.gmv);
+    
+    const concentration = {
+      top1: { count: 0, gmv: 0, share: 0 },
+      top5: { count: 0, gmv: 0, share: 0 },
+      top10: { count: 0, gmv: 0, share: 0 },
+      top20: { count: 0, gmv: 0, share: 0 },
+      top50Percent: { count: 0, gmv: 0, share: 0 },
+      giniCoefficient: 0,
+    };
+    
+    if (artistGmvList.length > 0 && totalGmv > 0) {
+      // 상위 N명 매출 비중
+      const top1Gmv = artistGmvList.slice(0, 1).reduce((sum, a) => sum + a.gmv, 0);
+      const top5Gmv = artistGmvList.slice(0, 5).reduce((sum, a) => sum + a.gmv, 0);
+      const top10Gmv = artistGmvList.slice(0, 10).reduce((sum, a) => sum + a.gmv, 0);
+      const top20Gmv = artistGmvList.slice(0, 20).reduce((sum, a) => sum + a.gmv, 0);
+      
+      concentration.top1 = { count: Math.min(1, artistGmvList.length), gmv: Math.round(top1Gmv), share: Math.round((top1Gmv / totalGmv) * 1000) / 10 };
+      concentration.top5 = { count: Math.min(5, artistGmvList.length), gmv: Math.round(top5Gmv), share: Math.round((top5Gmv / totalGmv) * 1000) / 10 };
+      concentration.top10 = { count: Math.min(10, artistGmvList.length), gmv: Math.round(top10Gmv), share: Math.round((top10Gmv / totalGmv) * 1000) / 10 };
+      concentration.top20 = { count: Math.min(20, artistGmvList.length), gmv: Math.round(top20Gmv), share: Math.round((top20Gmv / totalGmv) * 1000) / 10 };
+      
+      // 상위 50% 매출을 차지하는 작가 수
+      let cumGmv = 0;
+      let top50Count = 0;
+      for (const artist of artistGmvList) {
+        cumGmv += artist.gmv;
+        top50Count++;
+        if (cumGmv >= totalGmv * 0.5) break;
+      }
+      concentration.top50Percent = { 
+        count: top50Count, 
+        gmv: Math.round(cumGmv), 
+        share: Math.round((top50Count / artistGmvList.length) * 1000) / 10 
+      };
+      
+      // 지니 계수 계산 (매출 불평등 지표, 0=완전평등, 1=완전불평등)
+      const n = artistGmvList.length;
+      if (n > 1) {
+        let sumOfDifferences = 0;
+        for (let i = 0; i < n; i++) {
+          for (let j = 0; j < n; j++) {
+            sumOfDifferences += Math.abs(artistGmvList[i].gmv - artistGmvList[j].gmv);
+          }
+        }
+        const meanGmv = totalGmv / n;
+        concentration.giniCoefficient = Math.round((sumOfDifferences / (2 * n * n * meanGmv)) * 100) / 100;
+      }
+    }
+    
     // 디버그 정보 추가
     console.log('[ArtistAnalytics] Overview result:', {
       totalArtists,
@@ -337,6 +391,7 @@ router.get('/overview', async (req, res) => {
         byRevenue: revenueDistribution,
         byCountry,
       },
+      concentration,
       _debug: {
         logisticsTotal: logisticsData.length,
         logisticsFiltered: filteredLogistics.length,

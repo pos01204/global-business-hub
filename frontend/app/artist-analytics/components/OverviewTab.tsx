@@ -46,7 +46,7 @@ export default function OverviewTab({ dateRange, countryFilter }: OverviewTabPro
     )
   }
 
-  const { summary, distribution } = data
+  const { summary, distribution, concentration } = data
 
   if (!summary || !distribution) {
     return (
@@ -218,6 +218,78 @@ export default function OverviewTab({ dateRange, countryFilter }: OverviewTabPro
           </div>
         </div>
       </div>
+
+      {/* 매출 집중도 분석 */}
+      {concentration && (
+        <div className="card">
+          <h3 className="text-lg font-semibold mb-4">🎯 매출 집중도 분석</h3>
+          <p className="text-sm text-gray-500 mb-4">상위 작가들이 전체 매출에서 차지하는 비중을 분석합니다.</p>
+          
+          <div className="grid grid-cols-2 md:grid-cols-4 gap-4 mb-6">
+            <div className="text-center p-4 bg-violet-50 rounded-xl">
+              <p className="text-sm text-gray-600 mb-1">Top 1 작가</p>
+              <p className="text-2xl font-bold text-violet-600">{concentration.top1.share}%</p>
+              <p className="text-xs text-gray-400">{formatCurrency(concentration.top1.gmv)}</p>
+            </div>
+            <div className="text-center p-4 bg-blue-50 rounded-xl">
+              <p className="text-sm text-gray-600 mb-1">Top 5 작가</p>
+              <p className="text-2xl font-bold text-blue-600">{concentration.top5.share}%</p>
+              <p className="text-xs text-gray-400">{formatCurrency(concentration.top5.gmv)}</p>
+            </div>
+            <div className="text-center p-4 bg-emerald-50 rounded-xl">
+              <p className="text-sm text-gray-600 mb-1">Top 10 작가</p>
+              <p className="text-2xl font-bold text-emerald-600">{concentration.top10.share}%</p>
+              <p className="text-xs text-gray-400">{formatCurrency(concentration.top10.gmv)}</p>
+            </div>
+            <div className="text-center p-4 bg-amber-50 rounded-xl">
+              <p className="text-sm text-gray-600 mb-1">Top 20 작가</p>
+              <p className="text-2xl font-bold text-amber-600">{concentration.top20.share}%</p>
+              <p className="text-xs text-gray-400">{formatCurrency(concentration.top20.gmv)}</p>
+            </div>
+          </div>
+          
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+            <div className="p-4 bg-gray-50 rounded-xl">
+              <div className="flex items-center justify-between mb-2">
+                <span className="text-sm font-medium">매출 50% 달성 작가 수</span>
+                <span className="text-lg font-bold text-gray-700">{concentration.top50Percent.count}명</span>
+              </div>
+              <p className="text-xs text-gray-500">
+                전체 활성 작가의 {concentration.top50Percent.share}%가 매출의 절반을 차지
+              </p>
+              <div className="mt-2 h-2 bg-gray-200 rounded-full overflow-hidden">
+                <div 
+                  className="h-full bg-violet-500 rounded-full" 
+                  style={{ width: `${Math.min(concentration.top50Percent.share, 100)}%` }}
+                />
+              </div>
+            </div>
+            
+            <div className="p-4 bg-gray-50 rounded-xl">
+              <div className="flex items-center justify-between mb-2">
+                <span className="text-sm font-medium">지니 계수</span>
+                <span className="text-lg font-bold text-gray-700">{concentration.giniCoefficient}</span>
+              </div>
+              <p className="text-xs text-gray-500">
+                {concentration.giniCoefficient >= 0.6 
+                  ? '⚠️ 매출이 소수 작가에 집중됨 (리스크 주의)' 
+                  : concentration.giniCoefficient >= 0.4 
+                    ? '📊 적정 수준의 매출 집중도' 
+                    : '✅ 매출이 고르게 분산됨'}
+              </p>
+              <div className="mt-2 h-2 bg-gray-200 rounded-full overflow-hidden">
+                <div 
+                  className={`h-full rounded-full ${
+                    concentration.giniCoefficient >= 0.6 ? 'bg-red-500' : 
+                    concentration.giniCoefficient >= 0.4 ? 'bg-amber-500' : 'bg-emerald-500'
+                  }`}
+                  style={{ width: `${concentration.giniCoefficient * 100}%` }}
+                />
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
 
       {/* 매출 구간별 분포 */}
       <div className="card">
