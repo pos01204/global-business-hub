@@ -511,10 +511,13 @@ router.post('/upload', upload.single('file'), async (req: Request, res: Response
     console.log(`[Sopo] 작가 ${artistSummaries.length}명 중 이메일 보유 ${withEmail}명, 미보유 ${withoutEmail}명`);
 
     // 트래킹 시트에 저장 (중복 체크 포함) - 필수 단계
-    let trackingResult = { added: 0, updated: 0, skipped: 0, error: null as string | null };
+    let trackingResult: { added: number; updated: number; skipped: number; error: string | null } = { 
+      added: 0, updated: 0, skipped: 0, error: null 
+    };
     try {
       console.log(`[Sopo] 트래킹 데이터 저장 시작: ${artistSummaries.length}건`);
-      trackingResult = await saveTrackingData(period, artistSummaries);
+      const result = await saveTrackingData(period, artistSummaries);
+      trackingResult = { ...result, error: null };
       console.log(`[Sopo] 트래킹 데이터 저장 완료:`, trackingResult);
     } catch (e: any) {
       console.error('[Sopo] ❌ 트래킹 데이터 저장 실패:', e.message);
