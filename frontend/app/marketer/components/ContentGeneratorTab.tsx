@@ -2,7 +2,7 @@
 
 export default function ContentGeneratorTab() {
   const handleOpenMarketer = () => {
-    window.open('https://service-575034978140.us-west1.run.app/', '_blank')
+    window.open('https://copy-of-575034978140.us-west1.run.app/', '_blank')
   }
 
   return (

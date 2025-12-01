@@ -1540,15 +1540,53 @@ router.get('/selection', async (req, res) => {
       }
     });
     
-    // 월별 추이 배열로 변환
+    // 월별 추이 배열로 변환 (누적 작가 수 포함)
+    let cumulativeTotal = 0;
+    
+    // 기준점: 첫 월 이전까지의 누적 작가 수 계산
+    const sortedMonths = Array.from(monthlyStats.keys()).sort();
+    const firstMonth = sortedMonths[0];
+    
+    artistsData.forEach((artist: any) => {
+      const artistName = getArtistName(artist);
+      if (!artistName) return;
+      
+      const regDate = getRegistrationDate(artist);
+      const delDate = getDeletionDate(artist);
+      
+      // 첫 월 이전에 등록된 작가 (삭제되지 않은)
+      if (regDate) {
+        const regMonthKey = `${regDate.getFullYear()}-${String(regDate.getMonth() + 1).padStart(2, '0')}`;
+        if (regMonthKey < firstMonth) {
+          // 삭제되지 않았거나, 첫 월 이후에 삭제된 경우
+          if (!delDate) {
+            cumulativeTotal++;
+          } else {
+            const delMonthKey = `${delDate.getFullYear()}-${String(delDate.getMonth() + 1).padStart(2, '0')}`;
+            if (delMonthKey >= firstMonth) {
+              cumulativeTotal++;
+            }
+          }
+        }
+      }
+    });
+    
     const monthlyTrend = Array.from(monthlyStats.entries())
       .sort((a, b) => a[0].localeCompare(b[0]))
-      .map(([month, data]) => ({
-        month,
-        registered: data.registered,
-        deleted: data.deleted,
-        netChange: data.registered - data.deleted,
-      }));
+      .map(([month, data]) => {
+        cumulativeTotal += data.registered - data.deleted;
+        return {
+          month,
+          registered: data.registered,
+          deleted: data.deleted,
+          netChange: data.registered - data.deleted,
+          cumulative: cumulativeTotal,
+        };
+      });
+    
+    // 이번 달 신규 등록 수
+    const currentMonthKey = `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}`;
+    const thisMonthRegistered = monthlyStats.get(currentMonthKey)?.registered || 0;
     
     // 이탈 사유 분포
     const churnReasons = {
@@ -1601,6 +1639,7 @@ router.get('/selection', async (req, res) => {
         activeArtists,
         deletedArtists,
         churnRate: totalRegistered > 0 ? Math.round((deletedArtists / totalRegistered) * 1000) / 10 : 0,
+        thisMonthRegistered,
         noProductArtists,
         avgProductsPerArtist,
       },

@@ -2,18 +2,20 @@
 
 import { useQuery } from '@tanstack/react-query'
 import { artistAnalyticsApi } from '@/lib/api'
-import { Bar } from 'react-chartjs-2'
+import { Bar, Line } from 'react-chartjs-2'
 import {
   Chart as ChartJS,
   CategoryScale,
   LinearScale,
   BarElement,
+  PointElement,
+  LineElement,
   Title,
   Tooltip,
   Legend,
 } from 'chart.js'
 
-ChartJS.register(CategoryScale, LinearScale, BarElement, Title, Tooltip, Legend)
+ChartJS.register(CategoryScale, LinearScale, BarElement, PointElement, LineElement, Title, Tooltip, Legend)
 
 export default function SelectionTab() {
   const { data, isLoading, error } = useQuery({
@@ -43,23 +45,6 @@ export default function SelectionTab() {
   const formatCurrency = (value: number) => {
     if (value >= 10000) return `₩${(value / 10000).toFixed(0)}만`
     return `₩${value.toLocaleString()}`
-  }
-
-  // 월별 등록/이탈 차트
-  const trendChartData = {
-    labels: monthlyTrend.map((m: any) => m.month),
-    datasets: [
-      {
-        label: '신규 등록',
-        data: monthlyTrend.map((m: any) => m.registered),
-        backgroundColor: '#10B981',
-      },
-      {
-        label: '이탈',
-        data: monthlyTrend.map((m: any) => -m.deleted),
-        backgroundColor: '#EF4444',
-      },
-    ],
   }
 
   return (
@@ -107,141 +92,213 @@ export default function SelectionTab() {
         <div className="card hover:shadow-lg transition-shadow">
           <div className="flex items-start justify-between">
             <div>
-              <p className="text-sm text-gray-500 mb-1">작품 미등록</p>
-              <p className="text-3xl font-bold text-amber-600">{summary.noProductArtists.toLocaleString()}<span className="text-lg font-normal text-gray-500">명</span></p>
-              <p className="text-xs text-gray-400 mt-1">온보딩 필요</p>
+              <p className="text-sm text-gray-500 mb-1">이번 달 신규</p>
+              <p className="text-3xl font-bold text-blue-600">{(summary.thisMonthRegistered || 0).toLocaleString()}<span className="text-lg font-normal text-gray-500">명</span></p>
+              <p className="text-xs text-gray-400 mt-1">신규 등록 작가</p>
             </div>
-            <div className="w-12 h-12 bg-amber-100 rounded-xl flex items-center justify-center">
-              <span className="text-2xl">📦</span>
+            <div className="w-12 h-12 bg-blue-100 rounded-xl flex items-center justify-center">
+              <span className="text-2xl">🆕</span>
             </div>
           </div>
         </div>
       </div>
 
-      {/* 월별 등록/이탈 추이 */}
-      <div className="card">
-        <h3 className="text-lg font-semibold mb-4">📈 월별 작가 등록/이탈 추이</h3>
-        <div className="h-64">
-          <Bar
-            data={trendChartData}
-            options={{
-              responsive: true,
-              maintainAspectRatio: false,
-              plugins: {
-                legend: { position: 'bottom' },
-                tooltip: {
-                  callbacks: {
-                    label: (context) => {
-                      const value = Math.abs(context.raw as number)
-                      return `${context.dataset.label}: ${value}명`
-                    },
+      {/* 월별 추이 차트 */}
+      <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+        {/* 누적 작가 수 추이 */}
+        <div className="card">
+          <h3 className="text-lg font-semibold mb-4">📈 전체 작가 수 추이</h3>
+          <div className="h-64">
+            <Line
+              data={{
+                labels: monthlyTrend.map((m: any) => m.month),
+                datasets: [
+                  {
+                    label: '누적 작가 수',
+                    data: monthlyTrend.map((m: any) => m.cumulative),
+                    borderColor: '#8B5CF6',
+                    backgroundColor: 'rgba(139, 92, 246, 0.1)',
+                    fill: true,
+                    tension: 0.4,
+                  },
+                ],
+              }}
+              options={{
+                responsive: true,
+                maintainAspectRatio: false,
+                plugins: {
+                  legend: { display: false },
+                },
+                scales: {
+                  y: {
+                    beginAtZero: false,
+                    title: { display: true, text: '작가 수' },
                   },
                 },
-              },
-              scales: {
-                x: { stacked: true },
-                y: {
-                  stacked: true,
-                  title: { display: true, text: '작가 수' },
-                },
-              },
-            }}
-          />
+              }}
+            />
+          </div>
+          <div className="mt-3 text-center text-sm text-gray-500">
+            현재 총 <span className="font-semibold text-violet-600">{summary.activeArtists.toLocaleString()}명</span> 활성 작가
+          </div>
         </div>
-        <div className="mt-4 flex justify-center gap-6 text-sm">
-          <div className="flex items-center gap-2">
-            <span className="w-3 h-3 bg-emerald-500 rounded"></span>
-            <span>순증감: </span>
-            <span className="font-semibold">
-              {monthlyTrend.reduce((sum: number, m: any) => sum + m.netChange, 0) >= 0 ? '+' : ''}
-              {monthlyTrend.reduce((sum: number, m: any) => sum + m.netChange, 0)}명
-            </span>
+
+        {/* 월별 신규 등록 */}
+        <div className="card">
+          <h3 className="text-lg font-semibold mb-4">🆕 월별 신규 등록 작가</h3>
+          <div className="h-64">
+            <Bar
+              data={{
+                labels: monthlyTrend.map((m: any) => m.month),
+                datasets: [
+                  {
+                    label: '신규 등록',
+                    data: monthlyTrend.map((m: any) => m.registered),
+                    backgroundColor: '#10B981',
+                    borderRadius: 4,
+                  },
+                ],
+              }}
+              options={{
+                responsive: true,
+                maintainAspectRatio: false,
+                plugins: {
+                  legend: { display: false },
+                },
+                scales: {
+                  y: {
+                    beginAtZero: true,
+                    title: { display: true, text: '신규 작가 수' },
+                  },
+                },
+              }}
+            />
+          </div>
+          <div className="mt-3 text-center text-sm text-gray-500">
+            12개월 총 <span className="font-semibold text-emerald-600">+{monthlyTrend.reduce((sum: number, m: any) => sum + m.registered, 0).toLocaleString()}명</span> 신규 등록
           </div>
         </div>
       </div>
 
 
-      {/* 이탈 분석 & 온보딩 현황 */}
+      {/* 작가 활성화 & 온보딩 현황 */}
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-        {/* 이탈 사유 분포 */}
+        {/* 작가 활성화 현황 */}
         <div className="card">
-          <h3 className="text-lg font-semibold mb-4">📊 이탈 사유 분석</h3>
-          <div className="space-y-3">
-            <div className="p-3 bg-gray-50 rounded-lg">
-              <div className="flex items-center justify-between mb-1.5">
-                <span className="text-sm font-medium text-gray-700">판매 없이 이탈</span>
-                <div className="flex items-center gap-2">
-                  <span className="text-sm font-bold text-gray-900">{churnReasons.noSales.count}명</span>
-                  <span className="text-xs text-gray-500 w-12 text-right">{churnReasons.noSales.rate}%</span>
-                </div>
+          <h3 className="text-lg font-semibold mb-4">📊 작가 셀렉션 현황</h3>
+          <div className="space-y-4">
+            {/* 활성화율 */}
+            <div className="p-4 bg-emerald-50 rounded-xl">
+              <div className="flex items-center justify-between mb-2">
+                <span className="text-sm font-medium text-gray-700">작가 활성화율</span>
+                <span className="text-xl font-bold text-emerald-600">
+                  {summary.totalRegistered > 0 ? Math.round((summary.activeArtists / summary.totalRegistered) * 100) : 0}%
+                </span>
               </div>
-              <div className="h-2 bg-gray-200 rounded-full overflow-hidden">
-                <div className="h-full bg-gray-400 rounded-full" style={{ width: `${churnReasons.noSales.rate}%` }} />
+              <div className="h-3 bg-emerald-200 rounded-full overflow-hidden">
+                <div 
+                  className="h-full bg-emerald-500 rounded-full" 
+                  style={{ width: `${summary.totalRegistered > 0 ? (summary.activeArtists / summary.totalRegistered) * 100 : 0}%` }} 
+                />
               </div>
-              <p className="text-xs text-gray-500 mt-1">등록만 하고 판매 실적 없이 이탈</p>
+              <p className="text-xs text-gray-500 mt-2">
+                {summary.activeArtists.toLocaleString()}명 활성 / {summary.totalRegistered.toLocaleString()}명 전체
+              </p>
             </div>
 
-            <div className="p-3 bg-amber-50 rounded-lg">
-              <div className="flex items-center justify-between mb-1.5">
-                <span className="text-sm font-medium text-gray-700">저조한 판매 후 이탈</span>
-                <div className="flex items-center gap-2">
-                  <span className="text-sm font-bold text-gray-900">{churnReasons.lowSales.count}명</span>
-                  <span className="text-xs text-gray-500 w-12 text-right">{churnReasons.lowSales.rate}%</span>
+            {/* 이탈 현황 요약 */}
+            <div className="p-4 bg-gray-50 rounded-xl">
+              <div className="flex items-center justify-between mb-2">
+                <span className="text-sm font-medium text-gray-700">이탈 현황</span>
+                <span className="text-lg font-bold text-red-600">{summary.deletedArtists}명</span>
+              </div>
+              {summary.deletedArtists > 0 ? (
+                <div className="space-y-1 text-xs text-gray-600">
+                  <div className="flex justify-between">
+                    <span>판매 없이 이탈</span>
+                    <span>{churnReasons.noSales.count}명 ({churnReasons.noSales.rate}%)</span>
+                  </div>
+                  <div className="flex justify-between">
+                    <span>저조한 판매 후 이탈</span>
+                    <span>{churnReasons.lowSales.count}명 ({churnReasons.lowSales.rate}%)</span>
+                  </div>
+                  <div className="flex justify-between text-red-600">
+                    <span>활발한 활동 후 이탈 ⚠️</span>
+                    <span>{churnReasons.activeThenChurn.count}명 ({churnReasons.activeThenChurn.rate}%)</span>
+                  </div>
                 </div>
-              </div>
-              <div className="h-2 bg-amber-200 rounded-full overflow-hidden">
-                <div className="h-full bg-amber-500 rounded-full" style={{ width: `${churnReasons.lowSales.rate}%` }} />
-              </div>
-              <p className="text-xs text-gray-500 mt-1">판매 실적이 있었으나 저조</p>
+              ) : (
+                <p className="text-xs text-gray-500">이탈 작가가 없습니다 👍</p>
+              )}
             </div>
 
-            <div className="p-3 bg-red-50 rounded-lg">
-              <div className="flex items-center justify-between mb-1.5">
-                <span className="text-sm font-medium text-gray-700">활발한 활동 후 이탈</span>
-                <div className="flex items-center gap-2">
-                  <span className="text-sm font-bold text-gray-900">{churnReasons.activeThenChurn.count}명</span>
-                  <span className="text-xs text-gray-500 w-12 text-right">{churnReasons.activeThenChurn.rate}%</span>
+            {/* 작가당 평균 작품 수 */}
+            <div className="p-4 bg-violet-50 rounded-xl">
+              <p className="text-sm font-medium text-gray-700 mb-2">작가당 평균 작품 수</p>
+              <div className="flex justify-around">
+                <div className="text-center">
+                  <p className="text-xl font-bold text-violet-600">{summary.avgProductsPerArtist.kr}개</p>
+                  <p className="text-xs text-gray-500">KR</p>
+                </div>
+                <div className="text-center">
+                  <p className="text-xl font-bold text-violet-600">{summary.avgProductsPerArtist.global}개</p>
+                  <p className="text-xs text-gray-500">Global</p>
                 </div>
               </div>
-              <div className="h-2 bg-red-200 rounded-full overflow-hidden">
-                <div className="h-full bg-red-500 rounded-full" style={{ width: `${churnReasons.activeThenChurn.rate}%` }} />
-              </div>
-              <p className="text-xs text-gray-500 mt-1">VIP/High 세그먼트였던 작가 ⚠️</p>
             </div>
           </div>
         </div>
 
         {/* 신규 작가 온보딩 현황 */}
         <div className="card">
-          <h3 className="text-lg font-semibold mb-4">🆕 신규 작가 온보딩 (최근 30일)</h3>
-          <div className="grid grid-cols-2 gap-4 mb-4">
-            <div className="text-center p-4 bg-blue-50 rounded-xl">
-              <p className="text-2xl font-bold text-blue-600">{onboarding.recentCount}명</p>
-              <p className="text-sm text-gray-600">신규 등록</p>
-            </div>
-            <div className="text-center p-4 bg-emerald-50 rounded-xl">
-              <p className="text-2xl font-bold text-emerald-600">{onboarding.firstSaleConversionRate}%</p>
-              <p className="text-sm text-gray-600">첫 판매 전환율</p>
-            </div>
-          </div>
-          {onboarding.avgDaysToFirstSale !== null && (
-            <div className="p-3 bg-gray-50 rounded-lg text-center">
-              <p className="text-sm text-gray-600">첫 판매까지 평균</p>
-              <p className="text-xl font-bold text-violet-600">{onboarding.avgDaysToFirstSale}일</p>
-            </div>
-          )}
-          <div className="mt-4 p-3 bg-violet-50 rounded-lg">
-            <p className="text-sm text-gray-600 mb-2">작가당 평균 작품 수</p>
-            <div className="flex justify-around">
-              <div className="text-center">
-                <p className="text-lg font-bold text-violet-600">{summary.avgProductsPerArtist.kr}개</p>
-                <p className="text-xs text-gray-500">KR</p>
+          <h3 className="text-lg font-semibold mb-4">🆕 신규 작가 온보딩</h3>
+          <div className="space-y-4">
+            {/* 최근 30일 신규 등록 */}
+            <div className="grid grid-cols-2 gap-4">
+              <div className="text-center p-4 bg-blue-50 rounded-xl">
+                <p className="text-2xl font-bold text-blue-600">{onboarding.recentCount}명</p>
+                <p className="text-sm text-gray-600">최근 30일 신규</p>
               </div>
-              <div className="text-center">
-                <p className="text-lg font-bold text-violet-600">{summary.avgProductsPerArtist.global}개</p>
-                <p className="text-xs text-gray-500">Global</p>
+              <div className="text-center p-4 bg-emerald-50 rounded-xl">
+                <p className="text-2xl font-bold text-emerald-600">{onboarding.withSalesCount}명</p>
+                <p className="text-sm text-gray-600">첫 판매 달성</p>
               </div>
             </div>
+
+            {/* 첫 판매 전환율 */}
+            <div className="p-4 bg-gray-50 rounded-xl">
+              <div className="flex items-center justify-between mb-2">
+                <span className="text-sm font-medium text-gray-700">첫 판매 전환율</span>
+                <span className={`text-xl font-bold ${onboarding.firstSaleConversionRate >= 50 ? 'text-emerald-600' : onboarding.firstSaleConversionRate >= 20 ? 'text-amber-600' : 'text-red-600'}`}>
+                  {onboarding.firstSaleConversionRate}%
+                </span>
+              </div>
+              <div className="h-3 bg-gray-200 rounded-full overflow-hidden">
+                <div 
+                  className={`h-full rounded-full ${onboarding.firstSaleConversionRate >= 50 ? 'bg-emerald-500' : onboarding.firstSaleConversionRate >= 20 ? 'bg-amber-500' : 'bg-red-500'}`}
+                  style={{ width: `${Math.min(onboarding.firstSaleConversionRate, 100)}%` }} 
+                />
+              </div>
+              <p className="text-xs text-gray-500 mt-2">
+                {onboarding.firstSaleConversionRate >= 50 
+                  ? '✅ 우수한 전환율' 
+                  : onboarding.firstSaleConversionRate >= 20 
+                    ? '📊 평균 수준' 
+                    : '⚠️ 온보딩 개선 필요'}
+              </p>
+            </div>
+
+            {/* 첫 판매까지 평균 일수 */}
+            {onboarding.avgDaysToFirstSale !== null ? (
+              <div className="p-4 bg-violet-50 rounded-xl text-center">
+                <p className="text-sm text-gray-600 mb-1">첫 판매까지 평균</p>
+                <p className="text-2xl font-bold text-violet-600">{onboarding.avgDaysToFirstSale}일</p>
+              </div>
+            ) : (
+              <div className="p-4 bg-gray-50 rounded-xl text-center">
+                <p className="text-sm text-gray-500">아직 첫 판매 데이터가 없습니다</p>
+              </div>
+            )}
           </div>
         </div>
       </div>
