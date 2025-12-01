@@ -521,6 +521,16 @@ export const chatApi = {
     })
     return response.data
   },
+  // Rate Limiter 상태 조회
+  getRateLimitStatus: async () => {
+    const response = await api.get('/api/chat/rate-limit/status')
+    return response.data
+  },
+  // 응답 캐시 클리어
+  clearResponseCache: async () => {
+    const response = await api.post('/api/chat/response-cache/clear')
+    return response.data
+  },
 }
 
 // 물류비 정산 API

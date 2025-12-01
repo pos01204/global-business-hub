@@ -1,8 +1,13 @@
 import axios from 'axios'
+import { rateLimiter } from './RateLimiter'
+import { responseCache } from './cache/ResponseCache'
 
 const OPENAI_API_KEY = process.env.OPENAI_API_KEY
 const OPENAI_MODEL = process.env.OPENAI_MODEL || 'gpt-4o-mini'
 const OPENAI_BASE_URL = process.env.OPENAI_BASE_URL || 'https://api.openai.com/v1'
+
+// 캐시 사용 여부 (환경 변수로 제어)
+const USE_RESPONSE_CACHE = process.env.USE_RESPONSE_CACHE !== 'false'
 
 interface OpenAIResponse {
   id: string
@@ -39,39 +44,59 @@ export class OpenAIService {
     }
   }
 
-  async generate(prompt: string, options?: { temperature?: number; maxTokens?: number }): Promise<string> {
+  async generate(prompt: string, options?: { temperature?: number; maxTokens?: number; skipCache?: boolean }): Promise<string> {
     try {
       if (!this.apiKey) {
         throw new Error('OpenAI API 키가 설정되지 않았습니다. OPENAI_API_KEY 환경 변수를 설정하세요.')
       }
 
+      // 캐시 확인 (temperature가 낮을 때만)
+      if (USE_RESPONSE_CACHE && !options?.skipCache && (options?.temperature || 0.7) <= 0.5) {
+        const cached = responseCache.get(prompt)
+        if (cached) {
+          console.log(`[OpenAI] 캐시 히트 - 토큰 절약!`)
+          return cached
+        }
+      }
+
       console.log(`[OpenAI] 생성 요청 시작 - 모델: ${this.model}`)
 
-      const response = await axios.post<OpenAIResponse>(
-        `${this.baseUrl}/chat/completions`,
-        {
-          model: this.model,
-          messages: [
-            {
-              role: 'user',
-              content: prompt,
-            },
-          ],
-          temperature: options?.temperature || 0.7,
-          max_tokens: options?.maxTokens || 2000,
-        },
-        {
-          headers: {
-            'Authorization': `Bearer ${this.apiKey}`,
-            'Content-Type': 'application/json',
+      // Rate Limiter를 통한 요청
+      const estimatedTokens = Math.ceil(prompt.length / 4) + (options?.maxTokens || 2000)
+      
+      const response = await rateLimiter.execute(
+        () => axios.post<OpenAIResponse>(
+          `${this.baseUrl}/chat/completions`,
+          {
+            model: this.model,
+            messages: [
+              {
+                role: 'user',
+                content: prompt,
+              },
+            ],
+            temperature: options?.temperature || 0.7,
+            max_tokens: options?.maxTokens || 2000,
           },
-          timeout: 60000, // 60초 타임아웃
-        }
+          {
+            headers: {
+              'Authorization': `Bearer ${this.apiKey}`,
+              'Content-Type': 'application/json',
+            },
+            timeout: 60000, // 60초 타임아웃
+          }
+        ),
+        { estimatedTokens }
       )
 
       const content = response.data.choices[0]?.message?.content || ''
       console.log(`[OpenAI] 생성 성공 - 응답 길이: ${content.length}, 토큰 사용: ${response.data.usage.total_tokens}`)
       
+      // 캐시에 저장 (temperature가 낮을 때만)
+      if (USE_RESPONSE_CACHE && (options?.temperature || 0.7) <= 0.5) {
+        responseCache.set(prompt, content)
+      }
+
       return content
     } catch (error: any) {
       console.error('[OpenAI] API 오류 상세:', {
@@ -99,6 +124,10 @@ export class OpenAIService {
     }
   }
 
+  // 마지막 연결 확인 결과 캐시
+  private lastConnectionCheck: { result: boolean; timestamp: number } | null = null
+  private connectionCheckCacheTTL = 60000 // 1분
+
   async checkConnection(): Promise<boolean> {
     try {
       if (!this.apiKey) {
@@ -106,31 +135,57 @@ export class OpenAIService {
         return false
       }
 
+      // 캐시된 결과 확인 (1분 이내)
+      if (this.lastConnectionCheck && 
+          Date.now() - this.lastConnectionCheck.timestamp < this.connectionCheckCacheTTL) {
+        console.log('[OpenAI] 연결 상태 캐시 사용')
+        return this.lastConnectionCheck.result
+      }
+
+      // Rate Limiter 상태 확인 - 요청 가능한지 먼저 체크
+      const rateLimitStatus = rateLimiter.getStatus()
+      if (!rateLimitStatus.canExecuteNow) {
+        console.log('[OpenAI] Rate limit 대기 중, 이전 연결 상태 반환')
+        return this.lastConnectionCheck?.result ?? true // 이전 결과 또는 true 반환
+      }
+
       // 간단한 테스트 요청으로 연결 확인
       console.log('[OpenAI] 연결 확인 시작')
-      const response = await axios.post(
-        `${this.baseUrl}/chat/completions`,
-        {
-          model: this.model,
-          messages: [{ role: 'user', content: 'test' }],
-          max_tokens: 5,
-        },
-        {
-          headers: {
-            'Authorization': `Bearer ${this.apiKey}`,
-            'Content-Type': 'application/json',
+      const response = await rateLimiter.execute(
+        () => axios.post(
+          `${this.baseUrl}/chat/completions`,
+          {
+            model: this.model,
+            messages: [{ role: 'user', content: 'hi' }],
+            max_tokens: 1,
           },
-          timeout: 10000,
-        }
+          {
+            headers: {
+              'Authorization': `Bearer ${this.apiKey}`,
+              'Content-Type': 'application/json',
+            },
+            timeout: 10000,
+          }
+        ),
+        { estimatedTokens: 10, priority: 10 } // 높은 우선순위
       )
 
       const isConnected = response.status === 200
+      this.lastConnectionCheck = { result: isConnected, timestamp: Date.now() }
+      
       if (isConnected) {
         console.log(`✅ OpenAI 연결 성공 - 모델: ${this.model}`)
       }
       
       return isConnected
     } catch (error: any) {
+      // Rate limit 에러는 연결 성공으로 간주
+      if (error.response?.status === 429) {
+        console.log('[OpenAI] Rate limit 도달 - 연결은 정상')
+        this.lastConnectionCheck = { result: true, timestamp: Date.now() }
+        return true
+      }
+
       console.error('[OpenAI] 연결 확인 실패:', {
         message: error.message,
         status: error.response?.status,

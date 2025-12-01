@@ -2,6 +2,8 @@ import express from 'express'
 import { openaiService } from '../services/openaiService'
 import { AgentRouter, AgentType } from '../services/agents/AgentRouter'
 import { metricsCollector } from '../services/agents/MetricsCollector'
+import { rateLimiter } from '../services/RateLimiter'
+import { responseCache } from '../services/cache/ResponseCache'
 
 const router = express.Router()
 
@@ -470,6 +472,47 @@ router.get('/metrics/export', async (req, res) => {
     res.status(500).json({
       success: false,
       error: '메트릭 내보내기 중 오류가 발생했습니다.',
+      message: error.message,
+    })
+  }
+})
+
+// Rate Limiter 상태 조회
+router.get('/rate-limit/status', async (req, res) => {
+  try {
+    const status = rateLimiter.getStatus()
+    const cacheStats = responseCache.getStats()
+
+    res.json({
+      success: true,
+      data: {
+        rateLimiter: status,
+        responseCache: cacheStats,
+        timestamp: new Date().toISOString(),
+      },
+    })
+  } catch (error: any) {
+    res.status(500).json({
+      success: false,
+      error: 'Rate limit 상태 조회 중 오류가 발생했습니다.',
+      message: error.message,
+    })
+  }
+})
+
+// 응답 캐시 클리어
+router.post('/response-cache/clear', async (req, res) => {
+  try {
+    responseCache.clear()
+
+    res.json({
+      success: true,
+      message: '응답 캐시가 클리어되었습니다.',
+    })
+  } catch (error: any) {
+    res.status(500).json({
+      success: false,
+      error: '응답 캐시 클리어 중 오류가 발생했습니다.',
       message: error.message,
     })
   }
