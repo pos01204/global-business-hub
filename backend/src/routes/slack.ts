@@ -177,13 +177,23 @@ router.post('/commands/track', async (req: Request, res: Response) => {
       );
 
       if (shipment) {
+        // 배송 상태 결정 로직 개선
+        // logistics 컬럼이 "배송완료"인 경우 정확히 전달
+        let deliveryStatus = shipment.logistics || '';
+        
+        // 로그 추가
+        console.log('[Slack] /track - logistics status:', deliveryStatus);
+        
         const trackingInfo = {
           tracking_number: shipment['국제송장번호'] || shipment['작가 발송 송장번호'],
           order_code: shipment.order_code,
           country: shipment.country,
           carrier: shipment['국제송장번호'] ? 'Lotte Global' : shipment['작가 발송 택배사'],
-          status: shipment.logistics,
+          status: deliveryStatus,
           shipped_at: shipment['shipment_item_updated'],
+          // 추가 날짜 정보 (있는 경우)
+          received_at: shipment['입고일'] || shipment['warehouse_received_at'],
+          delivered_at: shipment['배송완료일'] || shipment['delivered_at'],
         };
         await sendDelayedResponse(response_url, slackService.buildTrackingMessage(trackingInfo));
       } else {
@@ -238,7 +248,21 @@ router.post('/commands/customer', async (req: Request, res: Response) => {
       const { sheetsConfig } = await import('../config/sheets');
       const sheets = new GoogleSheetsService(sheetsConfig);
       
+      // 물류 데이터와 주문 데이터 모두 조회
       const logisticsData = await sheets.getSheetDataAsJson(SHEET_NAMES.LOGISTICS, true);
+      const orderData = await sheets.getSheetDataAsJson(SHEET_NAMES.ORDER, false);
+      
+      // 주문 데이터에서 Total GMV 매핑 생성 (order_code → GMV)
+      const USD_TO_KRW = 1350;
+      const orderGmvMap = new Map<string, number>();
+      orderData.forEach((row: any) => {
+        if (row.order_code && row['Total GMV']) {
+          const gmvStr = String(row['Total GMV']).replace(/,/g, '');
+          const gmvUsd = parseFloat(gmvStr) || 0;
+          orderGmvMap.set(row.order_code, gmvUsd * USD_TO_KRW);
+        }
+      });
+      
       const customerOrders = logisticsData.filter((row: any) =>
         String(row.user_id) === customerId ||
         String(row.user_id)?.includes(customerId)
@@ -249,6 +273,13 @@ router.post('/commands/customer', async (req: Request, res: Response) => {
         const uniqueOrders = new Map();
         customerOrders.forEach((row: any) => {
           if (!uniqueOrders.has(row.order_code)) {
+            // 주문 데이터에서 GMV 가져오기 (없으면 상품금액 사용)
+            let amount = orderGmvMap.get(row.order_code);
+            if (!amount) {
+              const priceStr = String(row['상품금액'] || '0').replace(/,/g, '');
+              amount = parseFloat(priceStr) || 0;
+            }
+            
             uniqueOrders.set(row.order_code, {
               order_code: row.order_code,
               order_date: row.order_created,
@@ -256,8 +287,8 @@ router.post('/commands/customer', async (req: Request, res: Response) => {
               product_name: row.product_name,
               artist_name: row['artist_name (kr)'] || row.artist_name,
               country: row.country,
-              total_price: row['상품금액'],
-              currency: row.currency,
+              amount: amount,
+              currency: 'KRW',
             });
           }
         });

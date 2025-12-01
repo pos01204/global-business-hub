@@ -58,6 +58,79 @@ const statusEmoji: Record<string, string> = {
   'cancelled': '❌',
 };
 
+// 한글 상태를 영어 상태로 변환하는 매핑
+const koreanToEnglishStatus: Record<string, string> = {
+  '미입고': 'pending',
+  '결제완료': 'pending',
+  '준비중': 'processing',
+  '국내배송중': 'shipped',
+  '국내 배송중': 'shipped',
+  '입고완료': 'received',
+  '입고 완료': 'received',
+  '검수완료': 'received',
+  '검수 완료': 'received',
+  '검수대기': 'received',
+  '검수 대기': 'received',
+  '포장대기': 'received',
+  '포장 대기': 'received',
+  '출고대기': 'received',
+  '출고 대기': 'received',
+  '발송완료': 'shipped',
+  '발송 완료': 'shipped',
+  '국제배송중': 'in_transit',
+  '국제 배송중': 'in_transit',
+  '배송중': 'in_transit',
+  '출국': 'departed',
+  '도착국입항': 'arrived',
+  '도착국 입항': 'arrived',
+  '통관중': 'customs',
+  '통관 중': 'customs',
+  '배달중': 'out_for_delivery',
+  '배달 중': 'out_for_delivery',
+  '배송완료': 'delivered',
+  '배송 완료': 'delivered',
+  '배달완료': 'delivered',
+  '배달 완료': 'delivered',
+  '지연': 'delayed',
+  '반송': 'returned',
+  '취소': 'cancelled',
+  // 추가 매핑 (영문 상태)
+  'delivered': 'delivered',
+  'in transit': 'in_transit',
+  'in_transit': 'in_transit',
+  'shipped': 'shipped',
+  'customs': 'customs',
+  'completed': 'delivered',
+  'complete': 'delivered',
+};
+
+/**
+ * 한글 상태를 영어 상태로 변환
+ */
+function normalizeStatus(status: string): string {
+  if (!status) return 'pending';
+  const normalized = status.trim();
+  
+  // 이미 영어 상태인 경우 그대로 반환
+  if (Object.keys(statusEmoji).includes(normalized)) {
+    return normalized;
+  }
+  
+  // 한글 → 영어 변환
+  if (koreanToEnglishStatus[normalized]) {
+    return koreanToEnglishStatus[normalized];
+  }
+  
+  // 부분 일치 검색
+  for (const [korean, english] of Object.entries(koreanToEnglishStatus)) {
+    if (normalized.includes(korean) || korean.includes(normalized)) {
+      return english;
+    }
+  }
+  
+  return 'pending';
+}
+
 class SlackService {
   private webhookUrl: string;
   private hubBaseUrl: string;
@@ -672,16 +745,36 @@ class SlackService {
       { key: 'delivered', label: '배달완료', date: shipment.delivered_at },
     ];
 
-    const currentStatus = shipment.status || 'pending';
+    // 한글 상태를 영어로 정규화
+    const rawStatus = shipment.status || 'pending';
+    const currentStatus = normalizeStatus(rawStatus);
     const statusOrder = ['pending', 'received', 'shipped', 'departed', 'arrived', 'customs', 'out_for_delivery', 'delivered'];
-    const currentIndex = statusOrder.indexOf(currentStatus);
+    let currentIndex = statusOrder.indexOf(currentStatus);
+    
+    // 상태가 매핑되지 않은 경우, 원본 상태에서 직접 확인
+    if (currentIndex === -1) {
+      const lowerStatus = rawStatus.toLowerCase();
+      if (lowerStatus.includes('완료') || lowerStatus.includes('complete') || lowerStatus.includes('deliver')) {
+        currentIndex = statusOrder.indexOf('delivered');
+      } else if (lowerStatus.includes('배송') || lowerStatus.includes('transit')) {
+        currentIndex = statusOrder.indexOf('in_transit');
+      } else if (lowerStatus.includes('통관')) {
+        currentIndex = statusOrder.indexOf('customs');
+      } else {
+        currentIndex = 0;
+      }
+    }
+    
+    // 배송완료 상태인 경우 모든 이전 단계를 완료로 표시
+    const isDelivered = currentStatus === 'delivered' || currentIndex === statusOrder.indexOf('delivered');
 
     return stages.map((stage, i) => {
       const stageIndex = statusOrder.indexOf(stage.key);
       let icon = '⬜';
       let suffix = '';
       
-      if (stageIndex < currentIndex || stage.date) {
+      // 배송완료면 모든 단계 체크, 그 외에는 현재 단계까지 체크
+      if (isDelivered || stageIndex < currentIndex || stage.date) {
         icon = '✅';
         if (stage.date) {
           suffix = ` ${this.formatDate(stage.date, true)}`;
