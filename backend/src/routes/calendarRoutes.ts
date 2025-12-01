@@ -95,6 +95,28 @@ router.get('/upcoming', (req: Request, res: Response) => {
 });
 
 /**
+ * GET /api/calendar/reminders
+ * 리마인더 대상 기념일 조회
+ */
+router.get('/reminders', (req: Request, res: Response) => {
+  try {
+    const reminders = calendarService.getHolidaysNeedingReminder();
+
+    res.json({
+      success: true,
+      data: reminders,
+      count: reminders.length,
+    });
+  } catch (error) {
+    console.error('리마인더 조회 오류:', error);
+    res.status(500).json({
+      success: false,
+      error: '리마인더 조회 중 오류가 발생했습니다.',
+    });
+  }
+});
+
+/**
  * GET /api/calendar/countries
  * 국가 목록 조회
  */
@@ -121,41 +143,8 @@ router.get('/countries', (req: Request, res: Response) => {
 });
 
 /**
- * POST /api/calendar/recommend-categories
- * 카테고리 추천 생성
- */
-router.post('/recommend-categories', (req: Request, res: Response) => {
-  try {
-    const { holidayId, country } = req.body;
-
-    if (!holidayId || !country) {
-      return res.status(400).json({
-        success: false,
-        error: 'holidayId와 country는 필수입니다.',
-      });
-    }
-
-    const recommendations = calendarService.generateCategoryRecommendations(
-      holidayId,
-      country
-    );
-
-    res.json({
-      success: true,
-      data: recommendations,
-    });
-  } catch (error) {
-    console.error('카테고리 추천 생성 오류:', error);
-    res.status(500).json({
-      success: false,
-      error: '카테고리 추천 생성 중 오류가 발생했습니다.',
-    });
-  }
-});
-
-/**
  * POST /api/calendar/generate-strategy
- * AI 마케팅 전략 생성 (추후 구현)
+ * 마케팅 전략 생성
  */
 router.post('/generate-strategy', async (req: Request, res: Response) => {
   try {
@@ -168,68 +157,18 @@ router.post('/generate-strategy', async (req: Request, res: Response) => {
       });
     }
 
-    const holiday = calendarService.getHolidayById(holidayId);
-    if (!holiday) {
-      return res.status(404).json({
-        success: false,
-        error: '기념일을 찾을 수 없습니다.',
-      });
-    }
-
-    // 기본 전략 템플릿 생성 (추후 AI 연동)
-    const strategy = {
+    const strategy = calendarService.generateMarketingStrategy(
       holidayId,
       country,
-      categoryRecommendations: calendarService.generateCategoryRecommendations(holidayId, country)
-        .map((rec, idx) => ({ rank: idx + 1, ...rec })),
-      promotionStrategy: {
-        timeline: [
-          {
-            phase: 'awareness',
-            startDate: `D-${holiday.marketing.leadTimeDays}`,
-            endDate: `D-${Math.floor(holiday.marketing.leadTimeDays / 2)}`,
-            actions: ['SNS 티저 콘텐츠', '인플루언서 협업 시작'],
-          },
-          {
-            phase: 'consideration',
-            startDate: `D-${Math.floor(holiday.marketing.leadTimeDays / 2)}`,
-            endDate: 'D-7',
-            actions: ['상품 카탈로그 노출', '리뷰 캠페인'],
-          },
-          {
-            phase: 'conversion',
-            startDate: 'D-7',
-            endDate: 'D-Day',
-            actions: holiday.marketing.discountExpected
-              ? ['할인 프로모션', '긴급성 메시지']
-              : ['프리미엄 패키징 강조', '한정판 메시지'],
-          },
-        ],
-        discountSuggestion: holiday.marketing.discountExpected
-          ? {
-              type: 'percentage',
-              value: 10,
-              rationale: `${holiday.name.korean}에 고객들이 할인을 기대합니다.`,
-            }
-          : undefined,
-      },
-      contentStrategy: {
-        themes: holiday.marketing.keyTrends,
-        keyMessages: {
-          korean: `${holiday.name.korean}을(를) 특별하게, idus에서`,
-          english: `Make your ${holiday.name.english} special with idus`,
-          local: holiday.name.local,
-        },
-        visualGuidelines: holiday.context.colors || [],
-        hashtags: holiday.marketing.keyTrends.map(t => `#${t}`),
-      },
-      projectedImpact: {
-        trafficIncrease: holiday.importance === 'major' ? '+30~50%' : '+10~20%',
-        conversionLift: holiday.marketing.giftGiving ? '+2~3%p' : '+1~2%p',
-        revenueOpportunity: holiday.importance === 'major' ? '상' : '중',
-      },
-      generatedAt: new Date().toISOString(),
-    };
+      { budget, channels }
+    );
+
+    if (!strategy) {
+      return res.status(404).json({
+        success: false,
+        error: '기념일 또는 국가를 찾을 수 없습니다.',
+      });
+    }
 
     res.json({
       success: true,
@@ -244,5 +183,55 @@ router.post('/generate-strategy', async (req: Request, res: Response) => {
   }
 });
 
-export default router;
+/**
+ * GET /api/calendar/stats
+ * 캘린더 통계
+ */
+router.get('/stats', (req: Request, res: Response) => {
+  try {
+    const allHolidays = calendarService.getHolidays({});
+    const upcoming30 = calendarService.getUpcomingHolidays(30);
+    const upcoming7 = calendarService.getUpcomingHolidays(7);
+    const reminders = calendarService.getHolidaysNeedingReminder();
 
+    // 카테고리별 통계
+    const byCategory: Record<string, number> = {};
+    allHolidays.forEach(h => {
+      byCategory[h.category] = (byCategory[h.category] || 0) + 1;
+    });
+
+    // 월별 통계
+    const byMonth: Record<number, number> = {};
+    allHolidays.forEach(h => {
+      byMonth[h.date.month] = (byMonth[h.date.month] || 0) + 1;
+    });
+
+    // 중요도별 통계
+    const byImportance: Record<string, number> = {};
+    allHolidays.forEach(h => {
+      byImportance[h.importance] = (byImportance[h.importance] || 0) + 1;
+    });
+
+    res.json({
+      success: true,
+      data: {
+        totalHolidays: allHolidays.length,
+        upcoming30Days: upcoming30.length,
+        upcoming7Days: upcoming7.length,
+        pendingReminders: reminders.length,
+        byCategory,
+        byMonth,
+        byImportance,
+        totalCountries: Object.keys(calendarService.COUNTRIES).length,
+      },
+    });
+  } catch (error) {
+    console.error('통계 조회 오류:', error);
+    res.status(500).json({
+      success: false,
+      error: '통계 조회 중 오류가 발생했습니다.',
+    });
+  }
+});
+
+export default router;
