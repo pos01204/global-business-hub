@@ -2,19 +2,18 @@
 
 import { useQuery } from '@tanstack/react-query'
 import { artistAnalyticsApi } from '@/lib/api'
-import { Doughnut, Bar } from 'react-chartjs-2'
+import { Doughnut } from 'react-chartjs-2'
 import {
   Chart as ChartJS,
   CategoryScale,
   LinearScale,
-  BarElement,
   ArcElement,
   Title,
   Tooltip,
   Legend,
 } from 'chart.js'
 
-ChartJS.register(CategoryScale, LinearScale, BarElement, ArcElement, Title, Tooltip, Legend)
+ChartJS.register(CategoryScale, LinearScale, ArcElement, Title, Tooltip, Legend)
 
 interface OverviewTabProps {
   dateRange: string
@@ -50,8 +49,7 @@ export default function OverviewTab({ dateRange, countryFilter }: OverviewTabPro
   }
 
   const { summary, distribution } = data
-  
-  // 데이터가 없는 경우 기본값 설정
+
   if (!summary || !distribution) {
     return (
       <div className="card bg-yellow-50 border-yellow-200 p-6">
@@ -74,19 +72,6 @@ export default function OverviewTab({ dateRange, countryFilter }: OverviewTabPro
         ],
         backgroundColor: ['#10B981', '#3B82F6', '#8B5CF6', '#F59E0B', '#6B7280'],
         borderWidth: 0,
-      },
-    ],
-  }
-
-  // 국가별 매출 차트 데이터
-  const countryChartData = {
-    labels: distribution.byCountry.map((c: any) => c.country),
-    datasets: [
-      {
-        label: '매출 (백만원)',
-        data: distribution.byCountry.map((c: any) => Math.round(c.gmv / 1000000)),
-        backgroundColor: '#8B5CF6',
-        borderRadius: 6,
       },
     ],
   }
@@ -153,7 +138,9 @@ export default function OverviewTab({ dateRange, countryFilter }: OverviewTabPro
             <span className="text-2xl">⭐</span>
             <span className="text-sm text-gray-500">평균 평점</span>
           </div>
-          <p className="text-2xl font-bold">{summary.avgRating || 'N/A'}</p>
+          <p className="text-2xl font-bold">
+            {summary.avgRating ? `${summary.avgRating}/10` : 'N/A'}
+          </p>
         </div>
         <div className="card">
           <div className="flex items-center gap-3 mb-2">
@@ -164,69 +151,68 @@ export default function OverviewTab({ dateRange, countryFilter }: OverviewTabPro
         </div>
       </div>
 
-      {/* 차트 영역 */}
-      <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-        {/* 매출 구간별 분포 */}
-        <div className="card">
-          <h3 className="text-lg font-semibold mb-4">매출 구간별 작가 분포</h3>
-          <div className="h-64">
+      {/* 매출 구간별 분포 차트 */}
+      <div className="card">
+        <h3 className="text-lg font-semibold mb-4">매출 구간별 작가 분포</h3>
+        <div className="flex flex-col lg:flex-row items-center gap-8">
+          <div className="w-full lg:w-1/2 h-64">
             <Doughnut
               data={segmentChartData}
               options={{
                 responsive: true,
                 maintainAspectRatio: false,
                 plugins: {
-                  legend: { position: 'bottom', labels: { boxWidth: 12, padding: 8 } },
+                  legend: { display: false },
                 },
               }}
             />
           </div>
-          <div className="mt-4 grid grid-cols-2 gap-2 text-sm">
-            <div className="flex items-center gap-2">
-              <span className="w-3 h-3 rounded-full bg-emerald-500"></span>
-              <span>VIP: {distribution.byRevenue.vip.count}명 ({distribution.byRevenue.vip.rate.toFixed(1)}%)</span>
-            </div>
-            <div className="flex items-center gap-2">
-              <span className="w-3 h-3 rounded-full bg-blue-500"></span>
-              <span>High: {distribution.byRevenue.high.count}명 ({distribution.byRevenue.high.rate.toFixed(1)}%)</span>
-            </div>
-            <div className="flex items-center gap-2">
-              <span className="w-3 h-3 rounded-full bg-violet-500"></span>
-              <span>Medium: {distribution.byRevenue.medium.count}명 ({distribution.byRevenue.medium.rate.toFixed(1)}%)</span>
-            </div>
-            <div className="flex items-center gap-2">
-              <span className="w-3 h-3 rounded-full bg-amber-500"></span>
-              <span>Low: {distribution.byRevenue.low.count}명 ({distribution.byRevenue.low.rate.toFixed(1)}%)</span>
-            </div>
-          </div>
-        </div>
-
-        {/* 국가별 매출 */}
-        <div className="card">
-          <h3 className="text-lg font-semibold mb-4">국가별 매출 기여도</h3>
-          <div className="h-64">
-            <Bar
-              data={countryChartData}
-              options={{
-                responsive: true,
-                maintainAspectRatio: false,
-                indexAxis: 'y',
-                plugins: { legend: { display: false } },
-                scales: {
-                  x: { beginAtZero: true, title: { display: true, text: '매출 (백만원)' } },
-                },
-              }}
-            />
-          </div>
-          <div className="mt-4 space-y-2">
-            {distribution.byCountry.slice(0, 5).map((c: any) => (
-              <div key={c.country} className="flex items-center justify-between text-sm">
-                <span>{c.country}</span>
-                <span className="text-gray-500">
-                  {formatCurrency(c.gmv)} ({c.share.toFixed(1)}%)
-                </span>
+          <div className="w-full lg:w-1/2 space-y-3">
+            <div className="flex items-center justify-between p-3 bg-emerald-50 rounded-lg">
+              <div className="flex items-center gap-2">
+                <span className="w-3 h-3 rounded-full bg-emerald-500"></span>
+                <span className="font-medium">VIP (₩5M+)</span>
               </div>
-            ))}
+              <span className="text-emerald-600 font-semibold">
+                {distribution.byRevenue.vip.count}명 ({distribution.byRevenue.vip.rate.toFixed(1)}%)
+              </span>
+            </div>
+            <div className="flex items-center justify-between p-3 bg-blue-50 rounded-lg">
+              <div className="flex items-center gap-2">
+                <span className="w-3 h-3 rounded-full bg-blue-500"></span>
+                <span className="font-medium">High (₩1M~5M)</span>
+              </div>
+              <span className="text-blue-600 font-semibold">
+                {distribution.byRevenue.high.count}명 ({distribution.byRevenue.high.rate.toFixed(1)}%)
+              </span>
+            </div>
+            <div className="flex items-center justify-between p-3 bg-violet-50 rounded-lg">
+              <div className="flex items-center gap-2">
+                <span className="w-3 h-3 rounded-full bg-violet-500"></span>
+                <span className="font-medium">Medium (₩500K~1M)</span>
+              </div>
+              <span className="text-violet-600 font-semibold">
+                {distribution.byRevenue.medium.count}명 ({distribution.byRevenue.medium.rate.toFixed(1)}%)
+              </span>
+            </div>
+            <div className="flex items-center justify-between p-3 bg-amber-50 rounded-lg">
+              <div className="flex items-center gap-2">
+                <span className="w-3 h-3 rounded-full bg-amber-500"></span>
+                <span className="font-medium">Low (₩100K~500K)</span>
+              </div>
+              <span className="text-amber-600 font-semibold">
+                {distribution.byRevenue.low.count}명 ({distribution.byRevenue.low.rate.toFixed(1)}%)
+              </span>
+            </div>
+            <div className="flex items-center justify-between p-3 bg-gray-50 rounded-lg">
+              <div className="flex items-center gap-2">
+                <span className="w-3 h-3 rounded-full bg-gray-500"></span>
+                <span className="font-medium">Starter ({'<'}₩100K)</span>
+              </div>
+              <span className="text-gray-600 font-semibold">
+                {distribution.byRevenue.starter.count}명 ({distribution.byRevenue.starter.rate.toFixed(1)}%)
+              </span>
+            </div>
           </div>
         </div>
       </div>

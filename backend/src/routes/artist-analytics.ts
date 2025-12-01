@@ -1012,12 +1012,19 @@ router.get('/detail/:artistName', async (req, res) => {
       sheetsService.getSheetDataAsJson(SHEET_NAMES.REVIEW, false).catch(() => []),
     ]);
     
-    // 작가 기본 정보
-    const artistInfo = artistsData.find((a: any) => 
-      a['(KR)작가명'] === decodedArtistName || 
-      a['artist_name (kr)'] === decodedArtistName ||
-      a.name === decodedArtistName
-    );
+    // 작가 기본 정보 (다양한 컬럼명 패턴 지원)
+    const artistInfo = artistsData.find((a: any) => {
+      const artistName = a['(KR)작가명'] || a['artist_name (kr)'] || a['작가명'] || a.name || '';
+      return artistName === decodedArtistName;
+    });
+    
+    // 디버깅: 작가 정보 로그
+    console.log('[ArtistAnalytics] Artist info found:', {
+      artistName: decodedArtistName,
+      found: !!artistInfo,
+      artistInfoKeys: artistInfo ? Object.keys(artistInfo) : [],
+      artistInfoSample: artistInfo ? JSON.stringify(artistInfo).substring(0, 200) : null,
+    });
     
     // 작가 물류 데이터 필터링
     const artistLogistics = logisticsData.filter((row: any) => 
@@ -1157,20 +1164,26 @@ router.get('/detail/:artistName', async (req, res) => {
       ? Math.floor((now.getTime() - (lastSaleDate as Date).getTime()) / (1000 * 60 * 60 * 24))
       : 999;
     
+    // 작가 ID 및 이메일 추출 (다양한 컬럼명 패턴 지원)
+    const extractedArtistId = artistInfo?.artist_id || artistInfo?.global_artist_id || 
+      artistInfo?.['작가ID'] || artistInfo?.['artist_id'] || artistInfo?.id || '';
+    const extractedEmail = artistInfo?.mail || artistInfo?.email || 
+      artistInfo?.['이메일'] || artistInfo?.['메일'] || artistInfo?.['작가메일'] || '';
+    
     res.json({
       success: true,
       artistInfo: {
         name: decodedArtistName,
-        artistId: artistInfo?.artist_id || artistInfo?.global_artist_id || '',
-        email: artistInfo?.mail || artistInfo?.email || '',
+        artistId: extractedArtistId,
+        email: extractedEmail,
         registeredProducts: {
-          kr: parseInt(artistInfo?.['(KR)Live 작품수'] || artistInfo?.['KR Live 작품수'] || artistInfo?.kr_live_products) || 0,
-          global: parseInt(artistInfo?.['(Global)Live 작품수'] || artistInfo?.['Global Live 작품수'] || artistInfo?.global_live_products) || artistProductIds.size,
+          kr: parseInt(artistInfo?.['(KR)Live 작품수'] || artistInfo?.['KR Live 작품수'] || artistInfo?.kr_live_products || artistInfo?.['KR작품수']) || 0,
+          global: parseInt(artistInfo?.['(Global)Live 작품수'] || artistInfo?.['Global Live 작품수'] || artistInfo?.global_live_products || artistInfo?.['Global작품수']) || artistProductIds.size,
         },
         firstSaleDate: overallFirstSale ? (overallFirstSale as Date).toISOString().split('T')[0] : null,
         segment: getRevenueSegment(totalGmv),
         healthStatus: getHealthStatus(daysSinceLastSale, avgRating),
-        growthRate: 0, // TODO: 이전 기간 대비 계산
+        growthRate: 0,
       },
       performance: {
         totalGmv: Math.round(totalGmv),

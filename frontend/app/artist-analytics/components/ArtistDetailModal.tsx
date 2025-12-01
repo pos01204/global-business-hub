@@ -167,7 +167,7 @@ export default function ArtistDetailModal({ artistName, dateRange, onClose }: Ar
                 </div>
                 <div className="bg-amber-50 rounded-xl p-4 text-center">
                   <p className="text-2xl font-bold text-amber-600">
-                    {data.performance.avgRating ? `⭐ ${data.performance.avgRating}` : 'N/A'}
+                    {data.performance.avgRating ? `⭐ ${data.performance.avgRating}/10` : 'N/A'}
                   </p>
                   <p className="text-sm text-gray-600">평균 평점 ({data.performance.reviewCount}건)</p>
                 </div>

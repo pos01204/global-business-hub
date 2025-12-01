@@ -182,7 +182,7 @@ export default function ProductsTab({ dateRange }: ProductsTabProps) {
                     <td className="py-2 px-2 text-right font-semibold">{formatCurrency(product.gmv)}</td>
                     <td className="py-2 px-2 text-right">{product.quantity}개</td>
                     <td className="py-2 px-2 text-center">
-                      {product.avgRating ? `⭐${product.avgRating}` : '-'}
+                      {product.avgRating ? `⭐ ${product.avgRating}` : '-'}
                     </td>
                     <td className="py-2 px-2 text-center text-xs text-gray-500">
                       {product.countries.slice(0, 2).join(', ')}
