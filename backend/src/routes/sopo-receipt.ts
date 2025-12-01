@@ -313,8 +313,10 @@ router.post('/upload', upload.single('file'), async (req: Request, res: Response
     }
 
     // 파일명에서 기간 자동 추출 (예: "BACKPA_11월_선적내역_추출_20251201" → "2025-11")
+    // 파일명에서 추출한 기간이 우선 적용됨 (프론트엔드에서 전달한 period보다 우선)
     const filename = req.file.originalname;
-    let period = req.body.period || new Date().toISOString().slice(0, 7);
+    let period = new Date().toISOString().slice(0, 7); // 기본값: 현재 월
+    let periodSource = 'default';
     
     // 파일명에서 월 추출 시도 (예: "11월", "12월")
     const monthMatch = filename.match(/(\d{1,2})월/);
@@ -324,10 +326,16 @@ router.post('/upload', upload.single('file'), async (req: Request, res: Response
       const yearMatch = filename.match(/20(\d{2})/);
       const year = yearMatch ? `20${yearMatch[1]}` : new Date().getFullYear().toString();
       period = `${year}-${String(month).padStart(2, '0')}`;
-      console.log(`[Sopo] 파일명에서 기간 추출: ${filename} → ${period}`);
+      periodSource = 'filename';
+      console.log(`[Sopo] ✅ 파일명에서 기간 추출: "${filename}" → ${period}`);
+    } else if (req.body.period) {
+      // 파일명에서 추출 실패 시에만 프론트엔드 전달 값 사용
+      period = req.body.period;
+      periodSource = 'request';
+      console.log(`[Sopo] 프론트엔드 전달 기간 사용: ${period}`);
     }
     
-    console.log(`[Sopo] 선적 CSV 업로드: ${filename}, 기간: ${period}`);
+    console.log(`[Sopo] 선적 CSV 업로드: ${filename}, 기간: ${period} (source: ${periodSource})`);
 
     // CSV 파싱
     const csvContent = req.file.buffer.toString('utf-8');
@@ -1268,6 +1276,11 @@ function generateNotificationEmailHTML(params: {
       <center>
         <a href="${jotformLink}" class="btn">📝 소포수령증 신청하기</a>
       </center>
+      
+      <p style="font-size: 12px; color: #666; text-align: center; margin-top: 15px;">
+        버튼이 작동하지 않으면 아래 링크를 복사하여 브라우저에 붙여넣으세요:<br/>
+        <span style="color: #FF6B35; word-break: break-all;">${jotformLink}</span>
+      </p>
       
       <p class="warning">⏰ 신청 마감: ${deadline}까지</p>
       

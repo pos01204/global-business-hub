@@ -81,6 +81,10 @@ class ResendService {
         html: htmlBody,
         text: textBody || '',
         attachments: resendAttachments,
+        // 클릭 트래킹 비활성화를 위한 헤더 (Resend 대시보드에서도 설정 가능)
+        headers: {
+          'X-Entity-Ref-ID': `sopo-${Date.now()}`, // 클릭 트래킹 방지용 고유 ID
+        },
       });
 
       if (error) {
