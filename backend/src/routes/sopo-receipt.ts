@@ -1354,6 +1354,34 @@ router.post('/sync-jotform', async (req: Request, res: Response) => {
       return (name || '').trim().toLowerCase().replace(/\s+/g, '');
     };
 
+    // Submission Date에서 월(period) 추출 함수
+    // 형식: "2025-10-13 11:40:27" 또는 "2025. 12. 1 오후 4:53:22" 등
+    const extractPeriodFromDate = (dateStr: string): string | null => {
+      if (!dateStr) return null;
+      
+      // YYYY-MM-DD 형식
+      const isoMatch = dateStr.match(/^(\d{4})-(\d{1,2})-/);
+      if (isoMatch) {
+        return `${isoMatch[1]}-${isoMatch[2].padStart(2, '0')}`;
+      }
+      
+      // YYYY. M. D 형식 (한국어)
+      const korMatch = dateStr.match(/^(\d{4})\.\s*(\d{1,2})\.\s*\d/);
+      if (korMatch) {
+        return `${korMatch[1]}-${korMatch[2].padStart(2, '0')}`;
+      }
+      
+      // 기타 Date 파싱 시도
+      try {
+        const date = new Date(dateStr);
+        if (!isNaN(date.getTime())) {
+          return `${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, '0')}`;
+        }
+      } catch (e) {}
+      
+      return null;
+    };
+
     // JotForm 데이터와 트래킹 데이터 매칭
     for (const submission of jotformData) {
       const artistName = submission['아이디어스 작가명 (국문 또는 영문)'] || submission.artist_name || '';
@@ -1363,11 +1391,20 @@ router.post('/sync-jotform', async (req: Request, res: Response) => {
       if (!artistName) continue;
 
       const normalizedSubmissionName = normalizeArtistName(artistName);
+      
+      // Submission Date에서 월(period) 추출
+      const submissionPeriod = extractPeriodFromDate(submissionDate);
+      
+      if (!submissionPeriod) {
+        console.log(`[Sopo] ⚠️ 날짜 파싱 실패: ${artistName}, date=${submissionDate}`);
+        continue;
+      }
 
-      // 트래킹에서 해당 작가 찾기 (정규화된 이름으로 비교)
+      // 트래킹에서 해당 작가 + 해당 월 찾기 (정규화된 이름 + period 비교)
       const trackingIndex = trackingData.findIndex((t: any) => {
         const normalizedTrackingName = normalizeArtistName(t.artist_name);
         return normalizedTrackingName === normalizedSubmissionName && 
+               t.period === submissionPeriod &&  // 같은 월만 매칭
                t.application_status !== 'submitted' &&
                t.application_status !== 'completed';
       });
