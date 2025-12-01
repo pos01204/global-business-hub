@@ -153,6 +153,7 @@ export class RetryHandler {
 
   /**
    * 병렬 실행 (하나라도 성공하면 반환)
+   * Promise.any 대신 Promise.allSettled 사용 (ES2020 호환)
    */
   async executeRace<T>(
     fns: Array<() => Promise<T>>,
@@ -162,21 +163,32 @@ export class RetryHandler {
 
     try {
       const promises = fns.map((fn, index) =>
-        this.execute(fn, `${context} [${index}]`).then((result) => {
-          if (result.success) return result
-          throw new Error(result.error)
-        })
+        this.execute(fn, `${context} [${index}]`)
       )
 
-      const result = await Promise.any(promises)
+      const results = await Promise.allSettled(promises)
+      
+      // 성공한 결과 찾기
+      for (const result of results) {
+        if (result.status === 'fulfilled' && result.value.success) {
+          return {
+            ...result.value,
+            totalTime: Date.now() - startTime,
+          }
+        }
+      }
+
+      // 모두 실패한 경우
       return {
-        ...result,
+        success: false,
+        error: '모든 시도가 실패했습니다.',
+        attempts: fns.length * this.config.maxRetries,
         totalTime: Date.now() - startTime,
       }
     } catch (error: any) {
       return {
         success: false,
-        error: '모든 시도가 실패했습니다.',
+        error: error.message || '병렬 실행 중 오류가 발생했습니다.',
         attempts: fns.length * this.config.maxRetries,
         totalTime: Date.now() - startTime,
       }

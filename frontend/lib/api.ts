@@ -508,6 +508,19 @@ export const chatApi = {
     })
     return response.data
   },
+  // 메트릭 조회
+  getMetrics: async (periodMinutes?: number) => {
+    const params = periodMinutes ? { period: periodMinutes } : {}
+    const response = await api.get('/api/chat/metrics', { params })
+    return response.data
+  },
+  // 메트릭 내보내기
+  exportMetrics: async () => {
+    const response = await api.get('/api/chat/metrics/export', {
+      responseType: 'blob',
+    })
+    return response.data
+  },
 }
 
 // 물류비 정산 API

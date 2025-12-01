@@ -1,6 +1,7 @@
 import express from 'express'
 import { openaiService } from '../services/openaiService'
 import { AgentRouter, AgentType } from '../services/agents/AgentRouter'
+import { metricsCollector } from '../services/agents/MetricsCollector'
 
 const router = express.Router()
 
@@ -427,6 +428,49 @@ router.post('/deep-analysis', async (req, res) => {
     res.status(500).json({
       success: false,
       error: error.message || '분석 중 오류가 발생했습니다.',
+    })
+  }
+})
+
+// 메트릭 조회
+router.get('/metrics', async (req, res) => {
+  try {
+    const { period } = req.query
+    const periodMs = period ? parseInt(String(period)) * 60 * 1000 : undefined // 분 단위
+
+    const metrics = metricsCollector.getAggregatedMetrics(periodMs)
+    const realtime = metricsCollector.getRealtimeStats()
+
+    res.json({
+      success: true,
+      data: {
+        aggregated: metrics,
+        realtime,
+        timestamp: new Date().toISOString(),
+      },
+    })
+  } catch (error: any) {
+    res.status(500).json({
+      success: false,
+      error: '메트릭 조회 중 오류가 발생했습니다.',
+      message: error.message,
+    })
+  }
+})
+
+// 메트릭 내보내기
+router.get('/metrics/export', async (req, res) => {
+  try {
+    const exported = metricsCollector.export()
+    
+    res.setHeader('Content-Type', 'application/json')
+    res.setHeader('Content-Disposition', `attachment; filename=metrics_${new Date().toISOString().split('T')[0]}.json`)
+    res.send(exported)
+  } catch (error: any) {
+    res.status(500).json({
+      success: false,
+      error: '메트릭 내보내기 중 오류가 발생했습니다.',
+      message: error.message,
     })
   }
 })

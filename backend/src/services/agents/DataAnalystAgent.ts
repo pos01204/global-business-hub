@@ -6,6 +6,7 @@ import { smartSuggestionEngine, SuggestionContext } from './SmartSuggestionEngin
 import { openaiRetryHandler } from './RetryHandler'
 import { dataAnalystValidator } from './ResponseValidator'
 import { correlationAnalyzer } from './CorrelationAnalyzer'
+import { metricsCollector } from './MetricsCollector'
 
 export class DataAnalystAgent extends BaseAgent {
   private getSystemPrompt(): string {
@@ -44,11 +45,16 @@ ${getSchemaSummaryForPrompt()}
     charts?: any[]
     actions?: Array<{ label: string; action: string; data?: any }>
   }> {
+    const startTime = Date.now()
+    let intentType = 'unknown'
+    let dataCount = 0
+
     try {
       // LLM 기반 의도 분류 및 엔티티 추출 (고도화)
       let extractedIntent: ExtractedIntent
       try {
         extractedIntent = await intentClassifier.classify(query, context.history)
+        intentType = extractedIntent.intent
       } catch (llmError) {
         // LLM 실패 시 폴백
         console.warn('[DataAnalystAgent] LLM 의도 분류 실패, 폴백 사용:', llmError)
@@ -106,6 +112,21 @@ ${getSchemaSummaryForPrompt()}
         validation.suggestions
       )
 
+      dataCount = Array.isArray(results.data) ? results.data.length : 1
+
+      // 메트릭 기록 (성공)
+      metricsCollector.record({
+        agentType: 'DataAnalyst',
+        operation: 'process',
+        duration: Date.now() - startTime,
+        success: true,
+        metadata: {
+          query: query.substring(0, 100),
+          intent: intentType,
+          dataCount,
+        },
+      })
+
       return {
         response,
         data: results.data,
@@ -119,6 +140,20 @@ ${getSchemaSummaryForPrompt()}
       }
     } catch (error: any) {
       console.error('[DataAnalystAgent] 오류:', error)
+
+      // 메트릭 기록 (실패)
+      metricsCollector.record({
+        agentType: 'DataAnalyst',
+        operation: 'process',
+        duration: Date.now() - startTime,
+        success: false,
+        error: error.message,
+        metadata: {
+          query: query.substring(0, 100),
+          intent: intentType,
+        },
+      })
+
       // 최종 폴백: 기존 방식
       try {
         const analysis = await this.analyzeIntent(query)
