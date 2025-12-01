@@ -510,9 +510,10 @@ router.post('/upload', upload.single('file'), async (req: Request, res: Response
     const withoutEmail = artistSummaries.length - withEmail;
     console.log(`[Sopo] 작가 ${artistSummaries.length}명 중 이메일 보유 ${withEmail}명, 미보유 ${withoutEmail}명`);
 
-    // 트래킹 시트에 저장
+    // 트래킹 시트에 저장 (중복 체크 포함)
+    let trackingResult = { added: 0, updated: 0, skipped: 0 };
     try {
-      await saveTrackingData(period, artistSummaries);
+      trackingResult = await saveTrackingData(period, artistSummaries);
     } catch (e: any) {
       console.warn('[Sopo] 트래킹 데이터 저장 실패:', e.message);
     }
@@ -530,6 +531,11 @@ router.post('/upload', upload.single('file'), async (req: Request, res: Response
           withEmail,
           withoutEmail,
         },
+        // 트래킹 저장 결과
+        trackingStats: {
+          newlyAdded: trackingResult.added,
+          duplicatesSkipped: trackingResult.skipped,
+        },
         artists: artistSummaries,
       },
     });
@@ -540,9 +546,9 @@ router.post('/upload', upload.single('file'), async (req: Request, res: Response
 });
 
 /**
- * 트래킹 데이터 저장
+ * 트래킹 데이터 저장 (중복 체크 포함)
  */
-async function saveTrackingData(period: string, artists: any[]): Promise<void> {
+async function saveTrackingData(period: string, artists: any[]): Promise<{ added: number; updated: number; skipped: number }> {
   const headers = [
     'period', 'artist_name', 'artist_id', 'artist_email', 'order_count', 
     'total_amount', // 작품 판매 금액(KRW) 합계
@@ -550,37 +556,73 @@ async function saveTrackingData(period: string, artists: any[]): Promise<void> {
     'jotform_submission_id', 'reminder_sent_at', 'receipt_issued_at', 'updated_at'
   ];
 
+  let existingData: any[] = [];
+  
   // 시트 존재 확인 및 헤더 생성
   try {
-    const existingData = await sheetsService.getSheetDataAsJson(SHEET_NAMES.SOPO_TRACKING, false);
+    existingData = await sheetsService.getSheetDataAsJson(SHEET_NAMES.SOPO_TRACKING, false);
     if (existingData.length === 0) {
       await sheetsService.appendRows(SHEET_NAMES.SOPO_TRACKING, [headers]);
+      console.log('[Sopo] 트래킹 시트 헤더 생성 완료');
     }
   } catch (e) {
     console.log('[Sopo] 트래킹 시트 생성 시도');
+    await sheetsService.appendRows(SHEET_NAMES.SOPO_TRACKING, [headers]);
   }
+
+  // 기존 데이터에서 period + artist_name으로 인덱싱 (중복 체크용)
+  const existingKeys = new Set<string>();
+  existingData.forEach((row: any) => {
+    const key = `${row.period}|${row.artist_name}`;
+    existingKeys.add(key);
+  });
+
+  console.log(`[Sopo] 기존 트래킹 데이터: ${existingData.length}건, 고유 키: ${existingKeys.size}개`);
 
   const now = new Date().toISOString();
-  const rows = artists.map(artist => [
-    period,
-    artist.artistName,
-    artist.artistId || '',
-    artist.artistEmail || '',
-    artist.orderCount,
-    artist.totalAmount || 0, // 작품 판매 금액(KRW) 합계
-    '', // notification_sent_at
-    'pending', // application_status
-    '', // application_submitted_at
-    '', // jotform_submission_id
-    '', // reminder_sent_at
-    '', // receipt_issued_at
-    now, // updated_at
-  ]);
+  const newRows: any[][] = [];
+  let skippedCount = 0;
+  let updatedCount = 0;
 
-  if (rows.length > 0) {
-    await sheetsService.appendRows(SHEET_NAMES.SOPO_TRACKING, rows);
-    console.log(`[Sopo] 트래킹 데이터 ${rows.length}건 저장`);
+  for (const artist of artists) {
+    const key = `${period}|${artist.artistName}`;
+    
+    if (existingKeys.has(key)) {
+      // 이미 존재하는 경우 건너뛰기 (중복 방지)
+      skippedCount++;
+      continue;
+    }
+
+    // 새로운 데이터 추가
+    newRows.push([
+      period,
+      artist.artistName,
+      artist.artistId || '',
+      artist.artistEmail || '',
+      artist.orderCount,
+      artist.totalAmount || 0, // 작품 판매 금액(KRW) 합계
+      '', // notification_sent_at
+      'pending', // application_status
+      '', // application_submitted_at
+      '', // jotform_submission_id
+      '', // reminder_sent_at
+      '', // receipt_issued_at
+      now, // updated_at
+    ]);
   }
+
+  if (newRows.length > 0) {
+    await sheetsService.appendRows(SHEET_NAMES.SOPO_TRACKING, newRows);
+    console.log(`[Sopo] 트래킹 데이터 신규 ${newRows.length}건 저장, 중복 ${skippedCount}건 건너뜀`);
+  } else {
+    console.log(`[Sopo] 모든 데이터가 이미 존재합니다 (${skippedCount}건 중복)`);
+  }
+
+  return {
+    added: newRows.length,
+    updated: updatedCount,
+    skipped: skippedCount,
+  };
 }
 
 /**
@@ -797,8 +839,26 @@ router.post('/notify', async (req: Request, res: Response) => {
   try {
     const { period, artistNames, jotformLink } = req.body;
 
+    console.log('[Sopo] /notify 요청 - period:', period, ', artistNames:', artistNames?.length || 0);
+
+    // 필수 파라미터 검증
     if (!period) {
-      return res.status(400).json({ success: false, error: '기간을 지정해주세요.' });
+      console.log('[Sopo] /notify 오류: 기간 미지정');
+      return res.status(400).json({ 
+        success: false, 
+        error: '기간을 지정해주세요.',
+        details: { receivedPeriod: period }
+      });
+    }
+
+    // 이메일 서비스 확인
+    if (!emailService) {
+      console.log('[Sopo] /notify 오류: 이메일 서비스 미설정 (RESEND_API_KEY 환경변수 확인 필요)');
+      return res.status(400).json({ 
+        success: false, 
+        error: '이메일 서비스가 설정되지 않았습니다. RESEND_API_KEY 환경변수를 확인해주세요.',
+        details: { isEmailConfigured: isEmailConfigured }
+      });
     }
 
     // 작가 정보 로드
@@ -806,10 +866,22 @@ router.post('/notify', async (req: Request, res: Response) => {
 
     // 대상 작가 조회
     const trackingData = await sheetsService.getSheetDataAsJson(SHEET_NAMES.SOPO_TRACKING, false);
+    console.log(`[Sopo] 트래킹 데이터 로드: ${trackingData.length}건`);
+    
     let targetArtists = trackingData.filter((row: any) => row.period === period);
+    console.log(`[Sopo] 기간(${period}) 필터링 결과: ${targetArtists.length}건`);
+
+    if (targetArtists.length === 0) {
+      return res.status(400).json({ 
+        success: false, 
+        error: `해당 기간(${period})의 대상 작가가 없습니다. 먼저 CSV 파일을 업로드해주세요.`,
+        details: { period, availablePeriods: [...new Set(trackingData.map((r: any) => r.period))].filter(Boolean) }
+      });
+    }
 
     if (artistNames && artistNames.length > 0) {
       targetArtists = targetArtists.filter((row: any) => artistNames.includes(row.artist_name));
+      console.log(`[Sopo] 작가명 필터링 결과: ${targetArtists.length}건`);
     }
 
     // 이메일 보강 및 필터
@@ -828,8 +900,19 @@ router.post('/notify', async (req: Request, res: Response) => {
       return { ...row, artist_email: email };
     }).filter((row: any) => row.artist_email);
 
+    console.log(`[Sopo] 이메일 보유 작가: ${artistsWithEmail.length}명`);
+
     if (artistsWithEmail.length === 0) {
-      return res.status(400).json({ success: false, error: '이메일이 있는 대상 작가가 없습니다.' });
+      const withoutEmail = targetArtists.filter((row: any) => !row.artist_email).map((r: any) => r.artist_name);
+      return res.status(400).json({ 
+        success: false, 
+        error: '이메일이 있는 대상 작가가 없습니다.',
+        details: { 
+          totalTargets: targetArtists.length,
+          withoutEmailCount: withoutEmail.length,
+          sampleWithoutEmail: withoutEmail.slice(0, 5)
+        }
+      });
     }
 
     const sent: string[] = [];
@@ -841,11 +924,6 @@ router.post('/notify', async (req: Request, res: Response) => {
 
     for (const artist of artistsWithEmail) {
       try {
-        if (!emailService) {
-          failed.push({ artistName: artist.artist_name, error: '이메일 서비스 미설정' });
-          continue;
-        }
-
         // 이메일 발송
         const periodDisplay = formatPeriodDisplay(period);
         const totalAmount = parseFloat(artist.total_amount_krw) || parseFloat(artist.total_amount) || 0;
@@ -869,6 +947,13 @@ router.post('/notify', async (req: Request, res: Response) => {
 
         if (result.success) {
           sent.push(artist.artist_name);
+          
+          // 발송 성공 시 트래킹 시트 업데이트 (notification_sent_at)
+          try {
+            await updateTrackingNotificationSent(period, artist.artist_name, now);
+          } catch (updateErr) {
+            console.warn(`[Sopo] 트래킹 업데이트 실패: ${artist.artist_name}`);
+          }
         } else {
           failed.push({ artistName: artist.artist_name, error: result.error || '발송 실패' });
         }
@@ -876,6 +961,8 @@ router.post('/notify', async (req: Request, res: Response) => {
         failed.push({ artistName: artist.artist_name, error: e.message });
       }
     }
+
+    console.log(`[Sopo] 이메일 발송 완료 - 성공: ${sent.length}, 실패: ${failed.length}`);
 
     res.json({
       success: true,
@@ -892,6 +979,30 @@ router.post('/notify', async (req: Request, res: Response) => {
     res.status(500).json({ success: false, error: error.message });
   }
 });
+
+/**
+ * 트래킹 시트에서 notification_sent_at 업데이트
+ */
+async function updateTrackingNotificationSent(period: string, artistName: string, sentAt: string): Promise<void> {
+  try {
+    const trackingData = await sheetsService.getSheetDataAsJson(SHEET_NAMES.SOPO_TRACKING, false);
+    const rowIndex = trackingData.findIndex((row: any) => 
+      row.period === period && row.artist_name === artistName
+    );
+    
+    if (rowIndex >= 0) {
+      // notification_sent_at 컬럼 업데이트 (7번째 컬럼, 0-indexed: 6)
+      // 헤더 행 포함하므로 rowIndex + 2
+      await sheetsService.updateCell(
+        SHEET_NAMES.SOPO_TRACKING, 
+        `G${rowIndex + 2}`, 
+        sentAt
+      );
+    }
+  } catch (e: any) {
+    console.warn('[Sopo] notification_sent_at 업데이트 실패:', e.message);
+  }
+}
 
 /**
  * 기간 표시 포맷
