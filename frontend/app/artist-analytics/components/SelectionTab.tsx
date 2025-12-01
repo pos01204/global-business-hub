@@ -35,7 +35,19 @@ export default function SelectionTab() {
     return <div className="card bg-red-50 p-6 text-red-600">데이터 로드 실패</div>
   }
 
-  const { summary, monthlyTrend, churnReasons, onboarding, deletedArtists, recentRegistrations, noProductArtists, _debug } = data
+  const { 
+    summary, 
+    productStats, 
+    globalExpansion, 
+    avgProductsPerArtist,
+    monthlyTrend, 
+    churnReasons, 
+    onboarding, 
+    deletedArtists, 
+    recentRegistrations,
+    noProductArtists,
+    _debug 
+  } = data
 
   // 디버그 정보 콘솔 출력
   if (_debug) {
@@ -181,33 +193,112 @@ export default function SelectionTab() {
       </div>
 
 
-      {/* 작가 활성화 & 온보딩 현황 */}
+      {/* 작품 등록 현황 & 글로벌 확장 */}
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-        {/* 작가 활성화 현황 */}
+        {/* 작품 등록 현황 */}
         <div className="card">
-          <h3 className="text-lg font-semibold mb-4">📊 작가 셀렉션 현황</h3>
+          <h3 className="text-lg font-semibold mb-4">📦 작품 등록 현황</h3>
           <div className="space-y-4">
-            {/* 활성화율 */}
+            {/* KR/Global Live 작품 수 */}
+            <div className="grid grid-cols-2 gap-4">
+              <div className="text-center p-4 bg-blue-50 rounded-xl">
+                <p className="text-2xl font-bold text-blue-600">{(productStats?.krLive || 0).toLocaleString()}개</p>
+                <p className="text-sm text-gray-600">KR Live 작품</p>
+              </div>
+              <div className="text-center p-4 bg-violet-50 rounded-xl">
+                <p className="text-2xl font-bold text-violet-600">{(productStats?.globalLive || 0).toLocaleString()}개</p>
+                <p className="text-sm text-gray-600">Global Live 작품</p>
+              </div>
+            </div>
+
+            {/* KR→Global 전환율 */}
             <div className="p-4 bg-emerald-50 rounded-xl">
               <div className="flex items-center justify-between mb-2">
-                <span className="text-sm font-medium text-gray-700">작가 활성화율</span>
-                <span className="text-xl font-bold text-emerald-600">
-                  {summary.totalRegistered > 0 ? Math.round((summary.activeArtists / summary.totalRegistered) * 100) : 0}%
-                </span>
+                <span className="text-sm font-medium text-gray-700">KR → Global 전환율</span>
+                <span className="text-xl font-bold text-emerald-600">{productStats?.krToGlobalRate || 0}%</span>
               </div>
               <div className="h-3 bg-emerald-200 rounded-full overflow-hidden">
                 <div 
                   className="h-full bg-emerald-500 rounded-full" 
-                  style={{ width: `${summary.totalRegistered > 0 ? (summary.activeArtists / summary.totalRegistered) * 100 : 0}%` }} 
+                  style={{ width: `${Math.min(productStats?.krToGlobalRate || 0, 100)}%` }} 
                 />
               </div>
               <p className="text-xs text-gray-500 mt-2">
-                {summary.activeArtists.toLocaleString()}명 활성 / {summary.totalRegistered.toLocaleString()}명 전체
+                KR 작품 대비 Global 작품 등록 비율
               </p>
             </div>
 
-            {/* 이탈 현황 요약 */}
+            {/* 작가당 평균 작품 수 */}
             <div className="p-4 bg-gray-50 rounded-xl">
+              <p className="text-sm font-medium text-gray-700 mb-3">👤 작가당 평균 Live 작품 수</p>
+              <div className="grid grid-cols-3 gap-2 text-center">
+                <div>
+                  <p className="text-lg font-bold text-blue-600">{avgProductsPerArtist?.krLive || 0}개</p>
+                  <p className="text-xs text-gray-500">KR</p>
+                </div>
+                <div>
+                  <p className="text-lg font-bold text-violet-600">{avgProductsPerArtist?.globalLive || 0}개</p>
+                  <p className="text-xs text-gray-500">Global</p>
+                </div>
+                <div>
+                  <p className="text-lg font-bold text-emerald-600">{avgProductsPerArtist?.avgConversionRate || 0}%</p>
+                  <p className="text-xs text-gray-500">전환율</p>
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        {/* 글로벌 확장 현황 */}
+        <div className="card">
+          <h3 className="text-lg font-semibold mb-4">🌍 글로벌 확장 현황</h3>
+          <div className="space-y-4">
+            {/* Global 진출 작가 */}
+            <div className="p-4 bg-violet-50 rounded-xl">
+              <div className="flex items-center justify-between mb-2">
+                <span className="text-sm font-medium text-gray-700">Global 진출 작가</span>
+                <span className="text-xl font-bold text-violet-600">
+                  {(globalExpansion?.globalArtistCount || 0).toLocaleString()}명
+                </span>
+              </div>
+              <div className="h-3 bg-violet-200 rounded-full overflow-hidden">
+                <div 
+                  className="h-full bg-violet-500 rounded-full" 
+                  style={{ width: `${globalExpansion?.globalArtistRate || 0}%` }} 
+                />
+              </div>
+              <p className="text-xs text-gray-500 mt-2">
+                전체 활성 작가의 {globalExpansion?.globalArtistRate || 0}%
+              </p>
+            </div>
+
+            {/* 언어별 커버리지 */}
+            <div className="p-4 bg-gray-50 rounded-xl">
+              <p className="text-sm font-medium text-gray-700 mb-3">언어별 커버리지 (Global Live 기준)</p>
+              <div className="space-y-3">
+                <div>
+                  <div className="flex items-center justify-between mb-1">
+                    <span className="text-sm text-gray-600">🇺🇸 EN (영어)</span>
+                    <span className="text-sm font-semibold">{globalExpansion?.enCoverage || 0}%</span>
+                  </div>
+                  <div className="h-2 bg-gray-200 rounded-full overflow-hidden">
+                    <div className="h-full bg-blue-500 rounded-full" style={{ width: `${globalExpansion?.enCoverage || 0}%` }} />
+                  </div>
+                </div>
+                <div>
+                  <div className="flex items-center justify-between mb-1">
+                    <span className="text-sm text-gray-600">🇯🇵 JA (일본어)</span>
+                    <span className="text-sm font-semibold">{globalExpansion?.jaCoverage || 0}%</span>
+                  </div>
+                  <div className="h-2 bg-gray-200 rounded-full overflow-hidden">
+                    <div className="h-full bg-red-500 rounded-full" style={{ width: `${globalExpansion?.jaCoverage || 0}%` }} />
+                  </div>
+                </div>
+              </div>
+            </div>
+
+            {/* 이탈 현황 요약 */}
+            <div className="p-4 bg-red-50 rounded-xl">
               <div className="flex items-center justify-between mb-2">
                 <span className="text-sm font-medium text-gray-700">이탈 현황</span>
                 <span className="text-lg font-bold text-red-600">{summary.deletedArtists}명</span>
@@ -230,21 +321,6 @@ export default function SelectionTab() {
               ) : (
                 <p className="text-xs text-gray-500">이탈 작가가 없습니다 👍</p>
               )}
-            </div>
-
-            {/* 작가당 평균 작품 수 */}
-            <div className="p-4 bg-violet-50 rounded-xl">
-              <p className="text-sm font-medium text-gray-700 mb-2">작가당 평균 작품 수</p>
-              <div className="flex justify-around">
-                <div className="text-center">
-                  <p className="text-xl font-bold text-violet-600">{summary.avgProductsPerArtist.kr}개</p>
-                  <p className="text-xs text-gray-500">KR</p>
-                </div>
-                <div className="text-center">
-                  <p className="text-xl font-bold text-violet-600">{summary.avgProductsPerArtist.global}개</p>
-                  <p className="text-xs text-gray-500">Global</p>
-                </div>
-              </div>
             </div>
           </div>
         </div>

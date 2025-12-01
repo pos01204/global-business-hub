@@ -1418,19 +1418,52 @@ router.get('/selection', async (req, res) => {
       return parseDate(value);
     };
     
+    // 작품 수 관련 컬럼 매핑 (N~S열)
+    const getProductStats = (artist: any): {
+      krTotal: number;
+      krLive: number;
+      globalTotal: number;
+      globalLive: number;
+      enLive: number;
+      jaLive: number;
+    } => {
+      // N열 = 인덱스 13: 전체 작품수 (KR)
+      const krTotal = parseInt(findColumnValue(artist, [
+        '전체 작품수 (KR)', '전체 작품수(KR)', 'KR 전체 작품수', 'kr_total_products'
+      ], 13)) || 0;
+      
+      // O열 = 인덱스 14: Live 작품수 (KR)
+      const krLive = parseInt(findColumnValue(artist, [
+        'Live 작품수 (KR)', 'Live 작품수(KR)', 'KR Live 작품수', '(KR)Live 작품수', 'kr_live_products'
+      ], 14)) || 0;
+      
+      // P열 = 인덱스 15: 전체 작품수 (Global)
+      const globalTotal = parseInt(findColumnValue(artist, [
+        '전체 작품수 (Global)', '전체 작품수(Global)', 'Global 전체 작품수', 'global_total_products'
+      ], 15)) || 0;
+      
+      // Q열 = 인덱스 16: Live 작품수 (Global)
+      const globalLive = parseInt(findColumnValue(artist, [
+        'Live 작품수 (Global)', 'Live 작품수(Global)', 'Global Live 작품수', '(Global)Live 작품수', 'global_live_products'
+      ], 16)) || 0;
+      
+      // R열 = 인덱스 17: Live 작품수 (EN)
+      const enLive = parseInt(findColumnValue(artist, [
+        'Live 작품수 (EN)', 'Live 작품수(EN)', 'EN Live 작품수', 'en_live_products'
+      ], 17)) || 0;
+      
+      // S열 = 인덱스 18: Live 작품수 (JA)
+      const jaLive = parseInt(findColumnValue(artist, [
+        'Live 작품수 (JA)', 'Live 작품수(JA)', 'JA Live 작품수', 'ja_live_products'
+      ], 18)) || 0;
+      
+      return { krTotal, krLive, globalTotal, globalLive, enLive, jaLive };
+    };
+    
+    // 기존 호환성을 위한 래퍼
     const getProductCount = (artist: any): { kr: number; global: number } => {
-      const krValue = findColumnValue(artist, [
-        '(KR)Live 작품수', 'KR Live 작품수', 'kr_live_products', 
-        'KR 작품수', '국내 작품수'
-      ]);
-      const globalValue = findColumnValue(artist, [
-        '(Global)Live 작품수', 'Global Live 작품수', 'global_live_products',
-        'Global 작품수', '글로벌 작품수', '해외 작품수'
-      ]);
-      return {
-        kr: parseInt(krValue) || 0,
-        global: parseInt(globalValue) || 0,
-      };
+      const stats = getProductStats(artist);
+      return { kr: stats.krLive, global: stats.globalLive };
     };
     
     // 작가 분류
@@ -1616,20 +1649,59 @@ router.get('/selection', async (req, res) => {
       ? Math.round((recentWithSales.length / recentRegistrations.length) * 1000) / 10
       : 0;
     
-    // 작가당 평균 작품 수
-    let totalKrProducts = 0;
-    let totalGlobalProducts = 0;
+    // 작품 등록 통계 계산
+    let totalKrLive = 0;
+    let totalGlobalLive = 0;
+    let totalEnLive = 0;
+    let totalJaLive = 0;
+    let globalArtistCount = 0; // Global Live > 0인 작가 수
+    let enArtistCount = 0;
+    let jaArtistCount = 0;
+    let conversionRateSum = 0;
+    let conversionRateCount = 0;
+    
     artistsData.forEach((artist: any) => {
       if (!getDeletionDate(artist)) {
-        const products = getProductCount(artist);
-        totalKrProducts += products.kr;
-        totalGlobalProducts += products.global;
+        const stats = getProductStats(artist);
+        totalKrLive += stats.krLive;
+        totalGlobalLive += stats.globalLive;
+        totalEnLive += stats.enLive;
+        totalJaLive += stats.jaLive;
+        
+        if (stats.globalLive > 0) globalArtistCount++;
+        if (stats.enLive > 0) enArtistCount++;
+        if (stats.jaLive > 0) jaArtistCount++;
+        
+        // KR→Global 전환율 (KR Live가 있는 작가만)
+        if (stats.krLive > 0) {
+          conversionRateSum += (stats.globalLive / stats.krLive) * 100;
+          conversionRateCount++;
+        }
       }
     });
     
+    // 작품 등록 현황
+    const productStats = {
+      krLive: totalKrLive,
+      globalLive: totalGlobalLive,
+      krToGlobalRate: totalKrLive > 0 ? Math.round((totalGlobalLive / totalKrLive) * 1000) / 10 : 0,
+    };
+    
+    // 글로벌 확장 현황
+    const globalExpansion = {
+      globalArtistCount,
+      globalArtistRate: activeArtists > 0 ? Math.round((globalArtistCount / activeArtists) * 1000) / 10 : 0,
+      enCoverage: totalGlobalLive > 0 ? Math.round((totalEnLive / totalGlobalLive) * 1000) / 10 : 0,
+      jaCoverage: totalGlobalLive > 0 ? Math.round((totalJaLive / totalGlobalLive) * 1000) / 10 : 0,
+      enArtistCount,
+      jaArtistCount,
+    };
+    
+    // 작가당 평균 작품 수
     const avgProductsPerArtist = {
-      kr: activeArtists > 0 ? Math.round((totalKrProducts / activeArtists) * 10) / 10 : 0,
-      global: activeArtists > 0 ? Math.round((totalGlobalProducts / activeArtists) * 10) / 10 : 0,
+      krLive: activeArtists > 0 ? Math.round((totalKrLive / activeArtists) * 10) / 10 : 0,
+      globalLive: activeArtists > 0 ? Math.round((totalGlobalLive / activeArtists) * 10) / 10 : 0,
+      avgConversionRate: conversionRateCount > 0 ? Math.round((conversionRateSum / conversionRateCount) * 10) / 10 : 0,
     };
     
     res.json({
@@ -1641,8 +1713,10 @@ router.get('/selection', async (req, res) => {
         churnRate: totalRegistered > 0 ? Math.round((deletedArtists / totalRegistered) * 1000) / 10 : 0,
         thisMonthRegistered,
         noProductArtists,
-        avgProductsPerArtist,
       },
+      productStats,
+      globalExpansion,
+      avgProductsPerArtist,
       monthlyTrend,
       churnReasons,
       onboarding: {
