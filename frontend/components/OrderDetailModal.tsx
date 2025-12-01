@@ -12,6 +12,15 @@ interface OrderDetailModalProps {
   onClose: () => void
 }
 
+// 상태별 스타일 및 아이콘 매핑
+const STAGE_CONFIG: Record<string, { icon: string; bgColor: string; textColor: string; label: string }> = {
+  unreceived: { icon: '📦', bgColor: 'bg-amber-100', textColor: 'text-amber-700', label: '미입고' },
+  artistShipping: { icon: '🚚', bgColor: 'bg-blue-100', textColor: 'text-blue-700', label: '국내 배송중' },
+  awaitingInspection: { icon: '🔍', bgColor: 'bg-purple-100', textColor: 'text-purple-700', label: '검수 대기' },
+  inspectionComplete: { icon: '✅', bgColor: 'bg-green-100', textColor: 'text-green-700', label: '검수 완료' },
+  internationalShipping: { icon: '✈️', bgColor: 'bg-indigo-100', textColor: 'text-indigo-700', label: '국제 배송중' },
+}
+
 export default function OrderDetailModal({ orderCode, onClose }: OrderDetailModalProps) {
   const router = useRouter()
   const [selectedCustomerId, setSelectedCustomerId] = useState<string | null>(null)
@@ -24,10 +33,6 @@ export default function OrderDetailModal({ orderCode, onClose }: OrderDetailModa
   })
 
   if (!orderCode) return null
-
-  const formatCurrency = (value: number) => {
-    return `₩${Math.round(value).toLocaleString()}`
-  }
 
   // 물류 추적 페이지로 이동 (주문번호로 검색)
   const handleGoToLogistics = () => {
@@ -90,6 +95,87 @@ export default function OrderDetailModal({ orderCode, onClose }: OrderDetailModa
                 )}
               </div>
 
+              {/* 주문 전체 상태 (신규) */}
+              {data.orderOverallStatus && (
+                <div className={`p-4 rounded-lg border-l-4 ${
+                  data.orderOverallStatus.stage === 'inspectionComplete' 
+                    ? 'bg-green-50 border-l-green-500' 
+                    : data.orderOverallStatus.stage === 'unreceived'
+                    ? 'bg-amber-50 border-l-amber-500'
+                    : 'bg-blue-50 border-l-blue-500'
+                }`}>
+                  <div className="flex items-center gap-3">
+                    <span className="text-2xl">
+                      {STAGE_CONFIG[data.orderOverallStatus.stage]?.icon || '📋'}
+                    </span>
+                    <div>
+                      <p className="font-semibold text-lg">
+                        주문 상태: {data.orderOverallStatus.statusLabel}
+                      </p>
+                      <p className="text-sm text-gray-600">{data.orderOverallStatus.description}</p>
+                    </div>
+                  </div>
+                </div>
+              )}
+
+              {/* 합포장 분석 (신규) */}
+              {data.bundleAnalysis && (
+                <div className={`p-4 rounded-lg ${
+                  data.bundleAnalysis.isPartiallyReceived 
+                    ? 'bg-amber-50 border border-amber-200' 
+                    : 'bg-gray-50 border border-gray-200'
+                }`}>
+                  <div className="flex items-center gap-2 mb-3">
+                    <span className="text-lg">📦</span>
+                    <h3 className="font-semibold">
+                      합포장 주문 ({data.bundleAnalysis.totalItems}개 작품)
+                    </h3>
+                    {data.bundleAnalysis.isPartiallyReceived && (
+                      <span className="px-2 py-0.5 bg-amber-200 text-amber-800 text-xs font-medium rounded-full">
+                        ⚠️ 일부 미입고
+                      </span>
+                    )}
+                  </div>
+                  
+                  {/* 상태별 집계 */}
+                  <div className="flex flex-wrap gap-2 mb-3">
+                    {Object.entries(data.bundleAnalysis.statusBreakdown).map(([stage, count]) => {
+                      if (count === 0) return null;
+                      const config = STAGE_CONFIG[stage];
+                      return (
+                        <span 
+                          key={stage} 
+                          className={`inline-flex items-center gap-1 px-2 py-1 rounded text-sm font-medium ${config?.bgColor} ${config?.textColor}`}
+                        >
+                          {config?.icon} {config?.label}: {count}개
+                        </span>
+                      );
+                    })}
+                  </div>
+
+                  {/* 지연 작품 알림 */}
+                  {data.bundleAnalysis.delayedItems && data.bundleAnalysis.delayedItems.length > 0 && (
+                    <div className="mt-3 p-3 bg-red-50 rounded border border-red-200">
+                      <p className="text-sm font-medium text-red-700 mb-2">
+                        ⚠️ 지연 작품 ({data.bundleAnalysis.delayedItems.length}개)
+                      </p>
+                      <ul className="space-y-1">
+                        {data.bundleAnalysis.delayedItems.map((item: any, idx: number) => (
+                          <li key={idx} className="text-sm text-red-600 flex items-center justify-between">
+                            <span className="truncate flex-1">
+                              {item.artistName} - {item.name}
+                            </span>
+                            <span className="ml-2 px-1.5 py-0.5 bg-red-100 text-red-700 text-xs rounded">
+                              {item.statusLabel} {item.daysInStage}일
+                            </span>
+                          </li>
+                        ))}
+                      </ul>
+                    </div>
+                  )}
+                </div>
+              )}
+
               {/* 기본 정보 */}
               <div className="grid grid-cols-2 gap-4">
                 <div>
@@ -143,64 +229,75 @@ export default function OrderDetailModal({ orderCode, onClose }: OrderDetailModa
                 </div>
               )}
 
-              {/* 작품 목록 */}
+              {/* 작품 목록 (개선) */}
               {data.items && data.items.length > 0 && (
                 <div>
                   <h3 className="text-lg font-semibold mb-3">작품 목록</h3>
                   <div className="overflow-x-auto">
                     <table className="w-full">
                       <thead>
-                        <tr className="border-b">
-                          <th className="text-left py-2 px-4">작가명</th>
-                          <th className="text-left py-2 px-4">작품명</th>
-                          <th className="text-right py-2 px-4">수량</th>
-                          <th className="text-left py-2 px-4">상태</th>
+                        <tr className="border-b bg-gray-50">
+                          <th className="text-left py-2 px-4 text-sm font-semibold">작가명</th>
+                          <th className="text-left py-2 px-4 text-sm font-semibold">작품명</th>
+                          <th className="text-right py-2 px-4 text-sm font-semibold">수량</th>
+                          <th className="text-left py-2 px-4 text-sm font-semibold">상태</th>
+                          <th className="text-right py-2 px-4 text-sm font-semibold">소요일</th>
                         </tr>
                       </thead>
                       <tbody>
-                        {data.items.map((item: any, index: number) => (
-                          <tr key={index} className="border-b hover:bg-gray-50">
-                            <td className="py-2 px-4">
-                              <div>
-                                <button
-                                  onClick={() => handleOpenArtistOrders(item.artistName)}
-                                  className="font-medium text-primary hover:underline text-left"
+                        {data.items.map((item: any, index: number) => {
+                          const stageConfig = STAGE_CONFIG[item.stage] || STAGE_CONFIG.unreceived;
+                          return (
+                            <tr key={index} className={`border-b hover:bg-gray-50 ${item.isCritical ? 'bg-red-50' : ''}`}>
+                              <td className="py-2 px-4">
+                                <div>
+                                  <button
+                                    onClick={() => handleOpenArtistOrders(item.artistName)}
+                                    className="font-medium text-primary hover:underline text-left"
+                                  >
+                                    {item.artistName}
+                                  </button>
+                                  {item.artistEmail && (
+                                    <div className="text-xs text-blue-600 mt-1">
+                                      📧 {item.artistEmail}
+                                    </div>
+                                  )}
+                                </div>
+                              </td>
+                              <td className="py-2 px-4">
+                                <a
+                                  href={item.url}
+                                  target="_blank"
+                                  rel="noopener noreferrer"
+                                  className="text-primary hover:underline"
                                 >
-                                  {item.artistName}
-                                </button>
-                                {item.artistEmail && (
-                                  <div className="text-xs text-blue-600 mt-1">
-                                    📧 {item.artistEmail}
-                                  </div>
-                                )}
-                              </div>
-                            </td>
-                            <td className="py-2 px-4">
-                              <a
-                                href={item.url}
-                                target="_blank"
-                                rel="noopener noreferrer"
-                                className="text-primary hover:underline"
-                              >
-                                {item.name}
-                              </a>
-                            </td>
-                            <td className="py-2 px-4 text-right">{item.quantity}</td>
-                            <td className="py-2 px-4">
-                              <span
-                                className={`px-2 py-1 rounded text-sm ${
-                                  item.status === '입고완료'
-                                    ? 'bg-green-100 text-green-800'
-                                    : 'bg-yellow-100 text-yellow-800'
-                                }`}
-                              >
-                                {item.status}
-                              </span>
-                            </td>
-                          </tr>
-                        ))}
+                                  {item.name}
+                                </a>
+                              </td>
+                              <td className="py-2 px-4 text-right">{item.quantity}</td>
+                              <td className="py-2 px-4">
+                                <span
+                                  className={`inline-flex items-center gap-1 px-2 py-1 rounded text-sm font-medium ${stageConfig.bgColor} ${stageConfig.textColor}`}
+                                >
+                                  {stageConfig.icon} {item.statusLabel}
+                                </span>
+                              </td>
+                              <td className="py-2 px-4 text-right">
+                                <span className={`text-sm font-medium ${item.isCritical ? 'text-red-600' : 'text-gray-600'}`}>
+                                  {item.daysInStage}일
+                                  {item.isCritical && <span className="ml-1">⚠️</span>}
+                                </span>
+                              </td>
+                            </tr>
+                          );
+                        })}
                       </tbody>
                     </table>
+                  </div>
+                  
+                  {/* 위험 기준 안내 */}
+                  <div className="mt-3 p-3 bg-gray-50 rounded text-xs text-gray-500">
+                    <strong>⚠️ 위험 기준:</strong> 미입고 7일+, 국내배송 5일+, 검수대기 2일+, 검수완료 3일+
                   </div>
                 </div>
               )}
@@ -262,4 +359,3 @@ export default function OrderDetailModal({ orderCode, onClose }: OrderDetailModa
     </div>
   )
 }
-
