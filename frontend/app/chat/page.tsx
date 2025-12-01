@@ -70,28 +70,107 @@ const AGENT_META: Record<AgentType, { icon: string; color: string; bgColor: stri
   },
 }
 
-// 빠른 질문 카테고리
+// 빠른 질문 카테고리 - 실제 구현된 Agent 기능 기반
 const QUICK_QUESTIONS = [
-  { category: '📊 매출 분석', questions: [
-    '최근 30일 매출 현황 알려줘',
-    '이번 달 vs 지난 달 매출 비교',
-    '일별 매출 추이 보여줘',
-  ]},
-  { category: '🏆 랭킹', questions: [
-    '상위 10개 작가 매출 순위',
-    '베스트셀러 상품 TOP 10',
-    '국가별 매출 순위',
-  ]},
-  { category: '🌏 국가 분석', questions: [
-    '국가별 주문 현황 비교해줘',
-    '일본 시장 트렌드 분석',
-    '미국 고객 구매 패턴',
-  ]},
-  { category: '📈 마케팅', questions: [
-    '마케팅 성과 분석해줘',
-    '고객 세그먼트 분석',
-    '재구매율 높은 고객 특성',
-  ]},
+  { 
+    category: '📊 매출 분석', 
+    icon: '📊',
+    agent: 'data_analyst' as AgentType,
+    questions: [
+      '최근 30일 매출 현황 알려줘',
+      '이번 달 vs 지난 달 매출 비교',
+      '일별 매출 추이 보여줘',
+      '주간 단위로 트렌드 분석해줘',
+      '최근 90일 트렌드 분석해줘',
+      '전월 대비 비교 분석해줘',
+    ]
+  },
+  { 
+    category: '🏆 랭킹 & 순위', 
+    icon: '🏆',
+    agent: 'data_analyst' as AgentType,
+    questions: [
+      '상위 10개 작가 매출 순위',
+      '상위 20개 작가 랭킹 보여줘',
+      '베스트셀러 상품 TOP 10',
+      '국가별 매출 순위',
+      '플랫폼별 매출 순위',
+      '매출 상위 작가 상세 분석',
+    ]
+  },
+  { 
+    category: '🌏 국가별 분석', 
+    icon: '🌏',
+    agent: 'data_analyst' as AgentType,
+    questions: [
+      '국가별 주문 현황 비교해줘',
+      '일본 데이터만 상세 분석해줘',
+      '미국 시장 트렌드 분석',
+      '홍콩 고객 구매 패턴',
+      '대만 주문 현황 분석',
+      '국가별로 비교 분석해줘',
+    ]
+  },
+  { 
+    category: '📦 물류 & 배송', 
+    icon: '📦',
+    agent: 'data_analyst' as AgentType,
+    questions: [
+      '배송 현황 분석해줘',
+      '물류 처리 시간 분석',
+      '국가별 배송 소요 시간',
+      '미입고 현황 분석',
+      '검수 대기 현황',
+    ]
+  },
+  { 
+    category: '👥 고객 분석', 
+    icon: '👥',
+    agent: 'data_analyst' as AgentType,
+    questions: [
+      '고객 세그먼트 분석',
+      '재구매율 높은 고객 특성',
+      '신규 고객 vs 기존 고객 비교',
+      '고객별 평균 주문 금액',
+      '국가별 고객 분포',
+    ]
+  },
+  { 
+    category: '🎨 작가 분석', 
+    icon: '🎨',
+    agent: 'data_analyst' as AgentType,
+    questions: [
+      '작가별 매출 분석',
+      '작가별 인기 상품 분석해줘',
+      '신규 작가 성과 분석',
+      '작가별 주문 건수 비교',
+      '작가 성장률 분석',
+    ]
+  },
+  { 
+    category: '💼 비즈니스 전략', 
+    icon: '💼',
+    agent: 'business_manager' as AgentType,
+    questions: [
+      '매출 증대 전략 제안해줘',
+      '다음 분기 매출 예측해줘',
+      '비즈니스 인사이트 생성해줘',
+      '성장 전략 분석해줘',
+      '시장 확장 전략 제안',
+    ]
+  },
+  { 
+    category: '📈 마케팅 인사이트', 
+    icon: '📈',
+    agent: 'performance_marketer' as AgentType,
+    questions: [
+      '마케팅 성과 분석해줘',
+      '트렌드 기반 마케팅 카피 생성',
+      'CRM 세그먼트 분석',
+      '프로모션 효과 분석',
+      '시즌별 마케팅 전략',
+    ]
+  },
 ]
 
 export default function ChatPage() {
@@ -483,31 +562,51 @@ export default function ChatPage() {
 
             {/* 빠른 질문 카테고리 */}
             <div className="flex-1 overflow-y-auto p-3 space-y-2">
-              {QUICK_QUESTIONS.map((cat) => (
-                <div key={cat.category} className="rounded-lg border border-slate-200 overflow-hidden">
-                  <button
-                    onClick={() => setExpandedCategory(expandedCategory === cat.category ? null : cat.category)}
-                    className="w-full px-3 py-2.5 bg-slate-50 hover:bg-slate-100 flex items-center justify-between text-sm font-medium text-slate-700 transition-colors"
-                  >
-                    <span>{cat.category}</span>
-                    <span className={`transition-transform ${expandedCategory === cat.category ? 'rotate-180' : ''}`}>▼</span>
-                  </button>
-                  {expandedCategory === cat.category && (
-                    <div className="p-2 space-y-1 bg-white">
-                      {cat.questions.map((q, idx) => (
-                        <button
-                          key={idx}
-                          onClick={() => handleQuickQuestion(q)}
-                          disabled={sendMessageMutation.isPending || isStreaming}
-                          className="w-full text-left px-3 py-2 text-sm text-slate-600 hover:bg-slate-50 hover:text-slate-900 rounded transition-colors disabled:opacity-50"
-                        >
-                          {q}
-                        </button>
-                      ))}
-                    </div>
-                  )}
-                </div>
-              ))}
+              {QUICK_QUESTIONS.map((cat) => {
+                const agentMeta = AGENT_META[cat.agent]
+                return (
+                  <div key={cat.category} className="rounded-lg border border-slate-200 overflow-hidden">
+                    <button
+                      onClick={() => setExpandedCategory(expandedCategory === cat.category ? null : cat.category)}
+                      className="w-full px-3 py-2.5 bg-slate-50 hover:bg-slate-100 flex items-center justify-between text-sm font-medium text-slate-700 transition-colors"
+                    >
+                      <div className="flex items-center gap-2">
+                        <span>{cat.category}</span>
+                        <span className={`text-[10px] px-1.5 py-0.5 rounded ${agentMeta.bgColor} ${agentMeta.color}`}>
+                          {cat.questions.length}
+                        </span>
+                      </div>
+                      <span className={`transition-transform text-xs ${expandedCategory === cat.category ? 'rotate-180' : ''}`}>▼</span>
+                    </button>
+                    {expandedCategory === cat.category && (
+                      <div className="p-2 space-y-1 bg-white">
+                        {/* Agent 힌트 */}
+                        <div className="px-3 py-1.5 text-[10px] text-slate-400 flex items-center gap-1">
+                          <span>{agentMeta.icon}</span>
+                          <span>{agentMeta.description}</span>
+                        </div>
+                        {cat.questions.map((q, idx) => (
+                          <button
+                            key={idx}
+                            onClick={() => {
+                              // 해당 Agent로 자동 전환
+                              if (cat.agent !== 'auto') {
+                                setSelectedAgent(cat.agent)
+                              }
+                              handleQuickQuestion(q)
+                            }}
+                            disabled={sendMessageMutation.isPending || isStreaming}
+                            className="w-full text-left px-3 py-2 text-sm text-slate-600 hover:bg-slate-50 hover:text-slate-900 rounded transition-colors disabled:opacity-50 flex items-center gap-2"
+                          >
+                            <span className="text-slate-400">→</span>
+                            <span>{q}</span>
+                          </button>
+                        ))}
+                      </div>
+                    )}
+                  </div>
+                )
+              })}
             </div>
 
             {/* 새 대화 버튼 */}
@@ -627,7 +726,7 @@ export default function ChatPage() {
 
             {/* 빈 상태 - 시작 가이드 */}
             {messages.length === 0 && isConnected && (
-              <div className="text-center py-12">
+              <div className="text-center py-8">
                 <div className="text-6xl mb-4">👋</div>
                 <h2 className="text-xl font-semibold text-slate-900 mb-2">
                   무엇을 도와드릴까요?
@@ -635,16 +734,55 @@ export default function ChatPage() {
                 <p className="text-slate-600 mb-6">
                   왼쪽 사이드바에서 빠른 질문을 선택하거나, 아래에 직접 질문해보세요.
                 </p>
-                <div className="flex flex-wrap justify-center gap-2">
-                  {['최근 30일 매출 현황', '상위 작가 랭킹', '국가별 주문 비교'].map((q, idx) => (
+                
+                {/* 인기 질문 */}
+                <div className="mb-6">
+                  <p className="text-xs text-slate-400 mb-3">🔥 인기 질문</p>
+                  <div className="flex flex-wrap justify-center gap-2">
+                    {['최근 30일 매출 현황', '상위 10개 작가 매출 순위', '국가별 주문 현황 비교해줘', '일별 매출 추이 보여줘'].map((q, idx) => (
+                      <button
+                        key={idx}
+                        onClick={() => handleQuickQuestion(q)}
+                        className="px-4 py-2 bg-white border border-slate-200 hover:border-primary hover:bg-primary/5 rounded-full text-sm text-slate-700 hover:text-primary transition-all shadow-sm"
+                      >
+                        {q}
+                      </button>
+                    ))}
+                  </div>
+                </div>
+
+                {/* Agent별 추천 */}
+                <div className="grid grid-cols-3 gap-3 max-w-2xl mx-auto">
+                  <div className="p-4 bg-blue-50 rounded-xl border border-blue-100">
+                    <div className="text-2xl mb-2">📊</div>
+                    <p className="text-xs font-medium text-blue-700 mb-2">데이터 분석</p>
                     <button
-                      key={idx}
-                      onClick={() => handleQuickQuestion(q)}
-                      className="px-4 py-2 bg-white border border-slate-200 hover:border-primary hover:bg-primary/5 rounded-full text-sm text-slate-700 hover:text-primary transition-all"
+                      onClick={() => { setSelectedAgent('data_analyst'); handleQuickQuestion('이번 달 vs 지난 달 매출 비교'); }}
+                      className="text-xs text-blue-600 hover:underline"
                     >
-                      {q}
+                      매출 비교 분석 →
                     </button>
-                  ))}
+                  </div>
+                  <div className="p-4 bg-emerald-50 rounded-xl border border-emerald-100">
+                    <div className="text-2xl mb-2">💼</div>
+                    <p className="text-xs font-medium text-emerald-700 mb-2">비즈니스 전략</p>
+                    <button
+                      onClick={() => { setSelectedAgent('business_manager'); handleQuickQuestion('매출 증대 전략 제안해줘'); }}
+                      className="text-xs text-emerald-600 hover:underline"
+                    >
+                      전략 제안 받기 →
+                    </button>
+                  </div>
+                  <div className="p-4 bg-purple-50 rounded-xl border border-purple-100">
+                    <div className="text-2xl mb-2">📈</div>
+                    <p className="text-xs font-medium text-purple-700 mb-2">마케팅 인사이트</p>
+                    <button
+                      onClick={() => { setSelectedAgent('performance_marketer'); handleQuickQuestion('마케팅 성과 분석해줘'); }}
+                      className="text-xs text-purple-600 hover:underline"
+                    >
+                      성과 분석 →
+                    </button>
+                  </div>
                 </div>
               </div>
             )}
