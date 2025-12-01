@@ -143,12 +143,28 @@ router.get('/overview', async (req, res) => {
     const activeArtists = artistMetrics.size;
     const activeRate = totalArtists > 0 ? (activeArtists / totalArtists) * 100 : 0;
     
-    // 등록 작품 수
+    // 등록 작품 수 (다양한 컬럼명 패턴 지원)
     let totalProducts = 0;
     artistsData.forEach((artist: any) => {
-      const globalProducts = parseInt(artist['(Global)Live 작품수']) || 0;
+      // 다양한 컬럼명 패턴 시도
+      const globalProducts = parseInt(
+        artist['(Global)Live 작품수'] || 
+        artist['Global Live 작품수'] ||
+        artist['global_live_products'] ||
+        artist['globalLiveProducts'] ||
+        0
+      ) || 0;
       totalProducts += globalProducts;
     });
+    
+    // 등록 작품이 0이면 logistics에서 고유 상품 수로 대체
+    if (totalProducts === 0) {
+      const allProductIds = new Set<string>();
+      logisticsData.forEach((row: any) => {
+        if (row.product_id) allProductIds.add(row.product_id);
+      });
+      totalProducts = allProductIds.size;
+    }
     
     // 판매된 작품 수
     const soldProductIds = new Set<string>();
@@ -278,13 +294,13 @@ router.get('/performance', async (req, res) => {
     // 작가 정보 맵
     const artistInfoMap = new Map<string, any>();
     artistsData.forEach((artist: any) => {
-      const name = artist['(KR)작가명'] || artist['artist_name (kr)'] || artist.name;
+      const name = artist['(KR)작가명'] || artist['artist_name (kr)'] || artist['작가명'] || artist.name;
       if (name) {
         artistInfoMap.set(name, {
           artistId: artist.artist_id || artist.global_artist_id || '',
           email: artist.mail || artist.email || '',
-          krProducts: parseInt(artist['(KR)Live 작품수']) || 0,
-          globalProducts: parseInt(artist['(Global)Live 작품수']) || 0,
+          krProducts: parseInt(artist['(KR)Live 작품수'] || artist['KR Live 작품수'] || artist.kr_live_products) || 0,
+          globalProducts: parseInt(artist['(Global)Live 작품수'] || artist['Global Live 작품수'] || artist.global_live_products) || 0,
         });
       }
     });
@@ -462,11 +478,26 @@ router.get('/products', async (req, res) => {
       sheetsService.getSheetDataAsJson(SHEET_NAMES.REVIEW, false).catch(() => []),
     ]);
     
-    // 등록 작품 수
+    // 등록 작품 수 (다양한 컬럼명 패턴 지원)
     let totalProducts = 0;
     artistsData.forEach((artist: any) => {
-      totalProducts += parseInt(artist['(Global)Live 작품수']) || 0;
+      const globalProducts = parseInt(
+        artist['(Global)Live 작품수'] || 
+        artist['Global Live 작품수'] ||
+        artist['global_live_products'] ||
+        0
+      ) || 0;
+      totalProducts += globalProducts;
     });
+    
+    // 등록 작품이 0이면 logistics에서 고유 상품 수로 대체
+    if (totalProducts === 0) {
+      const allProductIds = new Set<string>();
+      logisticsData.forEach((row: any) => {
+        if (row.product_id) allProductIds.add(row.product_id);
+      });
+      totalProducts = allProductIds.size;
+    }
     
     // 작품별 집계
     const productMetrics = new Map<string, {
@@ -1068,8 +1099,8 @@ router.get('/detail/:artistName', async (req, res) => {
         artistId: artistInfo?.artist_id || artistInfo?.global_artist_id || '',
         email: artistInfo?.mail || artistInfo?.email || '',
         registeredProducts: {
-          kr: parseInt(artistInfo?.['(KR)Live 작품수']) || 0,
-          global: parseInt(artistInfo?.['(Global)Live 작품수']) || 0,
+          kr: parseInt(artistInfo?.['(KR)Live 작품수'] || artistInfo?.['KR Live 작품수'] || artistInfo?.kr_live_products) || 0,
+          global: parseInt(artistInfo?.['(Global)Live 작품수'] || artistInfo?.['Global Live 작품수'] || artistInfo?.global_live_products) || artistProductIds.size,
         },
         firstSaleDate: overallFirstSale ? (overallFirstSale as Date).toISOString().split('T')[0] : null,
         segment: getRevenueSegment(totalGmv),
