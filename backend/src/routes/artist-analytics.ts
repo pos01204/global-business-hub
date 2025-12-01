@@ -1327,6 +1327,11 @@ router.get('/selection', async (req, res) => {
     
     const now = new Date();
     
+    // 디버깅: artists 시트의 실제 컬럼명 확인
+    const artistColumns = artistsData[0] ? Object.keys(artistsData[0]) : [];
+    console.log('[Selection] Artists sheet columns:', artistColumns);
+    console.log('[Selection] Artists sample row:', artistsData[0]);
+    
     // 작가별 판매 데이터 집계
     const artistSalesData = new Map<string, {
       firstSaleDate: Date | null;
@@ -1362,36 +1367,67 @@ router.get('/selection', async (req, res) => {
       data.orderCount++;
     });
     
-    // 작가 데이터 파싱 - 다양한 컬럼명 패턴 지원
+    // 작가 데이터 파싱 - 다양한 컬럼명 패턴 지원 (컬럼 인덱스 기반 폴백 포함)
     const parseDate = (value: any): Date | null => {
-      if (!value) return null;
+      if (!value || value === '' || value === '-' || value === 'N/A') return null;
       const date = new Date(value);
       return isNaN(date.getTime()) ? null : date;
     };
     
+    // 컬럼명 또는 인덱스로 값 찾기
+    const findColumnValue = (artist: any, patterns: string[], columnIndex?: number): any => {
+      // 먼저 패턴으로 찾기
+      for (const pattern of patterns) {
+        if (artist[pattern] !== undefined && artist[pattern] !== '') {
+          return artist[pattern];
+        }
+      }
+      // 컬럼 인덱스로 폴백 (L열 = 인덱스 11)
+      if (columnIndex !== undefined && artistColumns[columnIndex]) {
+        const colName = artistColumns[columnIndex];
+        if (artist[colName] !== undefined && artist[colName] !== '') {
+          return artist[colName];
+        }
+      }
+      return null;
+    };
+    
     const getArtistName = (artist: any): string => {
-      return artist['(KR)작가명'] || artist['artist_name (kr)'] || artist['작가명'] || 
-             artist.artist_name_kr || artist.name_kr || artist.name || '';
+      return findColumnValue(artist, [
+        '(KR)작가명', 'artist_name (kr)', '작가명', 'artist_name_kr', 
+        'name_kr', 'name', '작가 이름', 'artist_name'
+      ], 0) || '';
     };
     
     const getRegistrationDate = (artist: any): Date | null => {
-      return parseDate(
-        artist['등록일'] || artist['registration_date'] || artist['created_at'] || 
-        artist['가입일'] || artist['입점일']
-      );
+      const value = findColumnValue(artist, [
+        '등록일', 'registration_date', 'created_at', '가입일', '입점일',
+        '계약일', 'contract_date', '시작일', 'start_date'
+      ]);
+      return parseDate(value);
     };
     
+    // L열 = 인덱스 11 (0부터 시작)
     const getDeletionDate = (artist: any): Date | null => {
-      return parseDate(
-        artist['삭제일'] || artist['deletion_date'] || artist['deleted_at'] || 
-        artist['탈퇴일'] || artist['이탈일']
-      );
+      const value = findColumnValue(artist, [
+        '삭제일', 'deletion_date', 'deleted_at', '탈퇴일', '이탈일',
+        '종료일', 'end_date', '해지일', 'termination_date'
+      ], 11);
+      return parseDate(value);
     };
     
     const getProductCount = (artist: any): { kr: number; global: number } => {
+      const krValue = findColumnValue(artist, [
+        '(KR)Live 작품수', 'KR Live 작품수', 'kr_live_products', 
+        'KR 작품수', '국내 작품수'
+      ]);
+      const globalValue = findColumnValue(artist, [
+        '(Global)Live 작품수', 'Global Live 작품수', 'global_live_products',
+        'Global 작품수', '글로벌 작품수', '해외 작품수'
+      ]);
       return {
-        kr: parseInt(artist['(KR)Live 작품수'] || artist['KR Live 작품수'] || artist.kr_live_products || 0) || 0,
-        global: parseInt(artist['(Global)Live 작품수'] || artist['Global Live 작품수'] || artist.global_live_products || 0) || 0,
+        kr: parseInt(krValue) || 0,
+        global: parseInt(globalValue) || 0,
       };
     };
     
@@ -1421,10 +1457,15 @@ router.get('/selection', async (req, res) => {
       
       totalRegistered++;
       
-      const registrationDate = getRegistrationDate(artist);
+      // 등록일: artists 시트에 없으면 첫 판매일을 사용
+      const salesData = artistSalesData.get(artistName);
+      let registrationDate = getRegistrationDate(artist);
+      if (!registrationDate && salesData?.firstSaleDate) {
+        registrationDate = salesData.firstSaleDate;
+      }
+      
       const deletionDate = getDeletionDate(artist);
       const products = getProductCount(artist);
-      const salesData = artistSalesData.get(artistName);
       
       // 등록일 기준 월별 집계
       if (registrationDate) {
@@ -1442,7 +1483,7 @@ router.get('/selection', async (req, res) => {
             products,
             hasSales: !!salesData?.orderCount,
             firstSaleDate: salesData?.firstSaleDate?.toISOString().split('T')[0] || null,
-            daysToFirstSale: salesData?.firstSaleDate 
+            daysToFirstSale: salesData?.firstSaleDate && registrationDate
               ? Math.floor((salesData.firstSaleDate.getTime() - registrationDate.getTime()) / (1000 * 60 * 60 * 24))
               : null,
           });
@@ -1578,6 +1619,12 @@ router.get('/selection', async (req, res) => {
       noProductArtists: noProductList
         .sort((a, b) => (b.daysSinceRegistration || 0) - (a.daysSinceRegistration || 0))
         .slice(0, 20),
+      _debug: {
+        artistsSheetColumns: artistColumns,
+        artistsSampleRow: artistsData[0] || null,
+        totalArtistsInSheet: artistsData.length,
+        logisticsArtistCount: artistSalesData.size,
+      },
     });
   } catch (error: any) {
     console.error('[ArtistAnalytics] Selection error:', error?.message);

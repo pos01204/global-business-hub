@@ -33,7 +33,12 @@ export default function SelectionTab() {
     return <div className="card bg-red-50 p-6 text-red-600">데이터 로드 실패</div>
   }
 
-  const { summary, monthlyTrend, churnReasons, onboarding, deletedArtists, recentRegistrations, noProductArtists } = data
+  const { summary, monthlyTrend, churnReasons, onboarding, deletedArtists, recentRegistrations, noProductArtists, _debug } = data
+
+  // 디버그 정보 콘솔 출력
+  if (_debug) {
+    console.log('[SelectionTab] Debug info:', _debug)
+  }
 
   const formatCurrency = (value: number) => {
     if (value >= 10000) return `₩${(value / 10000).toFixed(0)}만`
@@ -350,6 +355,31 @@ export default function SelectionTab() {
             </p>
           )}
         </div>
+      )}
+
+      {/* 디버그 정보 (개발용) */}
+      {_debug && (
+        <details className="card">
+          <summary className="cursor-pointer text-sm text-gray-500 font-medium">
+            🔧 디버그 정보 (클릭하여 펼치기)
+          </summary>
+          <div className="mt-4 space-y-3 text-xs">
+            <div>
+              <p className="font-medium text-gray-700">Artists 시트 컬럼명:</p>
+              <p className="text-gray-500 break-all">{_debug.artistsSheetColumns?.join(', ') || '없음'}</p>
+            </div>
+            <div>
+              <p className="font-medium text-gray-700">샘플 데이터:</p>
+              <pre className="bg-gray-100 p-2 rounded overflow-x-auto text-xs">
+                {JSON.stringify(_debug.artistsSampleRow, null, 2)}
+              </pre>
+            </div>
+            <div className="flex gap-4">
+              <p><span className="font-medium">시트 내 작가 수:</span> {_debug.totalArtistsInSheet}</p>
+              <p><span className="font-medium">판매 기록 있는 작가:</span> {_debug.logisticsArtistCount}</p>
+            </div>
+          </div>
+        </details>
       )}
     </div>
   )
