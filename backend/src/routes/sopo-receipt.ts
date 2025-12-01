@@ -573,23 +573,36 @@ async function saveTrackingData(period: string, artists: any[]): Promise<{ added
     'jotform_submission_id', 'reminder_sent_at', 'receipt_issued_at', 'updated_at'
   ];
 
-  console.log(`[Sopo] saveTrackingData 시작 - period: ${period}, artists: ${artists.length}명`);
-  console.log(`[Sopo] 시트명: ${SHEET_NAMES.SOPO_TRACKING}`);
+  console.log(`[Sopo] ========================================`);
+  console.log(`[Sopo] saveTrackingData 시작`);
+  console.log(`[Sopo] - period: "${period}"`);
+  console.log(`[Sopo] - artists: ${artists.length}명`);
+  console.log(`[Sopo] - 시트명: ${SHEET_NAMES.SOPO_TRACKING}`);
+  console.log(`[Sopo] ========================================`);
+
+  if (!period) {
+    throw new Error('period 값이 없습니다. 기간을 선택해주세요.');
+  }
+
+  if (artists.length === 0) {
+    console.log('[Sopo] 저장할 작가 데이터가 없습니다.');
+    return { added: 0, updated: 0, skipped: 0 };
+  }
 
   let existingData: any[] = [];
   let needsHeader = false;
   
   // 시트 존재 확인 및 헤더 생성
   try {
-    console.log('[Sopo] 기존 트래킹 데이터 조회 시도...');
+    console.log('[Sopo] 1. 기존 트래킹 데이터 조회 시도...');
     existingData = await sheetsService.getSheetDataAsJson(SHEET_NAMES.SOPO_TRACKING, false);
-    console.log(`[Sopo] 기존 데이터 조회 성공: ${existingData.length}건`);
+    console.log(`[Sopo]    → 조회 성공: ${existingData.length}건`);
     
     if (existingData.length === 0) {
       needsHeader = true;
     }
   } catch (e: any) {
-    console.log(`[Sopo] 기존 데이터 조회 실패 (시트가 없거나 비어있음): ${e.message}`);
+    console.log(`[Sopo]    → 조회 실패: ${e.message}`);
     needsHeader = true;
     existingData = [];
   }
@@ -597,11 +610,11 @@ async function saveTrackingData(period: string, artists: any[]): Promise<{ added
   // 헤더가 필요한 경우 먼저 추가
   if (needsHeader) {
     try {
-      console.log('[Sopo] 헤더 행 추가 시도...');
+      console.log('[Sopo] 2. 헤더 행 추가 시도...');
       await sheetsService.appendRows(SHEET_NAMES.SOPO_TRACKING, [headers]);
-      console.log('[Sopo] 헤더 행 추가 완료');
+      console.log('[Sopo]    → 헤더 추가 완료');
     } catch (headerError: any) {
-      console.error(`[Sopo] ❌ 헤더 추가 실패: ${headerError.message}`);
+      console.error(`[Sopo]    → ❌ 헤더 추가 실패: ${headerError.message}`);
       throw new Error(`시트 헤더 생성 실패: ${headerError.message}. Google Sheets에 '${SHEET_NAMES.SOPO_TRACKING}' 시트가 존재하는지 확인해주세요.`);
     }
   }
@@ -613,10 +626,15 @@ async function saveTrackingData(period: string, artists: any[]): Promise<{ added
     existingMap.set(key, { rowIndex: index + 2, data: row }); // +2: 헤더 행 + 0-indexed
   });
 
-  console.log(`[Sopo] 기존 트래킹 데이터: ${existingData.length}건, 고유 키: ${existingMap.size}개`);
+  // 기존 기간들 확인
+  const existingPeriods = [...new Set(existingData.map((r: any) => r.period))];
+  console.log(`[Sopo] 3. 기존 데이터 분석`);
+  console.log(`[Sopo]    → 총 ${existingData.length}건, 기간: ${existingPeriods.join(', ') || '없음'}`);
+  console.log(`[Sopo]    → 현재 저장할 기간: "${period}"`);
 
   const now = new Date().toISOString();
   const newRows: any[][] = [];
+  const updateBatch: { range: string; value: any }[] = [];
   let updatedCount = 0;
   let skippedCount = 0;
 
@@ -625,41 +643,29 @@ async function saveTrackingData(period: string, artists: any[]): Promise<{ added
     const existing = existingMap.get(key);
     
     if (existing) {
-      // 기존 데이터가 있으면 업데이트 (order_count, total_amount, artist_email, updated_at)
-      try {
-        const rowNum = existing.rowIndex;
-        const updates: { cell: string; value: any }[] = [];
-        
-        // C열: artist_id (있으면 업데이트)
-        if (artist.artistId && !existing.data.artist_id) {
-          updates.push({ cell: `C${rowNum}`, value: artist.artistId });
-        }
-        
-        // D열: artist_email (있으면 업데이트)
-        if (artist.artistEmail && !existing.data.artist_email) {
-          updates.push({ cell: `D${rowNum}`, value: artist.artistEmail });
-        }
-        
-        // E열: order_count (항상 업데이트)
-        updates.push({ cell: `E${rowNum}`, value: artist.orderCount });
-        
-        // F열: total_amount (항상 업데이트)
-        updates.push({ cell: `F${rowNum}`, value: artist.totalAmount || 0 });
-        
-        // M열: updated_at (항상 업데이트)
-        updates.push({ cell: `M${rowNum}`, value: now });
-        
-        // 업데이트 실행
-        for (const update of updates) {
-          await sheetsService.updateCell(SHEET_NAMES.SOPO_TRACKING, update.cell, update.value);
-        }
-        
-        updatedCount++;
-        console.log(`[Sopo] 업데이트: ${artist.artistName} (행 ${rowNum})`);
-      } catch (updateErr: any) {
-        console.warn(`[Sopo] 업데이트 실패: ${artist.artistName} - ${updateErr.message}`);
-        skippedCount++;
+      // 기존 데이터가 있으면 배치 업데이트 준비
+      const rowNum = existing.rowIndex;
+      
+      // C열: artist_id (있으면 업데이트)
+      if (artist.artistId && !existing.data.artist_id) {
+        updateBatch.push({ range: `C${rowNum}`, value: artist.artistId });
       }
+      
+      // D열: artist_email (있으면 업데이트)
+      if (artist.artistEmail && !existing.data.artist_email) {
+        updateBatch.push({ range: `D${rowNum}`, value: artist.artistEmail });
+      }
+      
+      // E열: order_count (항상 업데이트)
+      updateBatch.push({ range: `E${rowNum}`, value: artist.orderCount });
+      
+      // F열: total_amount (항상 업데이트)
+      updateBatch.push({ range: `F${rowNum}`, value: artist.totalAmount || 0 });
+      
+      // M열: updated_at (항상 업데이트)
+      updateBatch.push({ range: `M${rowNum}`, value: now });
+      
+      updatedCount++;
     } else {
       // 새로운 데이터 추가
       newRows.push([
@@ -680,18 +686,43 @@ async function saveTrackingData(period: string, artists: any[]): Promise<{ added
     }
   }
 
+  console.log(`[Sopo] 4. 저장 작업 시작`);
+  console.log(`[Sopo]    → 신규 추가 대상: ${newRows.length}건`);
+  console.log(`[Sopo]    → 업데이트 대상: ${updatedCount}건 (${updateBatch.length}개 셀)`);
+
+  // 배치 업데이트 실행
+  if (updateBatch.length > 0) {
+    try {
+      console.log(`[Sopo]    → 배치 업데이트 실행 중...`);
+      await sheetsService.updateCells(SHEET_NAMES.SOPO_TRACKING, updateBatch);
+      console.log(`[Sopo]    → ✅ 배치 업데이트 완료`);
+    } catch (updateErr: any) {
+      console.error(`[Sopo]    → ❌ 배치 업데이트 실패: ${updateErr.message}`);
+      // 업데이트 실패해도 신규 추가는 시도
+      skippedCount = updatedCount;
+      updatedCount = 0;
+    }
+  }
+
+  // 신규 데이터 추가
   if (newRows.length > 0) {
     try {
-      console.log(`[Sopo] ${newRows.length}건 신규 데이터 저장 시도...`);
+      console.log(`[Sopo]    → 신규 데이터 ${newRows.length}건 추가 중...`);
+      console.log(`[Sopo]    → 첫 번째 작가: ${newRows[0][1]}`);
       await sheetsService.appendRows(SHEET_NAMES.SOPO_TRACKING, newRows);
-      console.log(`[Sopo] ✅ 신규 ${newRows.length}건 저장 완료`);
+      console.log(`[Sopo]    → ✅ 신규 데이터 추가 완료`);
     } catch (appendError: any) {
-      console.error(`[Sopo] ❌ 데이터 저장 실패: ${appendError.message}`);
+      console.error(`[Sopo]    → ❌ 신규 데이터 추가 실패: ${appendError.message}`);
       throw new Error(`데이터 저장 실패: ${appendError.message}`);
     }
   }
   
-  console.log(`[Sopo] ✅ 트래킹 저장 완료 - 신규: ${newRows.length}, 업데이트: ${updatedCount}, 건너뜀: ${skippedCount}`);
+  console.log(`[Sopo] ========================================`);
+  console.log(`[Sopo] ✅ 트래킹 저장 완료`);
+  console.log(`[Sopo]    - 신규: ${newRows.length}건`);
+  console.log(`[Sopo]    - 업데이트: ${updatedCount}건`);
+  console.log(`[Sopo]    - 건너뜀: ${skippedCount}건`);
+  console.log(`[Sopo] ========================================`);
 
   return {
     added: newRows.length,
