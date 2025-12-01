@@ -48,6 +48,10 @@ export default function ChatPage() {
   const [isConnected, setIsConnected] = useState(false)
   const [selectedAgent, setSelectedAgent] = useState<AgentType>('auto')
   const [sessionId] = useState(() => `session-${Date.now()}`)
+  const [useStreaming, setUseStreaming] = useState(true) // 스트리밍 모드
+  const [streamingContent, setStreamingContent] = useState('') // 스트리밍 중인 콘텐츠
+  const [isStreaming, setIsStreaming] = useState(false) // 스트리밍 상태
+  const streamingContentRef = useRef('') // 스트리밍 콘텐츠 ref (클로저 문제 해결)
   const messagesEndRef = useRef<HTMLDivElement>(null)
   const inputRef = useRef<HTMLTextAreaElement>(null)
 
@@ -120,11 +124,84 @@ export default function ChatPage() {
   })
 
   // 메시지 전송 핸들러
-  const handleSend = () => {
-    if (!input.trim() || sendMessageMutation.isPending) return
+  const handleSend = async () => {
+    if (!input.trim() || sendMessageMutation.isPending || isStreaming) return
 
-    sendMessageMutation.mutate(input.trim())
+    const userMessage = input.trim()
     setInput('')
+
+    // 스트리밍 모드
+    if (useStreaming) {
+      // 사용자 메시지 추가
+      setMessages(prev => [
+        ...prev,
+        {
+          role: 'user',
+          content: userMessage,
+          timestamp: new Date().toISOString(),
+        },
+      ])
+
+      setIsStreaming(true)
+      setStreamingContent('')
+
+      const history = messages.map(msg => ({
+        role: msg.role,
+        content: msg.content,
+      }))
+
+      streamingContentRef.current = ''
+      
+      await chatApi.sendMessageStream(
+        userMessage,
+        history,
+        selectedAgent,
+        sessionId,
+        // onChunk
+        (chunk) => {
+          streamingContentRef.current += chunk
+          setStreamingContent(streamingContentRef.current)
+        },
+        // onMetadata
+        (metadata) => {
+          const finalContent = streamingContentRef.current
+          setMessages(prev => [
+            ...prev,
+            {
+              role: 'assistant',
+              content: finalContent || metadata.content || '',
+              timestamp: new Date().toISOString(),
+              agent: metadata.agent,
+              data: metadata.data,
+              charts: metadata.charts,
+              actions: metadata.actions,
+            },
+          ])
+          streamingContentRef.current = ''
+          setStreamingContent('')
+        },
+        // onError
+        (error) => {
+          setMessages(prev => [
+            ...prev,
+            {
+              role: 'assistant',
+              content: `오류가 발생했습니다: ${error}`,
+              timestamp: new Date().toISOString(),
+            },
+          ])
+          streamingContentRef.current = ''
+          setStreamingContent('')
+        },
+        // onDone
+        () => {
+          setIsStreaming(false)
+        }
+      )
+    } else {
+      // 기존 방식
+      sendMessageMutation.mutate(userMessage)
+    }
   }
 
   // 액션 버튼 클릭 핸들러
@@ -349,15 +426,32 @@ export default function ChatPage() {
                 자연어 기반 데이터 분석 및 질의응답 서비스
               </p>
             </div>
-            <div className="flex items-center gap-2">
-              <div
-                className={`w-3 h-3 rounded-full ${
-                  isConnected ? 'bg-green-500' : 'bg-red-500'
+            <div className="flex items-center gap-4">
+              {/* 스트리밍 토글 */}
+              <button
+                onClick={() => setUseStreaming(!useStreaming)}
+                className={`flex items-center gap-1.5 px-2 py-1 rounded text-xs font-medium transition-colors ${
+                  useStreaming 
+                    ? 'bg-green-100 text-green-700' 
+                    : 'bg-gray-100 text-gray-600'
                 }`}
-              />
-              <span className="text-sm text-gray-600">
-                {isConnected ? '연결됨' : '연결 안 됨'}
-              </span>
+                title={useStreaming ? '스트리밍 모드 (실시간 응답)' : '일반 모드'}
+              >
+                <span className={`w-2 h-2 rounded-full ${useStreaming ? 'bg-green-500' : 'bg-gray-400'}`} />
+                {useStreaming ? '⚡ 스트리밍' : '📦 일반'}
+              </button>
+              
+              {/* 연결 상태 */}
+              <div className="flex items-center gap-2">
+                <div
+                  className={`w-3 h-3 rounded-full ${
+                    isConnected ? 'bg-green-500' : 'bg-red-500'
+                  }`}
+                />
+                <span className="text-sm text-gray-600">
+                  {isConnected ? '연결됨' : '연결 안 됨'}
+                </span>
+              </div>
             </div>
           </div>
 
@@ -523,7 +617,19 @@ export default function ChatPage() {
             </div>
           ))}
 
-          {sendMessageMutation.isPending && (
+          {/* 스트리밍 중인 메시지 표시 */}
+          {isStreaming && streamingContent && (
+            <div className="flex justify-start">
+              <div className="max-w-[80%] rounded-lg px-4 py-3 bg-white border border-gray-200 text-gray-900">
+                <div className="whitespace-pre-wrap break-words">
+                  {streamingContent}
+                  <span className="inline-block w-2 h-4 bg-primary animate-pulse ml-1" />
+                </div>
+              </div>
+            </div>
+          )}
+
+          {(sendMessageMutation.isPending || (isStreaming && !streamingContent)) && (
             <div className="flex justify-start">
               <div className="bg-white border border-gray-200 rounded-lg px-4 py-3">
                 <div className="flex items-center gap-2">
@@ -538,7 +644,9 @@ export default function ChatPage() {
                       style={{ animationDelay: '0.2s' }}
                     />
                   </div>
-                  <span className="text-sm text-gray-500">답변 생성 중...</span>
+                  <span className="text-sm text-gray-500">
+                    {isStreaming ? '응답 수신 중...' : '답변 생성 중...'}
+                  </span>
                 </div>
               </div>
             </div>
@@ -577,7 +685,7 @@ export default function ChatPage() {
             />
             <button
               onClick={handleSend}
-              disabled={!input.trim() || !isConnected || sendMessageMutation.isPending}
+              disabled={!input.trim() || !isConnected || sendMessageMutation.isPending || isStreaming}
               className="px-6 py-3 bg-primary text-white rounded-lg hover:bg-primary-dark transition-colors disabled:bg-gray-300 disabled:cursor-not-allowed font-medium"
             >
               전송

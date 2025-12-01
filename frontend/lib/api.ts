@@ -388,12 +388,98 @@ export const chatApi = {
     })
     return response.data
   },
+  // 스트리밍 메시지 전송
+  sendMessageStream: async (
+    message: string,
+    history: Array<{ role: 'user' | 'assistant'; content: string }> = [],
+    agentType: 'data_analyst' | 'performance_marketer' | 'business_manager' | 'auto' = 'auto',
+    sessionId?: string,
+    onChunk?: (chunk: string) => void,
+    onMetadata?: (metadata: any) => void,
+    onError?: (error: string) => void,
+    onDone?: () => void
+  ) => {
+    const apiUrl = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:3001'
+    
+    try {
+      const response = await fetch(`${apiUrl}/api/chat/message/stream`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+          message,
+          history,
+          agentType,
+          sessionId,
+        }),
+      })
+
+      if (!response.ok) {
+        throw new Error(`HTTP error! status: ${response.status}`)
+      }
+
+      const reader = response.body?.getReader()
+      if (!reader) {
+        throw new Error('Response body is not readable')
+      }
+
+      const decoder = new TextDecoder()
+      let buffer = ''
+
+      while (true) {
+        const { done, value } = await reader.read()
+        if (done) break
+
+        buffer += decoder.decode(value, { stream: true })
+        const lines = buffer.split('\n')
+        buffer = lines.pop() || ''
+
+        for (const line of lines) {
+          if (!line.startsWith('data: ')) continue
+          
+          try {
+            const data = JSON.parse(line.slice(6))
+            
+            switch (data.type) {
+              case 'chunk':
+                onChunk?.(data.content)
+                break
+              case 'metadata':
+                onMetadata?.(data)
+                break
+              case 'error':
+                onError?.(data.error)
+                break
+              case 'done':
+                onDone?.()
+                break
+            }
+          } catch (e) {
+            // JSON 파싱 실패 무시
+          }
+        }
+      }
+    } catch (error: any) {
+      onError?.(error.message || '스트리밍 연결 오류')
+    }
+  },
   checkHealth: async () => {
     const response = await api.get('/api/chat/health')
     return response.data
   },
   getAgents: async () => {
     const response = await api.get('/api/chat/agents')
+    return response.data
+  },
+  // 캐시 통계 조회
+  getCacheStats: async () => {
+    const response = await api.get('/api/chat/cache/stats')
+    return response.data
+  },
+  // 캐시 클리어
+  clearCache: async () => {
+    const response = await api.post('/api/chat/cache/clear')
     return response.data
   },
 }

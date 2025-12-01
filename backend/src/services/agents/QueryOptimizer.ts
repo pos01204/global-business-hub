@@ -1,4 +1,5 @@
 import { ExtractedIntent } from './IntentClassifier'
+import { AI_ACCESSIBLE_SHEETS, SHEETS_SCHEMA } from '../../config/sheetsSchema'
 
 export interface OptimizedQuery {
   sheets: string[]
@@ -79,7 +80,7 @@ export class QueryOptimizer {
   }
 
   /**
-   * 조인 필요성 감지
+   * 조인 필요성 감지 (확장된 시트 지원)
    */
   private detectJoins(sheets: string[]): Array<{
     leftSheet: string
@@ -94,31 +95,71 @@ export class QueryOptimizer {
       rightKey: string
     }> = []
 
-    // order와 logistics 조인
-    if (sheets.includes('order') && sheets.includes('logistics')) {
-      joins.push({
-        leftSheet: 'order',
-        rightSheet: 'logistics',
-        leftKey: 'order_code',
-        rightKey: 'order_code',
-      })
+    // 스키마 기반 조인 감지
+    for (const sheetKey of sheets) {
+      const schema = SHEETS_SCHEMA[sheetKey]
+      if (schema?.foreignKeys) {
+        for (const fk of schema.foreignKeys) {
+          if (sheets.includes(fk.references.sheet)) {
+            joins.push({
+              leftSheet: sheetKey,
+              rightSheet: fk.references.sheet,
+              leftKey: fk.column,
+              rightKey: fk.references.column,
+            })
+          }
+        }
+      }
     }
 
-    // order와 users 조인
-    if (sheets.includes('order') && sheets.includes('users')) {
-      joins.push({
-        leftSheet: 'order',
-        rightSheet: 'users',
-        leftKey: 'user_id',
-        rightKey: 'ID',
-      })
+    // 기본 조인 규칙 (스키마에 없는 경우)
+    if (joins.length === 0) {
+      // order와 logistics 조인
+      if (sheets.includes('order') && sheets.includes('logistics')) {
+        joins.push({
+          leftSheet: 'order',
+          rightSheet: 'logistics',
+          leftKey: 'order_code',
+          rightKey: 'order_code',
+        })
+      }
+
+      // order와 users 조인
+      if (sheets.includes('order') && sheets.includes('users')) {
+        joins.push({
+          leftSheet: 'order',
+          rightSheet: 'users',
+          leftKey: 'user_id',
+          rightKey: 'ID',
+        })
+      }
+
+      // users와 user_locale 조인
+      if (sheets.includes('users') && sheets.includes('user_locale')) {
+        joins.push({
+          leftSheet: 'users',
+          rightSheet: 'user_locale',
+          leftKey: 'ID',
+          rightKey: 'user_id',
+        })
+      }
+
+      // logistics와 settlement_records 조인
+      if (sheets.includes('logistics') && sheets.includes('settlement_records')) {
+        joins.push({
+          leftSheet: 'logistics',
+          rightSheet: 'settlement_records',
+          leftKey: 'shipment_id',
+          rightKey: 'shipment_id',
+        })
+      }
     }
 
     return joins
   }
 
   /**
-   * 쿼리 검증
+   * 쿼리 검증 (확장된 시트 지원)
    */
   validate(query: OptimizedQuery): {
     valid: boolean
@@ -128,11 +169,11 @@ export class QueryOptimizer {
     const errors: string[] = []
     const suggestions: string[] = []
 
-    // 시트 검증
-    const validSheets = ['order', 'logistics', 'users', 'artists']
+    // 시트 검증 (확장된 시트 목록 사용)
+    const validSheets = [...AI_ACCESSIBLE_SHEETS]
     for (const sheet of query.sheets) {
-      if (!validSheets.includes(sheet)) {
-        errors.push(`알 수 없는 시트: ${sheet}`)
+      if (!validSheets.includes(sheet as any)) {
+        errors.push(`알 수 없는 시트: ${sheet}. 사용 가능: ${validSheets.join(', ')}`)
       }
     }
 

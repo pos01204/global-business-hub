@@ -1,16 +1,15 @@
 import { BaseAgent, AgentContext } from './BaseAgent'
 import { intentClassifier, ExtractedIntent } from './IntentClassifier'
 import { queryOptimizer, OptimizedQuery } from './QueryOptimizer'
+import { getSchemaSummaryForPrompt } from '../../config/sheetsSchema'
+import { smartSuggestionEngine, SuggestionContext } from './SmartSuggestionEngine'
 
 export class DataAnalystAgent extends BaseAgent {
-  private systemPrompt = `당신은 글로벌 이커머스 데이터 분석 전문가입니다.
+  private getSystemPrompt(): string {
+    return `당신은 글로벌 이커머스 데이터 분석 전문가입니다.
 idus Global의 크로스보더 이커머스 데이터를 분석하여 비즈니스 인사이트를 제공합니다.
 
-사용 가능한 데이터 소스:
-- order: 주문 정보 (order_code, order_created, user_id, Total GMV, platform, PG사, method)
-- logistics: 물류 추적 정보 (order_code, shipment_id, country, product_name, artist_name (kr), 처리상태, 구매수량)
-- users: 사용자 정보 (ID, NAME, EMAIL, COUNTRY, CREATED_AT)
-- artists: 작가 정보 (작가명, 작품수 등)
+${getSchemaSummaryForPrompt()}
 
 분석 원칙:
 1. 구체적인 숫자와 함께 설명 (예: "매출 1,234 USD", "전월 대비 15% 증가")
@@ -19,14 +18,14 @@ idus Global의 크로스보더 이커머스 데이터를 분석하여 비즈니�
 4. 추가 분석이 필요한 경우 제안
 
 응답 형식:
-📊 **분석 결과 요약**
+📊 분석 결과 요약
 - 핵심 지표 1~3개를 먼저 제시
 
-📈 **상세 분석**
+📈 상세 분석
 - 데이터에서 발견한 패턴이나 트렌드
 - 주목할 만한 포인트
 
-💡 **인사이트**
+💡 인사이트
 - 비즈니스 관점의 해석
 - 개선 기회나 주의점
 
@@ -34,6 +33,7 @@ idus Global의 크로스보더 이커머스 데이터를 분석하여 비즈니�
 - 금액 단위: USD (필요시 KRW 환산, 환율 1,350원)
 - 국가 코드: JP(일본), US(미국), KR(한국), CN(중국), TW(대만), HK(홍콩)
 - 한국어로 답변하세요.`
+  }
 
   async process(query: string, context: AgentContext = {}): Promise<{
     response: string
@@ -107,7 +107,12 @@ idus Global의 크로스보더 이커머스 데이터를 분석하여 비즈니�
         response,
         data: results.data,
         charts: results.charts,
-        actions: this.getContextualActions(extractedIntent.intent, results.data),
+        actions: this.getContextualActions(
+          extractedIntent.intent, 
+          results.data, 
+          extractedIntent,
+          context.history?.filter(h => h.role === 'user').map(h => h.content)
+        ),
       }
     } catch (error: any) {
       console.error('[DataAnalystAgent] 오류:', error)
@@ -121,7 +126,12 @@ idus Global의 크로스보더 이커머스 데이터를 분석하여 비즈니�
           response,
           data: results.data,
           charts: results.charts,
-          actions: this.getContextualActions(analysis.intent, results.data),
+          actions: this.getContextualActions(
+            analysis.intent, 
+            results.data,
+            undefined,
+            context.history?.filter(h => h.role === 'user').map(h => h.content)
+          ),
         }
       } catch (fallbackError: any) {
         console.error('[DataAnalystAgent] 폴백도 실패:', fallbackError)
@@ -176,38 +186,34 @@ idus Global의 크로스보더 이커머스 데이터를 분석하여 비즈니�
   }
 
   /**
-   * 컨텍스트 기반 액션 생성
+   * 컨텍스트 기반 액션 생성 (스마트 제안 엔진 사용)
    */
-  private getContextualActions(intent: string, data: any): Array<{ label: string; action: string; data?: any }> {
-    const actions: Array<{ label: string; action: string; data?: any }> = []
-
-    switch (intent) {
-      case 'trend_analysis':
-        actions.push(
-          { label: '📈 기간 확장하기', action: 'query', data: { query: '최근 90일 트렌드 분석' } },
-          { label: '🔍 상세 분석', action: 'query', data: { query: '일별 상세 매출 데이터' } }
-        )
-        break
-      case 'ranking':
-        actions.push(
-          { label: '📊 차트로 보기', action: 'visualize', data: { type: 'bar' } },
-          { label: '📥 데이터 내보내기', action: 'export', data: { format: 'csv' } }
-        )
-        break
-      case 'comparison':
-        actions.push(
-          { label: '📈 트렌드 비교', action: 'query', data: { query: '월별 추이 비교' } },
-          { label: '🎯 세그먼트 분석', action: 'switch_agent', data: { agent: 'performance_marketer' } }
-        )
-        break
-      default:
-        actions.push(
-          { label: '📊 시각화하기', action: 'visualize', data: { type: 'auto' } },
-          { label: '🔄 더 자세히', action: 'query', data: { query: '더 자세한 분석 부탁해' } }
-        )
+  private getContextualActions(
+    intent: string, 
+    data: any,
+    extractedIntent?: ExtractedIntent,
+    previousQueries?: string[]
+  ): Array<{ label: string; action: string; data?: any }> {
+    // 스마트 제안 엔진 컨텍스트 구성
+    const suggestionContext: SuggestionContext = {
+      intent,
+      sheets: extractedIntent?.entities?.sheets || ['order'],
+      dateRange: extractedIntent?.entities?.dateRange 
+        ? { start: extractedIntent.entities.dateRange.start, end: extractedIntent.entities.dateRange.end }
+        : undefined,
+      filters: extractedIntent?.entities?.filters?.map(f => ({ column: f.column, value: f.value })),
+      previousQueries,
     }
 
-    return actions
+    // 스마트 제안 생성
+    const suggestions = smartSuggestionEngine.generateSuggestions(suggestionContext, Array.isArray(data) ? data : [])
+
+    // Suggestion → Action 변환
+    return suggestions.map(s => ({
+      label: s.label,
+      action: s.action,
+      data: s.data,
+    }))
   }
 
   /**
@@ -524,7 +530,7 @@ idus Global의 크로스보더 이커머스 데이터를 분석하여 비즈니�
   /**
    * 트렌드 분석
    */
-  private async analyzeTrends(data: any[], dateRange?: { start: string; end: string }): Promise<any[]> {
+  private async analyzeTrends(data: any[], _dateRange?: { start: string; end: string }): Promise<any[]> {
     if (data.length === 0) return []
 
     // 날짜별 집계
@@ -696,7 +702,7 @@ idus Global의 크로스보더 이커머스 데이터를 분석하여 비즈니�
     // 데이터 요약 생성
     const dataSummary = this.generateDetailedSummary(results.data, intentType)
 
-    const prompt = `${this.systemPrompt}
+    const prompt = `${this.getSystemPrompt()}
 
 사용자 질문: "${query}"
 분석 기간: ${dateRangeInfo}
@@ -795,42 +801,6 @@ ${dataSummary}
     }
 
     return lines.join('\n')
-  }
-
-  /**
-   * 데이터 요약 포맷팅
-   */
-  private formatDataSummary(data: any, intent: string): string {
-    if (Array.isArray(data)) {
-      if (data.length === 0) {
-        return '데이터가 없습니다.'
-      }
-
-      if (intent === 'trend_analysis') {
-        const totalGmv = data.reduce((sum: number, d: any) => sum + (Number(d.gmv) || 0), 0)
-        const totalOrders = data.reduce((sum: number, d: any) => sum + (Number(d.orderCount) || 0), 0)
-        return `총 ${data.length}일간의 데이터: 총 매출 ${this.formatNumber(totalGmv)} USD, 총 주문 ${totalOrders}건`
-      }
-
-      if (intent === 'ranking') {
-        const validData = data.filter((d: any) => d && d.name != null)
-        if (validData.length === 0) {
-          return `총 ${data.length}건의 데이터 (랭킹 형식 아님)`
-        }
-        return `상위 ${validData.length}개 항목:\n${validData.slice(0, 5).map((d: any, i: number) => `${i + 1}. ${d.name || '알 수 없음'}: ${this.formatNumber(d.gmv || d.totalGmv || d['Total GMV'] || 0)} USD`).join('\n')}`
-      }
-
-      // 일반 데이터 요약
-      const sampleRow = data[0]
-      const columns = Object.keys(sampleRow || {}).slice(0, 5)
-      return `총 ${data.length}건의 데이터 (컬럼: ${columns.join(', ')}${Object.keys(sampleRow || {}).length > 5 ? ' 외 ' + (Object.keys(sampleRow || {}).length - 5) + '개' : ''})`
-    }
-
-    if (typeof data === 'object' && data !== null) {
-      return JSON.stringify(data, null, 2)
-    }
-
-    return String(data || '데이터 없음')
   }
 
   /**

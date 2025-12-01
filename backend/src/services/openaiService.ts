@@ -396,6 +396,125 @@ export class OpenAIService {
       throw error
     }
   }
+
+  /**
+   * 스트리밍 응답 생성 (SSE용)
+   */
+  async *generateStream(
+    prompt: string,
+    options?: { temperature?: number; maxTokens?: number }
+  ): AsyncGenerator<string, void, unknown> {
+    if (!this.apiKey) {
+      throw new Error('OpenAI API 키가 설정되지 않았습니다.')
+    }
+
+    console.log(`[OpenAI] 스트리밍 요청 시작 - 모델: ${this.model}`)
+
+    const response = await axios.post(
+      `${this.baseUrl}/chat/completions`,
+      {
+        model: this.model,
+        messages: [{ role: 'user', content: prompt }],
+        temperature: options?.temperature || 0.7,
+        max_tokens: options?.maxTokens || 2000,
+        stream: true,
+      },
+      {
+        headers: {
+          'Authorization': `Bearer ${this.apiKey}`,
+          'Content-Type': 'application/json',
+        },
+        responseType: 'stream',
+        timeout: 120000,
+      }
+    )
+
+    const stream = response.data
+    let buffer = ''
+
+    for await (const chunk of stream) {
+      buffer += chunk.toString()
+      const lines = buffer.split('\n')
+      buffer = lines.pop() || ''
+
+      for (const line of lines) {
+        const trimmed = line.trim()
+        if (!trimmed || trimmed === 'data: [DONE]') continue
+        if (!trimmed.startsWith('data: ')) continue
+
+        try {
+          const json = JSON.parse(trimmed.slice(6))
+          const content = json.choices?.[0]?.delta?.content
+          if (content) {
+            yield content
+          }
+        } catch (e) {
+          // JSON 파싱 실패 무시
+        }
+      }
+    }
+  }
+
+  /**
+   * 스트리밍 채팅 응답 생성 (SSE용)
+   */
+  async *generateChatStream(
+    messages: Array<{ role: 'user' | 'assistant' | 'system'; content: string }>,
+    options?: { temperature?: number; maxTokens?: number }
+  ): AsyncGenerator<string, void, unknown> {
+    if (!this.apiKey) {
+      throw new Error('OpenAI API 키가 설정되지 않았습니다.')
+    }
+
+    console.log(`[OpenAI] 스트리밍 채팅 요청 - 모델: ${this.model}, 메시지 수: ${messages.length}`)
+
+    const response = await axios.post(
+      `${this.baseUrl}/chat/completions`,
+      {
+        model: this.model,
+        messages: messages.map(msg => ({
+          role: msg.role,
+          content: msg.content,
+        })),
+        temperature: options?.temperature || 0.7,
+        max_tokens: options?.maxTokens || 1500,
+        stream: true,
+      },
+      {
+        headers: {
+          'Authorization': `Bearer ${this.apiKey}`,
+          'Content-Type': 'application/json',
+        },
+        responseType: 'stream',
+        timeout: 120000,
+      }
+    )
+
+    const stream = response.data
+    let buffer = ''
+
+    for await (const chunk of stream) {
+      buffer += chunk.toString()
+      const lines = buffer.split('\n')
+      buffer = lines.pop() || ''
+
+      for (const line of lines) {
+        const trimmed = line.trim()
+        if (!trimmed || trimmed === 'data: [DONE]') continue
+        if (!trimmed.startsWith('data: ')) continue
+
+        try {
+          const json = JSON.parse(trimmed.slice(6))
+          const content = json.choices?.[0]?.delta?.content
+          if (content) {
+            yield content
+          }
+        } catch (e) {
+          // JSON 파싱 실패 무시
+        }
+      }
+    }
+  }
 }
 
 export const openaiService = new OpenAIService()

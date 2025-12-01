@@ -2,6 +2,7 @@ import { DataAnalystAgent } from './DataAnalystAgent'
 import { PerformanceMarketerAgent } from './PerformanceMarketerAgent'
 import { BusinessManagerAgent } from './BusinessManagerAgent'
 import { AgentContext } from './BaseAgent'
+import { conversationManager } from './ConversationManager'
 
 export type AgentType = 'data_analyst' | 'performance_marketer' | 'business_manager' | 'auto'
 
@@ -25,7 +26,7 @@ export class AgentRouter {
   }
 
   /**
-   * Agent 선택 및 라우팅
+   * Agent 선택 및 라우팅 (멀티턴 대화 지원)
    */
   async route(query: string, agentType: AgentType = 'auto', context: EnhancedAgentContext = {}): Promise<{
     agent: string
@@ -33,12 +34,26 @@ export class AgentRouter {
     data?: any
     charts?: any[]
     actions?: Array<{ label: string; action: string; data?: any }>
+    conversationInfo?: {
+      referenceType?: string
+      activeSlots?: any
+    }
   }> {
-    // 이전 대화 참조 처리
-    const enhancedQuery = this.enhanceQueryWithContext(query, context)
+    const sessionId = context.sessionId || 'default'
+
+    // 대화 컨텍스트 분석 및 업데이트
+    const { enhancedQuery, mergedSlots, referenceType } = conversationManager.analyzeAndUpdate(
+      sessionId,
+      query,
+      agentType,
+      context.previousData
+    )
+
+    // 이전 대화 참조 처리 (레거시 호환)
+    const finalQuery = referenceType ? enhancedQuery : this.enhanceQueryWithContext(query, context)
     
     // Agent 타입 결정
-    const selectedAgentType = agentType === 'auto' ? await this.classifyIntent(enhancedQuery) : agentType
+    const selectedAgentType = agentType === 'auto' ? await this.classifyIntent(finalQuery) : agentType
 
     // 적절한 Agent 선택
     let agent: DataAnalystAgent | PerformanceMarketerAgent | BusinessManagerAgent
@@ -62,16 +77,31 @@ export class AgentRouter {
         agentName = '데이터 분석가'
     }
 
-    // Agent 실행 (강화된 컨텍스트 전달)
-    const result = await agent.process(enhancedQuery, {
+    // Agent 실행 (강화된 컨텍스트 + 슬롯 정보 전달)
+    const result = await agent.process(finalQuery, {
       ...context,
       previousQuery: this.context.previousQuery,
       previousData: this.context.previousData,
+      // 멀티턴 슬롯 정보 전달
+      conversationSlots: mergedSlots,
     })
+
+    // 데이터 스냅샷 저장
+    if (result.data && Array.isArray(result.data)) {
+      conversationManager.saveDataSnapshot(
+        sessionId,
+        result.data.length,
+        mergedSlots.sheets || ['order']
+      )
+    }
 
     return {
       agent: agentName,
       ...result,
+      conversationInfo: {
+        referenceType,
+        activeSlots: mergedSlots,
+      },
     }
   }
 

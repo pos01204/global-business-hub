@@ -1,4 +1,5 @@
 import { openaiService } from '../openaiService'
+import { AI_ACCESSIBLE_SHEETS, getSchemaSummaryForPrompt } from '../../config/sheetsSchema'
 
 export interface ExtractedIntent {
   intent: string
@@ -33,7 +34,7 @@ export interface ExtractedIntent {
   }
 }
 
-// Function Calling을 위한 함수 정의
+// Function Calling을 위한 함수 정의 (확장된 시트 지원)
 const INTENT_CLASSIFICATION_FUNCTION = {
   name: 'classify_query_intent',
   description: '사용자의 자연어 질문을 분석하여 데이터 분석에 필요한 구조화된 의도와 엔티티를 추출합니다.',
@@ -55,9 +56,9 @@ const INTENT_CLASSIFICATION_FUNCTION = {
         type: 'array',
         items: {
           type: 'string',
-          enum: ['order', 'logistics', 'users', 'artists'],
+          enum: [...AI_ACCESSIBLE_SHEETS],
         },
-        description: '필요한 데이터 시트 목록',
+        description: '필요한 데이터 시트 목록 (order, logistics, users, artists, review, user_locale, settlement_records, sopo_tracking)',
       },
       dateRange: {
         type: 'object',
@@ -117,14 +118,11 @@ const INTENT_CLASSIFICATION_FUNCTION = {
 }
 
 export class IntentClassifier {
-  private systemPrompt = `당신은 데이터 분석 쿼리 의도 분류 전문가입니다.
+  private getSystemPrompt(): string {
+    return `당신은 데이터 분석 쿼리 의도 분류 전문가입니다.
 사용자의 자연어 질문을 분석하여 구조화된 의도와 엔티티를 추출합니다.
 
-사용 가능한 데이터 소스:
-- order: 주문 정보 (order_code, order_created, user_id, Total GMV, platform, PG사, method)
-- logistics: 물류 추적 정보 (order_code, shipment_id, country, product_name, artist_name (kr), 처리상태 등)
-- users: 사용자 정보 (ID, NAME, EMAIL, COUNTRY, CREATED_AT)
-- artists: 작가 정보 (작가명, 작품수 등)
+${getSchemaSummaryForPrompt()}
 
 의도 유형:
 - general_query: 일반적인 질의 (현황, 상태 확인)
@@ -135,20 +133,24 @@ export class IntentClassifier {
 - filter: 필터링 (특정 조건 검색)
 - join: 조인 분석 (여러 시트 결합)
 
-중요한 컬럼명:
-- order 시트: order_code, order_created, user_id, Total GMV, platform, PG사, method
-- logistics 시트: order_code, shipment_id, country, product_name, artist_name (kr), 처리상태, 구매수량
-- users 시트: ID, NAME, EMAIL, COUNTRY, CREATED_AT
+시트 선택 가이드:
+- 매출/주문 관련: order, logistics
+- 고객/사용자 관련: users, user_locale
+- 작가/판매자 관련: artists
+- 리뷰/후기 관련: review
+- 물류비/정산 관련: settlement_records
+- 소포수령증 관련: sopo_tracking
 
 국가 코드: JP(일본), US(미국), KR(한국), CN(중국), TW(대만), HK(홍콩)
 
 오늘 날짜: ${new Date().toISOString().split('T')[0]}`
+  }
 
   async classify(query: string, history?: Array<{ role: string; content: string }>): Promise<ExtractedIntent> {
     try {
       // Function Calling을 통한 의도 분류
       const messages: Array<{ role: 'user' | 'assistant' | 'system'; content: string }> = [
-        { role: 'system', content: this.systemPrompt },
+        { role: 'system', content: this.getSystemPrompt() },
       ]
 
       // 대화 히스토리 추가
