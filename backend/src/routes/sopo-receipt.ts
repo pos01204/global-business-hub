@@ -1329,10 +1329,13 @@ function generateNotificationEmailHTML(params: {
  */
 router.post('/sync-jotform', async (req: Request, res: Response) => {
   try {
+    console.log('[Sopo] JotForm 동기화 시작');
+    
     // JotForm 연동 시트에서 데이터 로드
     let jotformData: any[] = [];
     try {
       jotformData = await sheetsService.getSheetDataAsJson(SHEET_NAMES.SOPO_JOTFORM, false);
+      console.log(`[Sopo] JotForm 데이터 로드: ${jotformData.length}건`);
     } catch (e) {
       console.warn('[Sopo] JotForm 시트 로드 실패');
       return res.json({ success: true, data: { synced: 0, message: 'JotForm 시트가 없거나 비어있습니다.' } });
@@ -1340,32 +1343,73 @@ router.post('/sync-jotform', async (req: Request, res: Response) => {
 
     // 트래킹 데이터 로드
     const trackingData = await sheetsService.getSheetDataAsJson(SHEET_NAMES.SOPO_TRACKING, false);
+    console.log(`[Sopo] 트래킹 데이터 로드: ${trackingData.length}건`);
 
     let updatedCount = 0;
     const newSubmissions: any[] = [];
+    const updateBatch: { range: string; value: any }[] = [];
+
+    // 작가명 정규화 함수 (공백 제거, 소문자 변환)
+    const normalizeArtistName = (name: string) => {
+      return (name || '').trim().toLowerCase().replace(/\s+/g, '');
+    };
 
     // JotForm 데이터와 트래킹 데이터 매칭
     for (const submission of jotformData) {
-      const artistName = submission['아이디어스 작가명 (국문 또는 영문)'] || submission.artist_name;
-      const submissionId = submission['Submission ID'] || submission.submission_id;
-      const submissionDate = submission['Submission Date'] || submission.submitted_at;
+      const artistName = submission['아이디어스 작가명 (국문 또는 영문)'] || submission.artist_name || '';
+      const submissionId = submission['Submission ID'] || submission.submission_id || '';
+      const submissionDate = submission['Submission Date'] || submission.submitted_at || '';
 
       if (!artistName) continue;
 
-      // 트래킹에서 해당 작가 찾기
-      const trackingRecord = trackingData.find((t: any) => 
-        t.artist_name === artistName && t.application_status !== 'submitted'
-      );
+      const normalizedSubmissionName = normalizeArtistName(artistName);
 
-      if (trackingRecord) {
+      // 트래킹에서 해당 작가 찾기 (정규화된 이름으로 비교)
+      const trackingIndex = trackingData.findIndex((t: any) => {
+        const normalizedTrackingName = normalizeArtistName(t.artist_name);
+        return normalizedTrackingName === normalizedSubmissionName && 
+               t.application_status !== 'submitted' &&
+               t.application_status !== 'completed';
+      });
+
+      if (trackingIndex >= 0) {
+        const trackingRecord = trackingData[trackingIndex];
+        const rowNum = trackingIndex + 2; // 헤더 행 + 0-indexed
+        
+        console.log(`[Sopo] 매칭 발견: ${artistName} (행 ${rowNum})`);
+        
+        // G열: application_status → 'submitted'
+        updateBatch.push({ range: `G${rowNum}`, value: 'submitted' });
+        // H열: application_submitted_at → submissionDate
+        updateBatch.push({ range: `H${rowNum}`, value: submissionDate });
+        // I열: jotform_submission_id → submissionId
+        updateBatch.push({ range: `I${rowNum}`, value: submissionId });
+        
         newSubmissions.push({
           artistName,
           submissionId,
           submissionDate,
+          period: trackingRecord.period,
         });
         updatedCount++;
+        
+        // trackingData에서도 업데이트 (중복 방지)
+        trackingData[trackingIndex].application_status = 'submitted';
       }
     }
+
+    // 배치 업데이트 실행
+    if (updateBatch.length > 0) {
+      try {
+        console.log(`[Sopo] 트래킹 시트 업데이트: ${updateBatch.length}개 셀`);
+        await sheetsService.updateCells(SHEET_NAMES.SOPO_TRACKING, updateBatch);
+        console.log('[Sopo] ✅ 트래킹 시트 업데이트 완료');
+      } catch (updateErr: any) {
+        console.error(`[Sopo] ❌ 트래킹 시트 업데이트 실패: ${updateErr.message}`);
+      }
+    }
+
+    console.log(`[Sopo] JotForm 동기화 완료: ${updatedCount}건 업데이트`);
 
     res.json({
       success: true,
