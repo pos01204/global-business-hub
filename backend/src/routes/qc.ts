@@ -227,62 +227,65 @@ async function loadTextQCData() {
   try {
     // 원본 시트에서 데이터 로드
     const textData = await sheetsService.getSheetDataAsJson(SHEET_NAMES.QC_TEXT_RAW, false);
-    let imported = 0;
-    let skipped = 0;
-    let archived = 0;
+    let pending = 0;
     let completed = 0;
+    let archived = 0;
 
     for (const record of textData) {
       const id = generateId('text', record);
       
-      // 상태 확인 (status 컬럼이 있으면 사용, 없으면 'pending')
-      const status = (record.status as 'pending' | 'approved' | 'needs_revision' | 'excluded' | 'archived') || 'pending';
+      // 상태 확인 (status 컬럼 - 비어있으면 pending)
+      const rawStatus = String(record.status || '').trim().toLowerCase();
+      const status: 'pending' | 'approved' | 'needs_revision' | 'excluded' | 'archived' = 
+        rawStatus === 'approved' ? 'approved' :
+        rawStatus === 'needs_revision' ? 'needs_revision' :
+        rawStatus === 'excluded' ? 'excluded' :
+        rawStatus === 'archived' ? 'archived' :
+        'pending'; // 비어있거나 알 수 없는 값은 pending
       
-      // completedAt에 값이 있으면 이미 완료된 QC 건 - 아카이브로 처리
+      // completedAt 확인
       const completedAtValue = record.completedAt || record.completed_at || record.CompletedAt;
       const hasCompletedAt = completedAtValue && String(completedAtValue).trim() !== '';
       
-      // 아카이브된 항목 또는 completedAt이 있는 항목은 아카이브 저장소에만 저장
-      if (status === 'archived' || record.archived === true || hasCompletedAt) {
+      // QC 완료 조건: status가 approved/needs_revision/excluded/archived 이거나 completedAt이 있음
+      const isCompleted = status !== 'pending' || hasCompletedAt;
+      
+      if (isCompleted) {
+        // 완료된 항목은 아카이브로
         const qcItem: QCItem = {
           id,
           type: 'text',
           data: record,
-          status: 'approved', // 아카이브/완료는 완료된 것으로 간주
-          needsRevision: false,
+          status: status === 'pending' ? 'approved' : status, // completedAt만 있는 경우 approved로
+          needsRevision: status === 'needs_revision',
           createdAt: record.createdAt ? new Date(record.createdAt) : new Date(),
           completedAt: hasCompletedAt ? new Date(completedAtValue) : new Date(),
         };
         qcDataStore.archive.set(id, qcItem);
-        if (hasCompletedAt && status !== 'archived') {
-          completed++;
-        } else {
+        if (status === 'archived') {
           archived++;
+        } else {
+          completed++;
         }
         continue;
       }
       
-      // 이미 존재하는 경우 스킵
-      if (qcDataStore.text.has(id)) {
-        skipped++;
-        continue;
-      }
-
+      // 미검수 항목 (status가 비어있거나 pending)
       const qcItem: QCItem = {
         id,
         type: 'text',
         data: record,
-        status,
-        needsRevision: record.needsRevision === true || record.needs_revision === true,
+        status: 'pending',
+        needsRevision: false,
         createdAt: record.createdAt ? new Date(record.createdAt) : new Date(),
         completedAt: undefined,
       };
 
       qcDataStore.text.set(id, qcItem);
-      imported++;
+      pending++;
     }
 
-    console.log(`[QC] 텍스트 QC 데이터 로드 완료: ${imported}개 대기, ${completed}개 완료(completedAt), ${archived}개 아카이브, ${skipped}개 스킵`);
+    console.log(`[QC] 텍스트 QC 데이터 로드 완료: 전체 ${textData.length}개, 미검수 ${pending}개, 완료 ${completed}개, 아카이브 ${archived}개`);
   } catch (error) {
     console.error('[QC] 텍스트 QC 데이터 로드 실패:', error);
   }
@@ -295,62 +298,65 @@ async function loadImageQCData() {
   try {
     // 원본 시트에서 데이터 로드
     const imageData = await sheetsService.getSheetDataAsJson(SHEET_NAMES.QC_IMAGE_RAW, false);
-    let imported = 0;
-    let skipped = 0;
-    let archived = 0;
+    let pending = 0;
     let completed = 0;
+    let archived = 0;
 
     for (const record of imageData) {
       const id = generateId('image', record);
       
-      // 상태 확인 (status 컬럼이 있으면 사용, 없으면 'pending')
-      const status = (record.status as 'pending' | 'approved' | 'needs_revision' | 'excluded' | 'archived') || 'pending';
+      // 상태 확인 (status 컬럼 - 비어있으면 pending)
+      const rawStatus = String(record.status || '').trim().toLowerCase();
+      const status: 'pending' | 'approved' | 'needs_revision' | 'excluded' | 'archived' = 
+        rawStatus === 'approved' ? 'approved' :
+        rawStatus === 'needs_revision' ? 'needs_revision' :
+        rawStatus === 'excluded' ? 'excluded' :
+        rawStatus === 'archived' ? 'archived' :
+        'pending'; // 비어있거나 알 수 없는 값은 pending
       
-      // completedAt에 값이 있으면 이미 완료된 QC 건 - 아카이브로 처리
+      // completedAt 확인
       const completedAtValue = record.completedAt || record.completed_at || record.CompletedAt;
       const hasCompletedAt = completedAtValue && String(completedAtValue).trim() !== '';
       
-      // 아카이브된 항목 또는 completedAt이 있는 항목은 아카이브 저장소에만 저장
-      if (status === 'archived' || record.archived === true || hasCompletedAt) {
+      // QC 완료 조건: status가 approved/needs_revision/excluded/archived 이거나 completedAt이 있음
+      const isCompleted = status !== 'pending' || hasCompletedAt;
+      
+      if (isCompleted) {
+        // 완료된 항목은 아카이브로
         const qcItem: QCItem = {
           id,
           type: 'image',
           data: record,
-          status: 'approved', // 아카이브/완료는 완료된 것으로 간주
-          needsRevision: false,
+          status: status === 'pending' ? 'approved' : status, // completedAt만 있는 경우 approved로
+          needsRevision: status === 'needs_revision',
           createdAt: record.createdAt ? new Date(record.createdAt) : new Date(),
           completedAt: hasCompletedAt ? new Date(completedAtValue) : new Date(),
         };
         qcDataStore.archive.set(id, qcItem);
-        if (hasCompletedAt && status !== 'archived') {
-          completed++;
-        } else {
+        if (status === 'archived') {
           archived++;
+        } else {
+          completed++;
         }
         continue;
       }
       
-      // 이미 존재하는 경우 스킵
-      if (qcDataStore.image.has(id)) {
-        skipped++;
-        continue;
-      }
-
+      // 미검수 항목 (status가 비어있거나 pending)
       const qcItem: QCItem = {
         id,
         type: 'image',
         data: record,
-        status,
-        needsRevision: record.needsRevision === true || record.needs_revision === true,
+        status: 'pending',
+        needsRevision: false,
         createdAt: record.createdAt ? new Date(record.createdAt) : new Date(),
         completedAt: undefined,
       };
 
       qcDataStore.image.set(id, qcItem);
-      imported++;
+      pending++;
     }
 
-    console.log(`[QC] 이미지 QC 데이터 로드 완료: ${imported}개 대기, ${completed}개 완료(completedAt), ${archived}개 아카이브, ${skipped}개 스킵`);
+    console.log(`[QC] 이미지 QC 데이터 로드 완료: 전체 ${imageData.length}개, 미검수 ${pending}개, 완료 ${completed}개, 아카이브 ${archived}개`);
   } catch (error) {
     console.error('[QC] 이미지 QC 데이터 로드 실패:', error);
   }
@@ -901,7 +907,21 @@ router.get('/text/list', async (req, res) => {
     const limit = parseInt(req.query.limit as string) || 50;
     const weeklyOnly = req.query.weeklyOnly === 'true';
 
-    let items = Array.from(qcDataStore.text.values());
+    // 전체 통계 계산 (필터 적용 전)
+    const allItems = Array.from(qcDataStore.text.values());
+    const allArchiveItems = Array.from(qcDataStore.archive.values()).filter(item => item.type === 'text');
+    
+    const stats = {
+      total: allItems.length + allArchiveItems.length, // 시트 전체 항목
+      pending: allItems.filter(item => item.status === 'pending').length,
+      needsRevision: allItems.filter(item => item.status === 'needs_revision').length + 
+                     allArchiveItems.filter(item => item.status === 'needs_revision').length,
+      excluded: allItems.filter(item => item.status === 'excluded').length +
+                allArchiveItems.filter(item => item.status === 'excluded').length,
+      approved: allArchiveItems.filter(item => item.status === 'approved').length,
+    };
+
+    let items = [...allItems];
 
     // 상태 필터링
     if (status) {
@@ -928,6 +948,7 @@ router.get('/text/list', async (req, res) => {
         total: items.length,
         totalPages: Math.ceil(items.length / limit),
       },
+      stats, // 전체 통계 추가
     });
   } catch (error: any) {
     console.error('[QC] 텍스트 목록 조회 오류:', error);
@@ -949,7 +970,21 @@ router.get('/image/list', async (req, res) => {
     const limit = parseInt(req.query.limit as string) || 50;
     const weeklyOnly = req.query.weeklyOnly === 'true';
 
-    let items = Array.from(qcDataStore.image.values());
+    // 전체 통계 계산 (필터 적용 전)
+    const allItems = Array.from(qcDataStore.image.values());
+    const allArchiveItems = Array.from(qcDataStore.archive.values()).filter(item => item.type === 'image');
+    
+    const stats = {
+      total: allItems.length + allArchiveItems.length, // 시트 전체 항목
+      pending: allItems.filter(item => item.status === 'pending').length,
+      needsRevision: allItems.filter(item => item.status === 'needs_revision').length + 
+                     allArchiveItems.filter(item => item.status === 'needs_revision').length,
+      excluded: allItems.filter(item => item.status === 'excluded').length +
+                allArchiveItems.filter(item => item.status === 'excluded').length,
+      approved: allArchiveItems.filter(item => item.status === 'approved').length,
+    };
+
+    let items = [...allItems];
 
     // 상태 필터링
     if (status) {
@@ -976,6 +1011,7 @@ router.get('/image/list', async (req, res) => {
         total: items.length,
         totalPages: Math.ceil(items.length / limit),
       },
+      stats, // 전체 통계 추가
     });
   } catch (error: any) {
     console.error('[QC] 이미지 목록 조회 오류:', error);

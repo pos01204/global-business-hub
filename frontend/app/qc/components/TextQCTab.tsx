@@ -261,25 +261,25 @@ export default function TextQCTab() {
           <div className="card bg-blue-50">
             <div className="text-sm text-gray-600">전체 항목</div>
             <div className="text-2xl font-bold text-blue-700">
-              {data.pagination?.total || 0}
+              {data.stats?.total || data.pagination?.total || 0}
             </div>
           </div>
           <div className="card bg-yellow-50">
             <div className="text-sm text-gray-600">미검수</div>
             <div className="text-2xl font-bold text-yellow-700">
-              {data.items?.filter((item: any) => item.status === 'pending').length || 0}
+              {data.stats?.pending || 0}
             </div>
           </div>
           <div className="card bg-red-50">
             <div className="text-sm text-gray-600">수정 필요</div>
             <div className="text-2xl font-bold text-red-700">
-              {data.items?.filter((item: any) => item.needsRevision || item.status === 'needs_revision').length || 0}
+              {data.stats?.needsRevision || 0}
             </div>
           </div>
           <div className="card bg-gray-50">
             <div className="text-sm text-gray-600">비대상</div>
             <div className="text-2xl font-bold text-gray-600">
-              {data.items?.filter((item: any) => item.status === 'excluded').length || 0}
+              {data.stats?.excluded || 0}
             </div>
           </div>
         </div>
