@@ -4,8 +4,23 @@ import { useState, useEffect, Suspense } from 'react'
 import { useSearchParams } from 'next/navigation'
 import PromotionCouponTab from './components/tabs/PromotionCouponTab'
 import IndividualIssueTab from './components/tabs/IndividualIssueTab'
+import { Tabs, TabPanel } from '@/components/ui'
+import { LoadingOverlay } from '@/components/ui/Spinner'
 
 type TabType = 'promotion' | 'individual'
+
+const tabItems = [
+  {
+    id: 'promotion',
+    label: '기획전 쿠폰',
+    icon: <span className="text-lg">📢</span>,
+  },
+  {
+    id: 'individual',
+    label: '개별 유저 발급',
+    icon: <span className="text-lg">👤</span>,
+  },
+]
 
 function CouponGeneratorContent() {
   const searchParams = useSearchParams()
@@ -36,50 +51,34 @@ function CouponGeneratorContent() {
         </div>
       </div>
 
-      {/* 탭 선택 */}
-      <div className="border-b mb-6">
+      {/* 탭 선택 - 공통 컴포넌트 사용 */}
+      <div className="mb-6">
         <div className="flex items-center gap-2 mb-4">
           <span className="text-lg">⚡</span>
           <h2 className="text-lg font-semibold">쿠폰 발급 유형</h2>
         </div>
-        <div className="flex gap-2 flex-wrap">
-          <button
-            onClick={() => setActiveTab('promotion')}
-            className={`px-6 py-3 rounded-lg font-medium transition-all flex items-center gap-3 ${
-              activeTab === 'promotion'
-                ? 'bg-primary text-white shadow-md'
-                : 'bg-gray-100 text-gray-700 hover:bg-gray-200'
-            }`}
-          >
-            <span className="text-xl">📢</span>
-            <div className="text-left">
-              <div>기획전 쿠폰</div>
-              <div className="text-xs opacity-80">유저가 직접 수령하는 공개/비공개 쿠폰</div>
-            </div>
-          </button>
-          <button
-            onClick={() => setActiveTab('individual')}
-            className={`px-6 py-3 rounded-lg font-medium transition-all flex items-center gap-3 ${
-              activeTab === 'individual'
-                ? 'bg-primary text-white shadow-md'
-                : 'bg-gray-100 text-gray-700 hover:bg-gray-200'
-            }`}
-          >
-            <span className="text-xl">👤</span>
-            <div className="text-left">
-              <div>개별 유저 발급</div>
-              <div className="text-xs opacity-80">특정 유저에게 직접 쿠폰을 발급</div>
-            </div>
-          </button>
-        </div>
+        <Tabs
+          items={tabItems}
+          activeTab={activeTab}
+          onChange={(tab) => setActiveTab(tab as TabType)}
+          variant="pills"
+          size="lg"
+        />
+        <p className="mt-2 text-sm text-slate-500">
+          {activeTab === 'promotion' 
+            ? '유저가 직접 수령하는 공개/비공개 쿠폰을 생성합니다'
+            : '특정 유저에게 직접 쿠폰을 발급합니다'
+          }
+        </p>
       </div>
 
       {/* 탭 컨텐츠 */}
-      {activeTab === 'promotion' ? (
+      <TabPanel id="promotion" activeTab={activeTab}>
         <PromotionCouponTab />
-      ) : (
+      </TabPanel>
+      <TabPanel id="individual" activeTab={activeTab}>
         <IndividualIssueTab />
-      )}
+      </TabPanel>
 
       {/* 제약사항 안내 */}
       <div className="mt-6 p-4 bg-amber-50 border border-amber-200 rounded-xl">
@@ -102,7 +101,7 @@ function CouponGeneratorContent() {
 
 export default function CouponGeneratorPage() {
   return (
-    <Suspense fallback={<div className="animate-pulse p-8 text-center">로딩 중...</div>}>
+    <Suspense fallback={<LoadingOverlay message="쿠폰 생성기 로딩 중..." />}>
       <CouponGeneratorContent />
     </Suspense>
   )

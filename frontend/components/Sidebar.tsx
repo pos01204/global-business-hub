@@ -147,10 +147,10 @@ export default function Sidebar() {
                         <Link
                           href={item.href}
                           className={`
-                            flex items-center gap-3 px-3 py-2 rounded-lg
-                            transition-colors duration-150
+                            relative flex items-center gap-3 px-3 py-2.5 rounded-lg
+                            transition-all duration-200
                             ${isActive
-                              ? 'bg-slate-100 text-slate-900'
+                              ? 'bg-orange-50 text-[#F78C3A] font-medium before:absolute before:left-0 before:top-1/2 before:-translate-y-1/2 before:w-1 before:h-6 before:bg-[#F78C3A] before:rounded-r-full'
                               : 'text-slate-600 hover:bg-slate-50 hover:text-slate-900'
                             }
                           `}
