@@ -21,7 +21,7 @@ export default function SmartModePanel({ settings, onSettingsChange }: SmartMode
     setTargetRegion(region)
     
     const isJPY = region === 'JP'
-    const currencyCode = isJPY ? 'JPY' : 'USD'
+    const currencyCode: 'JPY' | 'USD' = isJPY ? 'JPY' : 'USD'
     
     // 현재 할인 유형에 따라 금액 변환
     let newDiscount = settings.discount
@@ -88,7 +88,7 @@ export default function SmartModePanel({ settings, onSettingsChange }: SmartMode
     const couponName = generateCouponName(concept, discount)
     
     // 지역에 따른 통화/금액 조정
-    let currencyCode = concept.defaults.currencyCode || 'JPY'
+    let currencyCode: 'JPY' | 'USD' = concept.defaults.currencyCode || 'JPY'
     let minOrderPrice = concept.defaults.minOrderPrice || 8000
     let maxDiscountPrice = concept.defaults.maxDiscountPrice || 1000
     
@@ -140,7 +140,7 @@ export default function SmartModePanel({ settings, onSettingsChange }: SmartMode
     const couponName = `${event.nameJP}限定${discount}%OFF`
 
     const isGlobal = event.targetRegions.includes('GLOBAL')
-    const currencyCode = isGlobal ? 'USD' : 'JPY'
+    const currencyCode: 'JPY' | 'USD' = isGlobal ? 'USD' : 'JPY'
     const minOrderPrice = isGlobal ? 20 : 8000
     const maxDiscountPrice = isGlobal ? 3 : 1000
 

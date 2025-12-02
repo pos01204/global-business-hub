@@ -94,7 +94,7 @@ export default function DiscountOptimizer({ settings, onSettingsChange, targetRe
   // 추천값 적용
   const applyRecommendation = () => {
     const discount = recommendation.recommended
-    const currencyCode = isJPY ? 'JPY' : 'USD'
+    const currencyCode: 'JPY' | 'USD' = isJPY ? 'JPY' : 'USD'
     
     if (isRate) {
       // 정률 할인: 최소 주문/최대 할인 자동 계산
@@ -128,7 +128,7 @@ export default function DiscountOptimizer({ settings, onSettingsChange, targetRe
     const newSettings = { 
       ...settings, 
       discountType: type,
-      currencyCode: isJPY ? 'JPY' : 'USD',  // targetRegion 기반 통화 설정
+      currencyCode: (isJPY ? 'JPY' : 'USD') as 'JPY' | 'USD',  // targetRegion 기반 통화 설정
     }
     
     if (type === 'RATE') {
