@@ -7,22 +7,38 @@ import ProductsTab from './components/ProductsTab'
 import TrendTab from './components/TrendTab'
 import HealthTab from './components/HealthTab'
 import SelectionTab from './components/SelectionTab'
+import { Tabs, TabPanel, Select } from '@/components/ui'
 
 type TabType = 'overview' | 'performance' | 'products' | 'trend' | 'health' | 'selection'
+
+const tabItems = [
+  { id: 'overview', label: '개요', icon: <span>📊</span> },
+  { id: 'performance', label: '작가 성과', icon: <span>🏆</span> },
+  { id: 'products', label: '작품 분석', icon: <span>📦</span> },
+  { id: 'trend', label: '성장 추이', icon: <span>📈</span> },
+  { id: 'selection', label: '셀렉션 관리', icon: <span>👥</span> },
+  { id: 'health', label: '건강도', icon: <span>⚠️</span> },
+]
+
+const dateRangeOptions = [
+  { value: '7d', label: '7일' },
+  { value: '30d', label: '30일' },
+  { value: '90d', label: '90일' },
+  { value: '365d', label: '365일' },
+]
+
+const countryOptions = [
+  { value: 'all', label: '전체' },
+  { value: 'JP', label: '🇯🇵 일본' },
+  { value: 'US', label: '🇺🇸 미국' },
+  { value: 'TW', label: '🇹🇼 대만' },
+  { value: 'HK', label: '🇭🇰 홍콩' },
+]
 
 export default function ArtistAnalyticsPage() {
   const [activeTab, setActiveTab] = useState<TabType>('overview')
   const [dateRange, setDateRange] = useState('30d')
   const [countryFilter, setCountryFilter] = useState('all')
-
-  const tabs = [
-    { id: 'overview' as const, label: '개요', icon: '📊' },
-    { id: 'performance' as const, label: '작가 성과', icon: '🏆' },
-    { id: 'products' as const, label: '작품 분석', icon: '📦' },
-    { id: 'trend' as const, label: '성장 추이', icon: '📈' },
-    { id: 'selection' as const, label: '셀렉션 관리', icon: '👥' },
-    { id: 'health' as const, label: '건강도', icon: '⚠️' },
-  ]
 
   return (
     <div className="animate-fade-in">
@@ -41,62 +57,58 @@ export default function ArtistAnalyticsPage() {
         </div>
       </div>
 
-      {/* 필터 바 */}
+      {/* 필터 바 - 공통 Select 컴포넌트 사용 */}
       <div className="flex flex-wrap gap-4 mb-6">
-        <div className="flex items-center gap-2">
-          <span className="text-sm text-gray-500">기간:</span>
-          <select
+        <div className="w-32">
+          <Select
+            options={dateRangeOptions}
             value={dateRange}
-            onChange={(e) => setDateRange(e.target.value)}
-            className="px-3 py-1.5 border rounded-lg text-sm focus:ring-2 focus:ring-violet-500"
-          >
-            <option value="7d">7일</option>
-            <option value="30d">30일</option>
-            <option value="90d">90일</option>
-            <option value="365d">365일</option>
-          </select>
+            onChange={setDateRange}
+            size="sm"
+            fullWidth={false}
+          />
         </div>
-        <div className="flex items-center gap-2">
-          <span className="text-sm text-gray-500">국가:</span>
-          <select
+        <div className="w-36">
+          <Select
+            options={countryOptions}
             value={countryFilter}
-            onChange={(e) => setCountryFilter(e.target.value)}
-            className="px-3 py-1.5 border rounded-lg text-sm focus:ring-2 focus:ring-violet-500"
-          >
-            <option value="all">전체</option>
-            <option value="JP">일본</option>
-            <option value="US">미국</option>
-            <option value="TW">대만</option>
-            <option value="HK">홍콩</option>
-          </select>
+            onChange={setCountryFilter}
+            size="sm"
+            fullWidth={false}
+          />
         </div>
       </div>
 
-      {/* 탭 네비게이션 */}
-      <div className="flex gap-2 mb-6 overflow-x-auto pb-2">
-        {tabs.map((tab) => (
-          <button
-            key={tab.id}
-            onClick={() => setActiveTab(tab.id)}
-            className={`flex items-center gap-2 px-4 py-2.5 rounded-xl font-medium transition-all whitespace-nowrap ${
-              activeTab === tab.id
-                ? 'bg-violet-600 text-white shadow-lg'
-                : 'bg-white text-gray-600 hover:bg-gray-50 border border-gray-200'
-            }`}
-          >
-            <span>{tab.icon}</span>
-            <span>{tab.label}</span>
-          </button>
-        ))}
+      {/* 탭 네비게이션 - 공통 Tabs 컴포넌트 사용 */}
+      <div className="mb-6">
+        <Tabs
+          items={tabItems}
+          activeTab={activeTab}
+          onChange={(tab) => setActiveTab(tab as TabType)}
+          variant="pills"
+          size="md"
+        />
       </div>
 
       {/* 탭 컨텐츠 */}
-      {activeTab === 'overview' && <OverviewTab dateRange={dateRange} countryFilter={countryFilter} />}
-      {activeTab === 'performance' && <PerformanceTab dateRange={dateRange} countryFilter={countryFilter} />}
-      {activeTab === 'products' && <ProductsTab dateRange={dateRange} />}
-      {activeTab === 'trend' && <TrendTab />}
-      {activeTab === 'selection' && <SelectionTab />}
-      {activeTab === 'health' && <HealthTab />}
+      <TabPanel id="overview" activeTab={activeTab}>
+        <OverviewTab dateRange={dateRange} countryFilter={countryFilter} />
+      </TabPanel>
+      <TabPanel id="performance" activeTab={activeTab}>
+        <PerformanceTab dateRange={dateRange} countryFilter={countryFilter} />
+      </TabPanel>
+      <TabPanel id="products" activeTab={activeTab}>
+        <ProductsTab dateRange={dateRange} />
+      </TabPanel>
+      <TabPanel id="trend" activeTab={activeTab}>
+        <TrendTab />
+      </TabPanel>
+      <TabPanel id="selection" activeTab={activeTab}>
+        <SelectionTab />
+      </TabPanel>
+      <TabPanel id="health" activeTab={activeTab}>
+        <HealthTab />
+      </TabPanel>
     </div>
   )
 }

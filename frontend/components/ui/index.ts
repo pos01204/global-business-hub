@@ -51,3 +51,15 @@ export type { TooltipProps, TooltipPosition } from './Tooltip'
 // EmptyState
 export { EmptyState, NoDataState, NoSearchResultState, ErrorState } from './EmptyState'
 export type { EmptyStateProps } from './EmptyState'
+
+// KPICard
+export { KPICard } from './KPICard'
+export type { KPICardProps } from './KPICard'
+
+// DataTable
+export { DataTable } from './DataTable'
+export type { DataTableProps, Column } from './DataTable'
+
+// Pagination
+export { Pagination } from './Pagination'
+export type { PaginationProps } from './Pagination'
