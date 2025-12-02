@@ -14,6 +14,8 @@ export default function QueryPreview({ query, onCopy, copied, validation }: Quer
   const hasErrors = validation && !validation.isValid
   const hasWarnings = validation && validation.warnings.length > 0
 
+  const currencySymbol = (query as any).currencyCode === 'JPY' ? '¥' : '$'
+
   return (
     <div className="card sticky top-4">
       {/* 검증 결과 */}
@@ -97,7 +99,7 @@ export default function QueryPreview({ query, onCopy, copied, validation }: Quer
             <span className="font-medium">
               {(query as any).discountType === 'RATE' 
                 ? `${(query as any).discount}%` 
-                : `${(query as any).currencyCode === 'JPY' ? '¥' : '$'}${(query as any).discount}`
+                : `${currencySymbol}${(query as any).discount?.toLocaleString()}`
               }
             </span>
           </div>

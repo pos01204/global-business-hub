@@ -16,6 +16,54 @@ export default function SmartModePanel({ settings, onSettingsChange }: SmartMode
   const [selectedConcept, setSelectedConcept] = useState<Concept | null>(null)
   const [targetRegion, setTargetRegion] = useState<'JP' | 'GLOBAL'>('JP')
 
+  // 지역 변경 시 통화 및 금액 자동 조정
+  const handleRegionChange = (region: 'JP' | 'GLOBAL') => {
+    setTargetRegion(region)
+    
+    const isJPY = region === 'JP'
+    const currencyCode = isJPY ? 'JPY' : 'USD'
+    
+    // 현재 할인 유형에 따라 금액 변환
+    let newDiscount = settings.discount
+    let newMinOrderPrice = settings.minOrderPrice
+    let newMaxDiscountPrice = settings.maxDiscountPrice
+    
+    if (settings.discountType === 'FIXED') {
+      // 정액 할인: 통화 변환 (JPY ↔ USD, 환율 약 150)
+      if (isJPY && settings.currencyCode === 'USD') {
+        // USD → JPY
+        newDiscount = Math.round(settings.discount * 150)
+        newMinOrderPrice = Math.round(settings.minOrderPrice * 150)
+        newMaxDiscountPrice = Math.round(settings.maxDiscountPrice * 150)
+      } else if (!isJPY && settings.currencyCode === 'JPY') {
+        // JPY → USD
+        newDiscount = Math.round(settings.discount / 150)
+        newMinOrderPrice = Math.round(settings.minOrderPrice / 150)
+        newMaxDiscountPrice = Math.round(settings.maxDiscountPrice / 150)
+      }
+    } else {
+      // 정률 할인: 최소/최대 금액만 변환
+      if (isJPY && settings.currencyCode === 'USD') {
+        newMinOrderPrice = Math.round(settings.minOrderPrice * 150)
+        newMaxDiscountPrice = Math.round(settings.maxDiscountPrice * 150)
+      } else if (!isJPY && settings.currencyCode === 'JPY') {
+        newMinOrderPrice = Math.round(settings.minOrderPrice / 150)
+        newMaxDiscountPrice = Math.round(settings.maxDiscountPrice / 150)
+      }
+    }
+    
+    onSettingsChange({
+      ...settings,
+      currencyCode,
+      discount: newDiscount,
+      minOrderPrice: newMinOrderPrice,
+      maxDiscountPrice: newMaxDiscountPrice,
+      applicableTargets: isJPY 
+        ? [{ targetType: 'COUNTRY', targetId: 'JP' }]
+        : [],
+    })
+  }
+
   // 다가오는 이벤트 계산
   const upcomingEvents = useMemo(() => {
     const today = new Date()
@@ -148,7 +196,7 @@ export default function SmartModePanel({ settings, onSettingsChange }: SmartMode
         </div>
         <div className="flex gap-3">
           <button
-            onClick={() => setTargetRegion('JP')}
+            onClick={() => handleRegionChange('JP')}
             className={`px-4 py-2 rounded-lg font-medium transition-all ${
               targetRegion === 'JP'
                 ? 'bg-primary text-white'
@@ -158,7 +206,7 @@ export default function SmartModePanel({ settings, onSettingsChange }: SmartMode
             🇯🇵 일본
           </button>
           <button
-            onClick={() => setTargetRegion('GLOBAL')}
+            onClick={() => handleRegionChange('GLOBAL')}
             className={`px-4 py-2 rounded-lg font-medium transition-all ${
               targetRegion === 'GLOBAL'
                 ? 'bg-primary text-white'
@@ -168,6 +216,11 @@ export default function SmartModePanel({ settings, onSettingsChange }: SmartMode
             🌏 글로벌
           </button>
         </div>
+        {targetRegion === 'GLOBAL' && (
+          <p className="text-sm text-gray-500 mt-2">
+            💡 글로벌 대상은 USD 기준으로 할인이 적용됩니다.
+          </p>
+        )}
       </div>
 
       {/* 컨셉 카테고리 */}

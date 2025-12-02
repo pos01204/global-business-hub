@@ -104,8 +104,14 @@ export default function SegmentSelector({ settings, onSettingsChange }: SegmentS
       </div>
 
       {error && (
-        <div className="mb-4 p-3 bg-red-50 border border-red-200 rounded-lg text-sm text-red-700">
-          {error}
+        <div className="mb-4 p-3 bg-red-50 border border-red-200 rounded-lg text-sm text-red-700 flex items-center justify-between">
+          <span>{error}</span>
+          <button
+            onClick={() => { loadRFMData(); loadChurnData(); }}
+            className="px-3 py-1 bg-red-100 hover:bg-red-200 rounded text-red-700 transition-colors"
+          >
+            다시 시도
+          </button>
         </div>
       )}
 
@@ -139,6 +145,11 @@ export default function SegmentSelector({ settings, onSettingsChange }: SegmentS
             <h4 className="font-medium mb-3 flex items-center gap-2">
               <span>📊</span> RFM 세그먼트
             </h4>
+            {rfmData.length === 0 ? (
+              <div className="p-4 bg-gray-50 rounded-lg text-center text-gray-500 text-sm">
+                RFM 세그먼트 데이터가 없습니다. 고객 분석 탭에서 데이터를 확인해주세요.
+              </div>
+            ) : (
             <div className="grid grid-cols-2 gap-2">
               {rfmData.map(segment => (
                 <button
@@ -158,6 +169,7 @@ export default function SegmentSelector({ settings, onSettingsChange }: SegmentS
                 </button>
               ))}
             </div>
+            )}
           </div>
 
           {/* 이탈 위험 */}

@@ -50,8 +50,9 @@ export default function DiscountOptimizer({ settings, onSettingsChange, targetRe
   const [showSimulation, setShowSimulation] = useState(false)
 
   const isRate = settings.discountType === 'RATE'
-  const isJPY = settings.currencyCode === 'JPY'
-  const currencySymbol = isJPY ? '¥' : '$'
+  // targetRegion 기반으로 통화 결정 (settings.currencyCode보다 우선)
+  const isJPY = targetRegion === 'JP'
+  const currencySymbol = isJPY ? '¥' : '$$'
 
   // 현재 할인 유형에 맞는 추천값
   const recommendation = useMemo(() => {
@@ -93,6 +94,7 @@ export default function DiscountOptimizer({ settings, onSettingsChange, targetRe
   // 추천값 적용
   const applyRecommendation = () => {
     const discount = recommendation.recommended
+    const currencyCode = isJPY ? 'JPY' : 'USD'
     
     if (isRate) {
       // 정률 할인: 최소 주문/최대 할인 자동 계산
@@ -104,6 +106,7 @@ export default function DiscountOptimizer({ settings, onSettingsChange, targetRe
 
       onSettingsChange({
         ...settings,
+        currencyCode,
         discount,
         minOrderPrice,
         maxDiscountPrice,
@@ -112,6 +115,7 @@ export default function DiscountOptimizer({ settings, onSettingsChange, targetRe
       // 정액 할인: 최소 주문 0, 최대 할인 = 할인 금액
       onSettingsChange({
         ...settings,
+        currencyCode,
         discount,
         minOrderPrice: 0,
         maxDiscountPrice: discount,
@@ -121,7 +125,11 @@ export default function DiscountOptimizer({ settings, onSettingsChange, targetRe
 
   // 할인 유형 변경
   const handleDiscountTypeChange = (type: 'RATE' | 'FIXED') => {
-    const newSettings = { ...settings, discountType: type }
+    const newSettings = { 
+      ...settings, 
+      discountType: type,
+      currencyCode: isJPY ? 'JPY' : 'USD',  // targetRegion 기반 통화 설정
+    }
     
     if (type === 'RATE') {
       // 정률로 변경 시 기본값
