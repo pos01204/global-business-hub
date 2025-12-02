@@ -66,6 +66,7 @@ export default function SmartModePanel({ settings, onSettingsChange }: SmartMode
       minOrderPrice,
       maxDiscountPrice,
       isPublic: concept.defaults.isPublic ?? true,
+      issueUserId: 0, // 전체 사용자
       applicableTargets: targetRegion === 'JP' 
         ? [{ targetType: 'COUNTRY', targetId: 'JP' }]
         : [],
@@ -108,6 +109,7 @@ export default function SmartModePanel({ settings, onSettingsChange }: SmartMode
       minOrderPrice,
       maxDiscountPrice,
       isPublic: true,
+      issueUserId: 0, // 전체 사용자
       applicableTargets: isGlobal ? [] : [{ targetType: 'COUNTRY', targetId: 'JP' }],
     })
   }

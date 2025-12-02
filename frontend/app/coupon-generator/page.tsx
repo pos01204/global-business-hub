@@ -1,47 +1,23 @@
 'use client'
 
-import { useState } from 'react'
-import SmartModePanel from './components/SmartModePanel'
-import ManualModePanel from './components/ManualModePanel'
-import QueryPreview from './components/QueryPreview'
-import { CouponSettings, defaultCouponSettings } from './types/coupon'
+import { useState, useEffect, Suspense } from 'react'
+import { useSearchParams } from 'next/navigation'
+import PromotionCouponTab from './components/tabs/PromotionCouponTab'
+import IndividualIssueTab from './components/tabs/IndividualIssueTab'
 
-type GeneratorMode = 'smart' | 'manual'
+type TabType = 'promotion' | 'individual'
 
-export default function CouponGeneratorPage() {
-  const [mode, setMode] = useState<GeneratorMode>('smart')
-  const [settings, setSettings] = useState<CouponSettings>(defaultCouponSettings)
-  const [copied, setCopied] = useState(false)
+function CouponGeneratorContent() {
+  const searchParams = useSearchParams()
+  const [activeTab, setActiveTab] = useState<TabType>('promotion')
 
-  const handleCopyQuery = () => {
-    const query = generateQuery(settings)
-    navigator.clipboard.writeText(JSON.stringify(query, null, 2))
-    setCopied(true)
-    setTimeout(() => setCopied(false), 2000)
-  }
-
-  const generateQuery = (s: CouponSettings) => {
-    return {
-      adminId: 0,
-      issueUserId: 0,
-      couponName: s.couponName,
-      description: s.description,
-      fromDateTime: s.fromDateTime,
-      toDateTime: s.toDateTime,
-      maxValidDateTime: s.toDateTime,
-      validPeriod: s.validPeriod,
-      currencyCode: s.currencyCode,
-      discountType: s.discountType,
-      discount: s.discount,
-      minOrderPrice: s.minOrderPrice,
-      maxDiscountPrice: s.maxDiscountPrice,
-      issueLimit: s.issueLimit,
-      issueLimitPerUser: s.issueLimitPerUser,
-      useLimitPerUser: s.useLimitPerUser,
-      isPublic: s.isPublic,
-      applicableTargets: s.applicableTargets,
+  // URL 파라미터로 탭 정보 받기
+  useEffect(() => {
+    const tab = searchParams.get('tab') as TabType
+    if (tab === 'individual' || tab === 'promotion') {
+      setActiveTab(tab)
     }
-  }
+  }, [searchParams])
 
   return (
     <div className="animate-fade-in">
@@ -60,58 +36,74 @@ export default function CouponGeneratorPage() {
         </div>
       </div>
 
-      {/* 모드 선택 탭 */}
+      {/* 탭 선택 */}
       <div className="border-b mb-6">
         <div className="flex items-center gap-2 mb-4">
           <span className="text-lg">⚡</span>
-          <h2 className="text-lg font-semibold">생성 모드</h2>
+          <h2 className="text-lg font-semibold">쿠폰 발급 유형</h2>
         </div>
         <div className="flex gap-2 flex-wrap">
           <button
-            onClick={() => setMode('smart')}
-            className={`px-4 py-2.5 rounded-lg font-medium transition-all flex items-center gap-2 ${
-              mode === 'smart'
+            onClick={() => setActiveTab('promotion')}
+            className={`px-6 py-3 rounded-lg font-medium transition-all flex items-center gap-3 ${
+              activeTab === 'promotion'
                 ? 'bg-primary text-white shadow-md'
                 : 'bg-gray-100 text-gray-700 hover:bg-gray-200'
             }`}
           >
-            <span>🚀</span>
-            <span>스마트 모드</span>
+            <span className="text-xl">📢</span>
+            <div className="text-left">
+              <div>기획전 쿠폰</div>
+              <div className="text-xs opacity-80">유저가 직접 수령하는 공개/비공개 쿠폰</div>
+            </div>
           </button>
           <button
-            onClick={() => setMode('manual')}
-            className={`px-4 py-2.5 rounded-lg font-medium transition-all flex items-center gap-2 ${
-              mode === 'manual'
+            onClick={() => setActiveTab('individual')}
+            className={`px-6 py-3 rounded-lg font-medium transition-all flex items-center gap-3 ${
+              activeTab === 'individual'
                 ? 'bg-primary text-white shadow-md'
                 : 'bg-gray-100 text-gray-700 hover:bg-gray-200'
             }`}
           >
-            <span>⚙️</span>
-            <span>직접 설정</span>
+            <span className="text-xl">👤</span>
+            <div className="text-left">
+              <div>개별 유저 발급</div>
+              <div className="text-xs opacity-80">특정 유저에게 직접 쿠폰을 발급</div>
+            </div>
           </button>
         </div>
       </div>
 
-      {/* 메인 컨텐츠 */}
-      <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-        {/* 설정 패널 */}
-        <div>
-          {mode === 'smart' ? (
-            <SmartModePanel settings={settings} onSettingsChange={setSettings} />
-          ) : (
-            <ManualModePanel settings={settings} onSettingsChange={setSettings} />
-          )}
-        </div>
+      {/* 탭 컨텐츠 */}
+      {activeTab === 'promotion' ? (
+        <PromotionCouponTab />
+      ) : (
+        <IndividualIssueTab />
+      )}
 
-        {/* 쿼리 미리보기 */}
-        <div>
-          <QueryPreview 
-            query={generateQuery(settings)} 
-            onCopy={handleCopyQuery}
-            copied={copied}
-          />
+      {/* 제약사항 안내 */}
+      <div className="mt-6 p-4 bg-amber-50 border border-amber-200 rounded-xl">
+        <div className="flex items-start gap-3">
+          <span className="text-xl">⚠️</span>
+          <div>
+            <h4 className="font-medium text-amber-800 mb-2">쿠폰 적용 범위 안내</h4>
+            <ul className="text-sm text-amber-700 space-y-1">
+              <li>• 기획전 쿠폰은 <strong>기획전(쇼룸)</strong> 또는 <strong>국가</strong> 단위로만 적용 가능합니다.</li>
+              <li>• 개별 상품, 카테고리, 아티스트 단위 적용은 불가능합니다.</li>
+              <li>• 개별 유저 발급은 기존 생성된 쿠폰 ID를 사용하여 특정 유저에게 발급합니다.</li>
+              <li>• 아티스트 프로모션 시 해당 아티스트의 쇼룸 ID를 사용하세요.</li>
+            </ul>
+          </div>
         </div>
       </div>
     </div>
+  )
+}
+
+export default function CouponGeneratorPage() {
+  return (
+    <Suspense fallback={<div className="animate-pulse p-8 text-center">로딩 중...</div>}>
+      <CouponGeneratorContent />
+    </Suspense>
   )
 }

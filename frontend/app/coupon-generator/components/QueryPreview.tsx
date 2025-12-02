@@ -1,16 +1,53 @@
 'use client'
 
+import { ValidationResult } from '../types/coupon'
+
 interface QueryPreviewProps {
   query: object
   onCopy: () => void
   copied: boolean
+  validation?: ValidationResult
 }
 
-export default function QueryPreview({ query, onCopy, copied }: QueryPreviewProps) {
+export default function QueryPreview({ query, onCopy, copied, validation }: QueryPreviewProps) {
   const jsonString = JSON.stringify(query, null, 2)
+  const hasErrors = validation && !validation.isValid
+  const hasWarnings = validation && validation.warnings.length > 0
 
   return (
     <div className="card sticky top-4">
+      {/* 검증 결과 */}
+      {validation && (hasErrors || hasWarnings) && (
+        <div className="mb-4 space-y-2">
+          {hasErrors && (
+            <div className="p-3 bg-red-50 border border-red-200 rounded-lg">
+              <div className="flex items-center gap-2 text-red-700 font-medium mb-1">
+                <span>❌</span>
+                <span>입력 오류</span>
+              </div>
+              <ul className="text-sm text-red-600 space-y-1">
+                {validation.errors.map((error, i) => (
+                  <li key={i}>• {error}</li>
+                ))}
+              </ul>
+            </div>
+          )}
+          {hasWarnings && (
+            <div className="p-3 bg-yellow-50 border border-yellow-200 rounded-lg">
+              <div className="flex items-center gap-2 text-yellow-700 font-medium mb-1">
+                <span>⚠️</span>
+                <span>주의사항</span>
+              </div>
+              <ul className="text-sm text-yellow-600 space-y-1">
+                {validation.warnings.map((warning, i) => (
+                  <li key={i}>• {warning}</li>
+                ))}
+              </ul>
+            </div>
+          )}
+        </div>
+      )}
+
       <div className="flex items-center justify-between mb-4">
         <div className="flex items-center gap-2">
           <span className="text-xl">📋</span>
@@ -18,10 +55,13 @@ export default function QueryPreview({ query, onCopy, copied }: QueryPreviewProp
         </div>
         <button
           onClick={onCopy}
+          disabled={hasErrors}
           className={`px-4 py-2 rounded-lg font-medium transition-all flex items-center gap-2 ${
-            copied
-              ? 'bg-green-500 text-white'
-              : 'bg-primary text-white hover:bg-primary/90'
+            hasErrors
+              ? 'bg-gray-300 text-gray-500 cursor-not-allowed'
+              : copied
+                ? 'bg-green-500 text-white'
+                : 'bg-primary text-white hover:bg-primary/90'
           }`}
         >
           {copied ? (

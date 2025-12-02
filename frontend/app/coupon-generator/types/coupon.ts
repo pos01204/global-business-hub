@@ -13,7 +13,66 @@ export interface CouponSettings {
   issueLimitPerUser: number
   useLimitPerUser: number
   isPublic: boolean
+  issueUserId: number  // 0 = 전체 사용자, 특정 ID = 개별 사용자
   applicableTargets: ApplicableTarget[]
+}
+
+// 입력값 검증 결과
+export interface ValidationResult {
+  isValid: boolean
+  errors: string[]
+  warnings: string[]
+}
+
+// 쿠폰 설정 검증
+export function validateCouponSettings(settings: CouponSettings): ValidationResult {
+  const errors: string[] = []
+  const warnings: string[] = []
+
+  // 필수 필드 검증
+  if (!settings.couponName.trim()) {
+    errors.push('쿠폰명을 입력해주세요.')
+  }
+  if (!settings.description.trim()) {
+    errors.push('설명을 입력해주세요.')
+  }
+
+  // 날짜 검증
+  const fromDate = new Date(settings.fromDateTime)
+  const toDate = new Date(settings.toDateTime)
+  if (fromDate >= toDate) {
+    errors.push('종료일은 시작일보다 이후여야 합니다.')
+  }
+
+  // 할인 검증
+  if (settings.discountType === 'RATE') {
+    if (settings.discount <= 0 || settings.discount > 100) {
+      errors.push('할인율은 1~100% 사이여야 합니다.')
+    }
+    if (settings.discount > 30) {
+      warnings.push('30% 이상 할인은 수익성에 큰 영향을 줄 수 있습니다.')
+    }
+  } else {
+    if (settings.discount <= 0) {
+      errors.push('할인 금액은 0보다 커야 합니다.')
+    }
+  }
+
+  // 발급 수량 검증
+  if (settings.issueLimit <= 0) {
+    errors.push('총 발급 수량은 1 이상이어야 합니다.')
+  }
+
+  // 적용 대상 검증
+  if (settings.applicableTargets.length === 0 && settings.isPublic) {
+    warnings.push('적용 대상이 없으면 전체 사용자에게 공개됩니다.')
+  }
+
+  return {
+    isValid: errors.length === 0,
+    errors,
+    warnings,
+  }
 }
 
 export interface ApplicableTarget {
@@ -73,5 +132,6 @@ export const defaultCouponSettings: CouponSettings = {
   issueLimitPerUser: 1,
   useLimitPerUser: 1,
   isPublic: true,
+  issueUserId: 0,  // 0 = 전체 사용자
   applicableTargets: [],
 }

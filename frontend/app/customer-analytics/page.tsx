@@ -1,6 +1,7 @@
 'use client'
 
 import { useState } from 'react'
+import { useRouter } from 'next/navigation'
 import { useQuery, useMutation } from '@tanstack/react-query'
 import { customerAnalyticsApi } from '@/lib/api'
 import {
@@ -92,12 +93,19 @@ export default function CustomerAnalyticsPage() {
 
 // RFM 세그먼테이션 탭
 function RFMTab() {
+  const router = useRouter()
   const { data, isLoading, error } = useQuery({
     queryKey: ['rfm'],
     queryFn: customerAnalyticsApi.getRFM,
   })
 
   const [selectedSegment, setSelectedSegment] = useState<string | null>(null)
+
+  // 쿠폰 발급 페이지로 이동
+  const handleIssueCoupon = (segment: any) => {
+    const userIds = segment.customers.map((c: any) => c.userId).join(',')
+    router.push(`/coupon-generator?tab=individual&segment=${segment.segment}&userIds=${userIds}`)
+  }
 
   if (isLoading) return <LoadingState />
   if (error) return <ErrorState />
@@ -226,12 +234,21 @@ function RFMTab() {
               />
               <h3 className="text-lg font-semibold">{selectedData.label} 고객 상세</h3>
             </div>
-            <button
-              onClick={() => setSelectedSegment(null)}
-              className="text-slate-400 hover:text-slate-600"
-            >
-              ✕
-            </button>
+            <div className="flex items-center gap-2">
+              <button
+                onClick={() => handleIssueCoupon(selectedData)}
+                className="px-4 py-2 bg-amber-500 hover:bg-amber-600 text-white rounded-lg font-medium transition-colors flex items-center gap-2"
+              >
+                <span>🎟️</span>
+                <span>이 세그먼트에 쿠폰 발급</span>
+              </button>
+              <button
+                onClick={() => setSelectedSegment(null)}
+                className="text-slate-400 hover:text-slate-600 p-2"
+              >
+                ✕
+              </button>
+            </div>
           </div>
           <p className="text-sm text-slate-600 mb-4">{selectedData.description}</p>
           
@@ -516,10 +533,18 @@ function ConversionTab() {
 
 // 이탈 위험 탭
 function ChurnRiskTab() {
+  const router = useRouter()
   const { data, isLoading, error } = useQuery({
     queryKey: ['churn-risk'],
     queryFn: customerAnalyticsApi.getChurnRisk,
   })
+
+  // 이탈 위험 고객에게 쿠폰 발급
+  const handleIssueCoupon = (riskLevel: 'high' | 'medium' | 'low', customers: any[]) => {
+    const userIds = customers.map((c: any) => c.userId).join(',')
+    const levelLabels = { high: '높은위험', medium: '중간위험', low: '낮은위험' }
+    router.push(`/coupon-generator?tab=individual&segment=${levelLabels[riskLevel]}&userIds=${userIds}`)
+  }
 
   if (isLoading) return <LoadingState />
   if (error) return <ErrorState />
@@ -530,16 +555,25 @@ function ChurnRiskTab() {
       {/* 경고 배너 */}
       {data.summary.highRiskCount > 0 && (
         <div className="bg-gradient-to-r from-red-500 to-orange-500 rounded-xl p-4 text-white">
-          <div className="flex items-center gap-3">
-            <span className="text-2xl">🚨</span>
-            <div>
-              <p className="font-semibold">
-                이탈 위험 고객 {data.summary.highRiskCount}명 감지
-              </p>
-              <p className="text-sm opacity-90">
-                예상 손실 매출: ₩{(data.summary.potentialRevenueLoss / 10000).toFixed(0)}만원
-              </p>
+          <div className="flex items-center justify-between">
+            <div className="flex items-center gap-3">
+              <span className="text-2xl">🚨</span>
+              <div>
+                <p className="font-semibold">
+                  이탈 위험 고객 {data.summary.highRiskCount}명 감지
+                </p>
+                <p className="text-sm opacity-90">
+                  예상 손실 매출: ₩{(data.summary.potentialRevenueLoss / 10000).toFixed(0)}만원
+                </p>
+              </div>
             </div>
+            <button
+              onClick={() => handleIssueCoupon('high', data.highRisk)}
+              className="px-4 py-2 bg-white/20 hover:bg-white/30 rounded-lg font-medium transition-colors flex items-center gap-2"
+            >
+              <span>🎟️</span>
+              <span>긴급 쿠폰 발급</span>
+            </button>
           </div>
         </div>
       )}
@@ -581,7 +615,16 @@ function ChurnRiskTab() {
             <span className="w-3 h-3 bg-red-500 rounded-full"></span>
             높은 위험 고객
           </h3>
-          <span className="text-sm text-slate-500">{data.highRisk.length}명</span>
+          <div className="flex items-center gap-3">
+            <span className="text-sm text-slate-500">{data.highRisk.length}명</span>
+            <button
+              onClick={() => handleIssueCoupon('high', data.highRisk)}
+              className="px-3 py-1.5 bg-red-500 hover:bg-red-600 text-white rounded-lg text-sm font-medium transition-colors flex items-center gap-1"
+            >
+              <span>🎟️</span>
+              <span>쿠폰 발급</span>
+            </button>
+          </div>
         </div>
 
         <div className="overflow-x-auto">
@@ -646,7 +689,16 @@ function ChurnRiskTab() {
             <span className="w-3 h-3 bg-yellow-500 rounded-full"></span>
             중간 위험 고객
           </h3>
-          <span className="text-sm text-slate-500">{data.mediumRisk.length}명</span>
+          <div className="flex items-center gap-3">
+            <span className="text-sm text-slate-500">{data.mediumRisk.length}명</span>
+            <button
+              onClick={() => handleIssueCoupon('medium', data.mediumRisk)}
+              className="px-3 py-1.5 bg-yellow-500 hover:bg-yellow-600 text-white rounded-lg text-sm font-medium transition-colors flex items-center gap-1"
+            >
+              <span>🎟️</span>
+              <span>쿠폰 발급</span>
+            </button>
+          </div>
         </div>
 
         <div className="overflow-x-auto">

@@ -208,6 +208,48 @@ export default function CouponForm({ settings, onSettingsChange, showAdvanced = 
             {/* 발급 설정 */}
             <div className="border-t pt-4">
               <h4 className="font-medium mb-3">🎯 발급 설정</h4>
+              
+              {/* 발급 대상 */}
+              <div className="mb-4">
+                <label className="block text-sm font-medium text-gray-700 mb-2">발급 대상</label>
+                <div className="flex gap-2 mb-2">
+                  <button
+                    onClick={() => onSettingsChange({ ...settings, issueUserId: 0 })}
+                    className={`px-3 py-1.5 rounded-lg text-sm transition-all ${
+                      settings.issueUserId === 0
+                        ? 'bg-primary text-white'
+                        : 'bg-gray-100 text-gray-700 hover:bg-gray-200'
+                    }`}
+                  >
+                    전체 사용자
+                  </button>
+                  <button
+                    onClick={() => onSettingsChange({ ...settings, issueUserId: -1 })}
+                    className={`px-3 py-1.5 rounded-lg text-sm transition-all ${
+                      settings.issueUserId !== 0
+                        ? 'bg-primary text-white'
+                        : 'bg-gray-100 text-gray-700 hover:bg-gray-200'
+                    }`}
+                  >
+                    특정 사용자
+                  </button>
+                </div>
+                {settings.issueUserId !== 0 && (
+                  <input
+                    type="number"
+                    value={settings.issueUserId === -1 ? '' : settings.issueUserId}
+                    onChange={e => onSettingsChange({ ...settings, issueUserId: parseInt(e.target.value) || -1 })}
+                    className="w-full px-3 py-2 border rounded-lg focus:ring-2 focus:ring-primary/20 focus:border-primary"
+                    placeholder="사용자 ID 입력"
+                  />
+                )}
+                <p className="text-xs text-gray-500 mt-1">
+                  {settings.issueUserId === 0 
+                    ? '모든 사용자가 쿠폰을 받을 수 있습니다.' 
+                    : 'VIP, 휴면 고객 복귀, CS 보상 등에 사용합니다.'}
+                </p>
+              </div>
+
               <div className="grid grid-cols-3 gap-4 mb-3">
                 <div>
                   <label className="block text-sm font-medium text-gray-700 mb-1">총 발급</label>
