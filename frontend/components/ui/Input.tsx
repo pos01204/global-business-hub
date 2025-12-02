@@ -2,7 +2,7 @@
 
 import React from 'react'
 
-export interface InputProps extends Omit<React.InputHTMLAttributes<HTMLInputElement>, 'size'> {
+export interface InputProps extends Omit<React.InputHTMLAttributes<HTMLInputElement>, 'size' | 'prefix'> {
   label?: string
   error?: string
   hint?: string
