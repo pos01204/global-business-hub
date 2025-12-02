@@ -653,3 +653,125 @@ tbody tr:hover {
   color: var(--idus-orange-dark);
   text-decoration: underline;
 }
+
+/* ===================================
+   Accessibility Styles
+   =================================== */
+
+/* 포커스 링 - 브랜드 컬러 적용 */
+:focus-visible {
+  outline: none;
+  box-shadow: 0 0 0 2px white, 0 0 0 4px var(--idus-orange);
+}
+
+/* 다크 배경에서의 포커스 링 */
+.dark :focus-visible,
+[data-theme="dark"] :focus-visible {
+  box-shadow: 0 0 0 2px var(--card-background-color), 0 0 0 4px var(--idus-orange);
+}
+
+/* 스킵 네비게이션 링크 */
+.skip-link {
+  position: absolute;
+  top: -40px;
+  left: 0;
+  background: var(--idus-orange);
+  color: white;
+  padding: 8px 16px;
+  z-index: 100;
+  font-weight: 600;
+  border-radius: 0 0 var(--radius-md) 0;
+  transition: top var(--transition-fast);
+}
+
+.skip-link:focus {
+  top: 0;
+}
+
+/* 스크린 리더 전용 텍스트 */
+.sr-only {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  padding: 0;
+  margin: -1px;
+  overflow: hidden;
+  clip: rect(0, 0, 0, 0);
+  white-space: nowrap;
+  border-width: 0;
+}
+
+/* 포커스 시에만 보이는 요소 */
+.sr-only-focusable:focus {
+  position: static;
+  width: auto;
+  height: auto;
+  padding: inherit;
+  margin: inherit;
+  overflow: visible;
+  clip: auto;
+  white-space: normal;
+}
+
+/* 고대비 모드 지원 */
+@media (prefers-contrast: high) {
+  :root {
+    --border-color: #000;
+    --text-muted-color: #333;
+  }
+  
+  .card,
+  .btn,
+  input,
+  select,
+  textarea {
+    border-width: 2px;
+  }
+}
+
+/* 모션 감소 설정 지원 */
+@media (prefers-reduced-motion: reduce) {
+  *,
+  *::before,
+  *::after {
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.01ms !important;
+    scroll-behavior: auto !important;
+  }
+  
+  .skeleton {
+    animation: none;
+    background: var(--border-light);
+  }
+}
+
+/* 터치 디바이스 최적화 */
+@media (hover: none) and (pointer: coarse) {
+  .btn,
+  button,
+  a,
+  input,
+  select,
+  textarea {
+    min-height: 44px;
+    min-width: 44px;
+  }
+}
+
+/* 인쇄 스타일 */
+@media print {
+  .no-print {
+    display: none !important;
+  }
+  
+  body {
+    background: white;
+    color: black;
+  }
+  
+  .card {
+    box-shadow: none;
+    border: 1px solid #ccc;
+  }
+}

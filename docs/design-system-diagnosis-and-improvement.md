@@ -890,3 +890,6 @@ interface ConfirmDialogProps {
 | 1.0 | 2025-12-02 | - | 초안 작성 - 전체 진단 및 개선안 |
 | 1.1 | 2025-12-02 | - | Phase 1 높은 우선순위 항목 구현: Button(C1), Tabs(C5), Toast(C7), Loading(G1), Sidebar(B1) |
 | 1.2 | 2025-12-02 | - | Phase 2 중간 우선순위 항목 구현: Card(C2), Input(C3), Modal(C4), Select(F2), Badge, Tooltip, ConfirmDialog(G3) |
+| 1.3 | 2025-12-02 | - | 데이터 표시 컴포넌트 추가: KPICard(D1), DataTable(C6), Pagination(E2) |
+| 1.4 | 2025-12-02 | - | 페이지별 적용 완료: 쿠폰 생성기, 작가 분석, 고객 분석, QC 관리 |
+| 1.5 | 2025-12-02 | - | 접근성 개선: 포커스 링(H4), 고대비 모드(H3), 모션 감소 지원 |

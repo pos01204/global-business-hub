@@ -6,9 +6,18 @@ import TextQCTab from './components/TextQCTab'
 import ImageQCTab from './components/ImageQCTab'
 import ArtistsNotificationTab from './components/ArtistsNotificationTab'
 import QCArchiveTab from './components/QCArchiveTab'
+import { Tabs, TabPanel } from '@/components/ui'
 
 // 탭 타입 정의
 type QCTab = 'upload' | 'text' | 'image' | 'artists' | 'archive'
+
+const tabItems = [
+  { id: 'upload', label: 'CSV 업로드', icon: <span>📤</span> },
+  { id: 'text', label: '텍스트 QC', icon: <span>📝</span> },
+  { id: 'image', label: '이미지 QC', icon: <span>🖼️</span> },
+  { id: 'artists', label: '작가 알람 명단', icon: <span>👥</span> },
+  { id: 'archive', label: 'QC 아카이브', icon: <span>📚</span> },
+]
 
 export default function QCPage() {
   const [activeTab, setActiveTab] = useState<QCTab>('upload')
@@ -29,122 +38,66 @@ export default function QCPage() {
         </div>
       </div>
 
-      {/* 탭 네비게이션 */}
-      <div className="border-b mb-6">
+      {/* 탭 네비게이션 - 공통 Tabs 컴포넌트 사용 */}
+      <div className="mb-6">
         <div className="flex items-center gap-2 mb-4">
           <span className="text-lg">📑</span>
           <h2 className="text-lg font-semibold">QC 기능</h2>
         </div>
-        <div className="flex gap-2 flex-wrap">
-          <button
-            onClick={() => setActiveTab('upload')}
-            className={`px-4 py-2.5 rounded-lg font-medium transition-all flex items-center gap-2 ${
-              activeTab === 'upload'
-                ? 'bg-primary text-white shadow-md'
-                : 'bg-gray-100 text-gray-700 hover:bg-gray-200'
-            }`}
-          >
-            <span>📤</span>
-            <span>CSV 업로드</span>
-          </button>
-          <button
-            onClick={() => setActiveTab('text')}
-            className={`px-4 py-2.5 rounded-lg font-medium transition-all flex items-center gap-2 ${
-              activeTab === 'text'
-                ? 'bg-primary text-white shadow-md'
-                : 'bg-gray-100 text-gray-700 hover:bg-gray-200'
-            }`}
-          >
-            <span>📝</span>
-            <span>텍스트 QC</span>
-          </button>
-          <button
-            onClick={() => setActiveTab('image')}
-            className={`px-4 py-2.5 rounded-lg font-medium transition-all flex items-center gap-2 ${
-              activeTab === 'image'
-                ? 'bg-primary text-white shadow-md'
-                : 'bg-gray-100 text-gray-700 hover:bg-gray-200'
-            }`}
-          >
-            <span>🖼️</span>
-            <span>이미지 QC</span>
-          </button>
-          <button
-            onClick={() => setActiveTab('artists')}
-            className={`px-4 py-2.5 rounded-lg font-medium transition-all flex items-center gap-2 ${
-              activeTab === 'artists'
-                ? 'bg-primary text-white shadow-md'
-                : 'bg-gray-100 text-gray-700 hover:bg-gray-200'
-            }`}
-          >
-            <span>👥</span>
-            <span>작가 알람 명단</span>
-          </button>
-          <button
-            onClick={() => setActiveTab('archive')}
-            className={`px-4 py-2.5 rounded-lg font-medium transition-all flex items-center gap-2 ${
-              activeTab === 'archive'
-                ? 'bg-primary text-white shadow-md'
-                : 'bg-gray-100 text-gray-700 hover:bg-gray-200'
-            }`}
-          >
-            <span>📚</span>
-            <span>QC 아카이브</span>
-          </button>
-        </div>
+        <Tabs
+          items={tabItems}
+          activeTab={activeTab}
+          onChange={(tab) => setActiveTab(tab as QCTab)}
+          variant="pills"
+          size="md"
+        />
       </div>
 
       {/* 탭 컨텐츠 */}
       <div>
-        {activeTab === 'upload' && <CSVUploadTab />}
+        <TabPanel id="upload" activeTab={activeTab}>
+          <CSVUploadTab />
+        </TabPanel>
 
-        {activeTab === 'text' && (
-          <div>
-            <div className="mb-6">
-              <h2 className="text-xl font-semibold mb-2">📝 텍스트 QC</h2>
-              <p className="text-gray-600">
-                일본어 원문과 한글 번역을 비교하여 QC를 진행하세요.
-              </p>
-            </div>
-            <TextQCTab />
+        <TabPanel id="text" activeTab={activeTab}>
+          <div className="mb-6">
+            <h2 className="text-xl font-semibold mb-2">📝 텍스트 QC</h2>
+            <p className="text-gray-600">
+              일본어 원문과 한글 번역을 비교하여 QC를 진행하세요.
+            </p>
           </div>
-        )}
+          <TextQCTab />
+        </TabPanel>
 
-        {activeTab === 'image' && (
-          <div>
-            <div className="mb-6">
-              <h2 className="text-xl font-semibold mb-2">🖼️ 이미지 QC</h2>
-              <p className="text-gray-600">
-                이미지와 OCR 결과를 확인하여 QC를 진행하세요. 이미지를 클릭하면 확대 보기가 가능합니다.
-              </p>
-            </div>
-            <ImageQCTab />
+        <TabPanel id="image" activeTab={activeTab}>
+          <div className="mb-6">
+            <h2 className="text-xl font-semibold mb-2">🖼️ 이미지 QC</h2>
+            <p className="text-gray-600">
+              이미지와 OCR 결과를 확인하여 QC를 진행하세요. 이미지를 클릭하면 확대 보기가 가능합니다.
+            </p>
           </div>
-        )}
+          <ImageQCTab />
+        </TabPanel>
 
-        {activeTab === 'artists' && (
-          <div>
-            <div className="mb-6">
-              <h2 className="text-xl font-semibold mb-2">👥 작가 알람 명단</h2>
-              <p className="text-gray-600">
-                수정이 필요한 항목에 대해 알람을 보내야 할 작가 명단을 확인하세요.
-              </p>
-            </div>
-            <ArtistsNotificationTab />
+        <TabPanel id="artists" activeTab={activeTab}>
+          <div className="mb-6">
+            <h2 className="text-xl font-semibold mb-2">👥 작가 알람 명단</h2>
+            <p className="text-gray-600">
+              수정이 필요한 항목에 대해 알람을 보내야 할 작가 명단을 확인하세요.
+            </p>
           </div>
-        )}
+          <ArtistsNotificationTab />
+        </TabPanel>
 
-        {activeTab === 'archive' && (
-          <div>
-            <div className="mb-6">
-              <h2 className="text-xl font-semibold mb-2">📚 QC 아카이브</h2>
-              <p className="text-gray-600">
-                완료된 QC 내역을 조회하고 통계를 확인하세요.
-              </p>
-            </div>
-            <QCArchiveTab />
+        <TabPanel id="archive" activeTab={activeTab}>
+          <div className="mb-6">
+            <h2 className="text-xl font-semibold mb-2">📚 QC 아카이브</h2>
+            <p className="text-gray-600">
+              완료된 QC 내역을 조회하고 통계를 확인하세요.
+            </p>
           </div>
-        )}
+          <QCArchiveTab />
+        </TabPanel>
       </div>
     </div>
   )

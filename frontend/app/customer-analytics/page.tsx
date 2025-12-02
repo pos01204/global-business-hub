@@ -4,6 +4,7 @@ import { useState } from 'react'
 import { useRouter } from 'next/navigation'
 import { useQuery, useMutation } from '@tanstack/react-query'
 import { customerAnalyticsApi } from '@/lib/api'
+import { Tabs, TabPanel } from '@/components/ui'
 import {
   Chart as ChartJS,
   CategoryScale,
@@ -34,17 +35,17 @@ ChartJS.register(
 
 type TabType = 'rfm' | 'conversion' | 'churn' | 'cohort' | 'ltv' | 'coupon'
 
+const tabItems = [
+  { id: 'rfm', label: 'RFM 세그먼트', icon: <span>👥</span> },
+  { id: 'conversion', label: '구매 전환', icon: <span>🔄</span> },
+  { id: 'churn', label: '이탈 위험', icon: <span>⚠️</span> },
+  { id: 'cohort', label: '코호트 분석', icon: <span>📊</span> },
+  { id: 'ltv', label: 'LTV 분석', icon: <span>💰</span> },
+  { id: 'coupon', label: '쿠폰 시뮬레이터', icon: <span>🎫</span> },
+]
+
 export default function CustomerAnalyticsPage() {
   const [activeTab, setActiveTab] = useState<TabType>('rfm')
-
-  const tabs = [
-    { id: 'rfm' as const, label: 'RFM 세그먼트', icon: '👥' },
-    { id: 'conversion' as const, label: '구매 전환', icon: '🔄' },
-    { id: 'churn' as const, label: '이탈 위험', icon: '⚠️' },
-    { id: 'cohort' as const, label: '코호트 분석', icon: '📊' },
-    { id: 'ltv' as const, label: 'LTV 분석', icon: '💰' },
-    { id: 'coupon' as const, label: '쿠폰 시뮬레이터', icon: '🎫' },
-  ]
 
   return (
     <div className="animate-fade-in">
@@ -62,31 +63,36 @@ export default function CustomerAnalyticsPage() {
         </div>
       </div>
 
-      {/* 탭 네비게이션 */}
-      <div className="flex gap-2 mb-6 overflow-x-auto pb-2">
-        {tabs.map((tab) => (
-          <button
-            key={tab.id}
-            onClick={() => setActiveTab(tab.id)}
-            className={`flex items-center gap-2 px-4 py-2.5 rounded-xl font-medium transition-all whitespace-nowrap ${
-              activeTab === tab.id
-                ? 'bg-slate-800 text-white shadow-lg'
-                : 'bg-white text-slate-600 hover:bg-slate-50 border border-slate-200'
-            }`}
-          >
-            <span>{tab.icon}</span>
-            <span>{tab.label}</span>
-          </button>
-        ))}
+      {/* 탭 네비게이션 - 공통 Tabs 컴포넌트 사용 */}
+      <div className="mb-6">
+        <Tabs
+          items={tabItems}
+          activeTab={activeTab}
+          onChange={(tab) => setActiveTab(tab as TabType)}
+          variant="pills"
+          size="md"
+        />
       </div>
 
       {/* 탭 컨텐츠 */}
-      {activeTab === 'rfm' && <RFMTab />}
-      {activeTab === 'conversion' && <ConversionTab />}
-      {activeTab === 'churn' && <ChurnRiskTab />}
-      {activeTab === 'cohort' && <CohortTab />}
-      {activeTab === 'ltv' && <LTVTab />}
-      {activeTab === 'coupon' && <CouponSimulatorTab />}
+      <TabPanel id="rfm" activeTab={activeTab}>
+        <RFMTab />
+      </TabPanel>
+      <TabPanel id="conversion" activeTab={activeTab}>
+        <ConversionTab />
+      </TabPanel>
+      <TabPanel id="churn" activeTab={activeTab}>
+        <ChurnRiskTab />
+      </TabPanel>
+      <TabPanel id="cohort" activeTab={activeTab}>
+        <CohortTab />
+      </TabPanel>
+      <TabPanel id="ltv" activeTab={activeTab}>
+        <LTVTab />
+      </TabPanel>
+      <TabPanel id="coupon" activeTab={activeTab}>
+        <CouponSimulatorTab />
+      </TabPanel>
     </div>
   )
 }
