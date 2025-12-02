@@ -65,7 +65,7 @@ const navGroups: NavGroup[] = [
     title: '도구',
     items: [
       { href: '/marketer', label: '퍼포먼스 마케터', icon: '🎯' },
-      { href: '/coupon-generator', label: '쿠폰 생성기', icon: '🎟️' },
+      { href: '/coupon-generator', label: '쿠폰 생성/발급', icon: '🎟️' },
       { href: '/chat', label: 'AI 어시스턴트', icon: '🤖' },
     ],
   },

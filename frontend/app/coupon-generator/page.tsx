@@ -30,8 +30,8 @@ function CouponGeneratorContent() {
             <span className="text-3xl">🎟️</span>
           </div>
           <div>
-            <h1 className="text-2xl font-extrabold text-white tracking-tight">쿠폰 쿼리 생성기</h1>
-            <p className="text-white/80 text-sm font-medium">마케팅 캠페인용 쿠폰 발급 쿼리를 쉽게 생성하세요</p>
+            <h1 className="text-2xl font-extrabold text-white tracking-tight">쿠폰 생성/발급 도우미</h1>
+            <p className="text-white/80 text-sm font-medium">마케팅 캠페인용 쿠폰 쿼리를 쉽게 생성하고 발급하세요</p>
           </div>
         </div>
       </div>
