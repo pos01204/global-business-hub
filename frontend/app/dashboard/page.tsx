@@ -5,6 +5,7 @@ import { dashboardApi, controlTowerApi, artistAnalyticsApi } from '@/lib/api'
 import Link from 'next/link'
 import { useState, useEffect } from 'react'
 import { format } from 'date-fns'
+import { LoadingOverlay, ErrorState, KPICard, Button } from '@/components/ui'
 import {
   Chart as ChartJS,
   CategoryScale,
@@ -94,14 +95,7 @@ export default function DashboardPage() {
   }
 
   if (isLoading) {
-    return (
-      <div className="min-h-[60vh] flex items-center justify-center">
-        <div className="text-center">
-          <div className="w-8 h-8 border-2 border-slate-200 border-t-slate-600 rounded-full animate-spin mx-auto mb-3"></div>
-          <p className="text-slate-500 text-sm">불러오는 중...</p>
-        </div>
-      </div>
-    )
+    return <LoadingOverlay message="대시보드 데이터를 불러오는 중..." />
   }
 
   if (error) {

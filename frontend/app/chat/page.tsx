@@ -3,6 +3,7 @@
 import React, { useState, useRef, useEffect } from 'react'
 import { useMutation, useQuery } from '@tanstack/react-query'
 import { chatApi } from '@/lib/api'
+import { Button, Spinner, Badge } from '@/components/ui'
 import { Bar, Line, Pie } from 'react-chartjs-2'
 import {
   Chart as ChartJS,

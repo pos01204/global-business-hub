@@ -63,3 +63,15 @@ export type { DataTableProps, Column } from './DataTable'
 // Pagination
 export { Pagination } from './Pagination'
 export type { PaginationProps } from './Pagination'
+
+// Progress
+export { Progress, CircularProgress } from './Progress'
+export type { ProgressProps, CircularProgressProps } from './Progress'
+
+// Toggle
+export { Toggle } from './Toggle'
+export type { ToggleProps } from './Toggle'
+
+// Breadcrumb
+export { Breadcrumb } from './Breadcrumb'
+export type { BreadcrumbProps, BreadcrumbItem } from './Breadcrumb'
