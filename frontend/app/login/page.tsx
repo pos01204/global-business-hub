@@ -25,7 +25,7 @@ export default function LoginPage() {
   const getErrorMessage = (error: string | null) => {
     switch (error) {
       case 'unauthorized_domain':
-        return '허용되지 않은 이메일 도메인입니다. @backpackr.kr 계정으로 로그인해주세요.'
+        return '허용되지 않은 이메일 도메인입니다. @backpac.kr 계정으로 로그인해주세요.'
       case 'OAuthAccountNotLinked':
         return '이미 다른 방식으로 가입된 이메일입니다.'
       case 'AccessDenied':
@@ -99,7 +99,7 @@ export default function LoginPage() {
 
         <div className="mt-6 text-center">
           <p className="text-xs text-slate-400">
-            @backpackr.kr 이메일 계정만 접근 가능합니다
+            @backpac.kr 이메일 계정만 접근 가능합니다
           </p>
         </div>
       </div>
