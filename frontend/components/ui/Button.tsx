@@ -37,17 +37,19 @@ export const Button = React.forwardRef<HTMLButtonElement, ButtonProps>(
     const variants = {
       primary: `
         bg-gradient-to-br from-[#F78C3A] to-[#E67729] text-white
+        dark:from-orange-600 dark:to-orange-700
         hover:from-[#E67729] hover:to-[#D56618] hover:shadow-lg hover:-translate-y-0.5
-        active:translate-y-0 focus-visible:ring-orange-400
+        dark:hover:from-orange-500 dark:hover:to-orange-600
+        active:translate-y-0 focus-visible:ring-orange-400 dark:focus-visible:ring-orange-500
       `,
       secondary: `
-        bg-white dark:bg-slate-800 text-slate-700 dark:text-slate-200 border border-slate-200 dark:border-slate-700 shadow-sm
-        hover:bg-slate-50 dark:hover:bg-slate-700 hover:border-orange-300 dark:hover:border-orange-500 hover:text-orange-600 dark:hover:text-orange-400
+        bg-white dark:bg-slate-800 text-slate-700 dark:text-slate-200 border border-slate-200 dark:border-slate-700 shadow-sm dark:shadow-none
+        hover:bg-slate-50 dark:hover:bg-slate-700 hover:border-orange-300 dark:hover:border-orange-600 hover:text-orange-600 dark:hover:text-orange-400
         focus-visible:ring-slate-400 dark:focus-visible:ring-slate-500
       `,
       outline: `
-        bg-transparent text-[#F78C3A] border-2 border-[#F78C3A]
-        hover:bg-orange-50 dark:hover:bg-orange-900/20 focus-visible:ring-orange-400
+        bg-transparent text-[#F78C3A] dark:text-orange-400 border-2 border-[#F78C3A] dark:border-orange-500
+        hover:bg-orange-50 dark:hover:bg-orange-900/30 focus-visible:ring-orange-400 dark:focus-visible:ring-orange-500
       `,
       ghost: `
         bg-transparent text-slate-600 dark:text-slate-400
@@ -56,8 +58,10 @@ export const Button = React.forwardRef<HTMLButtonElement, ButtonProps>(
       `,
       danger: `
         bg-gradient-to-br from-red-500 to-red-600 text-white
+        dark:from-red-600 dark:to-red-700
         hover:from-red-600 hover:to-red-700 hover:shadow-lg hover:-translate-y-0.5
-        active:translate-y-0 focus-visible:ring-red-400
+        dark:hover:from-red-500 dark:hover:to-red-600
+        active:translate-y-0 focus-visible:ring-red-400 dark:focus-visible:ring-red-500
       `,
     }
 

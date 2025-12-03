@@ -54,17 +54,17 @@ export const Tabs: React.FC<TabsProps> = ({
   const tabVariants = {
     underline: {
       base: 'border-b-2 border-transparent -mb-px',
-      active: 'border-[#F78C3A] text-[#F78C3A]',
+      active: 'border-[#F78C3A] text-[#F78C3A] dark:border-orange-500 dark:text-orange-400',
       inactive: 'text-slate-500 dark:text-slate-400 hover:text-slate-700 dark:hover:text-slate-300 hover:border-slate-300 dark:hover:border-slate-600',
     },
     pills: {
       base: 'rounded-md',
-      active: 'bg-white dark:bg-slate-700 text-[#F78C3A] shadow-sm',
+      active: 'bg-white dark:bg-orange-900/40 text-[#F78C3A] dark:text-orange-300 shadow-sm dark:shadow-none',
       inactive: 'text-slate-600 dark:text-slate-400 hover:text-slate-900 dark:hover:text-slate-200 hover:bg-white/50 dark:hover:bg-slate-700/50',
     },
     enclosed: {
       base: 'border border-transparent rounded-t-lg -mb-px',
-      active: 'bg-white dark:bg-slate-900 border-slate-200 dark:border-slate-700 border-b-white dark:border-b-slate-900 text-[#F78C3A]',
+      active: 'bg-white dark:bg-slate-900 border-slate-200 dark:border-slate-700 border-b-white dark:border-b-slate-900 text-[#F78C3A] dark:text-orange-400',
       inactive: 'text-slate-500 dark:text-slate-400 hover:text-slate-700 dark:hover:text-slate-300 hover:bg-slate-50 dark:hover:bg-slate-800',
     },
   }

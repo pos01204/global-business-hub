@@ -150,55 +150,63 @@
 
 [data-theme="dark"],
 .dark {
-  /* 배경 */
-  --background-color: #0A0A0A;
-  --background-alt-color: #141414;
-  --card-background-color: #1C1C1C;
+  /* 배경 - 약간 더 따뜻한 톤 */
+  --background-color: #0F0F0F;
+  --background-alt-color: #171717;
+  --card-background-color: #1A1A1A;
   
-  /* 텍스트 */
-  --text-color: #FAFAFA;
-  --text-secondary: #A1A1AA;
-  --text-muted-color: #71717A;
+  /* 텍스트 - 순백색보다 부드럽게 */
+  --text-color: #F5F5F5;
+  --text-secondary: #A8A8B3;
+  --text-muted-color: #78788A;
   
   /* 테두리 */
-  --border-color: #27272A;
-  --border-light: #3F3F46;
+  --border-color: #2A2A2E;
+  --border-light: #3A3A40;
   --border-focus: #52525B;
   
   /* 인터랙션 */
-  --hover-color: #27272A;
-  --active-color: #3F3F46;
+  --hover-color: #252528;
+  --active-color: #35353A;
   
-  /* Primary - 다크모드 조정 */
-  --primary-color: #F78C3A;
-  --primary-hover: #FFB87A;
-  --primary-light: #3D2A1A;
-  --primary-active: #E67729;
+  /* Primary - 다크모드 조정 (채도 낮춤) */
+  --primary-color: #E8854A;
+  --primary-hover: #F5A070;
+  --primary-light: #2A2118;
+  --primary-active: #D4753A;
   
   /* Secondary */
-  --secondary-color: #E5E7EB;
+  --secondary-color: #E0E0E5;
   --secondary-light: #6B7280;
   
-  /* idus Brand - 밝기 조정 */
-  --idus-orange: #FF9F4A;
-  --idus-orange-dark: #FFB366;
-  --idus-orange-light: #2D1F14;
+  /* idus Brand - 채도 낮추고 눈에 편안하게 */
+  --idus-orange: #F5A05A;
+  --idus-orange-dark: #FFBE80;
+  --idus-orange-light: #2A2118;
   
-  /* 상태 색상 - 다크모드 최적화 */
-  --success-color: #22C55E;
-  --success-light: #14532D;
-  --danger-color: #EF4444;
-  --danger-light: #450A0A;
-  --warning-color: #FBBF24;
-  --warning-light: #422006;
-  --info-color: #3B82F6;
-  --info-light: #172554;
+  /* 상태 색상 - 채도 낮추고 밝기 조정 */
+  --success-color: #4ADE80;
+  --success-light: #1A2E1A;
+  --danger-color: #F87171;
+  --danger-light: #2E1A1A;
+  --warning-color: #FCD34D;
+  --warning-light: #2E2A1A;
+  --info-color: #60A5FA;
+  --info-light: #1A1E2E;
+  
+  /* 차트 색상 - 다크모드 최적화 */
+  --chart-blue: #60A5FA;
+  --chart-green: #4ADE80;
+  --chart-purple: #A78BFA;
+  --chart-cyan: #22D3EE;
+  --chart-rose: #FB7185;
+  --chart-amber: #FBBF24;
   
   /* 그림자 - 다크모드용 */
-  --shadow-sm: 0 1px 2px rgba(0, 0, 0, 0.3);
-  --shadow-md: 0 2px 4px rgba(0, 0, 0, 0.4);
-  --shadow-lg: 0 4px 12px rgba(0, 0, 0, 0.5);
-  --shadow-xl: 0 8px 24px rgba(0, 0, 0, 0.6);
+  --shadow-sm: 0 1px 2px rgba(0, 0, 0, 0.4);
+  --shadow-md: 0 2px 4px rgba(0, 0, 0, 0.5);
+  --shadow-lg: 0 4px 12px rgba(0, 0, 0, 0.6);
+  --shadow-xl: 0 8px 24px rgba(0, 0, 0, 0.7);
 }
 
 * {
