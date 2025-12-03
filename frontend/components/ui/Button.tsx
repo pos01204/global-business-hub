@@ -41,18 +41,18 @@ export const Button = React.forwardRef<HTMLButtonElement, ButtonProps>(
         active:translate-y-0 focus-visible:ring-orange-400
       `,
       secondary: `
-        bg-white text-slate-700 border border-slate-200 shadow-sm
-        hover:bg-slate-50 hover:border-orange-300 hover:text-orange-600
-        focus-visible:ring-slate-400
+        bg-white dark:bg-slate-800 text-slate-700 dark:text-slate-200 border border-slate-200 dark:border-slate-700 shadow-sm
+        hover:bg-slate-50 dark:hover:bg-slate-700 hover:border-orange-300 dark:hover:border-orange-500 hover:text-orange-600 dark:hover:text-orange-400
+        focus-visible:ring-slate-400 dark:focus-visible:ring-slate-500
       `,
       outline: `
         bg-transparent text-[#F78C3A] border-2 border-[#F78C3A]
-        hover:bg-orange-50 focus-visible:ring-orange-400
+        hover:bg-orange-50 dark:hover:bg-orange-900/20 focus-visible:ring-orange-400
       `,
       ghost: `
-        bg-transparent text-slate-600
-        hover:bg-slate-100 hover:text-orange-600
-        focus-visible:ring-slate-400
+        bg-transparent text-slate-600 dark:text-slate-400
+        hover:bg-slate-100 dark:hover:bg-slate-800 hover:text-orange-600 dark:hover:text-orange-400
+        focus-visible:ring-slate-400 dark:focus-visible:ring-slate-500
       `,
       danger: `
         bg-gradient-to-br from-red-500 to-red-600 text-white

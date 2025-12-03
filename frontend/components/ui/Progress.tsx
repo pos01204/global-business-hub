@@ -44,17 +44,17 @@ export const Progress: React.FC<ProgressProps> = ({
       {(label || showValue) && (
         <div className="flex items-center justify-between mb-1.5">
           {label && (
-            <span className="text-sm font-medium text-slate-700">{label}</span>
+            <span className="text-sm font-medium text-slate-700 dark:text-slate-300">{label}</span>
           )}
           {showValue && (
-            <span className="text-sm font-medium text-slate-500">
+            <span className="text-sm font-medium text-slate-500 dark:text-slate-400">
               {Math.round(percentage)}%
             </span>
           )}
         </div>
       )}
       <div
-        className={`w-full bg-slate-200 rounded-full overflow-hidden ${sizes[size]}`}
+        className={`w-full bg-slate-200 dark:bg-slate-700 rounded-full overflow-hidden ${sizes[size]}`}
         role="progressbar"
         aria-valuenow={value}
         aria-valuemin={0}
@@ -118,7 +118,7 @@ export const CircularProgress: React.FC<CircularProgressProps> = ({
           fill="none"
           stroke="currentColor"
           strokeWidth={strokeWidth}
-          className="text-slate-200"
+          className="text-slate-200 dark:text-slate-700"
         />
         {/* Progress circle */}
         <circle
@@ -134,7 +134,7 @@ export const CircularProgress: React.FC<CircularProgressProps> = ({
         />
       </svg>
       {showValue && (
-        <span className="absolute text-sm font-semibold text-slate-700">
+        <span className="absolute text-sm font-semibold text-slate-700 dark:text-slate-300">
           {Math.round(percentage)}%
         </span>
       )}

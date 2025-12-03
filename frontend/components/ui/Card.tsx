@@ -18,12 +18,12 @@ export const Card: React.FC<CardProps> = ({
   onClick,
 }) => {
   const variants = {
-    default: 'bg-white border border-slate-200 shadow-sm hover:shadow-md',
-    elevated: 'bg-white shadow-lg hover:shadow-xl',
-    outlined: 'bg-white border-2 border-slate-200 hover:border-slate-300',
-    filled: 'bg-slate-50 border border-slate-100',
+    default: 'bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 shadow-sm hover:shadow-md',
+    elevated: 'bg-white dark:bg-slate-900 shadow-lg hover:shadow-xl',
+    outlined: 'bg-white dark:bg-slate-900 border-2 border-slate-200 dark:border-slate-700 hover:border-slate-300 dark:hover:border-slate-600',
+    filled: 'bg-slate-50 dark:bg-slate-800 border border-slate-100 dark:border-slate-700',
     interactive: `
-      bg-white border border-slate-200 shadow-sm cursor-pointer
+      bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 shadow-sm cursor-pointer
       hover:shadow-lg hover:border-[#F78C3A] hover:-translate-y-1
       active:translate-y-0 active:shadow-md
     `,
@@ -72,13 +72,13 @@ export const CardHeader: React.FC<CardHeaderProps> = ({
   <div className={`flex items-start justify-between gap-4 mb-4 ${className}`}>
     <div className="flex items-start gap-3">
       {icon && (
-        <div className="flex-shrink-0 w-10 h-10 rounded-lg bg-orange-50 flex items-center justify-center text-[#F78C3A]">
+        <div className="flex-shrink-0 w-10 h-10 rounded-lg bg-orange-50 dark:bg-orange-900/30 flex items-center justify-center text-[#F78C3A]">
           {icon}
         </div>
       )}
       <div>
-        <h3 className="font-semibold text-slate-900">{title}</h3>
-        {subtitle && <p className="text-sm text-slate-500 mt-0.5">{subtitle}</p>}
+        <h3 className="font-semibold text-slate-900 dark:text-slate-100">{title}</h3>
+        {subtitle && <p className="text-sm text-slate-500 dark:text-slate-400 mt-0.5">{subtitle}</p>}
       </div>
     </div>
     {action && <div className="flex-shrink-0">{action}</div>}
@@ -99,7 +99,7 @@ export const CardFooter: React.FC<CardFooterProps> = ({
   <div
     className={`
       mt-4 pt-4 flex items-center justify-end gap-2
-      ${bordered ? 'border-t border-slate-100' : ''}
+      ${bordered ? 'border-t border-slate-100 dark:border-slate-800' : ''}
       ${className}
     `}
   >

@@ -148,22 +148,57 @@
   --breakpoint-2xl: 1536px;
 }
 
-[data-theme="dark"] {
-  --primary-color: #FFA45C;
+[data-theme="dark"],
+.dark {
+  /* 배경 */
+  --background-color: #0A0A0A;
+  --background-alt-color: #141414;
+  --card-background-color: #1C1C1C;
+  
+  /* 텍스트 */
+  --text-color: #FAFAFA;
+  --text-secondary: #A1A1AA;
+  --text-muted-color: #71717A;
+  
+  /* 테두리 */
+  --border-color: #27272A;
+  --border-light: #3F3F46;
+  --border-focus: #52525B;
+  
+  /* 인터랙션 */
+  --hover-color: #27272A;
+  --active-color: #3F3F46;
+  
+  /* Primary - 다크모드 조정 */
+  --primary-color: #F78C3A;
   --primary-hover: #FFB87A;
   --primary-light: #3D2A1A;
+  --primary-active: #E67729;
+  
+  /* Secondary */
   --secondary-color: #E5E7EB;
-  --background-color: #121212;
-  --background-alt-color: #1E1E1E;
-  --background-warm: #1A1512;
-  --card-background-color: #1E1E1E;
-  --text-color: #F3F4F6;
-  --text-secondary: #D1D5DB;
-  --text-muted-color: #9CA3AF;
-  --border-color: #374151;
-  --border-light: #2D3748;
-  --hover-color: #2D2520;
-  --active-color: #3D3530;
+  --secondary-light: #6B7280;
+  
+  /* idus Brand - 밝기 조정 */
+  --idus-orange: #FF9F4A;
+  --idus-orange-dark: #FFB366;
+  --idus-orange-light: #2D1F14;
+  
+  /* 상태 색상 - 다크모드 최적화 */
+  --success-color: #22C55E;
+  --success-light: #14532D;
+  --danger-color: #EF4444;
+  --danger-light: #450A0A;
+  --warning-color: #FBBF24;
+  --warning-light: #422006;
+  --info-color: #3B82F6;
+  --info-light: #172554;
+  
+  /* 그림자 - 다크모드용 */
+  --shadow-sm: 0 1px 2px rgba(0, 0, 0, 0.3);
+  --shadow-md: 0 2px 4px rgba(0, 0, 0, 0.4);
+  --shadow-lg: 0 4px 12px rgba(0, 0, 0, 0.5);
+  --shadow-xl: 0 8px 24px rgba(0, 0, 0, 0.6);
 }
 
 * {
@@ -841,5 +876,55 @@ tbody tr:hover {
   .card {
     box-shadow: none;
     border: 1px solid #ccc;
+  }
+}
+
+/* ===================================
+   Mobile Utilities
+   =================================== */
+
+/* Safe Area 대응 (노치/홈바) */
+.safe-area-pb {
+  padding-bottom: env(safe-area-inset-bottom, 0);
+}
+
+.safe-area-pt {
+  padding-top: env(safe-area-inset-top, 0);
+}
+
+.safe-area-pl {
+  padding-left: env(safe-area-inset-left, 0);
+}
+
+.safe-area-pr {
+  padding-right: env(safe-area-inset-right, 0);
+}
+
+/* 스크롤바 숨기기 */
+.scrollbar-hide {
+  -ms-overflow-style: none;
+  scrollbar-width: none;
+}
+
+.scrollbar-hide::-webkit-scrollbar {
+  display: none;
+}
+
+/* 터치 피드백 */
+@media (hover: none) and (pointer: coarse) {
+  .touchable:active {
+    transform: scale(0.98);
+    opacity: 0.9;
+  }
+}
+
+/* 모바일 전용 유틸리티 */
+@media (max-width: 1023px) {
+  .mobile-full-width {
+    width: 100%;
+    margin-left: -1rem;
+    margin-right: -1rem;
+    padding-left: 1rem;
+    padding-right: 1rem;
   }
 }

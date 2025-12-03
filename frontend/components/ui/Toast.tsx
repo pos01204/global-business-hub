@@ -87,7 +87,7 @@ const ToastContainer: React.FC<ToastContainerProps> = ({ toasts, onRemove }) => 
   if (toasts.length === 0) return null
 
   return (
-    <div className="fixed bottom-4 right-4 z-[100] flex flex-col gap-2 max-w-sm w-full pointer-events-none">
+    <div className="fixed bottom-20 lg:bottom-4 right-4 left-4 lg:left-auto z-[100] flex flex-col gap-2 max-w-sm w-auto lg:w-full pointer-events-none">
       {toasts.map((toast) => (
         <ToastItem key={toast.id} toast={toast} onRemove={onRemove} />
       ))}
@@ -125,10 +125,10 @@ const ToastItem: React.FC<ToastItemProps> = ({ toast, onRemove }) => {
   }
 
   const styles = {
-    success: 'bg-emerald-50 border-emerald-200 text-emerald-800',
-    error: 'bg-red-50 border-red-200 text-red-800',
-    warning: 'bg-amber-50 border-amber-200 text-amber-800',
-    info: 'bg-blue-50 border-blue-200 text-blue-800',
+    success: 'bg-emerald-50 dark:bg-emerald-900/30 border-emerald-200 dark:border-emerald-800 text-emerald-800 dark:text-emerald-200',
+    error: 'bg-red-50 dark:bg-red-900/30 border-red-200 dark:border-red-800 text-red-800 dark:text-red-200',
+    warning: 'bg-amber-50 dark:bg-amber-900/30 border-amber-200 dark:border-amber-800 text-amber-800 dark:text-amber-200',
+    info: 'bg-blue-50 dark:bg-blue-900/30 border-blue-200 dark:border-blue-800 text-blue-800 dark:text-blue-200',
   }
 
   const iconStyles = {

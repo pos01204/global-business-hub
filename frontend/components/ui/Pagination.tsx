@@ -82,9 +82,9 @@ export const Pagination: React.FC<PaginationProps> = ({
   `
 
   const buttonStyles = {
-    default: 'text-slate-600 hover:bg-slate-100',
+    default: 'text-slate-600 dark:text-slate-400 hover:bg-slate-100 dark:hover:bg-slate-800',
     active: 'bg-[#F78C3A] text-white shadow-sm',
-    nav: 'text-slate-500 hover:bg-slate-100 hover:text-slate-700',
+    nav: 'text-slate-500 dark:text-slate-400 hover:bg-slate-100 dark:hover:bg-slate-800 hover:text-slate-700 dark:hover:text-slate-300',
   }
 
   return (

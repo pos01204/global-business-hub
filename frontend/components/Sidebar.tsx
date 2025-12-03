@@ -95,9 +95,9 @@ export default function Sidebar() {
           lg:static lg:z-auto
         `}
       >
-        <div className="flex flex-col h-full bg-white border-r border-slate-200">
+        <div className="flex flex-col h-full bg-white dark:bg-slate-900 border-r border-slate-200 dark:border-slate-800">
           {/* 로고 영역 */}
-          <div className="flex items-center justify-between px-5 py-4 border-b border-slate-100">
+          <div className="flex items-center justify-between px-5 py-4 border-b border-slate-100 dark:border-slate-800">
             <Link href="/" className="flex items-center gap-3">
               <div className="relative w-9 h-9 rounded-lg overflow-hidden">
                 <Image
@@ -111,17 +111,17 @@ export default function Sidebar() {
               {!isCollapsed && (
                 <div>
                   <div className="flex items-baseline gap-1">
-                    <span className="text-[17px] font-bold tracking-tight text-slate-900">
+                    <span className="text-[17px] font-bold tracking-tight text-slate-900 dark:text-slate-100">
                       i<span className="text-idus-500">d</span>us
                     </span>
-                    <span className="text-[15px] font-medium text-slate-500">Global</span>
+                    <span className="text-[15px] font-medium text-slate-500 dark:text-slate-400">Global</span>
                   </div>
                 </div>
               )}
             </Link>
             <button
               onClick={() => setIsCollapsed(!isCollapsed)}
-              className="lg:hidden p-2 hover:bg-slate-100 rounded-lg text-slate-400"
+              className="lg:hidden p-2 hover:bg-slate-100 dark:hover:bg-slate-800 rounded-lg text-slate-400 dark:text-slate-500"
             >
               <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                 <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
@@ -134,7 +134,7 @@ export default function Sidebar() {
             {navGroups.map((group, groupIndex) => (
               <div key={group.title} className={groupIndex > 0 ? 'mt-6' : ''}>
                 {!isCollapsed && (
-                  <h2 className="px-3 mb-2 text-[11px] font-semibold text-slate-400 uppercase tracking-wider">
+                  <h2 className="px-3 mb-2 text-[11px] font-semibold text-slate-400 dark:text-slate-500 uppercase tracking-wider">
                     {group.title}
                   </h2>
                 )}
@@ -150,8 +150,8 @@ export default function Sidebar() {
                             relative flex items-center gap-3 px-3 py-2.5 rounded-lg
                             transition-all duration-200
                             ${isActive
-                              ? 'bg-orange-50 text-[#F78C3A] font-medium before:absolute before:left-0 before:top-1/2 before:-translate-y-1/2 before:w-1 before:h-6 before:bg-[#F78C3A] before:rounded-r-full'
-                              : 'text-slate-600 hover:bg-slate-50 hover:text-slate-900'
+                              ? 'bg-orange-50 dark:bg-orange-900/20 text-[#F78C3A] font-medium before:absolute before:left-0 before:top-1/2 before:-translate-y-1/2 before:w-1 before:h-6 before:bg-[#F78C3A] before:rounded-r-full'
+                              : 'text-slate-600 dark:text-slate-400 hover:bg-slate-50 dark:hover:bg-slate-800 hover:text-slate-900 dark:hover:text-slate-200'
                             }
                           `}
                         >
@@ -162,7 +162,7 @@ export default function Sidebar() {
                                 {item.label}
                               </span>
                               {item.external && (
-                                <svg className="w-3.5 h-3.5 text-slate-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                <svg className="w-3.5 h-3.5 text-slate-400 dark:text-slate-500" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                                   <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M10 6H6a2 2 0 00-2 2v10a2 2 0 002 2h10a2 2 0 002-2v-4M14 4h6m0 0v6m0-6L10 14" />
                                 </svg>
                               )}
@@ -184,26 +184,26 @@ export default function Sidebar() {
 
           {/* 하단 */}
           {!isCollapsed && (
-            <div className="p-4 border-t border-slate-100">
+            <div className="p-4 border-t border-slate-100 dark:border-slate-800">
               <div className="flex items-center justify-between">
                 <div className="flex items-center gap-2">
                   <div className="w-2 h-2 bg-emerald-500 rounded-full"></div>
-                  <span className="text-xs text-slate-500">시스템 정상</span>
+                  <span className="text-xs text-slate-500 dark:text-slate-400">시스템 정상</span>
                 </div>
-                <span className="text-xs text-slate-400">v2.0</span>
+                <span className="text-xs text-slate-400 dark:text-slate-500">v2.0</span>
               </div>
             </div>
           )}
         </div>
       </aside>
 
-      {/* 모바일 메뉴 버튼 */}
+      {/* 모바일 메뉴 버튼 - 이제 BottomNavigation으로 대체되어 숨김 */}
       <button
         onClick={() => setIsCollapsed(false)}
         className={`
-          fixed top-4 left-4 z-30 lg:hidden p-2.5
-          bg-white border border-slate-200 rounded-lg shadow-sm
-          text-slate-600 hover:bg-slate-50
+          fixed top-4 left-4 z-30 hidden p-2.5
+          bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-700 rounded-lg shadow-sm
+          text-slate-600 dark:text-slate-400 hover:bg-slate-50 dark:hover:bg-slate-800
           ${!isCollapsed ? 'opacity-0 pointer-events-none' : 'opacity-100'}
           transition-opacity duration-200
         `}

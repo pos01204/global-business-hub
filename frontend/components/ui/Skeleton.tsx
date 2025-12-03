@@ -25,9 +25,9 @@ export const Skeleton: React.FC<SkeletonProps> = ({
   }
 
   const animations = {
-    pulse: 'animate-pulse bg-slate-200',
+    pulse: 'animate-pulse bg-slate-200 dark:bg-slate-700',
     wave: 'skeleton',
-    none: 'bg-slate-200',
+    none: 'bg-slate-200 dark:bg-slate-700',
   }
 
   const style: React.CSSProperties = {
@@ -65,7 +65,7 @@ export const SkeletonText: React.FC<{ lines?: number; className?: string }> = ({
 )
 
 export const SkeletonCard: React.FC<{ className?: string }> = ({ className = '' }) => (
-  <div className={`p-4 border border-slate-200 rounded-lg ${className}`}>
+  <div className={`p-4 border border-slate-200 dark:border-slate-700 rounded-lg ${className}`}>
     <Skeleton variant="rounded" height={120} className="mb-4" />
     <Skeleton variant="text" width="70%" className="mb-2" />
     <Skeleton variant="text" width="50%" />
@@ -79,7 +79,7 @@ export const SkeletonTable: React.FC<{ rows?: number; cols?: number; className?:
 }) => (
   <div className={`space-y-3 ${className}`}>
     {/* Header */}
-    <div className="flex gap-4 pb-3 border-b border-slate-200">
+    <div className="flex gap-4 pb-3 border-b border-slate-200 dark:border-slate-700">
       {Array.from({ length: cols }).map((_, i) => (
         <Skeleton key={i} variant="text" height={12} className="flex-1" />
       ))}

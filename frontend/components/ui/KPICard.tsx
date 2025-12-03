@@ -68,7 +68,7 @@ export const KPICard: React.FC<KPICardProps> = ({
   return (
     <div
       className={`
-        relative bg-white rounded-xl border border-slate-200 overflow-hidden
+        relative bg-white dark:bg-slate-900 rounded-xl border border-slate-200 dark:border-slate-800 overflow-hidden
         transition-all duration-200 hover:shadow-lg hover:-translate-y-0.5
         before:absolute before:top-0 before:left-0 before:right-0 before:h-1
         ${colorStyles[color]}
@@ -78,14 +78,14 @@ export const KPICard: React.FC<KPICardProps> = ({
     >
       <div className="flex items-start justify-between gap-3">
         <div className="flex-1 min-w-0">
-          <p className={`text-slate-500 font-medium mb-1 ${sizes[size].title}`}>
+          <p className={`text-slate-500 dark:text-slate-400 font-medium mb-1 ${sizes[size].title}`}>
             {title}
           </p>
-          <p className={`font-bold text-slate-900 ${sizes[size].value}`}>
+          <p className={`font-bold text-slate-900 dark:text-slate-100 ${sizes[size].value}`}>
             {prefix}
             {typeof value === 'number' ? value.toLocaleString() : value}
             {suffix && (
-              <span className="text-slate-500 font-normal text-base ml-0.5">
+              <span className="text-slate-500 dark:text-slate-400 font-normal text-base ml-0.5">
                 {suffix}
               </span>
             )}
@@ -93,13 +93,13 @@ export const KPICard: React.FC<KPICardProps> = ({
           {change && (
             <p
               className={`text-xs font-medium mt-1 flex items-center gap-1 ${
-                change.value >= 0 ? 'text-emerald-600' : 'text-red-600'
+                change.value >= 0 ? 'text-emerald-600 dark:text-emerald-400' : 'text-red-600 dark:text-red-400'
               }`}
             >
               <span>{change.value >= 0 ? '↑' : '↓'}</span>
               <span>{formatChange(change.value)}</span>
               {change.period && (
-                <span className="text-slate-400 font-normal">vs {change.period}</span>
+                <span className="text-slate-400 dark:text-slate-500 font-normal">vs {change.period}</span>
               )}
             </p>
           )}
@@ -107,7 +107,7 @@ export const KPICard: React.FC<KPICardProps> = ({
         {icon && (
           <div
             className={`
-              flex-shrink-0 rounded-lg bg-slate-50 flex items-center justify-center
+              flex-shrink-0 rounded-lg bg-slate-50 dark:bg-slate-800 flex items-center justify-center
               ${sizes[size].icon}
             `}
           >
@@ -125,7 +125,7 @@ export const KPICard: React.FC<KPICardProps> = ({
             return (
               <div
                 key={idx}
-                className="flex-1 bg-slate-200 rounded-t transition-all hover:bg-[#F78C3A]"
+                className="flex-1 bg-slate-200 dark:bg-slate-700 rounded-t transition-all hover:bg-[#F78C3A]"
                 style={{ height: `${Math.max(height, 5)}%` }}
               />
             )

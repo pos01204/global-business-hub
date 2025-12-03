@@ -106,7 +106,7 @@ export const Tooltip: React.FC<TooltipProps> = ({
           ref={tooltipRef}
           role="tooltip"
           className={`
-            fixed z-[100] px-3 py-2 text-sm text-white bg-slate-800 rounded-lg shadow-lg
+            fixed z-[100] px-3 py-2 text-sm text-white bg-slate-800 dark:bg-slate-700 rounded-lg shadow-lg
             animate-fadeIn pointer-events-none max-w-xs
             ${className}
           `}

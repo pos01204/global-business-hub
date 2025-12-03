@@ -58,14 +58,14 @@ export const EmptyState: React.FC<EmptyStateProps> = ({
 
   return (
     <div className={`flex flex-col items-center justify-center text-center ${sizes[size].container} ${className}`}>
-      <div className={`${sizes[size].icon} mb-4 flex items-center justify-center rounded-full bg-slate-50`}>
+      <div className={`${sizes[size].icon} mb-4 flex items-center justify-center rounded-full bg-slate-50 dark:bg-slate-800`}>
         {icon || defaultIcon}
       </div>
-      <h3 className={`font-semibold text-slate-900 ${sizes[size].title}`}>
+      <h3 className={`font-semibold text-slate-900 dark:text-slate-100 ${sizes[size].title}`}>
         {title}
       </h3>
       {description && (
-        <p className={`mt-2 text-slate-500 max-w-sm ${sizes[size].description}`}>
+        <p className={`mt-2 text-slate-500 dark:text-slate-400 max-w-sm ${sizes[size].description}`}>
           {description}
         </p>
       )}

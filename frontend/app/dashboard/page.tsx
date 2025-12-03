@@ -151,29 +151,29 @@ export default function DashboardPage() {
       {/* 페이지 헤더 */}
       <div className="flex flex-col lg:flex-row lg:items-center justify-between gap-4">
         <div>
-          <h1 className="text-2xl font-bold text-slate-900">대시보드</h1>
-          <p className="text-slate-500 text-sm mt-1">Global Business 핵심 현황</p>
+          <h1 className="text-2xl font-bold text-slate-900 dark:text-slate-100">대시보드</h1>
+          <p className="text-slate-500 dark:text-slate-400 text-sm mt-1">Global Business 핵심 현황</p>
         </div>
         
-        <div className="flex items-center gap-3">
+        <div className="flex flex-col sm:flex-row items-stretch sm:items-center gap-3">
           {/* 날짜 필터 */}
-          <div className="flex items-center gap-2 bg-white border border-slate-200 rounded-lg px-3 py-2">
+          <div className="flex items-center gap-2 bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-lg px-3 py-2">
             <input
               type="date"
               value={startDate}
               onChange={(e) => setStartDate(e.target.value)}
-              className="border-0 bg-transparent text-sm text-slate-700 focus:outline-none w-32"
+              className="border-0 bg-transparent text-sm text-slate-700 dark:text-slate-300 focus:outline-none w-28 lg:w-32"
             />
-            <span className="text-slate-300">~</span>
+            <span className="text-slate-300 dark:text-slate-600">~</span>
             <input
               type="date"
               value={endDate}
               onChange={(e) => setEndDate(e.target.value)}
-              className="border-0 bg-transparent text-sm text-slate-700 focus:outline-none w-32"
+              className="border-0 bg-transparent text-sm text-slate-700 dark:text-slate-300 focus:outline-none w-28 lg:w-32"
             />
             <button
               onClick={handleApply}
-              className="ml-2 px-3 py-1.5 bg-slate-900 text-white text-sm font-medium rounded-md hover:bg-slate-800 transition-colors"
+              className="ml-2 px-3 py-1.5 bg-slate-900 dark:bg-slate-700 text-white text-sm font-medium rounded-md hover:bg-slate-800 dark:hover:bg-slate-600 transition-colors"
             >
               조회
             </button>
@@ -212,90 +212,90 @@ export default function DashboardPage() {
       {/* KPI 카드 - 6개 */}
       {data && (
         <>
-          <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-6 gap-4">
+          <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-6 gap-3 lg:gap-4">
             {/* GMV */}
-            <div className="bg-white rounded-xl p-4 border border-slate-200 hover:shadow-md transition-shadow">
+            <div className="bg-white dark:bg-slate-900 rounded-xl p-3 lg:p-4 border border-slate-200 dark:border-slate-800 hover:shadow-md transition-shadow">
               <div className="flex items-center justify-between mb-2">
                 <span className="text-lg">💰</span>
-                <div className={`text-xs font-medium ${data.kpis.gmv.change >= 0 ? 'text-emerald-600' : 'text-red-600'}`}>
+                <div className={`text-xs font-medium ${data.kpis.gmv.change >= 0 ? 'text-emerald-600 dark:text-emerald-400' : 'text-red-600 dark:text-red-400'}`}>
                   {formatChange(data.kpis.gmv.change)}
                 </div>
               </div>
-              <p className="text-xl font-bold text-slate-900">{formatCurrency(data.kpis.gmv.value)}</p>
-              <p className="text-xs text-slate-500 mt-1">GMV</p>
+              <p className="text-lg lg:text-xl font-bold text-slate-900 dark:text-slate-100">{formatCurrency(data.kpis.gmv.value)}</p>
+              <p className="text-xs text-slate-500 dark:text-slate-400 mt-1">GMV</p>
             </div>
 
             {/* 주문 건수 */}
-            <div className="bg-white rounded-xl p-4 border border-slate-200 hover:shadow-md transition-shadow">
+            <div className="bg-white dark:bg-slate-900 rounded-xl p-3 lg:p-4 border border-slate-200 dark:border-slate-800 hover:shadow-md transition-shadow">
               <div className="flex items-center justify-between mb-2">
                 <span className="text-lg">📦</span>
-                <div className={`text-xs font-medium ${data.kpis.orderCount.change >= 0 ? 'text-emerald-600' : 'text-red-600'}`}>
+                <div className={`text-xs font-medium ${data.kpis.orderCount.change >= 0 ? 'text-emerald-600 dark:text-emerald-400' : 'text-red-600 dark:text-red-400'}`}>
                   {formatChange(data.kpis.orderCount.change)}
                 </div>
               </div>
-              <p className="text-xl font-bold text-slate-900">{data.kpis.orderCount.value.toLocaleString()}<span className="text-sm font-normal text-slate-500">건</span></p>
-              <p className="text-xs text-slate-500 mt-1">주문 건수</p>
+              <p className="text-lg lg:text-xl font-bold text-slate-900 dark:text-slate-100">{data.kpis.orderCount.value.toLocaleString()}<span className="text-sm font-normal text-slate-500 dark:text-slate-400">건</span></p>
+              <p className="text-xs text-slate-500 dark:text-slate-400 mt-1">주문 건수</p>
             </div>
 
             {/* AOV */}
-            <div className="bg-white rounded-xl p-4 border border-slate-200 hover:shadow-md transition-shadow">
+            <div className="bg-white dark:bg-slate-900 rounded-xl p-3 lg:p-4 border border-slate-200 dark:border-slate-800 hover:shadow-md transition-shadow">
               <div className="flex items-center justify-between mb-2">
                 <span className="text-lg">📊</span>
-                <div className={`text-xs font-medium ${data.kpis.aov.change >= 0 ? 'text-emerald-600' : 'text-red-600'}`}>
+                <div className={`text-xs font-medium ${data.kpis.aov.change >= 0 ? 'text-emerald-600 dark:text-emerald-400' : 'text-red-600 dark:text-red-400'}`}>
                   {formatChange(data.kpis.aov.change)}
                 </div>
               </div>
-              <p className="text-xl font-bold text-slate-900">{formatCurrency(data.kpis.aov.value)}</p>
-              <p className="text-xs text-slate-500 mt-1">AOV</p>
+              <p className="text-lg lg:text-xl font-bold text-slate-900 dark:text-slate-100">{formatCurrency(data.kpis.aov.value)}</p>
+              <p className="text-xs text-slate-500 dark:text-slate-400 mt-1">AOV</p>
             </div>
 
             {/* 판매 작품 수 */}
-            <div className="bg-white rounded-xl p-4 border border-slate-200 hover:shadow-md transition-shadow">
+            <div className="bg-white dark:bg-slate-900 rounded-xl p-3 lg:p-4 border border-slate-200 dark:border-slate-800 hover:shadow-md transition-shadow">
               <div className="flex items-center justify-between mb-2">
                 <span className="text-lg">🎨</span>
-                <div className={`text-xs font-medium ${data.kpis.itemCount.change >= 0 ? 'text-emerald-600' : 'text-red-600'}`}>
+                <div className={`text-xs font-medium ${data.kpis.itemCount.change >= 0 ? 'text-emerald-600 dark:text-emerald-400' : 'text-red-600 dark:text-red-400'}`}>
                   {formatChange(data.kpis.itemCount.change)}
                 </div>
               </div>
-              <p className="text-xl font-bold text-slate-900">{data.kpis.itemCount.value.toLocaleString()}<span className="text-sm font-normal text-slate-500">개</span></p>
-              <p className="text-xs text-slate-500 mt-1">판매 작품</p>
+              <p className="text-lg lg:text-xl font-bold text-slate-900 dark:text-slate-100">{data.kpis.itemCount.value.toLocaleString()}<span className="text-sm font-normal text-slate-500 dark:text-slate-400">개</span></p>
+              <p className="text-xs text-slate-500 dark:text-slate-400 mt-1">판매 작품</p>
             </div>
 
             {/* 신규 고객 */}
-            <div className="bg-white rounded-xl p-4 border border-slate-200 hover:shadow-md transition-shadow">
+            <div className="bg-white dark:bg-slate-900 rounded-xl p-3 lg:p-4 border border-slate-200 dark:border-slate-800 hover:shadow-md transition-shadow">
               <div className="flex items-center justify-between mb-2">
                 <span className="text-lg">👥</span>
-                <div className="text-xs font-medium text-emerald-600">+12%</div>
+                <div className="text-xs font-medium text-emerald-600 dark:text-emerald-400">+12%</div>
               </div>
-              <p className="text-xl font-bold text-slate-900">{Math.floor(data.kpis.orderCount.value * 0.18)}<span className="text-sm font-normal text-slate-500">명</span></p>
-              <p className="text-xs text-slate-500 mt-1">신규 고객</p>
+              <p className="text-lg lg:text-xl font-bold text-slate-900 dark:text-slate-100">{Math.floor(data.kpis.orderCount.value * 0.18)}<span className="text-sm font-normal text-slate-500 dark:text-slate-400">명</span></p>
+              <p className="text-xs text-slate-500 dark:text-slate-400 mt-1">신규 고객</p>
             </div>
 
             {/* 배송 완료율 */}
-            <div className="bg-white rounded-xl p-4 border border-slate-200 hover:shadow-md transition-shadow">
+            <div className="bg-white dark:bg-slate-900 rounded-xl p-3 lg:p-4 border border-slate-200 dark:border-slate-800 hover:shadow-md transition-shadow">
               <div className="flex items-center justify-between mb-2">
                 <span className="text-lg">🚚</span>
-                <div className="text-xs font-medium text-emerald-600">+1.2%</div>
+                <div className="text-xs font-medium text-emerald-600 dark:text-emerald-400">+1.2%</div>
               </div>
-              <p className="text-xl font-bold text-slate-900">92.1<span className="text-sm font-normal text-slate-500">%</span></p>
-              <p className="text-xs text-slate-500 mt-1">배송 완료율</p>
+              <p className="text-lg lg:text-xl font-bold text-slate-900 dark:text-slate-100">92.1<span className="text-sm font-normal text-slate-500 dark:text-slate-400">%</span></p>
+              <p className="text-xs text-slate-500 dark:text-slate-400 mt-1">배송 완료율</p>
             </div>
           </div>
 
           {/* 트렌드 차트 */}
-          <div className="bg-white rounded-2xl border border-gray-100 p-6 mb-6 shadow-sm">
-            <div className="flex items-center justify-between mb-5">
+          <div className="bg-white dark:bg-slate-900 rounded-2xl border border-gray-100 dark:border-slate-800 p-4 lg:p-6 mb-6 shadow-sm">
+            <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 mb-5">
               <div className="flex items-center gap-3">
                 <div className="w-10 h-10 bg-gradient-to-br from-idus-500 to-idus-600 rounded-xl flex items-center justify-center shadow-sm">
                   <span className="text-white text-lg">📈</span>
                 </div>
                 <div>
-                  <h2 className="text-lg font-bold text-gray-800">GMV & 주문 추세</h2>
-                  <p className="text-xs text-gray-500">7일 이동평균 포함</p>
+                  <h2 className="text-lg font-bold text-gray-800 dark:text-slate-100">GMV & 주문 추세</h2>
+                  <p className="text-xs text-gray-500 dark:text-slate-400">7일 이동평균 포함</p>
                 </div>
               </div>
               {startDate && endDate && (
-                <span className="text-xs text-gray-500 bg-gray-100 px-3 py-1.5 rounded-lg font-medium">
+                <span className="text-xs text-gray-500 dark:text-slate-400 bg-gray-100 dark:bg-slate-800 px-3 py-1.5 rounded-lg font-medium">
                   📅 {startDate} ~ {endDate}
                 </span>
               )}
@@ -426,15 +426,15 @@ export default function DashboardPage() {
           {/* 오늘 할 일 + 물류 파이프라인 */}
           <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
             {/* 오늘 할 일 - 우선순위별 분류 */}
-            <div className="bg-white rounded-2xl border border-gray-100 p-6 shadow-sm">
+            <div className="bg-white dark:bg-slate-900 rounded-2xl border border-gray-100 dark:border-slate-800 p-4 lg:p-6 shadow-sm">
               <div className="flex items-center justify-between mb-4">
                 <div className="flex items-center gap-3">
                   <div className="w-10 h-10 bg-gradient-to-br from-violet-500 to-purple-600 rounded-xl flex items-center justify-center shadow-sm">
                     <span className="text-white text-lg">📝</span>
                   </div>
                   <div>
-                    <h3 className="font-bold text-gray-800">오늘 할 일</h3>
-                    <p className="text-xs text-gray-500">{tasksData?.totalTasks || 0}개 항목</p>
+                    <h3 className="font-bold text-gray-800 dark:text-slate-100">오늘 할 일</h3>
+                    <p className="text-xs text-gray-500 dark:text-slate-400">{tasksData?.totalTasks || 0}개 항목</p>
                   </div>
                 </div>
               </div>
@@ -519,18 +519,18 @@ export default function DashboardPage() {
             </div>
 
             {/* 물류 파이프라인 미니뷰 */}
-            <div className="bg-white rounded-2xl border border-gray-100 p-6 shadow-sm">
+            <div className="bg-white dark:bg-slate-900 rounded-2xl border border-gray-100 dark:border-slate-800 p-4 lg:p-6 shadow-sm">
               <div className="flex items-center justify-between mb-4">
                 <div className="flex items-center gap-3">
                   <div className="w-10 h-10 bg-gradient-to-br from-blue-500 to-indigo-600 rounded-xl flex items-center justify-center shadow-sm">
                     <span className="text-white text-lg">📡</span>
                   </div>
                   <div>
-                    <h3 className="font-bold text-gray-800">물류 현황</h3>
-                    <p className="text-xs text-gray-500">실시간 파이프라인</p>
+                    <h3 className="font-bold text-gray-800 dark:text-slate-100">물류 현황</h3>
+                    <p className="text-xs text-gray-500 dark:text-slate-400">실시간 파이프라인</p>
                   </div>
                 </div>
-                <Link href="/control-tower" className="text-xs text-blue-500 hover:text-blue-700 font-medium">
+                <Link href="/control-tower" className="text-xs text-blue-500 hover:text-blue-400 font-medium">
                   상세보기 →
                 </Link>
               </div>

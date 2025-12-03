@@ -100,7 +100,7 @@ export const Select: React.FC<SelectProps> = ({
   return (
     <div className={`${fullWidth ? 'w-full' : ''} ${className}`} ref={containerRef}>
       {label && (
-        <label className="block text-sm font-medium text-slate-700 mb-1.5">
+        <label className="block text-sm font-medium text-slate-700 dark:text-slate-300 mb-1.5">
           {label}
         </label>
       )}
@@ -113,19 +113,19 @@ export const Select: React.FC<SelectProps> = ({
           disabled={disabled}
           className={`
             w-full flex items-center justify-between gap-2
-            bg-white border rounded-lg transition-all duration-200
+            bg-white dark:bg-slate-800 border rounded-lg transition-all duration-200
             ${sizes[size]}
             ${error
-              ? 'border-red-300 focus:border-red-400 focus:ring-2 focus:ring-red-100'
-              : 'border-slate-200 focus:border-[#F78C3A] focus:ring-2 focus:ring-orange-100'
+              ? 'border-red-300 dark:border-red-700 focus:border-red-400 focus:ring-2 focus:ring-red-100 dark:focus:ring-red-900/30'
+              : 'border-slate-200 dark:border-slate-700 focus:border-[#F78C3A] focus:ring-2 focus:ring-orange-100 dark:focus:ring-orange-900/30'
             }
-            ${disabled ? 'bg-slate-50 text-slate-400 cursor-not-allowed' : 'cursor-pointer'}
-            ${isOpen ? 'border-[#F78C3A] ring-2 ring-orange-100' : ''}
+            ${disabled ? 'bg-slate-50 dark:bg-slate-900 text-slate-400 dark:text-slate-500 cursor-not-allowed' : 'cursor-pointer'}
+            ${isOpen ? 'border-[#F78C3A] ring-2 ring-orange-100 dark:ring-orange-900/30' : ''}
           `}
           aria-haspopup="listbox"
           aria-expanded={isOpen}
         >
-          <span className={selectedOption ? 'text-slate-900' : 'text-slate-400'}>
+          <span className={selectedOption ? 'text-slate-900 dark:text-slate-100' : 'text-slate-400 dark:text-slate-500'}>
             {selectedOption ? (
               <span className="flex items-center gap-2">
                 {selectedOption.icon}
@@ -136,7 +136,7 @@ export const Select: React.FC<SelectProps> = ({
             )}
           </span>
           <svg
-            className={`w-4 h-4 text-slate-400 transition-transform ${isOpen ? 'rotate-180' : ''}`}
+            className={`w-4 h-4 text-slate-400 dark:text-slate-500 transition-transform ${isOpen ? 'rotate-180' : ''}`}
             fill="none"
             viewBox="0 0 24 24"
             stroke="currentColor"
@@ -147,17 +147,17 @@ export const Select: React.FC<SelectProps> = ({
 
         {/* Dropdown */}
         {isOpen && (
-          <div className="absolute z-50 w-full mt-1 bg-white border border-slate-200 rounded-lg shadow-lg overflow-hidden animate-slideDown">
+          <div className="absolute z-50 w-full mt-1 bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-lg shadow-lg overflow-hidden animate-slideDown">
             {/* Search Input */}
             {searchable && (
-              <div className="p-2 border-b border-slate-100">
+              <div className="p-2 border-b border-slate-100 dark:border-slate-700">
                 <input
                   ref={inputRef}
                   type="text"
                   value={searchTerm}
                   onChange={(e) => setSearchTerm(e.target.value)}
                   placeholder="검색..."
-                  className="w-full px-3 py-2 text-sm border border-slate-200 rounded-md focus:outline-none focus:border-[#F78C3A]"
+                  className="w-full px-3 py-2 text-sm border border-slate-200 dark:border-slate-600 rounded-md bg-white dark:bg-slate-700 text-slate-900 dark:text-slate-100 focus:outline-none focus:border-[#F78C3A]"
                   autoFocus
                 />
               </div>
@@ -178,8 +178,8 @@ export const Select: React.FC<SelectProps> = ({
                     className={`
                       flex items-center gap-2 px-4 py-2.5 cursor-pointer transition-colors
                       ${option.value === value
-                        ? 'bg-orange-50 text-[#F78C3A]'
-                        : 'text-slate-700 hover:bg-slate-50'
+                        ? 'bg-orange-50 dark:bg-orange-900/20 text-[#F78C3A]'
+                        : 'text-slate-700 dark:text-slate-300 hover:bg-slate-50 dark:hover:bg-slate-700'
                       }
                       ${option.disabled ? 'opacity-50 cursor-not-allowed' : ''}
                     `}
@@ -194,7 +194,7 @@ export const Select: React.FC<SelectProps> = ({
                   </li>
                 ))
               ) : (
-                <li className="px-4 py-3 text-sm text-slate-400 text-center">
+                <li className="px-4 py-3 text-sm text-slate-400 dark:text-slate-500 text-center">
                   검색 결과가 없습니다
                 </li>
               )}
@@ -204,7 +204,7 @@ export const Select: React.FC<SelectProps> = ({
       </div>
 
       {error && (
-        <p className="mt-1.5 text-sm text-red-500 flex items-center gap-1">
+        <p className="mt-1.5 text-sm text-red-500 dark:text-red-400 flex items-center gap-1">
           <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
             <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 8v4m0 4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
           </svg>
@@ -212,7 +212,7 @@ export const Select: React.FC<SelectProps> = ({
         </p>
       )}
       {hint && !error && (
-        <p className="mt-1.5 text-sm text-slate-500">{hint}</p>
+        <p className="mt-1.5 text-sm text-slate-500 dark:text-slate-400">{hint}</p>
       )}
     </div>
   )

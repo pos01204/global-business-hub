@@ -10,7 +10,7 @@ import OrderDetailModal from '@/components/OrderDetailModal'
 function DelayBadge({ days }: { days: number }) {
   if (days >= 14) {
     return (
-      <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded text-xs font-bold bg-red-100 text-red-700 whitespace-nowrap">
+      <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded text-xs font-bold bg-red-100 dark:bg-red-900/30 text-red-700 dark:text-red-400 whitespace-nowrap">
         <span className="w-1.5 h-1.5 bg-red-500 rounded-full"></span>
         {days}일
       </span>
@@ -18,7 +18,7 @@ function DelayBadge({ days }: { days: number }) {
   }
   if (days >= 7) {
     return (
-      <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded text-xs font-bold bg-orange-100 text-orange-700 whitespace-nowrap">
+      <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded text-xs font-bold bg-orange-100 dark:bg-orange-900/30 text-orange-700 dark:text-orange-400 whitespace-nowrap">
         <span className="w-1.5 h-1.5 bg-orange-500 rounded-full"></span>
         {days}일
       </span>
@@ -26,13 +26,13 @@ function DelayBadge({ days }: { days: number }) {
   }
   if (days >= 3) {
     return (
-      <span className="px-2 py-0.5 rounded text-xs font-medium bg-yellow-100 text-yellow-700 whitespace-nowrap">
+      <span className="px-2 py-0.5 rounded text-xs font-medium bg-yellow-100 dark:bg-yellow-900/30 text-yellow-700 dark:text-yellow-400 whitespace-nowrap">
         {days}일
       </span>
     )
   }
   return (
-    <span className="px-2 py-0.5 rounded text-xs font-medium bg-gray-100 text-gray-600 whitespace-nowrap">
+    <span className="px-2 py-0.5 rounded text-xs font-medium bg-gray-100 dark:bg-slate-800 text-gray-600 dark:text-slate-400 whitespace-nowrap">
       {days}일
     </span>
   )
@@ -177,36 +177,36 @@ export default function UnreceivedPage() {
   return (
     <div className="animate-fade-in">
       {/* 페이지 헤더 - idus 브랜드 스타일 */}
-      <div className="relative bg-gradient-to-r from-idus-500 to-idus-600 rounded-2xl p-6 mb-6 overflow-hidden shadow-orange">
+      <div className="relative bg-gradient-to-r from-idus-500 to-idus-600 rounded-2xl p-4 lg:p-6 mb-6 overflow-hidden shadow-orange">
         <div className="absolute top-0 right-0 w-64 h-64 bg-white/10 rounded-full -translate-y-1/2 translate-x-1/2"></div>
         <div className="flex items-center gap-4">
-          <div className="w-14 h-14 bg-white/20 backdrop-blur rounded-xl flex items-center justify-center shadow-lg">
-            <span className="text-3xl">📦</span>
+          <div className="w-12 h-12 lg:w-14 lg:h-14 bg-white/20 backdrop-blur rounded-xl flex items-center justify-center shadow-lg">
+            <span className="text-2xl lg:text-3xl">📦</span>
           </div>
           <div>
-            <h1 className="text-2xl font-extrabold text-white tracking-tight">미입고 관리</h1>
-            <p className="text-idus-100 text-sm font-medium">'결제 완료' 상태의 주문 중 '처리완료'되지 않은 개별 작품 목록</p>
+            <h1 className="text-xl lg:text-2xl font-extrabold text-white tracking-tight">미입고 관리</h1>
+            <p className="text-idus-100 text-xs lg:text-sm font-medium">'결제 완료' 상태의 주문 중 '처리완료'되지 않은 개별 작품 목록</p>
           </div>
         </div>
       </div>
 
       {/* 긴급 알림 배너 */}
       {criticalCount > 0 && (
-        <div className="mb-6 bg-red-50 border border-red-200 rounded-lg p-4">
-          <div className="flex items-center justify-between">
+        <div className="mb-6 bg-red-50 dark:bg-red-900/20 border border-red-200 dark:border-red-800 rounded-lg p-4">
+          <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
             <div className="flex items-center gap-3">
-              <div className="w-8 h-8 bg-red-100 rounded-full flex items-center justify-center text-red-600 font-bold text-sm">
+              <div className="w-8 h-8 bg-red-100 dark:bg-red-900/30 rounded-full flex items-center justify-center text-red-600 dark:text-red-400 font-bold text-sm">
                 !
               </div>
               <div>
-                <p className="text-red-800 font-medium">
+                <p className="text-red-800 dark:text-red-200 font-medium text-sm lg:text-base">
                   14일 이상 지연된 항목이 <span className="font-bold">{criticalCount}건</span> 있습니다.
                 </p>
               </div>
             </div>
             <button
               onClick={() => setDelayFilter('critical')}
-              className="px-3 py-1.5 bg-red-600 text-white rounded text-sm font-medium hover:bg-red-700 transition-colors"
+              className="px-3 py-1.5 bg-red-600 text-white rounded text-sm font-medium hover:bg-red-700 transition-colors w-full sm:w-auto"
             >
               확인하기
             </button>
@@ -216,66 +216,66 @@ export default function UnreceivedPage() {
 
       {/* KPI 카드 */}
       {data && (
-        <div className="grid grid-cols-2 md:grid-cols-4 gap-4 mb-6">
-          <div className="card">
-            <p className="text-sm text-gray-500 mb-1">총 미입고 작품</p>
-            <p className="text-2xl font-bold text-gray-900">{data.kpis.total.toLocaleString()} <span className="text-sm font-normal text-gray-500">개</span></p>
+        <div className="grid grid-cols-2 md:grid-cols-4 gap-3 lg:gap-4 mb-6">
+          <div className="bg-white dark:bg-slate-900 rounded-xl p-3 lg:p-4 border border-slate-200 dark:border-slate-800">
+            <p className="text-xs lg:text-sm text-gray-500 dark:text-slate-400 mb-1">총 미입고 작품</p>
+            <p className="text-lg lg:text-2xl font-bold text-gray-900 dark:text-slate-100">{data.kpis.total.toLocaleString()} <span className="text-xs lg:text-sm font-normal text-gray-500 dark:text-slate-400">개</span></p>
           </div>
-          <div className="card">
-            <p className="text-sm text-gray-500 mb-1">관련 주문</p>
-            <p className="text-2xl font-bold text-gray-900">{data.kpis.orders.toLocaleString()} <span className="text-sm font-normal text-gray-500">건</span></p>
+          <div className="bg-white dark:bg-slate-900 rounded-xl p-3 lg:p-4 border border-slate-200 dark:border-slate-800">
+            <p className="text-xs lg:text-sm text-gray-500 dark:text-slate-400 mb-1">관련 주문</p>
+            <p className="text-lg lg:text-2xl font-bold text-gray-900 dark:text-slate-100">{data.kpis.orders.toLocaleString()} <span className="text-xs lg:text-sm font-normal text-gray-500 dark:text-slate-400">건</span></p>
           </div>
-          <div className="card">
-            <p className="text-sm text-gray-500 mb-1">관련 작가</p>
-            <p className="text-2xl font-bold text-gray-900">{data.kpis.artists.toLocaleString()} <span className="text-sm font-normal text-gray-500">명</span></p>
+          <div className="bg-white dark:bg-slate-900 rounded-xl p-3 lg:p-4 border border-slate-200 dark:border-slate-800">
+            <p className="text-xs lg:text-sm text-gray-500 dark:text-slate-400 mb-1">관련 작가</p>
+            <p className="text-lg lg:text-2xl font-bold text-gray-900 dark:text-slate-100">{data.kpis.artists.toLocaleString()} <span className="text-xs lg:text-sm font-normal text-gray-500 dark:text-slate-400">명</span></p>
           </div>
-          <div className={`card ${delayedCount > 0 ? 'bg-red-50 border-red-200' : ''}`}>
-            <p className={`text-sm mb-1 ${delayedCount > 0 ? 'text-red-600' : 'text-gray-500'}`}>7일+ 지연</p>
-            <p className={`text-2xl font-bold ${delayedCount > 0 ? 'text-red-700' : 'text-gray-900'}`}>
-              {delayedCount.toLocaleString()} <span className="text-sm font-normal">개</span>
+          <div className={`rounded-xl p-3 lg:p-4 border ${delayedCount > 0 ? 'bg-red-50 dark:bg-red-900/20 border-red-200 dark:border-red-800' : 'bg-white dark:bg-slate-900 border-slate-200 dark:border-slate-800'}`}>
+            <p className={`text-xs lg:text-sm mb-1 ${delayedCount > 0 ? 'text-red-600 dark:text-red-400' : 'text-gray-500 dark:text-slate-400'}`}>7일+ 지연</p>
+            <p className={`text-lg lg:text-2xl font-bold ${delayedCount > 0 ? 'text-red-700 dark:text-red-300' : 'text-gray-900 dark:text-slate-100'}`}>
+              {delayedCount.toLocaleString()} <span className="text-xs lg:text-sm font-normal">개</span>
             </p>
           </div>
         </div>
       )}
 
       {/* 빠른 필터 칩 */}
-      <div className="flex gap-2 mb-4 flex-wrap">
+      <div className="flex gap-2 mb-4 flex-wrap overflow-x-auto scrollbar-hide -mx-4 px-4 lg:mx-0 lg:px-0">
         <button
           onClick={() => setDelayFilter('all')}
-          className={`px-3 py-1.5 rounded text-sm font-medium transition-all ${
+          className={`px-3 py-1.5 rounded text-sm font-medium transition-all whitespace-nowrap ${
             delayFilter === 'all'
-              ? 'bg-gray-900 text-white'
-              : 'bg-gray-100 text-gray-600 hover:bg-gray-200'
+              ? 'bg-gray-900 dark:bg-slate-700 text-white'
+              : 'bg-gray-100 dark:bg-slate-800 text-gray-600 dark:text-slate-300 hover:bg-gray-200 dark:hover:bg-slate-700'
           }`}
         >
           전체 ({data?.kpis.total || 0})
         </button>
         <button
           onClick={() => setDelayFilter('critical')}
-          className={`px-3 py-1.5 rounded text-sm font-medium transition-all ${
+          className={`px-3 py-1.5 rounded text-sm font-medium transition-all whitespace-nowrap ${
             delayFilter === 'critical'
               ? 'bg-red-600 text-white'
-              : 'bg-red-50 text-red-600 hover:bg-red-100'
+              : 'bg-red-50 dark:bg-red-900/30 text-red-600 dark:text-red-400 hover:bg-red-100 dark:hover:bg-red-900/50'
           }`}
         >
           14일+ ({criticalCount})
         </button>
         <button
           onClick={() => setDelayFilter('delayed')}
-          className={`px-3 py-1.5 rounded text-sm font-medium transition-all ${
+          className={`px-3 py-1.5 rounded text-sm font-medium transition-all whitespace-nowrap ${
             delayFilter === 'delayed'
               ? 'bg-orange-600 text-white'
-              : 'bg-orange-50 text-orange-600 hover:bg-orange-100'
+              : 'bg-orange-50 dark:bg-orange-900/30 text-orange-600 dark:text-orange-400 hover:bg-orange-100 dark:hover:bg-orange-900/50'
           }`}
         >
           7일+ ({delayedCount})
         </button>
         <button
           onClick={() => setDelayFilter('warning')}
-          className={`px-3 py-1.5 rounded text-sm font-medium transition-all ${
+          className={`px-3 py-1.5 rounded text-sm font-medium transition-all whitespace-nowrap ${
             delayFilter === 'warning'
               ? 'bg-yellow-600 text-white'
-              : 'bg-yellow-50 text-yellow-700 hover:bg-yellow-100'
+              : 'bg-yellow-50 dark:bg-yellow-900/30 text-yellow-700 dark:text-yellow-400 hover:bg-yellow-100 dark:hover:bg-yellow-900/50'
           }`}
         >
           3-7일
@@ -283,24 +283,24 @@ export default function UnreceivedPage() {
       </div>
 
       {/* 필터 */}
-      <div className="card mb-6">
+      <div className="bg-white dark:bg-slate-900 rounded-xl p-4 border border-slate-200 dark:border-slate-800 mb-6">
         <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
           <div>
-            <label className="block text-sm font-medium text-gray-700 mb-1.5">검색</label>
+            <label className="block text-sm font-medium text-gray-700 dark:text-slate-300 mb-1.5">검색</label>
             <input
               type="text"
               value={searchTerm}
               onChange={(e) => setSearchTerm(e.target.value)}
               placeholder="주문번호, 작가명, 작품명..."
-              className="w-full border border-gray-300 rounded px-3 py-2 text-sm focus:ring-2 focus:ring-primary focus:border-primary"
+              className="w-full border border-gray-300 dark:border-slate-600 rounded px-3 py-2 text-sm bg-white dark:bg-slate-800 text-slate-900 dark:text-slate-100 focus:ring-2 focus:ring-primary focus:border-primary"
             />
           </div>
           <div>
-            <label className="block text-sm font-medium text-gray-700 mb-1.5">지연 상태</label>
+            <label className="block text-sm font-medium text-gray-700 dark:text-slate-300 mb-1.5">지연 상태</label>
             <select
               value={delayFilter}
               onChange={(e) => setDelayFilter(e.target.value)}
-              className="w-full border border-gray-300 rounded px-3 py-2 text-sm focus:ring-2 focus:ring-primary focus:border-primary"
+              className="w-full border border-gray-300 dark:border-slate-600 rounded px-3 py-2 text-sm bg-white dark:bg-slate-800 text-slate-900 dark:text-slate-100 focus:ring-2 focus:ring-primary focus:border-primary"
             >
               <option value="all">전체</option>
               <option value="critical">14일 이상</option>
@@ -309,11 +309,11 @@ export default function UnreceivedPage() {
             </select>
           </div>
           <div>
-            <label className="block text-sm font-medium text-gray-700 mb-1.5">주문 유형</label>
+            <label className="block text-sm font-medium text-gray-700 dark:text-slate-300 mb-1.5">주문 유형</label>
             <select
               value={bundleFilter}
               onChange={(e) => setBundleFilter(e.target.value)}
-              className="w-full border border-gray-300 rounded px-3 py-2 text-sm focus:ring-2 focus:ring-primary focus:border-primary"
+              className="w-full border border-gray-300 dark:border-slate-600 rounded px-3 py-2 text-sm bg-white dark:bg-slate-800 text-slate-900 dark:text-slate-100 focus:ring-2 focus:ring-primary focus:border-primary"
             >
               <option value="all">전체</option>
               <option value="bundle">묶음 주문</option>
@@ -324,25 +324,25 @@ export default function UnreceivedPage() {
       </div>
 
       {/* 테이블 */}
-      <div className="card overflow-hidden">
+      <div className="bg-white dark:bg-slate-900 rounded-xl border border-slate-200 dark:border-slate-800 overflow-hidden">
         <div className="overflow-x-auto">
           <table className="w-full">
-            <thead className="bg-gray-50 border-b border-gray-200">
+            <thead className="bg-gray-50 dark:bg-slate-800 border-b border-gray-200 dark:border-slate-700">
               <tr>
-                <th className="text-left py-4 px-4 font-semibold text-gray-700">주문번호</th>
-                <th className="text-left py-4 px-4 font-semibold text-gray-700">작가명</th>
-                <th className="text-left py-4 px-4 font-semibold text-gray-700">작품명</th>
-                <th className="text-left py-4 px-4 font-semibold text-gray-700">주문일</th>
-                <th className="text-center py-4 px-4 font-semibold text-gray-700">경과일</th>
-                <th className="text-left py-4 px-4 font-semibold text-gray-700">현재 메모</th>
-                <th className="text-center py-4 px-4 font-semibold text-gray-700">액션</th>
+                <th className="text-left py-4 px-4 font-semibold text-gray-700 dark:text-slate-300">주문번호</th>
+                <th className="text-left py-4 px-4 font-semibold text-gray-700 dark:text-slate-300 hidden sm:table-cell">작가명</th>
+                <th className="text-left py-4 px-4 font-semibold text-gray-700 dark:text-slate-300">작품명</th>
+                <th className="text-left py-4 px-4 font-semibold text-gray-700 dark:text-slate-300 hidden md:table-cell">주문일</th>
+                <th className="text-center py-4 px-4 font-semibold text-gray-700 dark:text-slate-300">경과일</th>
+                <th className="text-left py-4 px-4 font-semibold text-gray-700 dark:text-slate-300 hidden lg:table-cell">현재 메모</th>
+                <th className="text-center py-4 px-4 font-semibold text-gray-700 dark:text-slate-300">액션</th>
               </tr>
             </thead>
             <tbody>
               {filteredItems.length === 0 ? (
                 <tr>
                   <td colSpan={7} className="text-center py-12">
-                    <div className="text-gray-400">
+                    <div className="text-gray-400 dark:text-slate-500">
                       <div className="text-4xl mb-2">📭</div>
                       <p className="font-medium">표시할 데이터가 없습니다.</p>
                     </div>
@@ -352,14 +352,14 @@ export default function UnreceivedPage() {
                 filteredItems.map((item: any, index: number) => (
                   <tr
                     key={`${item.orderCode}-${index}`}
-                    className={`border-b transition-colors ${
+                    className={`border-b dark:border-slate-800 transition-colors ${
                       item.daysElapsed >= 14
-                        ? 'bg-red-50 hover:bg-red-100'
+                        ? 'bg-red-50 dark:bg-red-900/20 hover:bg-red-100 dark:hover:bg-red-900/30'
                         : item.daysElapsed >= 7
-                        ? 'bg-orange-50 hover:bg-orange-100'
+                        ? 'bg-orange-50 dark:bg-orange-900/20 hover:bg-orange-100 dark:hover:bg-orange-900/30'
                         : item.daysElapsed >= 3
-                        ? 'bg-yellow-50 hover:bg-yellow-100'
-                        : 'hover:bg-gray-50'
+                        ? 'bg-yellow-50 dark:bg-yellow-900/20 hover:bg-yellow-100 dark:hover:bg-yellow-900/30'
+                        : 'hover:bg-gray-50 dark:hover:bg-slate-800'
                     }`}
                   >
                     <td className="py-4 px-4">
@@ -370,29 +370,29 @@ export default function UnreceivedPage() {
                         {item.orderCode}
                       </button>
                     </td>
-                    <td className="py-4 px-4">
-                      <span className="font-medium text-gray-900">{item.artistName}</span>
+                    <td className="py-4 px-4 hidden sm:table-cell">
+                      <span className="font-medium text-gray-900 dark:text-slate-100">{item.artistName}</span>
                     </td>
                     <td className="py-4 px-4">
                       <div>
-                        <div className="text-gray-900 line-clamp-1" title={item.productName}>
+                        <div className="text-gray-900 dark:text-slate-100 line-clamp-1" title={item.productName}>
                           {item.productName}
                         </div>
                         {item.isBundle && (
-                          <span className="inline-flex items-center gap-1 mt-1 text-xs text-blue-600 bg-blue-50 px-2 py-0.5 rounded-full">
+                          <span className="inline-flex items-center gap-1 mt-1 text-xs text-blue-600 dark:text-blue-400 bg-blue-50 dark:bg-blue-900/30 px-2 py-0.5 rounded-full">
                             <span>📦</span> 묶음 ({item.allItems?.length || 0}개)
                           </span>
                         )}
                       </div>
                     </td>
-                    <td className="py-4 px-4 text-gray-600 text-sm">{item.orderDate}</td>
+                    <td className="py-4 px-4 text-gray-600 dark:text-slate-400 text-sm hidden md:table-cell">{item.orderDate}</td>
                     <td className="py-4 px-4 text-center">
                       <DelayBadge days={item.daysElapsed} />
                     </td>
-                    <td className="py-4 px-4">
-                      <span className="text-gray-600 text-sm truncate block max-w-[150px]" title={item.currentStatus || '메모 없음'}>
+                    <td className="py-4 px-4 hidden lg:table-cell">
+                      <span className="text-gray-600 dark:text-slate-400 text-sm truncate block max-w-[150px]" title={item.currentStatus || '메모 없음'}>
                         {item.currentStatus || (
-                          <span className="text-gray-400 italic">메모 없음</span>
+                          <span className="text-gray-400 dark:text-slate-500 italic">메모 없음</span>
                         )}
                       </span>
                     </td>
@@ -413,11 +413,11 @@ export default function UnreceivedPage() {
         
         {/* 테이블 푸터 */}
         {filteredItems.length > 0 && (
-          <div className="px-4 py-3 bg-gray-50 border-t border-gray-200 flex items-center justify-between">
-            <p className="text-sm text-gray-600">
-              총 <span className="font-semibold text-gray-900">{filteredItems.length}</span>개 항목
+          <div className="px-4 py-3 bg-gray-50 dark:bg-slate-800 border-t border-gray-200 dark:border-slate-700 flex flex-col sm:flex-row items-start sm:items-center justify-between gap-2">
+            <p className="text-sm text-gray-600 dark:text-slate-400">
+              총 <span className="font-semibold text-gray-900 dark:text-slate-100">{filteredItems.length}</span>개 항목
             </p>
-            <p className="text-xs text-gray-500">
+            <p className="text-xs text-gray-500 dark:text-slate-500">
               마지막 업데이트: {new Date().toLocaleString('ko-KR')}
             </p>
           </div>
@@ -426,19 +426,19 @@ export default function UnreceivedPage() {
 
       {/* 메모 수정 모달 */}
       {editingOrderCode && (
-        <div className="fixed inset-0 bg-black/60 backdrop-blur-sm flex items-center justify-center z-50">
-          <div className="bg-white rounded-2xl p-6 max-w-md w-full mx-4 shadow-2xl">
+        <div className="fixed inset-0 bg-black/60 backdrop-blur-sm flex items-center justify-center z-50 p-4">
+          <div className="bg-white dark:bg-slate-900 rounded-2xl p-6 max-w-md w-full shadow-2xl">
             <div className="flex justify-between items-center mb-6">
               <div>
-                <h2 className="text-xl font-bold text-gray-900">메모 수정</h2>
-                <p className="text-sm text-gray-500 mt-0.5">{editingOrderCode}</p>
+                <h2 className="text-xl font-bold text-gray-900 dark:text-slate-100">메모 수정</h2>
+                <p className="text-sm text-gray-500 dark:text-slate-400 mt-0.5">{editingOrderCode}</p>
               </div>
               <button
                 onClick={() => {
                   setEditingOrderCode(null)
                   setMemoText('')
                 }}
-                className="w-8 h-8 flex items-center justify-center rounded-full hover:bg-gray-100 transition-colors"
+                className="w-8 h-8 flex items-center justify-center rounded-full hover:bg-gray-100 dark:hover:bg-slate-800 transition-colors text-slate-600 dark:text-slate-400"
               >
                 <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                   <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
@@ -446,12 +446,12 @@ export default function UnreceivedPage() {
               </button>
             </div>
             <div className="mb-6">
-              <label className="block text-sm font-medium text-gray-700 mb-2">메모 내용</label>
+              <label className="block text-sm font-medium text-gray-700 dark:text-slate-300 mb-2">메모 내용</label>
               <textarea
                 value={memoText}
                 onChange={(e) => setMemoText(e.target.value)}
                 placeholder="처리 상태 메모 입력..."
-                className="w-full border border-gray-300 rounded-xl px-4 py-3 h-32 focus:ring-2 focus:ring-primary focus:border-primary transition-all resize-none"
+                className="w-full border border-gray-300 dark:border-slate-600 rounded-xl px-4 py-3 h-32 bg-white dark:bg-slate-800 text-slate-900 dark:text-slate-100 focus:ring-2 focus:ring-primary focus:border-primary transition-all resize-none"
               />
             </div>
             <div className="flex gap-3">
@@ -460,7 +460,7 @@ export default function UnreceivedPage() {
                   setEditingOrderCode(null)
                   setMemoText('')
                 }}
-                className="flex-1 py-2.5 border border-gray-300 rounded-xl font-medium hover:bg-gray-50 transition-colors"
+                className="flex-1 py-2.5 border border-gray-300 dark:border-slate-600 rounded-xl font-medium hover:bg-gray-50 dark:hover:bg-slate-800 text-slate-700 dark:text-slate-300 transition-colors"
               >
                 취소
               </button>

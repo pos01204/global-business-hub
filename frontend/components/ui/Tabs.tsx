@@ -30,9 +30,9 @@ export const Tabs: React.FC<TabsProps> = ({
   className = '',
 }) => {
   const containerStyles = {
-    underline: 'border-b border-slate-200',
-    pills: 'bg-slate-100 p-1 rounded-lg',
-    enclosed: 'border-b border-slate-200',
+    underline: 'border-b border-slate-200 dark:border-slate-700',
+    pills: 'bg-slate-100 dark:bg-slate-800 p-1 rounded-lg',
+    enclosed: 'border-b border-slate-200 dark:border-slate-700',
   }
 
   const tabBaseStyles = `
@@ -46,17 +46,17 @@ export const Tabs: React.FC<TabsProps> = ({
     underline: {
       base: 'border-b-2 border-transparent -mb-px',
       active: 'border-[#F78C3A] text-[#F78C3A]',
-      inactive: 'text-slate-500 hover:text-slate-700 hover:border-slate-300',
+      inactive: 'text-slate-500 dark:text-slate-400 hover:text-slate-700 dark:hover:text-slate-300 hover:border-slate-300 dark:hover:border-slate-600',
     },
     pills: {
       base: 'rounded-md',
-      active: 'bg-white text-[#F78C3A] shadow-sm',
-      inactive: 'text-slate-600 hover:text-slate-900 hover:bg-white/50',
+      active: 'bg-white dark:bg-slate-700 text-[#F78C3A] shadow-sm',
+      inactive: 'text-slate-600 dark:text-slate-400 hover:text-slate-900 dark:hover:text-slate-200 hover:bg-white/50 dark:hover:bg-slate-700/50',
     },
     enclosed: {
       base: 'border border-transparent rounded-t-lg -mb-px',
-      active: 'bg-white border-slate-200 border-b-white text-[#F78C3A]',
-      inactive: 'text-slate-500 hover:text-slate-700 hover:bg-slate-50',
+      active: 'bg-white dark:bg-slate-900 border-slate-200 dark:border-slate-700 border-b-white dark:border-b-slate-900 text-[#F78C3A]',
+      inactive: 'text-slate-500 dark:text-slate-400 hover:text-slate-700 dark:hover:text-slate-300 hover:bg-slate-50 dark:hover:bg-slate-800',
     },
   }
 
@@ -98,7 +98,7 @@ export const Tabs: React.FC<TabsProps> = ({
                 <span
                   className={`
                     px-1.5 py-0.5 text-xs rounded-full font-semibold
-                    ${isActive ? 'bg-orange-100 text-orange-600' : 'bg-slate-200 text-slate-600'}
+                    ${isActive ? 'bg-orange-100 dark:bg-orange-900/30 text-orange-600 dark:text-orange-400' : 'bg-slate-200 dark:bg-slate-700 text-slate-600 dark:text-slate-400'}
                   `}
                 >
                   {item.badge}

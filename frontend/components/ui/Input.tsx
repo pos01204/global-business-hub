@@ -37,11 +37,11 @@ export const Input = React.forwardRef<HTMLInputElement, InputProps>(
     }
 
     const baseInputStyles = `
-      w-full rounded-lg border border-slate-200 bg-white
-      transition-all duration-200
-      placeholder:text-slate-400
-      focus:outline-none focus:border-[#F78C3A] focus:ring-2 focus:ring-orange-100
-      disabled:bg-slate-50 disabled:text-slate-400 disabled:cursor-not-allowed
+      w-full rounded-lg border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-800
+      transition-all duration-200 text-slate-900 dark:text-slate-100
+      placeholder:text-slate-400 dark:placeholder:text-slate-500
+      focus:outline-none focus:border-[#F78C3A] focus:ring-2 focus:ring-orange-100 dark:focus:ring-orange-900/30
+      disabled:bg-slate-50 dark:disabled:bg-slate-900 disabled:text-slate-400 dark:disabled:text-slate-500 disabled:cursor-not-allowed
     `
 
     const errorStyles = error
@@ -53,7 +53,7 @@ export const Input = React.forwardRef<HTMLInputElement, InputProps>(
         {label && (
           <label
             htmlFor={inputId}
-            className="block text-sm font-medium text-slate-700 mb-1.5"
+            className="block text-sm font-medium text-slate-700 dark:text-slate-300 mb-1.5"
           >
             {label}
             {props.required && <span className="text-red-500 ml-0.5">*</span>}
@@ -61,7 +61,7 @@ export const Input = React.forwardRef<HTMLInputElement, InputProps>(
         )}
         <div className="relative">
           {prefix && (
-            <div className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400">
+            <div className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400 dark:text-slate-500">
               {prefix}
             </div>
           )}
@@ -81,13 +81,13 @@ export const Input = React.forwardRef<HTMLInputElement, InputProps>(
             {...props}
           />
           {suffix && (
-            <div className="absolute right-3 top-1/2 -translate-y-1/2 text-slate-400">
+            <div className="absolute right-3 top-1/2 -translate-y-1/2 text-slate-400 dark:text-slate-500">
               {suffix}
             </div>
           )}
         </div>
         {error && (
-          <p id={`${inputId}-error`} className="mt-1.5 text-sm text-red-500 flex items-center gap-1">
+          <p id={`${inputId}-error`} className="mt-1.5 text-sm text-red-500 dark:text-red-400 flex items-center gap-1">
             <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
               <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 8v4m0 4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
             </svg>
@@ -95,7 +95,7 @@ export const Input = React.forwardRef<HTMLInputElement, InputProps>(
           </p>
         )}
         {hint && !error && (
-          <p id={`${inputId}-hint`} className="mt-1.5 text-sm text-slate-500">
+          <p id={`${inputId}-hint`} className="mt-1.5 text-sm text-slate-500 dark:text-slate-400">
             {hint}
           </p>
         )}

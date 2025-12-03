@@ -56,11 +56,11 @@ export const LoadingOverlay: React.FC<LoadingOverlayProps> = ({
     <div
       className={`
         flex flex-col items-center justify-center gap-3
-        ${fullScreen ? 'fixed inset-0 bg-white/80 backdrop-blur-sm z-50' : 'py-12'}
+        ${fullScreen ? 'fixed inset-0 bg-white/80 dark:bg-slate-900/80 backdrop-blur-sm z-50' : 'py-12'}
       `}
     >
       <Spinner size="lg" />
-      <p className="text-sm text-slate-500 font-medium">{message}</p>
+      <p className="text-sm text-slate-500 dark:text-slate-400 font-medium">{message}</p>
     </div>
   )
 }

@@ -75,3 +75,6 @@ export type { ToggleProps } from './Toggle'
 // Breadcrumb
 export { Breadcrumb } from './Breadcrumb'
 export type { BreadcrumbProps, BreadcrumbItem } from './Breadcrumb'
+
+// ThemeToggle
+export { ThemeToggle } from './ThemeToggle'

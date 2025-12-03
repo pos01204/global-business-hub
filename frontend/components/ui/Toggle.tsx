@@ -65,13 +65,13 @@ export const Toggle: React.FC<ToggleProps> = ({
           transition-colors duration-200 ease-in-out
           focus:outline-none focus-visible:ring-2 focus-visible:ring-orange-400 focus-visible:ring-offset-2
           ${sizes[size].track}
-          ${checked ? 'bg-[#F78C3A]' : 'bg-slate-200'}
+          ${checked ? 'bg-[#F78C3A]' : 'bg-slate-200 dark:bg-slate-700'}
           ${disabled ? '' : 'hover:bg-opacity-90'}
         `}
       >
         <span
           className={`
-            pointer-events-none inline-block rounded-full bg-white shadow-lg
+            pointer-events-none inline-block rounded-full bg-white dark:bg-slate-200 shadow-lg
             transform transition-transform duration-200 ease-in-out
             ${sizes[size].thumb}
             ${checked ? sizes[size].translate : 'translate-x-0.5'}
@@ -82,12 +82,12 @@ export const Toggle: React.FC<ToggleProps> = ({
       {(label || description) && (
         <div className="flex flex-col">
           {label && (
-            <span className={`font-medium text-slate-900 ${sizes[size].label}`}>
+            <span className={`font-medium text-slate-900 dark:text-slate-100 ${sizes[size].label}`}>
               {label}
             </span>
           )}
           {description && (
-            <span className="text-sm text-slate-500 mt-0.5">{description}</span>
+            <span className="text-sm text-slate-500 dark:text-slate-400 mt-0.5">{description}</span>
           )}
         </div>
       )}
