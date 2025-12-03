@@ -1,4 +1,4 @@
-import NextAuth, { NextAuthOptions } from 'next-auth'
+import NextAuth from 'next-auth'
 import GoogleProvider from 'next-auth/providers/google'
 
 // 허용된 이메일 도메인
@@ -6,7 +6,7 @@ const ALLOWED_DOMAINS = (process.env.ALLOWED_EMAIL_DOMAINS || 'backpackr.kr')
   .split(',')
   .map(d => d.trim().toLowerCase())
 
-export const authOptions: NextAuthOptions = {
+const handler = NextAuth({
   providers: [
     GoogleProvider({
       clientId: process.env.GOOGLE_CLIENT_ID!,
@@ -57,7 +57,6 @@ export const authOptions: NextAuthOptions = {
     strategy: 'jwt',
     maxAge: 30 * 24 * 60 * 60, // 30일
   },
-}
+})
 
-const handler = NextAuth(authOptions)
 export { handler as GET, handler as POST }
