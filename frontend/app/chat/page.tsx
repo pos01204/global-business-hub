@@ -709,7 +709,7 @@ export default function ChatPage() {
         </div>
 
         {/* 메시지 영역 */}
-        <div className="flex-1 overflow-y-auto px-6 py-6">
+        <div className="flex-1 overflow-y-auto px-4 lg:px-6 py-4 lg:py-6 pb-24 lg:pb-6">
           <div className="max-w-3xl mx-auto space-y-4">
             {messages.length === 0 && !isConnected && (
               <div className="text-center py-16">
@@ -929,10 +929,10 @@ export default function ChatPage() {
         </div>
       </div>
 
-        {/* 입력 영역 */}
-        <div className="bg-white border-t border-slate-200 px-6 py-4">
+        {/* 입력 영역 - 모바일에서 하단 고정 */}
+        <div className="bg-white dark:bg-slate-900 border-t border-slate-200 dark:border-slate-800 px-4 lg:px-6 py-3 lg:py-4 lg:relative fixed bottom-16 lg:bottom-0 left-0 right-0 z-30 safe-area-pb">
           <div className="max-w-3xl mx-auto">
-            <div className="flex items-end gap-3">
+            <div className="flex items-end gap-2 lg:gap-3">
               <div className="flex-1 relative">
                 <textarea
                   ref={inputRef}
@@ -941,12 +941,12 @@ export default function ChatPage() {
                   onKeyDown={handleKeyDown}
                   placeholder={
                     isConnected
-                      ? '메시지를 입력하세요... (Enter: 전송, Shift+Enter: 줄바꿈)'
+                      ? '메시지를 입력하세요...'
                       : 'AI 어시스턴트가 연결되지 않았습니다.'
                   }
                   disabled={!isConnected || sendMessageMutation.isPending || isStreaming}
                   rows={1}
-                  className="w-full resize-none border border-slate-300 rounded-xl px-4 py-3 pr-12 focus:outline-none focus:ring-2 focus:ring-primary focus:border-transparent disabled:bg-slate-100 disabled:cursor-not-allowed transition-all"
+                  className="w-full resize-none border border-slate-300 dark:border-slate-600 rounded-xl px-4 py-3 text-base focus:outline-none focus:ring-2 focus:ring-primary focus:border-transparent disabled:bg-slate-100 dark:disabled:bg-slate-800 disabled:cursor-not-allowed transition-all bg-white dark:bg-slate-800 text-slate-900 dark:text-slate-100"
                   style={{
                     minHeight: '48px',
                     maxHeight: '120px',
@@ -961,13 +961,14 @@ export default function ChatPage() {
               <button
                 onClick={handleSend}
                 disabled={!input.trim() || !isConnected || sendMessageMutation.isPending || isStreaming}
-                className="px-5 py-3 bg-gradient-to-r from-primary to-primary/90 text-white rounded-xl hover:shadow-lg hover:scale-[1.02] transition-all disabled:from-slate-300 disabled:to-slate-300 disabled:cursor-not-allowed font-medium flex items-center gap-2"
+                className="px-4 lg:px-5 py-3 bg-gradient-to-r from-primary to-primary/90 text-white rounded-xl hover:shadow-lg hover:scale-[1.02] transition-all disabled:from-slate-300 disabled:to-slate-300 disabled:cursor-not-allowed font-medium flex items-center justify-center min-h-[48px] min-w-[48px] lg:min-w-[80px]"
               >
-                <span>전송</span>
-                <span>→</span>
+                <span className="hidden lg:inline">전송</span>
+                <span className="lg:hidden">→</span>
+                <span className="hidden lg:inline ml-1">→</span>
               </button>
             </div>
-            <div className="flex items-center justify-between mt-2 text-xs text-slate-500">
+            <div className="hidden lg:flex items-center justify-between mt-2 text-xs text-slate-500 dark:text-slate-400">
               <span>
                 {isConnected && (
                   <>

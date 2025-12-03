@@ -37,16 +37,16 @@ function CouponGeneratorContent() {
   return (
     <div className="animate-fade-in">
       {/* 페이지 헤더 */}
-      <div className="relative bg-gradient-to-r from-amber-500 to-orange-500 rounded-2xl p-6 mb-6 overflow-hidden shadow-lg">
+      <div className="relative bg-gradient-to-r from-amber-500 to-orange-500 rounded-2xl p-4 lg:p-6 mb-6 overflow-hidden shadow-lg">
         <div className="absolute top-0 right-0 w-64 h-64 bg-white/10 rounded-full -translate-y-1/2 translate-x-1/2"></div>
         <div className="absolute bottom-0 left-0 w-32 h-32 bg-white/5 rounded-full translate-y-1/2 -translate-x-1/2"></div>
-        <div className="flex items-center gap-4">
-          <div className="w-14 h-14 bg-white/20 backdrop-blur rounded-xl flex items-center justify-center shadow-lg">
-            <span className="text-3xl">🎟️</span>
+        <div className="flex items-center gap-3 lg:gap-4">
+          <div className="w-12 h-12 lg:w-14 lg:h-14 bg-white/20 backdrop-blur rounded-xl flex items-center justify-center shadow-lg">
+            <span className="text-2xl lg:text-3xl">🎟️</span>
           </div>
           <div>
-            <h1 className="text-2xl font-extrabold text-white tracking-tight">쿠폰 생성/발급 도우미</h1>
-            <p className="text-white/80 text-sm font-medium">마케팅 캠페인용 쿠폰 쿼리를 쉽게 생성하고 발급하세요</p>
+            <h1 className="text-xl lg:text-2xl font-extrabold text-white tracking-tight">쿠폰 생성/발급 도우미</h1>
+            <p className="text-white/80 text-xs lg:text-sm font-medium">마케팅 캠페인용 쿠폰 쿼리를 쉽게 생성하고 발급하세요</p>
           </div>
         </div>
       </div>
@@ -63,6 +63,7 @@ function CouponGeneratorContent() {
           onChange={(tab) => setActiveTab(tab as TabType)}
           variant="pills"
           size="lg"
+          mobileVariant="scroll"
         />
         <p className="mt-2 text-sm text-slate-500">
           {activeTab === 'promotion' 

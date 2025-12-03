@@ -1,6 +1,7 @@
 'use client'
 
 import React, { useState, useRef, useEffect } from 'react'
+import { useIsMobile } from '@/hooks/useMediaQuery'
 
 export interface SelectOption {
   value: string
@@ -22,6 +23,8 @@ export interface SelectProps {
   size?: 'sm' | 'md' | 'lg'
   fullWidth?: boolean
   className?: string
+  /** 모바일에서 네이티브 select 사용 (기본: true) */
+  mobileNative?: boolean
 }
 
 export const Select: React.FC<SelectProps> = ({
@@ -37,13 +40,18 @@ export const Select: React.FC<SelectProps> = ({
   size = 'md',
   fullWidth = true,
   className = '',
+  mobileNative = true,
 }) => {
   const [isOpen, setIsOpen] = useState(false)
   const [searchTerm, setSearchTerm] = useState('')
   const containerRef = useRef<HTMLDivElement>(null)
   const inputRef = useRef<HTMLInputElement>(null)
+  const isMobile = useIsMobile()
 
   const selectedOption = options.find((opt) => opt.value === value)
+  
+  // 모바일에서 네이티브 select 사용 (searchable이 아닌 경우에만)
+  const useNativeSelect = isMobile && mobileNative && !searchable
 
   const filteredOptions = searchable
     ? options.filter((opt) =>
@@ -95,6 +103,64 @@ export const Select: React.FC<SelectProps> = ({
     sm: 'px-3 py-1.5 text-sm',
     md: 'px-4 py-2.5 text-sm',
     lg: 'px-4 py-3 text-base',
+  }
+
+  // 네이티브 select 렌더링 (모바일)
+  if (useNativeSelect) {
+    return (
+      <div className={`${fullWidth ? 'w-full' : ''} ${className}`}>
+        {label && (
+          <label className="block text-sm font-medium text-slate-700 dark:text-slate-300 mb-1.5">
+            {label}
+          </label>
+        )}
+        <select
+          value={value || ''}
+          onChange={(e) => onChange(e.target.value)}
+          disabled={disabled}
+          className={`
+            w-full appearance-none bg-white dark:bg-slate-800 
+            border rounded-lg transition-all duration-200
+            px-4 py-3 text-base
+            ${error
+              ? 'border-red-300 dark:border-red-700'
+              : 'border-slate-200 dark:border-slate-700 focus:border-[#F78C3A] focus:ring-2 focus:ring-orange-100 dark:focus:ring-orange-900/30'
+            }
+            ${disabled ? 'bg-slate-50 dark:bg-slate-900 text-slate-400 dark:text-slate-500 cursor-not-allowed' : ''}
+            text-slate-900 dark:text-slate-100
+          `}
+          style={{
+            backgroundImage: `url("data:image/svg+xml,%3csvg xmlns='http://www.w3.org/2000/svg' fill='none' viewBox='0 0 20 20'%3e%3cpath stroke='%236b7280' stroke-linecap='round' stroke-linejoin='round' stroke-width='1.5' d='M6 8l4 4 4-4'/%3e%3c/svg%3e")`,
+            backgroundPosition: 'right 0.75rem center',
+            backgroundRepeat: 'no-repeat',
+            backgroundSize: '1.25rem 1.25rem',
+            paddingRight: '2.5rem',
+          }}
+        >
+          {placeholder && (
+            <option value="" disabled>
+              {placeholder}
+            </option>
+          )}
+          {options.map((option) => (
+            <option key={option.value} value={option.value} disabled={option.disabled}>
+              {option.label}
+            </option>
+          ))}
+        </select>
+        {error && (
+          <p className="mt-1.5 text-sm text-red-500 dark:text-red-400 flex items-center gap-1">
+            <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 8v4m0 4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
+            </svg>
+            {error}
+          </p>
+        )}
+        {hint && !error && (
+          <p className="mt-1.5 text-sm text-slate-500 dark:text-slate-400">{hint}</p>
+        )}
+      </div>
+    )
   }
 
   return (

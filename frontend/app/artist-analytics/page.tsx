@@ -43,16 +43,16 @@ export default function ArtistAnalyticsPage() {
   return (
     <div className="animate-fade-in">
       {/* 페이지 헤더 */}
-      <div className="relative bg-gradient-to-r from-violet-600 to-purple-500 rounded-2xl p-6 mb-6 overflow-hidden">
+      <div className="relative bg-gradient-to-r from-violet-600 to-purple-500 rounded-2xl p-4 lg:p-6 mb-6 overflow-hidden">
         <div className="absolute top-0 right-0 w-64 h-64 bg-white/10 rounded-full -translate-y-1/2 translate-x-1/2"></div>
         <div className="absolute bottom-0 left-0 w-32 h-32 bg-white/5 rounded-full translate-y-1/2 -translate-x-1/2"></div>
-        <div className="flex items-center gap-4">
-          <div className="w-14 h-14 bg-white/20 backdrop-blur rounded-xl flex items-center justify-center">
-            <span className="text-3xl">👨‍🎨</span>
+        <div className="flex items-center gap-3 lg:gap-4">
+          <div className="w-12 h-12 lg:w-14 lg:h-14 bg-white/20 backdrop-blur rounded-xl flex items-center justify-center">
+            <span className="text-2xl lg:text-3xl">👨‍🎨</span>
           </div>
           <div>
-            <h1 className="text-2xl font-extrabold text-white tracking-tight">작가 분석</h1>
-            <p className="text-white/80 text-sm">작가 포트폴리오 관리 및 셀렉션 최적화</p>
+            <h1 className="text-xl lg:text-2xl font-extrabold text-white tracking-tight">작가 분석</h1>
+            <p className="text-white/80 text-xs lg:text-sm">작가 포트폴리오 관리 및 셀렉션 최적화</p>
           </div>
         </div>
       </div>
@@ -87,6 +87,7 @@ export default function ArtistAnalyticsPage() {
           onChange={(tab) => setActiveTab(tab as TabType)}
           variant="pills"
           size="md"
+          mobileVariant="scroll"
         />
       </div>
 

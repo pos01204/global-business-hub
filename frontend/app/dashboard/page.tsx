@@ -5,7 +5,7 @@ import { dashboardApi, controlTowerApi, artistAnalyticsApi } from '@/lib/api'
 import Link from 'next/link'
 import { useState, useEffect } from 'react'
 import { format } from 'date-fns'
-import { LoadingOverlay, ErrorState, KPICard, Button } from '@/components/ui'
+import { LoadingOverlay } from '@/components/ui'
 import {
   Chart as ChartJS,
   CategoryScale,
@@ -156,24 +156,30 @@ export default function DashboardPage() {
         </div>
         
         <div className="flex flex-col sm:flex-row items-stretch sm:items-center gap-3">
-          {/* 날짜 필터 */}
-          <div className="flex items-center gap-2 bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-lg px-3 py-2">
-            <input
-              type="date"
-              value={startDate}
-              onChange={(e) => setStartDate(e.target.value)}
-              className="border-0 bg-transparent text-sm text-slate-700 dark:text-slate-300 focus:outline-none w-28 lg:w-32"
-            />
-            <span className="text-slate-300 dark:text-slate-600">~</span>
-            <input
-              type="date"
-              value={endDate}
-              onChange={(e) => setEndDate(e.target.value)}
-              className="border-0 bg-transparent text-sm text-slate-700 dark:text-slate-300 focus:outline-none w-28 lg:w-32"
-            />
+          {/* 날짜 필터 - 모바일 최적화 */}
+          <div className="flex flex-col sm:flex-row items-stretch sm:items-center gap-2 bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-lg p-3 sm:px-3 sm:py-2">
+            <div className="flex items-center gap-2">
+              <input
+                type="date"
+                value={startDate}
+                onChange={(e) => setStartDate(e.target.value)}
+                className="flex-1 sm:flex-none border border-slate-200 dark:border-slate-600 sm:border-0 bg-white dark:bg-slate-800 sm:bg-transparent text-base sm:text-sm text-slate-700 dark:text-slate-300 focus:outline-none focus:ring-2 focus:ring-primary sm:focus:ring-0 rounded-lg sm:rounded-none px-3 py-2 sm:p-0 w-full sm:w-28 lg:w-32"
+              />
+              <span className="text-slate-300 dark:text-slate-600 hidden sm:inline">~</span>
+              <span className="text-slate-400 dark:text-slate-500 sm:hidden text-sm">부터</span>
+            </div>
+            <div className="flex items-center gap-2">
+              <input
+                type="date"
+                value={endDate}
+                onChange={(e) => setEndDate(e.target.value)}
+                className="flex-1 sm:flex-none border border-slate-200 dark:border-slate-600 sm:border-0 bg-white dark:bg-slate-800 sm:bg-transparent text-base sm:text-sm text-slate-700 dark:text-slate-300 focus:outline-none focus:ring-2 focus:ring-primary sm:focus:ring-0 rounded-lg sm:rounded-none px-3 py-2 sm:p-0 w-full sm:w-28 lg:w-32"
+              />
+              <span className="text-slate-400 dark:text-slate-500 sm:hidden text-sm">까지</span>
+            </div>
             <button
               onClick={handleApply}
-              className="ml-2 px-3 py-1.5 bg-slate-900 dark:bg-slate-700 text-white text-sm font-medium rounded-md hover:bg-slate-800 dark:hover:bg-slate-600 transition-colors"
+              className="w-full sm:w-auto sm:ml-2 px-4 py-2.5 sm:py-1.5 bg-slate-900 dark:bg-slate-700 text-white text-sm font-medium rounded-lg sm:rounded-md hover:bg-slate-800 dark:hover:bg-slate-600 transition-colors min-h-[44px] sm:min-h-0"
             >
               조회
             </button>
@@ -182,7 +188,7 @@ export default function DashboardPage() {
           {/* AI 빠른 질문 */}
           <Link 
             href="/chat"
-            className="flex items-center gap-2 px-4 py-2.5 bg-gradient-to-r from-violet-500 to-purple-600 text-white rounded-lg hover:from-violet-600 hover:to-purple-700 transition-all shadow-sm hover:shadow-md"
+            className="flex items-center justify-center gap-2 px-4 py-2.5 bg-gradient-to-r from-violet-500 to-purple-600 text-white rounded-lg hover:from-violet-600 hover:to-purple-700 transition-all shadow-sm hover:shadow-md min-h-[44px]"
           >
             <span>💬</span>
             <span className="text-sm font-medium">AI에게 질문</span>

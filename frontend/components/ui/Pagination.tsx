@@ -10,6 +10,8 @@ export interface PaginationProps {
   siblingCount?: number
   size?: 'sm' | 'md' | 'lg'
   className?: string
+  /** 모바일에서 간소화된 UI 사용 (기본: true) */
+  mobileSimple?: boolean
 }
 
 export const Pagination: React.FC<PaginationProps> = ({
@@ -20,7 +22,18 @@ export const Pagination: React.FC<PaginationProps> = ({
   siblingCount = 1,
   size = 'md',
   className = '',
+  mobileSimple = true,
 }) => {
+  // 모바일 감지 (SSR 안전)
+  const [isMobile, setIsMobile] = React.useState(false)
+  
+  React.useEffect(() => {
+    const checkMobile = () => setIsMobile(window.innerWidth < 640)
+    checkMobile()
+    window.addEventListener('resize', checkMobile)
+    return () => window.removeEventListener('resize', checkMobile)
+  }, [])
+
   const sizes = {
     sm: 'h-7 min-w-7 text-xs',
     md: 'h-9 min-w-9 text-sm',
@@ -74,6 +87,36 @@ export const Pagination: React.FC<PaginationProps> = ({
   if (totalPages <= 1) return null
 
   const pages = getPageNumbers()
+  
+  // 모바일 간소화 모드
+  if (isMobile && mobileSimple) {
+    return (
+      <nav
+        className={`flex items-center justify-center gap-2 ${className}`}
+        aria-label="페이지네이션"
+      >
+        <button
+          onClick={() => onPageChange(currentPage - 1)}
+          disabled={currentPage === 1}
+          className="h-11 min-w-11 px-3 inline-flex items-center justify-center rounded-lg font-medium transition-all duration-200 disabled:opacity-50 disabled:cursor-not-allowed text-slate-500 dark:text-slate-400 hover:bg-slate-100 dark:hover:bg-slate-800"
+          aria-label="이전 페이지"
+        >
+          ← 이전
+        </button>
+        <span className="px-3 py-2 text-sm font-medium text-slate-700 dark:text-slate-300">
+          {currentPage} / {totalPages}
+        </span>
+        <button
+          onClick={() => onPageChange(currentPage + 1)}
+          disabled={currentPage === totalPages}
+          className="h-11 min-w-11 px-3 inline-flex items-center justify-center rounded-lg font-medium transition-all duration-200 disabled:opacity-50 disabled:cursor-not-allowed text-slate-500 dark:text-slate-400 hover:bg-slate-100 dark:hover:bg-slate-800"
+          aria-label="다음 페이지"
+        >
+          다음 →
+        </button>
+      </nav>
+    )
+  }
 
   const buttonBase = `
     inline-flex items-center justify-center rounded-lg font-medium

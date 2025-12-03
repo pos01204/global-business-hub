@@ -5,6 +5,7 @@ import { unreceivedApi } from '@/lib/api'
 import { useState, useEffect } from 'react'
 import { useSearchParams, useRouter } from 'next/navigation'
 import OrderDetailModal from '@/components/OrderDetailModal'
+import { useIsMobile } from '@/hooks/useMediaQuery'
 
 // 경과일에 따른 위험도 배지 (한 줄로 표시)
 function DelayBadge({ days }: { days: number }) {
@@ -41,6 +42,7 @@ function DelayBadge({ days }: { days: number }) {
 export default function UnreceivedPage() {
   const searchParams = useSearchParams()
   const router = useRouter()
+  const isMobile = useIsMobile()
   
   // URL 쿼리 파라미터에서 초기값 로드
   const initialDelay = searchParams.get('delay') || 'all'
@@ -54,6 +56,7 @@ export default function UnreceivedPage() {
   const [memoText, setMemoText] = useState('')
   const [isOrderDetailModalOpen, setIsOrderDetailModalOpen] = useState(false)
   const [selectedOrderCode, setSelectedOrderCode] = useState<string | null>(null)
+  const [showFilters, setShowFilters] = useState(false)
 
   // URL 파라미터 변경 시 상태 동기화
   useEffect(() => {
@@ -65,21 +68,6 @@ export default function UnreceivedPage() {
     if (search) setSearchTerm(decodeURIComponent(search))
     if (bundle) setBundleFilter(bundle)
   }, [searchParams])
-
-  // 필터 변경 시 URL 업데이트
-  const updateUrlParams = (newDelay?: string, newSearch?: string, newBundle?: string) => {
-    const params = new URLSearchParams()
-    const delay = newDelay ?? delayFilter
-    const search = newSearch ?? searchTerm
-    const bundle = newBundle ?? bundleFilter
-    
-    if (delay && delay !== 'all') params.set('delay', delay)
-    if (search) params.set('search', search)
-    if (bundle && bundle !== 'all') params.set('bundle', bundle)
-    
-    const queryString = params.toString()
-    router.replace(`/unreceived${queryString ? `?${queryString}` : ''}`, { scroll: false })
-  }
 
   const openOrderDetailModal = (orderCode: string) => {
     setSelectedOrderCode(orderCode)
@@ -282,147 +270,248 @@ export default function UnreceivedPage() {
         </button>
       </div>
 
+      {/* 필터 토글 버튼 (모바일) */}
+      {isMobile && (
+        <div className="mb-4">
+          <button 
+            onClick={() => setShowFilters(!showFilters)}
+            className="flex items-center gap-2 text-sm text-slate-600 dark:text-slate-400 hover:text-slate-800 dark:hover:text-slate-200 transition-colors min-h-[44px]"
+          >
+            <span className={`transform transition-transform ${showFilters ? 'rotate-180' : ''}`}>🔽</span>
+            <span>상세 필터 {showFilters ? '접기' : '펼치기'}</span>
+          </button>
+        </div>
+      )}
+
       {/* 필터 */}
-      <div className="bg-white dark:bg-slate-900 rounded-xl p-4 border border-slate-200 dark:border-slate-800 mb-6">
-        <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-          <div>
-            <label className="block text-sm font-medium text-gray-700 dark:text-slate-300 mb-1.5">검색</label>
-            <input
-              type="text"
-              value={searchTerm}
-              onChange={(e) => setSearchTerm(e.target.value)}
-              placeholder="주문번호, 작가명, 작품명..."
-              className="w-full border border-gray-300 dark:border-slate-600 rounded px-3 py-2 text-sm bg-white dark:bg-slate-800 text-slate-900 dark:text-slate-100 focus:ring-2 focus:ring-primary focus:border-primary"
-            />
-          </div>
-          <div>
-            <label className="block text-sm font-medium text-gray-700 dark:text-slate-300 mb-1.5">지연 상태</label>
-            <select
-              value={delayFilter}
-              onChange={(e) => setDelayFilter(e.target.value)}
-              className="w-full border border-gray-300 dark:border-slate-600 rounded px-3 py-2 text-sm bg-white dark:bg-slate-800 text-slate-900 dark:text-slate-100 focus:ring-2 focus:ring-primary focus:border-primary"
-            >
-              <option value="all">전체</option>
-              <option value="critical">14일 이상</option>
-              <option value="delayed">7일 이상</option>
-              <option value="warning">3-7일</option>
-            </select>
-          </div>
-          <div>
-            <label className="block text-sm font-medium text-gray-700 dark:text-slate-300 mb-1.5">주문 유형</label>
-            <select
-              value={bundleFilter}
-              onChange={(e) => setBundleFilter(e.target.value)}
-              className="w-full border border-gray-300 dark:border-slate-600 rounded px-3 py-2 text-sm bg-white dark:bg-slate-800 text-slate-900 dark:text-slate-100 focus:ring-2 focus:ring-primary focus:border-primary"
-            >
-              <option value="all">전체</option>
-              <option value="bundle">묶음 주문</option>
-              <option value="single">단일 주문</option>
-            </select>
+      {(showFilters || !isMobile) && (
+        <div className="bg-white dark:bg-slate-900 rounded-xl p-4 border border-slate-200 dark:border-slate-800 mb-6">
+          <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+            <div>
+              <label className="block text-sm font-medium text-gray-700 dark:text-slate-300 mb-1.5">검색</label>
+              <input
+                type="text"
+                value={searchTerm}
+                onChange={(e) => setSearchTerm(e.target.value)}
+                placeholder="주문번호, 작가명, 작품명..."
+                className="w-full border border-gray-300 dark:border-slate-600 rounded-lg px-4 py-3 text-base bg-white dark:bg-slate-800 text-slate-900 dark:text-slate-100 focus:ring-2 focus:ring-primary focus:border-primary"
+              />
+            </div>
+            <div>
+              <label className="block text-sm font-medium text-gray-700 dark:text-slate-300 mb-1.5">지연 상태</label>
+              <select
+                value={delayFilter}
+                onChange={(e) => setDelayFilter(e.target.value)}
+                className="w-full border border-gray-300 dark:border-slate-600 rounded-lg px-4 py-3 text-base bg-white dark:bg-slate-800 text-slate-900 dark:text-slate-100 focus:ring-2 focus:ring-primary focus:border-primary"
+              >
+                <option value="all">전체</option>
+                <option value="critical">14일 이상</option>
+                <option value="delayed">7일 이상</option>
+                <option value="warning">3-7일</option>
+              </select>
+            </div>
+            <div>
+              <label className="block text-sm font-medium text-gray-700 dark:text-slate-300 mb-1.5">주문 유형</label>
+              <select
+                value={bundleFilter}
+                onChange={(e) => setBundleFilter(e.target.value)}
+                className="w-full border border-gray-300 dark:border-slate-600 rounded-lg px-4 py-3 text-base bg-white dark:bg-slate-800 text-slate-900 dark:text-slate-100 focus:ring-2 focus:ring-primary focus:border-primary"
+              >
+                <option value="all">전체</option>
+                <option value="bundle">묶음 주문</option>
+                <option value="single">단일 주문</option>
+              </select>
+            </div>
           </div>
         </div>
-      </div>
+      )}
 
-      {/* 테이블 */}
-      <div className="bg-white dark:bg-slate-900 rounded-xl border border-slate-200 dark:border-slate-800 overflow-hidden">
-        <div className="overflow-x-auto">
-          <table className="w-full">
-            <thead className="bg-gray-50 dark:bg-slate-800 border-b border-gray-200 dark:border-slate-700">
-              <tr>
-                <th className="text-left py-4 px-4 font-semibold text-gray-700 dark:text-slate-300">주문번호</th>
-                <th className="text-left py-4 px-4 font-semibold text-gray-700 dark:text-slate-300 hidden sm:table-cell">작가명</th>
-                <th className="text-left py-4 px-4 font-semibold text-gray-700 dark:text-slate-300">작품명</th>
-                <th className="text-left py-4 px-4 font-semibold text-gray-700 dark:text-slate-300 hidden md:table-cell">주문일</th>
-                <th className="text-center py-4 px-4 font-semibold text-gray-700 dark:text-slate-300">경과일</th>
-                <th className="text-left py-4 px-4 font-semibold text-gray-700 dark:text-slate-300 hidden lg:table-cell">현재 메모</th>
-                <th className="text-center py-4 px-4 font-semibold text-gray-700 dark:text-slate-300">액션</th>
-              </tr>
-            </thead>
-            <tbody>
-              {filteredItems.length === 0 ? (
+      {/* 모바일 카드뷰 */}
+      {isMobile ? (
+        <div className="space-y-3">
+          {filteredItems.length === 0 ? (
+            <div className="bg-white dark:bg-slate-900 rounded-xl p-8 border border-slate-200 dark:border-slate-800 text-center">
+              <div className="text-gray-400 dark:text-slate-500">
+                <div className="text-4xl mb-2">📭</div>
+                <p className="font-medium">표시할 데이터가 없습니다.</p>
+              </div>
+            </div>
+          ) : (
+            <>
+              {filteredItems.map((item: any, index: number) => (
+                <div
+                  key={`${item.orderCode}-${index}`}
+                  className={`rounded-xl p-4 border transition-colors ${
+                    item.daysElapsed >= 14
+                      ? 'bg-red-50 dark:bg-red-900/20 border-red-200 dark:border-red-800'
+                      : item.daysElapsed >= 7
+                      ? 'bg-orange-50 dark:bg-orange-900/20 border-orange-200 dark:border-orange-800'
+                      : item.daysElapsed >= 3
+                      ? 'bg-yellow-50 dark:bg-yellow-900/20 border-yellow-200 dark:border-yellow-800'
+                      : 'bg-white dark:bg-slate-900 border-slate-200 dark:border-slate-800'
+                  }`}
+                >
+                  {/* 상단: 주문번호 + 경과일 */}
+                  <div className="flex justify-between items-start mb-3">
+                    <button
+                      onClick={() => openOrderDetailModal(item.orderCode)}
+                      className="text-primary hover:underline font-semibold text-sm min-h-[44px] flex items-center"
+                    >
+                      {item.orderCode}
+                    </button>
+                    <DelayBadge days={item.daysElapsed} />
+                  </div>
+                  
+                  {/* 작품명 */}
+                  <p className="text-sm font-medium text-slate-900 dark:text-slate-100 mb-1 line-clamp-2">
+                    {item.productName}
+                  </p>
+                  
+                  {/* 작가명 + 주문일 */}
+                  <p className="text-xs text-slate-500 dark:text-slate-400 mb-2">
+                    {item.artistName} · {item.orderDate}
+                  </p>
+                  
+                  {/* 묶음 주문 표시 */}
+                  {item.isBundle && (
+                    <span className="inline-flex items-center gap-1 text-xs text-blue-600 dark:text-blue-400 bg-blue-50 dark:bg-blue-900/30 px-2 py-1 rounded-full mb-3">
+                      📦 묶음 ({item.allItems?.length || 0}개)
+                    </span>
+                  )}
+                  
+                  {/* 메모 표시 */}
+                  {item.currentStatus && (
+                    <p className="text-xs text-slate-500 dark:text-slate-400 bg-slate-100 dark:bg-slate-800 rounded-lg px-3 py-2 mb-3 line-clamp-2">
+                      💬 {item.currentStatus}
+                    </p>
+                  )}
+                  
+                  {/* 하단: 수정 버튼 */}
+                  <div className="flex justify-end pt-2 border-t border-slate-200 dark:border-slate-700">
+                    <button
+                      onClick={() => handleOpenModal(item.orderCode, item.currentStatus || '')}
+                      className="px-4 py-2.5 text-sm font-medium text-white bg-primary hover:bg-primary/90 rounded-lg transition-colors min-h-[44px]"
+                    >
+                      메모 수정
+                    </button>
+                  </div>
+                </div>
+              ))}
+              
+              {/* 카드뷰 푸터 */}
+              <div className="px-4 py-3 bg-slate-50 dark:bg-slate-800 rounded-xl border border-slate-200 dark:border-slate-700 flex items-center justify-between">
+                <p className="text-sm text-gray-600 dark:text-slate-400">
+                  총 <span className="font-semibold text-gray-900 dark:text-slate-100">{filteredItems.length}</span>개
+                </p>
+                <p className="text-xs text-gray-500 dark:text-slate-500">
+                  {new Date().toLocaleString('ko-KR', { month: 'short', day: 'numeric', hour: '2-digit', minute: '2-digit' })}
+                </p>
+              </div>
+            </>
+          )}
+        </div>
+      ) : (
+        /* 데스크톱 테이블 */
+        <div className="bg-white dark:bg-slate-900 rounded-xl border border-slate-200 dark:border-slate-800 overflow-hidden">
+          <div className="overflow-x-auto">
+            <table className="w-full">
+              <thead className="bg-gray-50 dark:bg-slate-800 border-b border-gray-200 dark:border-slate-700">
                 <tr>
-                  <td colSpan={7} className="text-center py-12">
-                    <div className="text-gray-400 dark:text-slate-500">
-                      <div className="text-4xl mb-2">📭</div>
-                      <p className="font-medium">표시할 데이터가 없습니다.</p>
-                    </div>
-                  </td>
+                  <th className="text-left py-4 px-4 font-semibold text-gray-700 dark:text-slate-300">주문번호</th>
+                  <th className="text-left py-4 px-4 font-semibold text-gray-700 dark:text-slate-300">작가명</th>
+                  <th className="text-left py-4 px-4 font-semibold text-gray-700 dark:text-slate-300">작품명</th>
+                  <th className="text-left py-4 px-4 font-semibold text-gray-700 dark:text-slate-300">주문일</th>
+                  <th className="text-center py-4 px-4 font-semibold text-gray-700 dark:text-slate-300">경과일</th>
+                  <th className="text-left py-4 px-4 font-semibold text-gray-700 dark:text-slate-300">현재 메모</th>
+                  <th className="text-center py-4 px-4 font-semibold text-gray-700 dark:text-slate-300">액션</th>
                 </tr>
-              ) : (
-                filteredItems.map((item: any, index: number) => (
-                  <tr
-                    key={`${item.orderCode}-${index}`}
-                    className={`border-b dark:border-slate-800 transition-colors ${
-                      item.daysElapsed >= 14
-                        ? 'bg-red-50 dark:bg-red-900/20 hover:bg-red-100 dark:hover:bg-red-900/30'
-                        : item.daysElapsed >= 7
-                        ? 'bg-orange-50 dark:bg-orange-900/20 hover:bg-orange-100 dark:hover:bg-orange-900/30'
-                        : item.daysElapsed >= 3
-                        ? 'bg-yellow-50 dark:bg-yellow-900/20 hover:bg-yellow-100 dark:hover:bg-yellow-900/30'
-                        : 'hover:bg-gray-50 dark:hover:bg-slate-800'
-                    }`}
-                  >
-                    <td className="py-4 px-4">
-                      <button
-                        onClick={() => openOrderDetailModal(item.orderCode)}
-                        className="text-primary hover:underline font-medium text-sm"
-                      >
-                        {item.orderCode}
-                      </button>
-                    </td>
-                    <td className="py-4 px-4 hidden sm:table-cell">
-                      <span className="font-medium text-gray-900 dark:text-slate-100">{item.artistName}</span>
-                    </td>
-                    <td className="py-4 px-4">
-                      <div>
-                        <div className="text-gray-900 dark:text-slate-100 line-clamp-1" title={item.productName}>
-                          {item.productName}
-                        </div>
-                        {item.isBundle && (
-                          <span className="inline-flex items-center gap-1 mt-1 text-xs text-blue-600 dark:text-blue-400 bg-blue-50 dark:bg-blue-900/30 px-2 py-0.5 rounded-full">
-                            <span>📦</span> 묶음 ({item.allItems?.length || 0}개)
-                          </span>
-                        )}
+              </thead>
+              <tbody>
+                {filteredItems.length === 0 ? (
+                  <tr>
+                    <td colSpan={7} className="text-center py-12">
+                      <div className="text-gray-400 dark:text-slate-500">
+                        <div className="text-4xl mb-2">📭</div>
+                        <p className="font-medium">표시할 데이터가 없습니다.</p>
                       </div>
                     </td>
-                    <td className="py-4 px-4 text-gray-600 dark:text-slate-400 text-sm hidden md:table-cell">{item.orderDate}</td>
-                    <td className="py-4 px-4 text-center">
-                      <DelayBadge days={item.daysElapsed} />
-                    </td>
-                    <td className="py-4 px-4 hidden lg:table-cell">
-                      <span className="text-gray-600 dark:text-slate-400 text-sm truncate block max-w-[150px]" title={item.currentStatus || '메모 없음'}>
-                        {item.currentStatus || (
-                          <span className="text-gray-400 dark:text-slate-500 italic">메모 없음</span>
-                        )}
-                      </span>
-                    </td>
-                    <td className="py-3 px-4 text-center">
-                      <button
-                        onClick={() => handleOpenModal(item.orderCode, item.currentStatus || '')}
-                        className="px-3 py-1 text-sm font-medium text-white bg-primary hover:bg-primary/90 rounded transition-colors whitespace-nowrap"
-                      >
-                        수정
-                      </button>
-                    </td>
                   </tr>
-                ))
-              )}
-            </tbody>
-          </table>
-        </div>
-        
-        {/* 테이블 푸터 */}
-        {filteredItems.length > 0 && (
-          <div className="px-4 py-3 bg-gray-50 dark:bg-slate-800 border-t border-gray-200 dark:border-slate-700 flex flex-col sm:flex-row items-start sm:items-center justify-between gap-2">
-            <p className="text-sm text-gray-600 dark:text-slate-400">
-              총 <span className="font-semibold text-gray-900 dark:text-slate-100">{filteredItems.length}</span>개 항목
-            </p>
-            <p className="text-xs text-gray-500 dark:text-slate-500">
-              마지막 업데이트: {new Date().toLocaleString('ko-KR')}
-            </p>
+                ) : (
+                  filteredItems.map((item: any, index: number) => (
+                    <tr
+                      key={`${item.orderCode}-${index}`}
+                      className={`border-b dark:border-slate-800 transition-colors ${
+                        item.daysElapsed >= 14
+                          ? 'bg-red-50 dark:bg-red-900/20 hover:bg-red-100 dark:hover:bg-red-900/30'
+                          : item.daysElapsed >= 7
+                          ? 'bg-orange-50 dark:bg-orange-900/20 hover:bg-orange-100 dark:hover:bg-orange-900/30'
+                          : item.daysElapsed >= 3
+                          ? 'bg-yellow-50 dark:bg-yellow-900/20 hover:bg-yellow-100 dark:hover:bg-yellow-900/30'
+                          : 'hover:bg-gray-50 dark:hover:bg-slate-800'
+                      }`}
+                    >
+                      <td className="py-4 px-4">
+                        <button
+                          onClick={() => openOrderDetailModal(item.orderCode)}
+                          className="text-primary hover:underline font-medium text-sm"
+                        >
+                          {item.orderCode}
+                        </button>
+                      </td>
+                      <td className="py-4 px-4">
+                        <span className="font-medium text-gray-900 dark:text-slate-100">{item.artistName}</span>
+                      </td>
+                      <td className="py-4 px-4">
+                        <div>
+                          <div className="text-gray-900 dark:text-slate-100 line-clamp-1" title={item.productName}>
+                            {item.productName}
+                          </div>
+                          {item.isBundle && (
+                            <span className="inline-flex items-center gap-1 mt-1 text-xs text-blue-600 dark:text-blue-400 bg-blue-50 dark:bg-blue-900/30 px-2 py-0.5 rounded-full">
+                              <span>📦</span> 묶음 ({item.allItems?.length || 0}개)
+                            </span>
+                          )}
+                        </div>
+                      </td>
+                      <td className="py-4 px-4 text-gray-600 dark:text-slate-400 text-sm">{item.orderDate}</td>
+                      <td className="py-4 px-4 text-center">
+                        <DelayBadge days={item.daysElapsed} />
+                      </td>
+                      <td className="py-4 px-4">
+                        <span className="text-gray-600 dark:text-slate-400 text-sm truncate block max-w-[150px]" title={item.currentStatus || '메모 없음'}>
+                          {item.currentStatus || (
+                            <span className="text-gray-400 dark:text-slate-500 italic">메모 없음</span>
+                          )}
+                        </span>
+                      </td>
+                      <td className="py-3 px-4 text-center">
+                        <button
+                          onClick={() => handleOpenModal(item.orderCode, item.currentStatus || '')}
+                          className="px-3 py-1 text-sm font-medium text-white bg-primary hover:bg-primary/90 rounded transition-colors whitespace-nowrap"
+                        >
+                          수정
+                        </button>
+                      </td>
+                    </tr>
+                  ))
+                )}
+              </tbody>
+            </table>
           </div>
-        )}
-      </div>
+          
+          {/* 테이블 푸터 */}
+          {filteredItems.length > 0 && (
+            <div className="px-4 py-3 bg-gray-50 dark:bg-slate-800 border-t border-gray-200 dark:border-slate-700 flex flex-col sm:flex-row items-start sm:items-center justify-between gap-2">
+              <p className="text-sm text-gray-600 dark:text-slate-400">
+                총 <span className="font-semibold text-gray-900 dark:text-slate-100">{filteredItems.length}</span>개 항목
+              </p>
+              <p className="text-xs text-gray-500 dark:text-slate-500">
+                마지막 업데이트: {new Date().toLocaleString('ko-KR')}
+              </p>
+            </div>
+          )}
+        </div>
+      )}
 
       {/* 메모 수정 모달 */}
       {editingOrderCode && (

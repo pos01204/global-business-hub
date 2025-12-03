@@ -6,7 +6,7 @@ import TextQCTab from './components/TextQCTab'
 import ImageQCTab from './components/ImageQCTab'
 import ArtistsNotificationTab from './components/ArtistsNotificationTab'
 import QCArchiveTab from './components/QCArchiveTab'
-import { Tabs, TabPanel } from '@/components/ui'
+import { TabPanel } from '@/components/ui'
 
 // 탭 타입 정의
 type QCTab = 'upload' | 'text' | 'image' | 'artists' | 'archive'
@@ -38,20 +38,38 @@ export default function QCPage() {
         </div>
       </div>
 
-      {/* 탭 네비게이션 - 공통 Tabs 컴포넌트 사용 */}
+      {/* 탭 네비게이션 - 모바일 최적화 */}
       <div className="mb-6">
         <div className="flex items-center gap-2 mb-4">
           <span className="text-lg">📑</span>
           <h2 className="text-lg font-semibold text-slate-900 dark:text-slate-100">QC 기능</h2>
         </div>
+        
+        {/* 모바일: 가로 스크롤 탭 */}
         <div className="overflow-x-auto scrollbar-hide -mx-4 px-4 lg:mx-0 lg:px-0">
-          <Tabs
-            items={tabItems}
-            activeTab={activeTab}
-            onChange={(tab) => setActiveTab(tab as QCTab)}
-            variant="pills"
-            size="md"
-          />
+          <div className="flex gap-2 min-w-max lg:flex-wrap">
+            {tabItems.map((item) => {
+              const isActive = activeTab === item.id
+              return (
+                <button
+                  key={item.id}
+                  onClick={() => setActiveTab(item.id as QCTab)}
+                  className={`
+                    flex items-center gap-2 px-4 py-3 rounded-xl whitespace-nowrap
+                    text-sm font-medium transition-all min-h-[48px]
+                    ${isActive 
+                      ? 'bg-[#F78C3A] text-white shadow-sm' 
+                      : 'bg-slate-100 dark:bg-slate-800 text-slate-600 dark:text-slate-400 hover:bg-slate-200 dark:hover:bg-slate-700'
+                    }
+                  `}
+                >
+                  {item.icon}
+                  <span className="hidden sm:inline">{item.label}</span>
+                  <span className="sm:hidden">{item.label.split(' ')[0]}</span>
+                </button>
+              )
+            })}
+          </div>
         </div>
       </div>
 
