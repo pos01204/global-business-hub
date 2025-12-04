@@ -25,6 +25,7 @@ const upload = multer({
 
 // 정산서 헤더 매핑 (롯데글로벌로지스 정산서 → 표준 칼럼명)
 // 주의: 정산서의 "주문번호"는 내부 시스템의 "shipment_id"에 대응함
+// CSV 헤더에 공백이 포함될 수 있으므로 다양한 변형을 포함
 const HEADER_MAPPING: Record<string, string> = {
   'NO': 'no',
   '운송구분': 'carrier',
@@ -33,6 +34,7 @@ const HEADER_MAPPING: Record<string, string> = {
   '출고번호': 'logistics_shipment_code', // 물류사 전용 (내부 매핑 없음)
   '부출고번호': 'logistics_sub_shipment_code', // 물류사 전용 (내부 매핑 없음)
   '내품 수': 'item_count',
+  '내품수': 'item_count', // 공백 없는 버전
   '발송일자(선적일자)': 'shipped_at',
   '발송일자': 'shipped_at', // 신규 형식 지원
   '보내는 사람': 'sender',
@@ -44,21 +46,36 @@ const HEADER_MAPPING: Record<string, string> = {
   '부피중량': 'volumetric_weight',
   '청구중량': 'charged_weight',
   '해외운송료': 'shipping_fee',
+  // 기타운임1 - 다양한 공백 패턴 지원
   '기타운임1': 'surcharge1',
   '기타운임1 항목': 'surcharge1_type',
-  ' 기타운임1 ': 'surcharge1', // 공백 포함 버전
-  '기타운임1 항목': 'surcharge1_type',
+  // 기타운임2 - 다양한 공백 패턴 지원
   '기타운임2': 'surcharge2',
   '기타운임2항목': 'surcharge2_type',
-  ' 기타운임2 ': 'surcharge2', // 공백 포함 버전
-  '기타운임2항목': 'surcharge2_type',
+  '기타운임2 항목': 'surcharge2_type',
+  // 기타운임3 - 다양한 공백 패턴 지원
   '기타운임3': 'surcharge3',
   '기타운임3항목': 'surcharge3_type',
-  ' 기타운임3 ': 'surcharge3', // 공백 포함 버전
-  '기타운임3항목': 'surcharge3_type',
+  '기타운임3 항목': 'surcharge3_type',
   '운임 합계': 'total_cost',
+  '운임합계': 'total_cost', // 공백 없는 버전
   '비고': 'note',
 };
+
+/**
+ * 헤더 정규화: 앞뒤 공백 제거 및 중복 공백 단일화
+ */
+function normalizeHeader(header: string): string {
+  return header.trim().replace(/\s+/g, ' ');
+}
+
+/**
+ * 정규화된 헤더로 매핑 찾기
+ */
+function findHeaderMapping(header: string): string | undefined {
+  const normalized = normalizeHeader(header);
+  return HEADER_MAPPING[normalized];
+}
 
 // 표준 헤더 (Google Sheets에 생성될 칼럼)
 const STANDARD_HEADERS = [
@@ -205,6 +222,16 @@ router.post('/upload', upload.single('file'), async (req, res) => {
     const dataRows = records.slice(headerRowIndex + 1);
 
     console.log(`[Settlement] 헤더 발견 (행 ${headerRowIndex + 1}):`, headers.slice(0, 5).join(', '), '...');
+    
+    // 헤더 매핑 디버그
+    const mappedHeaders: string[] = [];
+    headers.forEach((header: string, idx: number) => {
+      const standardKey = findHeaderMapping(header);
+      if (standardKey) {
+        mappedHeaders.push(`${idx}:${header.trim()}->${standardKey}`);
+      }
+    });
+    console.log(`[Settlement] 헤더 매핑:`, mappedHeaders.join(', '));
 
     // 시트 헤더 확인/생성
     await ensureSheetHeaders(SHEET_NAMES.SETTLEMENT_RECORDS, STANDARD_HEADERS);
@@ -227,9 +254,8 @@ router.post('/upload', upload.single('file'), async (req, res) => {
       // 헤더 매핑으로 데이터 추출
       const rowData: Record<string, any> = {};
       headers.forEach((header: string, idx: number) => {
-        // 헤더에서 공백 정규화 (앞뒤 공백 제거 + 중복 공백 단일화)
-        const cleanHeader = header.trim().replace(/\s+/g, ' ');
-        const standardKey = HEADER_MAPPING[cleanHeader];
+        // 헤더 정규화 및 매핑 찾기
+        const standardKey = findHeaderMapping(header);
         if (standardKey && row[idx] !== undefined) {
           rowData[standardKey] = row[idx];
         }
@@ -1356,7 +1382,7 @@ router.get('/analysis/trend-advanced', async (req, res) => {
       const recent3 = trendData.slice(-3);
       const avgRecent = recent3.reduce((sum, t) => sum + t.avgCost, 0) / 3;
       if (avgRecent > avgCostPerShipment * 1.1) {
-        insights.push(`📈 최근 3개월 건당 평균 비용(₩${Math.round(avgRecent).toLocaleString()})이 전체 평균보다 높습니다.`);
+        insights.push(`📈 최근 3개월 건당 평균 비용(₩${Math.round(avgRecent || 0).toLocaleString()})이 전체 평균보다 높습니다.`);
       }
     }
 

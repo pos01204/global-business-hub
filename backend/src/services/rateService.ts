@@ -909,7 +909,7 @@ export class RateService {
         difference: 0,
         differencePercent: 0,
         status: 'additional_charge',
-        message: `추가비용 청구 건 (${options?.surchargeType || '할증료'}): ₩${safeActualRate.toLocaleString()}`,
+        message: `추가비용 청구 건 (${options?.surchargeType || '할증료'}): ₩${(safeActualRate || 0).toLocaleString()}`,
         details: {
           carrier: normalizedCarrier,
           country,
@@ -1018,7 +1018,7 @@ export class RateService {
       message = `예상 요금 대비 ${differencePercent > 0 ? '초과' : '미달'} (${differencePercent.toFixed(1)}%)`;
     } else {
       status = 'error';
-      message = `큰 차이 발생! 예상: ₩${safeExpectedRate.toLocaleString()}, 실제: ₩${safeCompareRate.toLocaleString()} (${differencePercent.toFixed(1)}%)`;
+      message = `큰 차이 발생! 예상: ₩${(safeExpectedRate || 0).toLocaleString()}, 실제: ₩${(safeCompareRate || 0).toLocaleString()} (${(differencePercent || 0).toFixed(1)}%)`;
     }
 
     return {
