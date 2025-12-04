@@ -1149,10 +1149,10 @@ export default function SettlementPage() {
                                 )}
                               </td>
                               <td className="p-3 text-right">
-                                {formatCurrency(issue.details?.shippingFee || issue.actualRate)}
-                                {issue.details?.surchargeAmount > 0 && (
+                                {formatCurrency(issue.details?.shippingFee ?? issue.actualRate)}
+                                {(issue.details?.surchargeAmount ?? 0) > 0 && (
                                   <span className="block text-xs text-gray-400">
-                                    +할증 {formatCurrency(issue.details.surchargeAmount)}
+                                    +할증 {formatCurrency(issue.details?.surchargeAmount)}
                                   </span>
                                 )}
                               </td>

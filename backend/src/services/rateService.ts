@@ -654,12 +654,16 @@ const COUNTRY_CODE_MAP: Record<string, string> = {
 const CARRIER_MAP: Record<string, string> = {
   'LOTTEGLOBAL': 'LOTTE',
   'LOTTE GLOBAL': 'LOTTE',
+  'LOTTE': 'LOTTE',
   'KPACKET': 'KPACKET',
   'K-PACKET': 'KPACKET',
   'EMS': 'EMS',
   'SF': 'SF',
   'SF EXPRESS': 'SF',
   'UPS': 'UPS',
+  // 자체 서비스 (롯데글로벌 협력사)
+  '자체서비스-RI': 'LOTTE_RI',
+  '자체서비스': 'LOTTE_RI',
 };
 
 // ============================================================
@@ -934,12 +938,12 @@ export class RateService {
     const compareRate = shippingFee > 0 ? shippingFee : actualRate;
 
     // 운송사별 예상 요금 조회
-    if (normalizedCarrier === 'LOTTE') {
+    if (normalizedCarrier === 'LOTTE' || normalizedCarrier === 'LOTTE_RI') {
       const lotteRate = this.getExpectedLotteRate(countryCode, weight);
       if (lotteRate) {
         expectedRate = lotteRate.rate;
         service = lotteRate.service;
-        rateSource = '롯데글로벌 이코노미';
+        rateSource = normalizedCarrier === 'LOTTE_RI' ? '롯데글로벌 자체서비스' : '롯데글로벌 이코노미';
       }
     } else if (normalizedCarrier === 'KPACKET') {
       expectedRate = this.getExpectedKPacketRate(countryCode, weight);
@@ -1223,28 +1227,33 @@ export class RateService {
         recordId: record.id,
       });
 
-      const safeTotalCost = typeof record.total_cost === 'number' && isFinite(record.total_cost) ? record.total_cost : 0;
-      totalActualCost += safeTotalCost;
-
+      // 실제 비용: 해외운송료 (할증료 제외)
+      const safeShippingFee = typeof record.shipping_fee === 'number' && isFinite(record.shipping_fee) ? record.shipping_fee : 0;
+      
       switch (result.status) {
         case 'normal':
           normal++;
           if (result.expectedRate) totalExpectedCost += result.expectedRate;
+          totalActualCost += safeShippingFee;
           break;
         case 'warning':
           warning++;
           if (result.expectedRate) totalExpectedCost += result.expectedRate;
+          totalActualCost += safeShippingFee;
           break;
         case 'error':
           error++;
           if (result.expectedRate) totalExpectedCost += result.expectedRate;
+          totalActualCost += safeShippingFee;
           break;
         case 'unknown':
           unknown++;
+          // 미검증 건도 실제 비용에 포함
+          totalActualCost += safeShippingFee;
           break;
         case 'additional_charge':
           additionalChargeOnly++;
-          // 추가비용 건은 예상 비용에서 제외
+          // 추가비용 건은 예상/실제 비용에서 제외 (순수 운송료가 아님)
           break;
       }
     }
