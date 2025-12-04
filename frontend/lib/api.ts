@@ -1070,14 +1070,14 @@ export const artistAnalyticsApi = {
 // Business Brain API
 export const businessBrainApi = {
   // 경영 브리핑
-  getBriefing: async () => {
-    const response = await api.get('/api/business-brain/briefing')
+  getBriefing: async (period: '7d' | '30d' | '90d' | '180d' | '365d' = '30d') => {
+    const response = await api.get('/api/business-brain/briefing', { params: { period } })
     return response.data
   },
 
   // 건강도 점수
-  getHealthScore: async () => {
-    const response = await api.get('/api/business-brain/health-score')
+  getHealthScore: async (period: '7d' | '30d' | '90d' | '180d' | '365d' = '30d') => {
+    const response = await api.get('/api/business-brain/health-score', { params: { period } })
     return response.data
   },
 
@@ -1126,8 +1126,8 @@ export const businessBrainApi = {
   },
 
   // 장기 트렌드 분석
-  getTrends: async () => {
-    const response = await api.get('/api/business-brain/trends')
+  getTrends: async (period: '7d' | '30d' | '90d' | '180d' | '365d' = '90d') => {
+    const response = await api.get('/api/business-brain/trends', { params: { period } })
     return response.data
   },
 

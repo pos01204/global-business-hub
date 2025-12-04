@@ -404,13 +404,18 @@ export class DataProcessor {
       
       // 리텐션 계산 (M0, M1, M2, ...)
       const retentionByMonth: number[] = []
-      const allMonths = [...cd.ordersByMonth.keys()].sort()
       
       for (let i = 0; i < 12; i++) {
         const targetMonth = this.addMonths(cohortMonth, i)
         const activeUsers = cd.ordersByMonth.get(targetMonth)?.size || 0
-        const retention = totalUsers > 0 ? activeUsers / totalUsers : 0
-        retentionByMonth.push(retention)
+        
+        if (i === 0) {
+          // M0은 항상 100% (코호트 정의상 첫 달에 모든 사용자가 구매)
+          retentionByMonth.push(1)
+        } else {
+          const retention = totalUsers > 0 ? activeUsers / totalUsers : 0
+          retentionByMonth.push(retention)
+        }
       }
 
       cohorts.push({
@@ -1334,28 +1339,50 @@ export class DataProcessor {
    */
   private calculateForecastAccuracy(values: number[]): { mape: number; rmse: number } {
     if (values.length < 14) {
-      return { mape: 20, rmse: 0 }
+      // 데이터가 적으면 기본값 반환 (높은 신뢰도 가정)
+      return { mape: 25, rmse: 0 }
     }
 
     // 마지막 7일을 테스트셋으로 사용
     const trainValues = values.slice(0, -7)
     const testValues = values.slice(-7)
 
-    // 단순 이동평균 예측
-    const movingAvg = this.mean(trainValues.slice(-7))
+    // 0이 아닌 값만 사용
+    const nonZeroTestValues = testValues.filter(v => v > 0)
+    if (nonZeroTestValues.length === 0) {
+      return { mape: 30, rmse: 0 }
+    }
+
+    // 단순 이동평균 예측 (0이 아닌 값만 사용)
+    const nonZeroTrainValues = trainValues.filter(v => v > 0).slice(-7)
+    if (nonZeroTrainValues.length === 0) {
+      return { mape: 30, rmse: 0 }
+    }
+    const movingAvg = this.mean(nonZeroTrainValues)
     
     let sumAbsPercentError = 0
     let sumSquaredError = 0
+    let validCount = 0
 
     testValues.forEach(actual => {
-      const error = actual - movingAvg
-      sumAbsPercentError += actual > 0 ? Math.abs(error / actual) : 0
-      sumSquaredError += error * error
+      if (actual > 0) {
+        const error = actual - movingAvg
+        sumAbsPercentError += Math.abs(error / actual)
+        sumSquaredError += error * error
+        validCount++
+      }
     })
 
+    if (validCount === 0) {
+      return { mape: 30, rmse: 0 }
+    }
+
+    // MAPE를 합리적인 범위로 제한 (최대 100%)
+    const mape = Math.min(100, (sumAbsPercentError / validCount) * 100)
+    
     return {
-      mape: (sumAbsPercentError / testValues.length) * 100,
-      rmse: Math.sqrt(sumSquaredError / testValues.length),
+      mape,
+      rmse: Math.sqrt(sumSquaredError / validCount),
     }
   }
 

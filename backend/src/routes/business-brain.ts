@@ -12,17 +12,20 @@ const router = Router()
 /**
  * GET /api/business-brain/briefing
  * 경영 브리핑 조회
+ * Query: period (7d, 30d, 90d, 180d, 365d)
  */
 router.get('/briefing', async (req, res) => {
   try {
-    console.log('[BusinessBrain] 브리핑 요청')
+    const { period = '30d' } = req.query
+    console.log(`[BusinessBrain] 브리핑 요청 (${period})`)
     
     const agent = new BusinessBrainAgent()
-    const briefing = await agent.generateExecutiveBriefing()
+    const briefing = await agent.generateExecutiveBriefing(period as any)
     
     res.json({
       success: true,
       briefing,
+      period,
       generatedAt: new Date().toISOString(),
     })
   } catch (error: any) {
@@ -37,17 +40,20 @@ router.get('/briefing', async (req, res) => {
 /**
  * GET /api/business-brain/health-score
  * 비즈니스 건강도 점수
+ * Query: period (7d, 30d, 90d, 180d, 365d)
  */
 router.get('/health-score', async (req, res) => {
   try {
-    console.log('[BusinessBrain] 건강도 점수 요청')
+    const { period = '30d' } = req.query
+    console.log(`[BusinessBrain] 건강도 점수 요청 (${period})`)
     
     const agent = new BusinessBrainAgent()
-    const score = await agent.calculateHealthScore()
+    const score = await agent.calculateHealthScore(period as any)
     
     res.json({
       success: true,
       score,
+      period,
       calculatedAt: new Date().toISOString(),
     })
   } catch (error: any) {
@@ -224,16 +230,19 @@ router.get('/human-error-checks', async (_req, res) => {
 /**
  * GET /api/business-brain/trends
  * 장기 트렌드 분석
+ * Query: period (7d, 30d, 90d, 180d, 365d)
  */
-router.get('/trends', async (_req, res) => {
+router.get('/trends', async (req, res) => {
   try {
-    console.log('[BusinessBrain] 트렌드 분석 요청')
+    const { period = '90d' } = req.query
+    console.log(`[BusinessBrain] 트렌드 분석 요청 (${period})`)
     
     const agent = new BusinessBrainAgent()
-    const result = await agent.analyzeLongTermTrends()
+    const result = await agent.analyzeLongTermTrends(period as any)
     
     res.json({
       success: true,
+      period,
       ...result,
     })
   } catch (error: any) {

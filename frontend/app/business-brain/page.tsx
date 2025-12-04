@@ -1,6 +1,6 @@
 'use client'
 
-import { useState } from 'react'
+import { useState, useEffect, useRef } from 'react'
 import { useQuery } from '@tanstack/react-query'
 import { businessBrainApi } from '@/lib/api'
 import { Card } from '@/components/ui/Card'
@@ -10,6 +10,118 @@ import { Badge } from '@/components/ui/Badge'
 
 // 기간 프리셋 타입
 type PeriodPreset = '7d' | '30d' | '90d' | '180d' | '365d'
+
+// ==================== 애니메이션 훅 ====================
+
+// 숫자 카운트업 애니메이션 훅
+function useCountUp(end: number, duration: number = 1000, start: number = 0): number {
+  const [count, setCount] = useState(start)
+  const countRef = useRef(start)
+  const startTimeRef = useRef<number | null>(null)
+
+  useEffect(() => {
+    if (end === 0) {
+      setCount(0)
+      return
+    }
+    
+    startTimeRef.current = null
+    countRef.current = start
+    
+    const animate = (timestamp: number) => {
+      if (!startTimeRef.current) startTimeRef.current = timestamp
+      const progress = Math.min((timestamp - startTimeRef.current) / duration, 1)
+      
+      // easeOutExpo 이징
+      const easeProgress = progress === 1 ? 1 : 1 - Math.pow(2, -10 * progress)
+      const currentCount = start + (end - start) * easeProgress
+      
+      setCount(currentCount)
+      countRef.current = currentCount
+      
+      if (progress < 1) {
+        requestAnimationFrame(animate)
+      }
+    }
+    
+    requestAnimationFrame(animate)
+  }, [end, duration, start])
+
+  return count
+}
+
+// 페이드인 애니메이션 컴포넌트
+function FadeIn({ children, delay = 0, className = '' }: { 
+  children: React.ReactNode
+  delay?: number
+  className?: string 
+}) {
+  const [isVisible, setIsVisible] = useState(false)
+  
+  useEffect(() => {
+    const timer = setTimeout(() => setIsVisible(true), delay)
+    return () => clearTimeout(timer)
+  }, [delay])
+
+  return (
+    <div 
+      className={`transition-all duration-500 ease-out ${
+        isVisible ? 'opacity-100 translate-y-0' : 'opacity-0 translate-y-4'
+      } ${className}`}
+    >
+      {children}
+    </div>
+  )
+}
+
+// 스켈레톤 로딩 컴포넌트
+function Skeleton({ className = '' }: { className?: string }) {
+  return (
+    <div className={`animate-pulse bg-slate-200 dark:bg-slate-700 rounded ${className}`} />
+  )
+}
+
+// 빈 상태 컴포넌트
+function EmptyState({ 
+  icon = '📊', 
+  title, 
+  description 
+}: { 
+  icon?: string
+  title: string
+  description: string 
+}) {
+  return (
+    <div className="flex flex-col items-center justify-center py-16 px-4">
+      <div className="text-6xl mb-4 animate-bounce">{icon}</div>
+      <h3 className="text-lg font-semibold text-slate-700 dark:text-slate-300 mb-2">{title}</h3>
+      <p className="text-sm text-slate-500 dark:text-slate-400 text-center max-w-md">{description}</p>
+    </div>
+  )
+}
+
+// 애니메이션 숫자 표시 컴포넌트
+function AnimatedNumber({ 
+  value, 
+  prefix = '', 
+  suffix = '',
+  decimals = 0,
+  className = ''
+}: { 
+  value: number
+  prefix?: string
+  suffix?: string
+  decimals?: number
+  className?: string 
+}) {
+  const animatedValue = useCountUp(value, 800)
+  
+  return (
+    <span className={className}>
+      {prefix}{decimals > 0 ? animatedValue.toFixed(decimals) : Math.round(animatedValue).toLocaleString()}{suffix}
+    </span>
+  )
+}
 
 const PERIOD_OPTIONS: { value: PeriodPreset; label: string }[] = [
   { value: '7d', label: '최근 7일' },
@@ -23,16 +135,16 @@ export default function BusinessBrainPage() {
   const [activeTab, setActiveTab] = useState('overview')
   const [selectedPeriod, setSelectedPeriod] = useState<PeriodPreset>('30d')
 
-  // 데이터 쿼리
+  // 데이터 쿼리 (기간 기반)
   const { data: briefingData, isLoading: briefingLoading } = useQuery({
-    queryKey: ['business-brain-briefing'],
-    queryFn: businessBrainApi.getBriefing,
+    queryKey: ['business-brain-briefing', selectedPeriod],
+    queryFn: () => businessBrainApi.getBriefing(selectedPeriod),
     staleTime: 5 * 60 * 1000,
   })
 
   const { data: healthData, isLoading: healthLoading } = useQuery({
-    queryKey: ['business-brain-health'],
-    queryFn: businessBrainApi.getHealthScore,
+    queryKey: ['business-brain-health', selectedPeriod],
+    queryFn: () => businessBrainApi.getHealthScore(selectedPeriod),
     staleTime: 5 * 60 * 1000,
   })
 
@@ -43,8 +155,8 @@ export default function BusinessBrainPage() {
   })
 
   const { data: trendsData, isLoading: trendsLoading } = useQuery({
-    queryKey: ['business-brain-trends'],
-    queryFn: businessBrainApi.getTrends,
+    queryKey: ['business-brain-trends', selectedPeriod],
+    queryFn: () => businessBrainApi.getTrends(selectedPeriod),
     staleTime: 5 * 60 * 1000,
     enabled: activeTab === 'trends',
   })
@@ -141,75 +253,107 @@ export default function BusinessBrainPage() {
   ]
 
   // 기간 선택이 필요한 탭들
-  const periodEnabledTabs = ['comprehensive', 'rfm', 'pareto', 'cohort', 'anomaly', 'forecast']
+  const periodEnabledTabs = ['overview', 'comprehensive', 'rfm', 'pareto', 'cohort', 'anomaly', 'forecast', 'trends']
 
   return (
-    <div className="p-6 space-y-6">
+    <div className="p-6 space-y-6 min-h-screen">
       {/* 헤더 */}
-      <div className="flex items-center justify-between flex-wrap gap-4">
-        <div className="flex items-center gap-4">
-          <div className="w-12 h-12 bg-gradient-to-br from-purple-500 to-indigo-600 rounded-xl flex items-center justify-center">
-            <span className="text-white text-2xl">🧠</span>
-          </div>
-          <div>
-            <h1 className="text-2xl font-bold text-slate-800 dark:text-slate-100">
-              Business Brain
-            </h1>
-            <p className="text-sm text-slate-500 dark:text-slate-400">
-              AI 기반 경영 인사이트 시스템
-            </p>
-          </div>
-        </div>
-        {healthScore && (
-          <div className="text-right">
-            <div className="text-sm text-slate-500 dark:text-slate-400">비즈니스 건강도</div>
-            <div className={`text-3xl font-bold ${getScoreColor(healthScore.overall)}`}>
-              {healthScore.overall}
-              <span className="text-lg text-slate-400">/100</span>
+      <FadeIn>
+        <div className="flex items-center justify-between flex-wrap gap-4">
+          <div className="flex items-center gap-4">
+            <div className="w-14 h-14 bg-gradient-to-br from-purple-500 via-indigo-500 to-blue-600 rounded-2xl flex items-center justify-center shadow-lg shadow-indigo-500/25 animate-pulse">
+              <span className="text-white text-3xl">🧠</span>
+            </div>
+            <div>
+              <h1 className="text-2xl font-bold bg-gradient-to-r from-purple-600 to-indigo-600 bg-clip-text text-transparent">
+                Business Brain
+              </h1>
+              <p className="text-sm text-slate-500 dark:text-slate-400">
+                AI 기반 경영 인사이트 시스템
+              </p>
             </div>
           </div>
-        )}
-      </div>
+          {healthScore ? (
+            <div className="text-right p-4 bg-gradient-to-br from-slate-50 to-white dark:from-slate-800 dark:to-slate-900 rounded-xl shadow-sm border border-slate-100 dark:border-slate-700">
+              <div className="text-xs font-medium text-slate-500 dark:text-slate-400 uppercase tracking-wide mb-1">비즈니스 건강도</div>
+              <div className="flex items-baseline gap-1">
+                <span className={`text-4xl font-bold ${getScoreColor(healthScore.overall)} transition-all duration-500`}>
+                  <AnimatedNumber value={healthScore.overall} />
+                </span>
+                <span className="text-lg text-slate-400">/100</span>
+              </div>
+              <div className="mt-2 h-1.5 bg-slate-200 dark:bg-slate-700 rounded-full overflow-hidden">
+                <div 
+                  className={`h-full rounded-full transition-all duration-1000 ease-out ${
+                    healthScore.overall >= 70 ? 'bg-emerald-500' :
+                    healthScore.overall >= 50 ? 'bg-amber-500' : 'bg-red-500'
+                  }`}
+                  style={{ width: `${healthScore.overall}%` }}
+                />
+              </div>
+            </div>
+          ) : (
+            <div className="p-4 bg-slate-50 dark:bg-slate-800 rounded-xl">
+              <Skeleton className="h-4 w-24 mb-2" />
+              <Skeleton className="h-10 w-20" />
+            </div>
+          )}
+        </div>
+      </FadeIn>
 
       {/* 기간 선택 (해당 탭에서만 표시) */}
       {periodEnabledTabs.includes(activeTab) && (
-        <div className="flex items-center gap-4 p-4 bg-slate-50 dark:bg-slate-800/50 rounded-lg">
-          <span className="text-sm font-medium text-slate-600 dark:text-slate-400">분석 기간:</span>
-          <div className="flex gap-2">
-            {PERIOD_OPTIONS.map(option => (
-              <button
-                key={option.value}
-                onClick={() => setSelectedPeriod(option.value)}
-                className={`px-3 py-1.5 text-sm rounded-lg transition-colors ${
-                  selectedPeriod === option.value
-                    ? 'bg-indigo-600 text-white'
-                    : 'bg-white dark:bg-slate-700 text-slate-600 dark:text-slate-300 hover:bg-slate-100 dark:hover:bg-slate-600'
-                }`}
-              >
-                {option.label}
-              </button>
-            ))}
+        <FadeIn delay={100}>
+          <div className="flex items-center gap-4 p-4 bg-gradient-to-r from-slate-50 to-white dark:from-slate-800/50 dark:to-slate-900/50 rounded-xl border border-slate-100 dark:border-slate-700/50">
+            <span className="text-sm font-medium text-slate-600 dark:text-slate-400">📅 분석 기간:</span>
+            <div className="flex gap-2 flex-wrap">
+              {PERIOD_OPTIONS.map(option => (
+                <button
+                  key={option.value}
+                  onClick={() => setSelectedPeriod(option.value)}
+                  className={`px-4 py-2 text-sm rounded-lg transition-all duration-200 ${
+                    selectedPeriod === option.value
+                      ? 'bg-gradient-to-r from-indigo-600 to-purple-600 text-white shadow-md shadow-indigo-500/25 scale-105'
+                      : 'bg-white dark:bg-slate-700 text-slate-600 dark:text-slate-300 hover:bg-slate-100 dark:hover:bg-slate-600 hover:scale-102 border border-slate-200 dark:border-slate-600'
+                  }`}
+                >
+                  {option.label}
+                </button>
+              ))}
+            </div>
           </div>
-        </div>
+        </FadeIn>
       )}
 
       {/* 탭 */}
-      <Tabs items={tabItems} activeTab={activeTab} onChange={setActiveTab} />
+      <FadeIn delay={150}>
+        <Tabs items={tabItems} activeTab={activeTab} onChange={setActiveTab} />
+      </FadeIn>
 
       {isLoading ? (
-        <div className="flex items-center justify-center h-64">
-          <Spinner size="lg" />
-        </div>
+        <FadeIn>
+          <div className="flex flex-col items-center justify-center h-64 gap-4">
+            <div className="relative">
+              <div className="w-16 h-16 border-4 border-indigo-200 dark:border-indigo-800 rounded-full animate-spin border-t-indigo-600" />
+              <div className="absolute inset-0 flex items-center justify-center">
+                <span className="text-2xl">🧠</span>
+              </div>
+            </div>
+            <p className="text-sm text-slate-500 dark:text-slate-400 animate-pulse">
+              AI가 데이터를 분석하고 있습니다...
+            </p>
+          </div>
+        </FadeIn>
       ) : (
         <>
           {/* 현황 평가 탭 */}
           {activeTab === 'overview' && (
-            <OverviewTab briefing={briefing} healthScore={healthScore} />
+            <OverviewTab briefing={briefing} healthScore={healthScore} period={selectedPeriod} />
           )}
 
           {/* 트렌드 분석 탭 */}
           {activeTab === 'trends' && (
-            <TrendsTab trends={trends} isLoading={trendsLoading} />
+            <TrendsTab trends={trends} isLoading={trendsLoading} period={selectedPeriod} />
           )}
 
           {/* 리스크 감지 탭 */}
@@ -267,164 +411,259 @@ export default function BusinessBrainPage() {
   )
 }
 
+// 기간 레이블 헬퍼
+function getPeriodLabel(period: string): string {
+  const labels: Record<string, string> = {
+    '7d': '최근 7일',
+    '30d': '최근 30일',
+    '90d': '최근 90일',
+    '180d': '최근 180일',
+    '365d': '최근 1년',
+  }
+  return labels[period] || period
+}
+
 // 현황 평가 탭
-function OverviewTab({ briefing, healthScore }: { briefing: any; healthScore: any }) {
+function OverviewTab({ briefing, healthScore, period }: { briefing: any; healthScore: any; period: string }) {
+  if (!briefing && !healthScore) {
+    return (
+      <EmptyState 
+        icon="📊" 
+        title="데이터를 불러오는 중입니다" 
+        description="잠시만 기다려주세요. AI가 비즈니스 현황을 분석하고 있습니다."
+      />
+    )
+  }
+
   return (
     <div className="space-y-6">
       {/* AI 브리핑 */}
       {briefing && (
-        <Card className="p-6">
-          <h2 className="text-lg font-semibold text-slate-800 dark:text-slate-100 mb-4">
-            💬 AI 경영 브리핑
-          </h2>
-          <p className="text-slate-600 dark:text-slate-400 leading-relaxed">
-            {briefing.summary}
-          </p>
-          
-          <div className="grid md:grid-cols-2 gap-4 mt-4">
-            {/* 즉시 조치 사항 */}
-            {briefing.immediateActions?.length > 0 && (
-              <div className="p-4 bg-red-50 dark:bg-red-900/20 rounded-lg">
-                <h3 className="text-sm font-medium text-red-700 dark:text-red-300 mb-2">
-                  🚨 즉시 조치 필요
-                </h3>
-                <ul className="space-y-1">
-                  {briefing.immediateActions.map((action: string, idx: number) => (
-                    <li key={idx} className="text-sm text-red-600 dark:text-red-400">
-                      • {action}
-                    </li>
-                  ))}
-                </ul>
+        <FadeIn>
+          <Card className="p-6 bg-gradient-to-br from-white to-slate-50 dark:from-slate-900 dark:to-slate-800 border border-slate-100 dark:border-slate-700">
+            <div className="flex items-center gap-3 mb-4">
+              <div className="w-10 h-10 bg-gradient-to-br from-purple-500 to-indigo-600 rounded-xl flex items-center justify-center">
+                <span className="text-xl">💬</span>
               </div>
-            )}
+              <div>
+                <h2 className="text-lg font-semibold text-slate-800 dark:text-slate-100">
+                  AI 경영 브리핑
+                </h2>
+                <p className="text-xs text-slate-500">{getPeriodLabel(period)} 기준</p>
+              </div>
+            </div>
+            <p className="text-slate-600 dark:text-slate-400 leading-relaxed text-base">
+              {briefing.summary}
+            </p>
+            
+            <div className="grid md:grid-cols-2 gap-4 mt-6">
+              {/* 즉시 조치 사항 */}
+              {briefing.immediateActions?.length > 0 && (
+                <FadeIn delay={100}>
+                  <div className="p-4 bg-gradient-to-br from-red-50 to-red-100/50 dark:from-red-900/30 dark:to-red-800/20 rounded-xl border border-red-100 dark:border-red-800/30">
+                    <h3 className="text-sm font-semibold text-red-700 dark:text-red-300 mb-3 flex items-center gap-2">
+                      <span className="w-6 h-6 bg-red-500 rounded-full flex items-center justify-center text-white text-xs">!</span>
+                      즉시 조치 필요
+                    </h3>
+                    <ul className="space-y-2">
+                      {briefing.immediateActions.map((action: string, idx: number) => (
+                        <li key={idx} className="text-sm text-red-600 dark:text-red-400 flex items-start gap-2">
+                          <span className="text-red-400 mt-0.5">•</span>
+                          <span>{action}</span>
+                        </li>
+                      ))}
+                    </ul>
+                  </div>
+                </FadeIn>
+              )}
 
-            {/* 기회 */}
-            {briefing.opportunities?.length > 0 && (
-              <div className="p-4 bg-emerald-50 dark:bg-emerald-900/20 rounded-lg">
-                <h3 className="text-sm font-medium text-emerald-700 dark:text-emerald-300 mb-2">
-                  💡 성장 기회
-                </h3>
-                <ul className="space-y-1">
-                  {briefing.opportunities.slice(0, 3).map((opp: string, idx: number) => (
-                    <li key={idx} className="text-sm text-emerald-600 dark:text-emerald-400">
-                      • {opp}
-                    </li>
-                  ))}
-                </ul>
-              </div>
-            )}
+              {/* 기회 */}
+              {briefing.opportunities?.length > 0 && (
+                <FadeIn delay={150}>
+                  <div className="p-4 bg-gradient-to-br from-emerald-50 to-emerald-100/50 dark:from-emerald-900/30 dark:to-emerald-800/20 rounded-xl border border-emerald-100 dark:border-emerald-800/30">
+                    <h3 className="text-sm font-semibold text-emerald-700 dark:text-emerald-300 mb-3 flex items-center gap-2">
+                      <span className="w-6 h-6 bg-emerald-500 rounded-full flex items-center justify-center text-white text-xs">💡</span>
+                      성장 기회
+                    </h3>
+                    <ul className="space-y-2">
+                      {briefing.opportunities.slice(0, 3).map((opp: string, idx: number) => (
+                        <li key={idx} className="text-sm text-emerald-600 dark:text-emerald-400 flex items-start gap-2">
+                          <span className="text-emerald-400 mt-0.5">•</span>
+                          <span>{opp}</span>
+                        </li>
+                      ))}
+                    </ul>
+                  </div>
+                </FadeIn>
+              )}
 
-            {/* 주간 집중 사항 */}
-            {briefing.weeklyFocus?.length > 0 && (
-              <div className="p-4 bg-blue-50 dark:bg-blue-900/20 rounded-lg">
-                <h3 className="text-sm font-medium text-blue-700 dark:text-blue-300 mb-2">
-                  🎯 이번 주 집중 사항
-                </h3>
-                <ul className="space-y-1">
-                  {briefing.weeklyFocus.map((focus: string, idx: number) => (
-                    <li key={idx} className="text-sm text-blue-600 dark:text-blue-400">
-                      • {focus}
-                    </li>
-                  ))}
-                </ul>
-              </div>
-            )}
+              {/* 주간 집중 사항 */}
+              {briefing.weeklyFocus?.length > 0 && (
+                <FadeIn delay={200}>
+                  <div className="p-4 bg-gradient-to-br from-blue-50 to-blue-100/50 dark:from-blue-900/30 dark:to-blue-800/20 rounded-xl border border-blue-100 dark:border-blue-800/30">
+                    <h3 className="text-sm font-semibold text-blue-700 dark:text-blue-300 mb-3 flex items-center gap-2">
+                      <span className="w-6 h-6 bg-blue-500 rounded-full flex items-center justify-center text-white text-xs">🎯</span>
+                      이번 주 집중 사항
+                    </h3>
+                    <ul className="space-y-2">
+                      {briefing.weeklyFocus.map((focus: string, idx: number) => (
+                        <li key={idx} className="text-sm text-blue-600 dark:text-blue-400 flex items-start gap-2">
+                          <span className="text-blue-400 mt-0.5">•</span>
+                          <span>{focus}</span>
+                        </li>
+                      ))}
+                    </ul>
+                  </div>
+                </FadeIn>
+              )}
 
-            {/* 리스크 */}
-            {briefing.risks?.length > 0 && (
-              <div className="p-4 bg-amber-50 dark:bg-amber-900/20 rounded-lg">
-                <h3 className="text-sm font-medium text-amber-700 dark:text-amber-300 mb-2">
-                  ⚠️ 주의 사항
-                </h3>
-                <ul className="space-y-1">
-                  {briefing.risks.slice(0, 3).map((risk: string, idx: number) => (
-                    <li key={idx} className="text-sm text-amber-600 dark:text-amber-400">
-                      • {risk}
-                    </li>
-                  ))}
-                </ul>
-              </div>
-            )}
-          </div>
-        </Card>
+              {/* 리스크 */}
+              {briefing.risks?.length > 0 && (
+                <FadeIn delay={250}>
+                  <div className="p-4 bg-gradient-to-br from-amber-50 to-amber-100/50 dark:from-amber-900/30 dark:to-amber-800/20 rounded-xl border border-amber-100 dark:border-amber-800/30">
+                    <h3 className="text-sm font-semibold text-amber-700 dark:text-amber-300 mb-3 flex items-center gap-2">
+                      <span className="w-6 h-6 bg-amber-500 rounded-full flex items-center justify-center text-white text-xs">⚠️</span>
+                      주의 사항
+                    </h3>
+                    <ul className="space-y-2">
+                      {briefing.risks.slice(0, 3).map((risk: string, idx: number) => (
+                        <li key={idx} className="text-sm text-amber-600 dark:text-amber-400 flex items-start gap-2">
+                          <span className="text-amber-400 mt-0.5">•</span>
+                          <span>{risk}</span>
+                        </li>
+                      ))}
+                    </ul>
+                  </div>
+                </FadeIn>
+              )}
+            </div>
+          </Card>
+        </FadeIn>
       )}
 
       {/* 건강도 요약 */}
       {healthScore && (
-        <Card className="p-6">
-          <h2 className="text-lg font-semibold text-slate-800 dark:text-slate-100 mb-4">
-            📊 종합 현황 평가
-          </h2>
-          <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
-            {Object.entries(healthScore.dimensions).map(([key, dim]: [string, any]) => (
-              <div key={key} className="p-4 bg-slate-50 dark:bg-slate-800 rounded-lg text-center">
-                <div className="text-2xl mb-2">{getDimensionEmoji(key)}</div>
-                <div className="text-sm text-slate-500 dark:text-slate-400 mb-1">
-                  {getDimensionLabel(key)}
-                </div>
-                <div className="flex items-center justify-center gap-2">
-                  <span className={`text-2xl font-bold ${getScoreColor(dim.score)}`}>
-                    {dim.score}
-                  </span>
-                  <span className={`text-sm ${getTrendColor(dim.trend)}`}>
-                    {getTrendIcon(dim.trend)}
-                    {dim.change !== undefined && Math.abs(dim.change) > 0.01 && (
-                      <span className="ml-1">{(dim.change * 100).toFixed(0)}%</span>
-                    )}
-                  </span>
-                </div>
-              </div>
-            ))}
-          </div>
-        </Card>
+        <FadeIn delay={300}>
+          <Card className="p-6">
+            <h2 className="text-lg font-semibold text-slate-800 dark:text-slate-100 mb-6 flex items-center gap-2">
+              <span className="text-2xl">📊</span>
+              종합 현황 평가
+            </h2>
+            <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
+              {Object.entries(healthScore.dimensions).map(([key, dim]: [string, any], idx) => (
+                <FadeIn key={key} delay={350 + idx * 50}>
+                  <div className="p-5 bg-gradient-to-br from-slate-50 to-white dark:from-slate-800 dark:to-slate-900 rounded-xl border border-slate-100 dark:border-slate-700 text-center hover:shadow-lg hover:scale-102 transition-all duration-300">
+                    <div className="text-3xl mb-3">{getDimensionEmoji(key)}</div>
+                    <div className="text-sm font-medium text-slate-500 dark:text-slate-400 mb-2">
+                      {getDimensionLabel(key)}
+                    </div>
+                    <div className="flex items-center justify-center gap-2">
+                      <span className={`text-3xl font-bold ${getScoreColor(dim.score)} transition-all duration-500`}>
+                        <AnimatedNumber value={dim.score} />
+                      </span>
+                      <span className={`text-sm font-medium ${getTrendColor(dim.trend)} flex items-center`}>
+                        {getTrendIcon(dim.trend)}
+                        {dim.change !== undefined && Math.abs(dim.change) > 0.01 && (
+                          <span className="ml-1">{(dim.change * 100).toFixed(0)}%</span>
+                        )}
+                      </span>
+                    </div>
+                    <div className="mt-3 h-1.5 bg-slate-200 dark:bg-slate-700 rounded-full overflow-hidden">
+                      <div 
+                        className={`h-full rounded-full transition-all duration-1000 ${
+                          dim.score >= 70 ? 'bg-emerald-500' :
+                          dim.score >= 50 ? 'bg-amber-500' : 'bg-red-500'
+                        }`}
+                        style={{ width: `${dim.score}%` }}
+                      />
+                    </div>
+                  </div>
+                </FadeIn>
+              ))}
+            </div>
+          </Card>
+        </FadeIn>
       )}
     </div>
   )
 }
 
 // 트렌드 분석 탭
-function TrendsTab({ trends, isLoading }: { trends: any[]; isLoading: boolean }) {
+function TrendsTab({ trends, isLoading, period }: { trends: any[]; isLoading: boolean; period: string }) {
   if (isLoading) {
     return (
-      <div className="flex items-center justify-center h-64">
-        <Spinner size="lg" />
-      </div>
+      <FadeIn>
+        <div className="flex flex-col items-center justify-center h-64 gap-4">
+          <div className="relative">
+            <div className="w-16 h-16 border-4 border-green-200 dark:border-green-800 rounded-full animate-spin border-t-green-600" />
+            <div className="absolute inset-0 flex items-center justify-center">
+              <span className="text-2xl">📈</span>
+            </div>
+          </div>
+          <p className="text-sm text-slate-500 dark:text-slate-400 animate-pulse">
+            트렌드를 분석하고 있습니다...
+          </p>
+        </div>
+      </FadeIn>
+    )
+  }
+
+  if (trends.length === 0) {
+    return (
+      <EmptyState 
+        icon="📈" 
+        title="트렌드 데이터가 없습니다" 
+        description="선택한 기간에 충분한 데이터가 없어 트렌드 분석을 수행할 수 없습니다."
+      />
     )
   }
 
   return (
     <div className="space-y-4">
-      <Card className="p-6">
-        <h2 className="text-lg font-semibold text-slate-800 dark:text-slate-100 mb-4">
-          📈 장기 트렌드 분석 (90일)
-        </h2>
-        {trends.length === 0 ? (
-          <p className="text-slate-500 dark:text-slate-400">트렌드 데이터가 없습니다.</p>
-        ) : (
+      <FadeIn>
+        <Card className="p-6">
+          <div className="flex items-center gap-3 mb-6">
+            <div className="w-10 h-10 bg-gradient-to-br from-green-500 to-emerald-600 rounded-xl flex items-center justify-center">
+              <span className="text-xl">📈</span>
+            </div>
+            <div>
+              <h2 className="text-lg font-semibold text-slate-800 dark:text-slate-100">
+                장기 트렌드 분석
+              </h2>
+              <p className="text-xs text-slate-500">{getPeriodLabel(period)} 기준</p>
+            </div>
+          </div>
+          {trends.length === 0 ? (
+            <p className="text-slate-500 dark:text-slate-400">트렌드 데이터가 없습니다.</p>
+          ) : (
           <div className="space-y-4">
             {trends.map((trend, idx) => (
-              <div key={idx} className="p-4 bg-slate-50 dark:bg-slate-800 rounded-lg">
-                <div className="flex items-center justify-between mb-2">
-                  <h3 className="font-medium text-slate-800 dark:text-slate-100">
-                    {trend.metric}
-                  </h3>
-                  <div className="flex items-center gap-2">
-                    <Badge variant={getSignificanceVariant(trend.significance)}>
-                      {trend.significance === 'high' ? '높음' : trend.significance === 'medium' ? '중간' : '낮음'}
-                    </Badge>
-                    <span className={`text-lg font-bold ${getTrendColor(trend.direction)}`}>
-                      {getTrendIcon(trend.direction)} {trend.magnitude.toFixed(1)}%
-                    </span>
+              <FadeIn key={idx} delay={idx * 50}>
+                <div className="p-5 bg-gradient-to-br from-slate-50 to-white dark:from-slate-800 dark:to-slate-900 rounded-xl border border-slate-100 dark:border-slate-700 hover:shadow-md transition-all duration-300">
+                  <div className="flex items-center justify-between mb-3">
+                    <h3 className="font-semibold text-slate-800 dark:text-slate-100">
+                      {trend.metric}
+                    </h3>
+                    <div className="flex items-center gap-3">
+                      <Badge variant={getSignificanceVariant(trend.significance)}>
+                        {trend.significance === 'high' ? '높음' : trend.significance === 'medium' ? '중간' : '낮음'}
+                      </Badge>
+                      <span className={`text-xl font-bold ${getTrendColor(trend.direction)} flex items-center gap-1`}>
+                        <span className="text-2xl">{trend.direction === 'up' ? '📈' : trend.direction === 'down' ? '📉' : '➡️'}</span>
+                        {trend.magnitude.toFixed(1)}%
+                      </span>
+                    </div>
                   </div>
+                  <p className="text-sm text-slate-600 dark:text-slate-400 leading-relaxed">
+                    {trend.implication}
+                  </p>
                 </div>
-                <p className="text-sm text-slate-600 dark:text-slate-400">
-                  {trend.implication}
-                </p>
-              </div>
+              </FadeIn>
             ))}
           </div>
         )}
-      </Card>
+        </Card>
+      </FadeIn>
     </div>
   )
 }
@@ -433,9 +672,19 @@ function TrendsTab({ trends, isLoading }: { trends: any[]; isLoading: boolean })
 function RisksTab({ checks, isLoading, summary }: { checks: any[]; isLoading: boolean; summary?: string }) {
   if (isLoading) {
     return (
-      <div className="flex items-center justify-center h-64">
-        <Spinner size="lg" />
-      </div>
+      <FadeIn>
+        <div className="flex flex-col items-center justify-center h-64 gap-4">
+          <div className="relative">
+            <div className="w-16 h-16 border-4 border-red-200 dark:border-red-800 rounded-full animate-spin border-t-red-600" />
+            <div className="absolute inset-0 flex items-center justify-center">
+              <span className="text-2xl">⚠️</span>
+            </div>
+          </div>
+          <p className="text-sm text-slate-500 dark:text-slate-400 animate-pulse">
+            리스크를 점검하고 있습니다...
+          </p>
+        </div>
+      </FadeIn>
     )
   }
 
@@ -443,65 +692,88 @@ function RisksTab({ checks, isLoading, summary }: { checks: any[]; isLoading: bo
   const warningChecks = checks.filter(c => c.status === 'warning')
   const passChecks = checks.filter(c => c.status === 'pass')
 
+  if (checks.length === 0) {
+    return (
+      <EmptyState 
+        icon="⚠️" 
+        title="리스크 체크 데이터가 없습니다" 
+        description="리스크 점검을 위한 데이터가 충분하지 않습니다."
+      />
+    )
+  }
+
   return (
     <div className="space-y-6">
       {/* 요약 */}
-      <Card className="p-6">
-        <h2 className="text-lg font-semibold text-slate-800 dark:text-slate-100 mb-2">
-          ⚠️ 휴먼 에러 체크 결과
-        </h2>
-        <p className="text-slate-600 dark:text-slate-400">{summary}</p>
-        <div className="flex gap-4 mt-4">
-          <div className="flex items-center gap-2">
-            <span className="w-3 h-3 rounded-full bg-red-500" />
-            <span className="text-sm text-slate-600 dark:text-slate-400">심각 {failChecks.length}개</span>
+      <FadeIn>
+        <Card className="p-6 bg-gradient-to-br from-white to-slate-50 dark:from-slate-900 dark:to-slate-800">
+          <div className="flex items-center gap-3 mb-4">
+            <div className="w-10 h-10 bg-gradient-to-br from-red-500 to-orange-600 rounded-xl flex items-center justify-center">
+              <span className="text-xl">⚠️</span>
+            </div>
+            <h2 className="text-lg font-semibold text-slate-800 dark:text-slate-100">
+              휴먼 에러 체크 결과
+            </h2>
           </div>
-          <div className="flex items-center gap-2">
-            <span className="w-3 h-3 rounded-full bg-amber-500" />
-            <span className="text-sm text-slate-600 dark:text-slate-400">주의 {warningChecks.length}개</span>
+          <p className="text-slate-600 dark:text-slate-400 mb-4">{summary}</p>
+          <div className="flex gap-6 flex-wrap">
+            <div className="flex items-center gap-2 px-4 py-2 bg-red-50 dark:bg-red-900/20 rounded-lg">
+              <span className="w-3 h-3 rounded-full bg-red-500 animate-pulse" />
+              <span className="text-sm font-medium text-red-700 dark:text-red-300">심각 {failChecks.length}개</span>
+            </div>
+            <div className="flex items-center gap-2 px-4 py-2 bg-amber-50 dark:bg-amber-900/20 rounded-lg">
+              <span className="w-3 h-3 rounded-full bg-amber-500" />
+              <span className="text-sm font-medium text-amber-700 dark:text-amber-300">주의 {warningChecks.length}개</span>
+            </div>
+            <div className="flex items-center gap-2 px-4 py-2 bg-emerald-50 dark:bg-emerald-900/20 rounded-lg">
+              <span className="w-3 h-3 rounded-full bg-emerald-500" />
+              <span className="text-sm font-medium text-emerald-700 dark:text-emerald-300">정상 {passChecks.length}개</span>
+            </div>
           </div>
-          <div className="flex items-center gap-2">
-            <span className="w-3 h-3 rounded-full bg-emerald-500" />
-            <span className="text-sm text-slate-600 dark:text-slate-400">정상 {passChecks.length}개</span>
-          </div>
-        </div>
-      </Card>
+        </Card>
+      </FadeIn>
 
       {/* 체크 목록 */}
       <div className="space-y-4">
         {checks.map((check, idx) => (
-          <Card key={idx} className={`p-4 border-l-4 ${
-            check.status === 'fail' ? 'border-l-red-500' :
-            check.status === 'warning' ? 'border-l-amber-500' : 'border-l-emerald-500'
-          }`}>
-            <div className="flex items-start justify-between">
-              <div>
-                <div className="flex items-center gap-2 mb-1">
-                  <span className="text-lg">
-                    {check.status === 'fail' ? '🚨' : check.status === 'warning' ? '⚠️' : '✅'}
-                  </span>
-                  <h3 className="font-medium text-slate-800 dark:text-slate-100">
-                    {check.name}
-                  </h3>
-                </div>
-                <p className="text-sm text-slate-600 dark:text-slate-400">
-                  {check.message}
-                </p>
-              </div>
-              {check.value !== undefined && (
-                <div className="text-right">
-                  <div className="text-lg font-bold text-slate-700 dark:text-slate-300">
-                    {check.value.toFixed(1)}%
+          <FadeIn key={idx} delay={idx * 50}>
+            <Card className={`p-5 border-l-4 hover:shadow-md transition-all duration-300 ${
+              check.status === 'fail' ? 'border-l-red-500 bg-gradient-to-r from-red-50/50 to-transparent dark:from-red-900/10' :
+              check.status === 'warning' ? 'border-l-amber-500 bg-gradient-to-r from-amber-50/50 to-transparent dark:from-amber-900/10' : 
+              'border-l-emerald-500 bg-gradient-to-r from-emerald-50/50 to-transparent dark:from-emerald-900/10'
+            }`}>
+              <div className="flex items-start justify-between gap-4">
+                <div className="flex-1">
+                  <div className="flex items-center gap-3 mb-2">
+                    <span className="text-2xl">
+                      {check.status === 'fail' ? '🚨' : check.status === 'warning' ? '⚠️' : '✅'}
+                    </span>
+                    <h3 className="font-semibold text-slate-800 dark:text-slate-100">
+                      {check.name}
+                    </h3>
                   </div>
-                  {check.threshold !== undefined && (
-                    <div className="text-xs text-slate-400">
-                      임계값: {check.threshold}%
-                    </div>
-                  )}
+                  <p className="text-sm text-slate-600 dark:text-slate-400 leading-relaxed">
+                    {check.message}
+                  </p>
                 </div>
-              )}
-            </div>
-          </Card>
+                {check.value !== undefined && (
+                  <div className="text-right shrink-0">
+                    <div className={`text-2xl font-bold ${
+                      check.status === 'fail' ? 'text-red-600' :
+                      check.status === 'warning' ? 'text-amber-600' : 'text-emerald-600'
+                    }`}>
+                      {typeof check.value === 'number' ? check.value.toFixed(1) : check.value}%
+                    </div>
+                    {check.threshold !== undefined && (
+                      <div className="text-xs text-slate-400 mt-1">
+                        임계값: {check.threshold}%
+                      </div>
+                    )}
+                  </div>
+                )}
+              </div>
+            </Card>
+          </FadeIn>
         ))}
       </div>
     </div>
@@ -512,23 +784,49 @@ function RisksTab({ checks, isLoading, summary }: { checks: any[]; isLoading: bo
 function InsightsTab({ insights, isLoading }: { insights: any[]; isLoading: boolean }) {
   if (isLoading) {
     return (
-      <div className="flex items-center justify-center h-64">
-        <Spinner size="lg" />
-      </div>
+      <FadeIn>
+        <div className="flex flex-col items-center justify-center h-64 gap-4">
+          <div className="relative">
+            <div className="w-16 h-16 border-4 border-yellow-200 dark:border-yellow-800 rounded-full animate-spin border-t-yellow-600" />
+            <div className="absolute inset-0 flex items-center justify-center">
+              <span className="text-2xl">💡</span>
+            </div>
+          </div>
+          <p className="text-sm text-slate-500 dark:text-slate-400 animate-pulse">
+            인사이트를 발굴하고 있습니다...
+          </p>
+        </div>
+      </FadeIn>
     )
   }
 
   const opportunities = insights.filter(i => i.type === 'opportunity')
   const others = insights.filter(i => i.type !== 'opportunity')
 
+  if (insights.length === 0) {
+    return (
+      <EmptyState 
+        icon="💡" 
+        title="발견된 인사이트가 없습니다" 
+        description="현재 데이터에서 특별한 인사이트가 발견되지 않았습니다. 데이터가 축적되면 더 많은 인사이트를 제공할 수 있습니다."
+      />
+    )
+  }
+
   return (
     <div className="space-y-6">
       {/* 기회 */}
       {opportunities.length > 0 && (
-        <Card className="p-6">
-          <h2 className="text-lg font-semibold text-slate-800 dark:text-slate-100 mb-4">
-            💡 발견된 기회
-          </h2>
+        <FadeIn>
+          <Card className="p-6">
+            <div className="flex items-center gap-3 mb-6">
+              <div className="w-10 h-10 bg-gradient-to-br from-yellow-500 to-amber-600 rounded-xl flex items-center justify-center">
+                <span className="text-xl">💡</span>
+              </div>
+              <h2 className="text-lg font-semibold text-slate-800 dark:text-slate-100">
+                발견된 기회
+              </h2>
+            </div>
           <div className="space-y-4">
             {opportunities.map((insight: any) => (
               <div key={insight.id} className="p-4 bg-emerald-50 dark:bg-emerald-900/20 rounded-lg">
@@ -600,61 +898,76 @@ function InsightsTab({ insights, isLoading }: { insights: any[]; isLoading: bool
 function StrategyTab({ recommendations, isLoading }: { recommendations: any; isLoading: boolean }) {
   if (isLoading) {
     return (
-      <div className="flex items-center justify-center h-64">
-        <Spinner size="lg" />
-      </div>
+      <FadeIn>
+        <div className="flex flex-col items-center justify-center h-64 gap-4">
+          <div className="relative">
+            <div className="w-16 h-16 border-4 border-blue-200 dark:border-blue-800 rounded-full animate-spin border-t-blue-600" />
+            <div className="absolute inset-0 flex items-center justify-center">
+              <span className="text-2xl">🎯</span>
+            </div>
+          </div>
+          <p className="text-sm text-slate-500 dark:text-slate-400 animate-pulse">
+            전략을 수립하고 있습니다...
+          </p>
+        </div>
+      </FadeIn>
     )
   }
 
   if (!recommendations) {
     return (
-      <Card className="p-8 text-center">
-        <p className="text-slate-500 dark:text-slate-400">
-          전략 제안을 불러오는 중입니다...
-        </p>
-      </Card>
+      <EmptyState 
+        icon="🎯" 
+        title="전략 제안을 불러오는 중입니다" 
+        description="AI가 비즈니스 데이터를 분석하여 맞춤형 전략을 제안합니다."
+      />
     )
   }
 
   const sections = [
-    { key: 'shortTerm', title: '🚀 단기 (1-2주)', items: recommendations.shortTerm || [] },
-    { key: 'midTerm', title: '📅 중기 (1-3개월)', items: recommendations.midTerm || [] },
-    { key: 'longTerm', title: '🎯 장기 (3개월+)', items: recommendations.longTerm || [] },
+    { key: 'shortTerm', title: '🚀 단기 (1-2주)', items: recommendations.shortTerm || [], color: 'from-blue-500 to-cyan-500' },
+    { key: 'midTerm', title: '📅 중기 (1-3개월)', items: recommendations.midTerm || [], color: 'from-purple-500 to-pink-500' },
+    { key: 'longTerm', title: '🎯 장기 (3개월+)', items: recommendations.longTerm || [], color: 'from-amber-500 to-orange-500' },
   ]
 
   return (
     <div className="space-y-6">
-      {sections.map(section => (
-        <Card key={section.key} className="p-6">
-          <h2 className="text-lg font-semibold text-slate-800 dark:text-slate-100 mb-4">
-            {section.title}
-          </h2>
+      {sections.map((section, sectionIdx) => (
+        <FadeIn key={section.key} delay={sectionIdx * 100}>
+          <Card className="p-6 overflow-hidden relative">
+            <div className={`absolute top-0 left-0 w-full h-1 bg-gradient-to-r ${section.color}`} />
+            <h2 className="text-lg font-semibold text-slate-800 dark:text-slate-100 mb-4 mt-2">
+              {section.title}
+            </h2>
           {section.items.length === 0 ? (
-            <p className="text-slate-500 dark:text-slate-400">해당 기간의 제안이 없습니다.</p>
+            <p className="text-slate-500 dark:text-slate-400 py-4">해당 기간의 제안이 없습니다.</p>
           ) : (
             <div className="space-y-4">
               {section.items.map((item: any, idx: number) => (
-                <div key={idx} className={`p-4 rounded-lg border-l-4 ${
-                  item.priority === 'high' ? 'bg-red-50 dark:bg-red-900/20 border-l-red-500' :
-                  item.priority === 'medium' ? 'bg-amber-50 dark:bg-amber-900/20 border-l-amber-500' :
-                  'bg-slate-50 dark:bg-slate-800 border-l-slate-300'
-                }`}>
-                  <div className="flex items-center gap-2 mb-1">
-                    <h3 className="font-medium text-slate-800 dark:text-slate-100">
-                      {item.title}
-                    </h3>
-                    <Badge variant={item.priority === 'high' ? 'danger' : item.priority === 'medium' ? 'warning' : 'default'}>
-                      {item.priority === 'high' ? '높음' : item.priority === 'medium' ? '중간' : '낮음'}
-                    </Badge>
+                <FadeIn key={idx} delay={sectionIdx * 100 + idx * 50}>
+                  <div className={`p-5 rounded-xl border-l-4 hover:shadow-md transition-all duration-300 ${
+                    item.priority === 'high' ? 'bg-gradient-to-r from-red-50 to-transparent dark:from-red-900/20 border-l-red-500' :
+                    item.priority === 'medium' ? 'bg-gradient-to-r from-amber-50 to-transparent dark:from-amber-900/20 border-l-amber-500' :
+                    'bg-gradient-to-r from-slate-50 to-transparent dark:from-slate-800 border-l-slate-300'
+                  }`}>
+                    <div className="flex items-center gap-3 mb-2">
+                      <h3 className="font-semibold text-slate-800 dark:text-slate-100">
+                        {item.title}
+                      </h3>
+                      <Badge variant={item.priority === 'high' ? 'danger' : item.priority === 'medium' ? 'warning' : 'default'}>
+                        {item.priority === 'high' ? '🔥 높음' : item.priority === 'medium' ? '⚡ 중간' : '💭 낮음'}
+                      </Badge>
+                    </div>
+                    <p className="text-sm text-slate-600 dark:text-slate-400 leading-relaxed">
+                      {item.description}
+                    </p>
                   </div>
-                  <p className="text-sm text-slate-600 dark:text-slate-400">
-                    {item.description}
-                  </p>
-                </div>
+                </FadeIn>
               ))}
             </div>
           )}
         </Card>
+      </FadeIn>
       ))}
     </div>
   )
@@ -741,14 +1054,34 @@ function getSignificanceVariant(significance: string): 'danger' | 'warning' | 'd
 function RFMTab({ data, isLoading }: { data: any; isLoading: boolean }) {
   if (isLoading) {
     return (
-      <div className="flex items-center justify-center h-64">
-        <Spinner size="lg" />
-      </div>
+      <FadeIn>
+        <div className="flex flex-col items-center justify-center h-64 gap-4">
+          <div className="relative">
+            <div className="w-16 h-16 border-4 border-purple-200 dark:border-purple-800 rounded-full animate-spin border-t-purple-600" />
+            <div className="absolute inset-0 flex items-center justify-center">
+              <span className="text-2xl">👥</span>
+            </div>
+          </div>
+          <p className="text-sm text-slate-500 dark:text-slate-400 animate-pulse">
+            고객 세그먼트를 분석하고 있습니다...
+          </p>
+        </div>
+      </FadeIn>
     )
   }
 
   const segments = data?.segments || []
   const atRiskVIPs = data?.atRiskVIPs || []
+
+  if (segments.length === 0) {
+    return (
+      <EmptyState 
+        icon="👥" 
+        title="고객 데이터가 없습니다" 
+        description="선택한 기간에 고객 구매 데이터가 충분하지 않아 RFM 분석을 수행할 수 없습니다."
+      />
+    )
+  }
 
   const segmentColors: Record<string, string> = {
     VIP: 'bg-purple-500',
@@ -871,9 +1204,19 @@ function RFMTab({ data, isLoading }: { data: any; isLoading: boolean }) {
 function ParetoTab({ data, isLoading }: { data: any; isLoading: boolean }) {
   if (isLoading) {
     return (
-      <div className="flex items-center justify-center h-64">
-        <Spinner size="lg" />
-      </div>
+      <FadeIn>
+        <div className="flex flex-col items-center justify-center h-64 gap-4">
+          <div className="relative">
+            <div className="w-16 h-16 border-4 border-pink-200 dark:border-pink-800 rounded-full animate-spin border-t-pink-600" />
+            <div className="absolute inset-0 flex items-center justify-center">
+              <span className="text-2xl">📊</span>
+            </div>
+          </div>
+          <p className="text-sm text-slate-500 dark:text-slate-400 animate-pulse">
+            집중도를 분석하고 있습니다...
+          </p>
+        </div>
+      </FadeIn>
     )
   }
 
@@ -881,14 +1224,30 @@ function ParetoTab({ data, isLoading }: { data: any; isLoading: boolean }) {
   const countryConcentration = data?.countryConcentration
   const customerConcentration = data?.customerConcentration
 
+  if (!artistConcentration && !countryConcentration && !customerConcentration) {
+    return (
+      <EmptyState 
+        icon="📊" 
+        title="파레토 데이터가 없습니다" 
+        description="선택한 기간에 충분한 데이터가 없어 파레토 분석을 수행할 수 없습니다."
+      />
+    )
+  }
+
   return (
     <div className="space-y-6">
       {/* 작가 집중도 */}
       {artistConcentration && (
-        <Card className="p-6">
-          <h2 className="text-lg font-semibold text-slate-800 dark:text-slate-100 mb-4">
-            🎨 작가 매출 집중도
-          </h2>
+        <FadeIn>
+          <Card className="p-6">
+            <div className="flex items-center gap-3 mb-6">
+              <div className="w-10 h-10 bg-gradient-to-br from-purple-500 to-pink-600 rounded-xl flex items-center justify-center">
+                <span className="text-xl">🎨</span>
+              </div>
+              <h2 className="text-lg font-semibold text-slate-800 dark:text-slate-100">
+                작가 매출 집중도
+              </h2>
+            </div>
           
           <div className="grid md:grid-cols-3 gap-6 mb-6">
             <div className="p-4 bg-purple-50 dark:bg-purple-900/20 rounded-lg text-center">
@@ -1024,44 +1383,78 @@ function ParetoTab({ data, isLoading }: { data: any; isLoading: boolean }) {
 function CohortTab({ data, isLoading }: { data: any; isLoading: boolean }) {
   if (isLoading) {
     return (
-      <div className="flex items-center justify-center h-64">
-        <Spinner size="lg" />
-      </div>
+      <FadeIn>
+        <div className="flex flex-col items-center justify-center h-64 gap-4">
+          <div className="relative">
+            <div className="w-16 h-16 border-4 border-cyan-200 dark:border-cyan-800 rounded-full animate-spin border-t-cyan-600" />
+            <div className="absolute inset-0 flex items-center justify-center">
+              <span className="text-2xl">📅</span>
+            </div>
+          </div>
+          <p className="text-sm text-slate-500 dark:text-slate-400 animate-pulse">
+            코호트 데이터를 분석하고 있습니다...
+          </p>
+        </div>
+      </FadeIn>
     )
   }
 
   const cohorts = data?.cohorts || []
   const overallRetentionCurve = data?.overallRetentionCurve || []
 
+  if (cohorts.length === 0) {
+    return (
+      <EmptyState 
+        icon="📅" 
+        title="코호트 데이터가 없습니다" 
+        description="선택한 기간에 충분한 고객 구매 이력이 없어 코호트 분석을 수행할 수 없습니다."
+      />
+    )
+  }
+
   return (
     <div className="space-y-6">
       {/* 리텐션 곡선 */}
-      <Card className="p-6">
-        <h2 className="text-lg font-semibold text-slate-800 dark:text-slate-100 mb-4">
-          📅 코호트 리텐션 분석
-        </h2>
-        <p className="text-sm text-slate-500 dark:text-slate-400 mb-4">
-          첫 구매 월 기준 고객 리텐션 추이
-        </p>
-
-        {/* 전체 리텐션 곡선 */}
-        {overallRetentionCurve.length > 0 && (
-          <div className="mb-6">
-            <div className="text-sm font-medium text-slate-700 dark:text-slate-300 mb-2">평균 리텐션 곡선</div>
-            <div className="flex items-end gap-1 h-32">
-              {overallRetentionCurve.slice(0, 12).map((retention: number, idx: number) => (
-                <div key={idx} className="flex-1 flex flex-col items-center">
-                  <div 
-                    className="w-full bg-blue-500 rounded-t"
-                    style={{ height: `${retention * 100}%` }}
-                  />
-                  <div className="text-xs text-slate-500 mt-1">M{idx}</div>
-                </div>
-              ))}
+      <FadeIn>
+        <Card className="p-6">
+          <div className="flex items-center gap-3 mb-4">
+            <div className="w-10 h-10 bg-gradient-to-br from-cyan-500 to-blue-600 rounded-xl flex items-center justify-center">
+              <span className="text-xl">📅</span>
+            </div>
+            <div>
+              <h2 className="text-lg font-semibold text-slate-800 dark:text-slate-100">
+                코호트 리텐션 분석
+              </h2>
+              <p className="text-xs text-slate-500">첫 구매 월 기준 고객 리텐션 추이</p>
             </div>
           </div>
-        )}
-      </Card>
+
+          {/* 전체 리텐션 곡선 */}
+          {overallRetentionCurve.length > 0 && (
+            <div className="mb-6">
+              <div className="text-sm font-medium text-slate-700 dark:text-slate-300 mb-3">평균 리텐션 곡선</div>
+              <div className="flex items-end gap-1 h-40 p-4 bg-slate-50 dark:bg-slate-800/50 rounded-xl">
+                {overallRetentionCurve.slice(0, 12).map((retention: number, idx: number) => (
+                  <FadeIn key={idx} delay={idx * 30}>
+                    <div className="flex-1 flex flex-col items-center group">
+                      <div className="relative w-full">
+                        <div 
+                          className="w-full bg-gradient-to-t from-blue-600 to-cyan-400 rounded-t transition-all duration-500 group-hover:from-blue-500 group-hover:to-cyan-300"
+                          style={{ height: `${Math.max(retention * 100, 2)}%`, minHeight: '4px' }}
+                        />
+                        <div className="absolute -top-6 left-1/2 -translate-x-1/2 opacity-0 group-hover:opacity-100 transition-opacity bg-slate-800 text-white text-xs px-2 py-1 rounded whitespace-nowrap">
+                          {(retention * 100).toFixed(0)}%
+                        </div>
+                      </div>
+                      <div className="text-xs text-slate-500 mt-2 font-medium">M{idx}</div>
+                    </div>
+                  </FadeIn>
+                ))}
+              </div>
+            </div>
+          )}
+        </Card>
+      </FadeIn>
 
       {/* 코호트별 상세 */}
       <Card className="p-6">
@@ -1142,9 +1535,19 @@ function CohortTab({ data, isLoading }: { data: any; isLoading: boolean }) {
 function AnomalyTab({ data, isLoading }: { data: any; isLoading: boolean }) {
   if (isLoading) {
     return (
-      <div className="flex items-center justify-center h-64">
-        <Spinner size="lg" />
-      </div>
+      <FadeIn>
+        <div className="flex flex-col items-center justify-center h-64 gap-4">
+          <div className="relative">
+            <div className="w-16 h-16 border-4 border-amber-200 dark:border-amber-800 rounded-full animate-spin border-t-amber-600" />
+            <div className="absolute inset-0 flex items-center justify-center">
+              <span className="text-2xl">🔍</span>
+            </div>
+          </div>
+          <p className="text-sm text-slate-500 dark:text-slate-400 animate-pulse">
+            이상 패턴을 탐지하고 있습니다...
+          </p>
+        </div>
+      </FadeIn>
     )
   }
 
@@ -1153,9 +1556,9 @@ function AnomalyTab({ data, isLoading }: { data: any; isLoading: boolean }) {
   const trendChanges = data?.trendChanges || []
 
   const severityColors: Record<string, string> = {
-    critical: 'bg-red-50 dark:bg-red-900/20 border-l-red-500',
-    warning: 'bg-amber-50 dark:bg-amber-900/20 border-l-amber-500',
-    info: 'bg-blue-50 dark:bg-blue-900/20 border-l-blue-500',
+    critical: 'bg-gradient-to-br from-red-50 to-red-100/50 dark:from-red-900/30 dark:to-red-800/20 border-l-red-500',
+    warning: 'bg-gradient-to-br from-amber-50 to-amber-100/50 dark:from-amber-900/30 dark:to-amber-800/20 border-l-amber-500',
+    info: 'bg-gradient-to-br from-blue-50 to-blue-100/50 dark:from-blue-900/30 dark:to-blue-800/20 border-l-blue-500',
   }
 
   const severityIcons: Record<string, string> = {
@@ -1167,19 +1570,27 @@ function AnomalyTab({ data, isLoading }: { data: any; isLoading: boolean }) {
   return (
     <div className="space-y-6">
       {/* 이상치 목록 */}
-      <Card className="p-6">
-        <h2 className="text-lg font-semibold text-slate-800 dark:text-slate-100 mb-4">
-          🔍 탐지된 이상치
-        </h2>
-        <p className="text-sm text-slate-500 dark:text-slate-400 mb-4">
-          통계적으로 유의미한 편차가 발견된 데이터 포인트
-        </p>
-
-        {anomalies.length === 0 ? (
-          <div className="p-8 text-center text-slate-500 dark:text-slate-400">
-            ✅ 탐지된 이상치가 없습니다.
+      <FadeIn>
+        <Card className="p-6">
+          <div className="flex items-center gap-3 mb-4">
+            <div className="w-10 h-10 bg-gradient-to-br from-amber-500 to-orange-600 rounded-xl flex items-center justify-center">
+              <span className="text-xl">🔍</span>
+            </div>
+            <div>
+              <h2 className="text-lg font-semibold text-slate-800 dark:text-slate-100">
+                탐지된 이상치
+              </h2>
+              <p className="text-xs text-slate-500">통계적으로 유의미한 편차가 발견된 데이터 포인트</p>
+            </div>
           </div>
-        ) : (
+
+          {anomalies.length === 0 ? (
+            <div className="p-12 text-center">
+              <div className="text-5xl mb-4">✅</div>
+              <h3 className="text-lg font-medium text-emerald-600 dark:text-emerald-400 mb-2">모든 지표가 정상입니다</h3>
+              <p className="text-sm text-slate-500">선택한 기간 동안 특이한 패턴이 감지되지 않았습니다.</p>
+            </div>
+          ) : (
           <div className="space-y-4">
             {anomalies.slice(0, 10).map((anomaly: any, idx: number) => (
               <div 
@@ -1289,54 +1700,66 @@ function AnomalyTab({ data, isLoading }: { data: any; isLoading: boolean }) {
 function ComprehensiveTab({ data, isLoading, period }: { data: any; isLoading: boolean; period: string }) {
   if (isLoading) {
     return (
-      <div className="flex items-center justify-center h-64">
-        <Spinner size="lg" />
-      </div>
+      <FadeIn>
+        <div className="flex flex-col items-center justify-center h-64 gap-4">
+          <div className="relative">
+            <div className="w-16 h-16 border-4 border-indigo-200 dark:border-indigo-800 rounded-full animate-spin border-t-indigo-600" />
+            <div className="absolute inset-0 flex items-center justify-center">
+              <span className="text-2xl">🎯</span>
+            </div>
+          </div>
+          <p className="text-sm text-slate-500 dark:text-slate-400 animate-pulse">
+            종합 인사이트를 분석하고 있습니다...
+          </p>
+        </div>
+      </FadeIn>
     )
   }
 
   if (!data) {
     return (
-      <div className="p-8 text-center text-slate-500">데이터를 불러올 수 없습니다.</div>
+      <EmptyState 
+        icon="🎯" 
+        title="데이터를 불러올 수 없습니다" 
+        description="선택한 기간에 데이터가 없거나 분석 중 오류가 발생했습니다."
+      />
     )
   }
 
   const { summary, comparison, forecast, topInsights, risks, opportunities, recommendations } = data
 
+  const metricCards = [
+    { key: 'gmv', label: '총 매출', value: summary?.gmv || 0, prefix: '$', icon: '💰', color: 'from-emerald-500 to-teal-500' },
+    { key: 'orders', label: '주문 수', value: summary?.orders || 0, icon: '📦', color: 'from-blue-500 to-indigo-500' },
+    { key: 'aov', label: '평균 객단가', value: summary?.aov || 0, prefix: '$', decimals: 0, icon: '💵', color: 'from-purple-500 to-pink-500' },
+    { key: 'customers', label: '고객 수', value: summary?.customers || 0, icon: '👥', color: 'from-amber-500 to-orange-500' },
+    { key: 'artists', label: '활동 작가', value: summary?.artists || 0, icon: '🎨', color: 'from-rose-500 to-red-500' },
+  ]
+
   return (
     <div className="space-y-6">
       {/* 요약 카드 */}
       <div className="grid grid-cols-2 md:grid-cols-5 gap-4">
-        <Card className="p-4 text-center">
-          <div className="text-sm text-slate-500 dark:text-slate-400">총 매출</div>
-          <div className="text-2xl font-bold text-slate-800 dark:text-slate-100">
-            ${summary?.gmv?.toLocaleString() || 0}
-          </div>
-        </Card>
-        <Card className="p-4 text-center">
-          <div className="text-sm text-slate-500 dark:text-slate-400">주문 수</div>
-          <div className="text-2xl font-bold text-slate-800 dark:text-slate-100">
-            {summary?.orders?.toLocaleString() || 0}
-          </div>
-        </Card>
-        <Card className="p-4 text-center">
-          <div className="text-sm text-slate-500 dark:text-slate-400">평균 객단가</div>
-          <div className="text-2xl font-bold text-slate-800 dark:text-slate-100">
-            ${summary?.aov?.toFixed(0) || 0}
-          </div>
-        </Card>
-        <Card className="p-4 text-center">
-          <div className="text-sm text-slate-500 dark:text-slate-400">고객 수</div>
-          <div className="text-2xl font-bold text-slate-800 dark:text-slate-100">
-            {summary?.customers?.toLocaleString() || 0}
-          </div>
-        </Card>
-        <Card className="p-4 text-center">
-          <div className="text-sm text-slate-500 dark:text-slate-400">활동 작가</div>
-          <div className="text-2xl font-bold text-slate-800 dark:text-slate-100">
-            {summary?.artists?.toLocaleString() || 0}
-          </div>
-        </Card>
+        {metricCards.map((metric, idx) => (
+          <FadeIn key={metric.key} delay={idx * 50}>
+            <Card className="p-5 text-center hover:shadow-lg hover:scale-102 transition-all duration-300 overflow-hidden relative">
+              <div className={`absolute inset-0 bg-gradient-to-br ${metric.color} opacity-5`} />
+              <div className="relative">
+                <div className="text-2xl mb-2">{metric.icon}</div>
+                <div className="text-xs font-medium text-slate-500 dark:text-slate-400 uppercase tracking-wide mb-1">
+                  {metric.label}
+                </div>
+                <div className="text-2xl font-bold text-slate-800 dark:text-slate-100">
+                  <AnimatedNumber 
+                    value={metric.value} 
+                    prefix={metric.prefix || ''} 
+                    decimals={metric.decimals || 0}
+                  />
+                </div>
+              </div>
+            </Card>
+          </FadeIn>
+        ))}
       </div>
 
       {/* 기간 비교 */}
@@ -1466,63 +1889,64 @@ function ComprehensiveTab({ data, isLoading, period }: { data: any; isLoading: b
 function MultiPeriodTab({ data, isLoading }: { data: any; isLoading: boolean }) {
   if (isLoading) {
     return (
-      <div className="flex items-center justify-center h-64">
-        <Spinner size="lg" />
-      </div>
+      <FadeIn>
+        <div className="flex flex-col items-center justify-center h-64 gap-4">
+          <div className="relative">
+            <div className="w-16 h-16 border-4 border-teal-200 dark:border-teal-800 rounded-full animate-spin border-t-teal-600" />
+            <div className="absolute inset-0 flex items-center justify-center">
+              <span className="text-2xl">📅</span>
+            </div>
+          </div>
+          <p className="text-sm text-slate-500 dark:text-slate-400 animate-pulse">
+            기간별 추이를 분석하고 있습니다...
+          </p>
+        </div>
+      </FadeIn>
     )
   }
 
-  if (!data) {
+  if (!data || !data.periods?.length) {
     return (
-      <div className="p-8 text-center text-slate-500">데이터를 불러올 수 없습니다.</div>
+      <EmptyState 
+        icon="📅" 
+        title="기간별 데이터가 없습니다" 
+        description="충분한 과거 데이터가 없어 기간별 추이 분석을 수행할 수 없습니다."
+      />
     )
   }
 
   const { periods, trends, bestPeriod, worstPeriod, insights, seasonalityDetected } = data
 
+  const trendCards = [
+    { label: '매출 트렌드', trend: trends?.gmv, icon: '💰' },
+    { label: '주문 트렌드', trend: trends?.orders, icon: '📦' },
+    { label: '객단가 트렌드', trend: trends?.aov, icon: '💵' },
+  ]
+
   return (
     <div className="space-y-6">
       {/* 트렌드 요약 */}
       <div className="grid md:grid-cols-3 gap-4">
-        <Card className="p-4">
-          <div className="text-sm text-slate-500 dark:text-slate-400 mb-1">매출 트렌드</div>
-          <div className={`text-xl font-bold ${
-            trends?.gmv?.direction === 'up' ? 'text-emerald-600' : 
-            trends?.gmv?.direction === 'down' ? 'text-red-600' : 'text-slate-600'
-          }`}>
-            {trends?.gmv?.direction === 'up' ? '📈 상승' : 
-             trends?.gmv?.direction === 'down' ? '📉 하락' : '➡️ 안정'}
-          </div>
-          <div className="text-sm text-slate-500">
-            평균 성장률: {trends?.gmv?.avgGrowth?.toFixed(1) || 0}%
-          </div>
-        </Card>
-        <Card className="p-4">
-          <div className="text-sm text-slate-500 dark:text-slate-400 mb-1">주문 트렌드</div>
-          <div className={`text-xl font-bold ${
-            trends?.orders?.direction === 'up' ? 'text-emerald-600' : 
-            trends?.orders?.direction === 'down' ? 'text-red-600' : 'text-slate-600'
-          }`}>
-            {trends?.orders?.direction === 'up' ? '📈 상승' : 
-             trends?.orders?.direction === 'down' ? '📉 하락' : '➡️ 안정'}
-          </div>
-          <div className="text-sm text-slate-500">
-            평균 성장률: {trends?.orders?.avgGrowth?.toFixed(1) || 0}%
-          </div>
-        </Card>
-        <Card className="p-4">
-          <div className="text-sm text-slate-500 dark:text-slate-400 mb-1">객단가 트렌드</div>
-          <div className={`text-xl font-bold ${
-            trends?.aov?.direction === 'up' ? 'text-emerald-600' : 
-            trends?.aov?.direction === 'down' ? 'text-red-600' : 'text-slate-600'
-          }`}>
-            {trends?.aov?.direction === 'up' ? '📈 상승' : 
-             trends?.aov?.direction === 'down' ? '📉 하락' : '➡️ 안정'}
-          </div>
-          <div className="text-sm text-slate-500">
-            평균 변화율: {trends?.aov?.avgGrowth?.toFixed(1) || 0}%
-          </div>
-        </Card>
+        {trendCards.map((card, idx) => (
+          <FadeIn key={card.label} delay={idx * 50}>
+            <Card className="p-5 hover:shadow-lg hover:scale-102 transition-all duration-300">
+              <div className="flex items-center gap-2 mb-2">
+                <span className="text-xl">{card.icon}</span>
+                <span className="text-sm font-medium text-slate-500 dark:text-slate-400">{card.label}</span>
+              </div>
+              <div className={`text-2xl font-bold ${
+                card.trend?.direction === 'up' ? 'text-emerald-600' : 
+                card.trend?.direction === 'down' ? 'text-red-600' : 'text-slate-600'
+              }`}>
+                {card.trend?.direction === 'up' ? '📈 상승' : 
+                 card.trend?.direction === 'down' ? '📉 하락' : '➡️ 안정'}
+              </div>
+              <div className="text-sm text-slate-500 mt-1">
+                평균 성장률: <span className="font-medium">{card.trend?.avgGrowth?.toFixed(1) || 0}%</span>
+              </div>
+            </Card>
+          </FadeIn>
+        ))}
       </div>
 
       {/* 기간별 차트 */}
@@ -1622,57 +2046,80 @@ function MultiPeriodTab({ data, isLoading }: { data: any; isLoading: boolean }) 
 function ForecastTab({ data, isLoading }: { data: any; isLoading: boolean }) {
   if (isLoading) {
     return (
-      <div className="flex items-center justify-center h-64">
-        <Spinner size="lg" />
-      </div>
+      <FadeIn>
+        <div className="flex flex-col items-center justify-center h-64 gap-4">
+          <div className="relative">
+            <div className="w-16 h-16 border-4 border-violet-200 dark:border-violet-800 rounded-full animate-spin border-t-violet-600" />
+            <div className="absolute inset-0 flex items-center justify-center">
+              <span className="text-2xl">🔮</span>
+            </div>
+          </div>
+          <p className="text-sm text-slate-500 dark:text-slate-400 animate-pulse">
+            AI가 매출을 예측하고 있습니다...
+          </p>
+        </div>
+      </FadeIn>
     )
   }
 
   if (!data || !data.predictions?.length) {
     return (
-      <div className="p-8 text-center text-slate-500">
-        예측 데이터를 생성할 수 없습니다. 더 많은 과거 데이터가 필요합니다.
-      </div>
+      <EmptyState 
+        icon="🔮" 
+        title="예측 데이터를 생성할 수 없습니다" 
+        description="충분한 과거 데이터가 필요합니다. 더 긴 기간을 선택하거나 데이터가 축적될 때까지 기다려주세요."
+      />
     )
   }
 
   const { historicalData, predictions, trend, confidence, seasonality, accuracy } = data
 
+  const forecastCards = [
+    { 
+      label: '예측 트렌드', 
+      value: trend === 'up' ? '📈 상승' : trend === 'down' ? '📉 하락' : '➡️ 안정',
+      color: trend === 'up' ? 'from-emerald-500 to-teal-500' : trend === 'down' ? 'from-red-500 to-rose-500' : 'from-slate-500 to-gray-500'
+    },
+    { 
+      label: '예측 신뢰도', 
+      value: `${confidence?.toFixed(0) || 0}%`,
+      color: confidence >= 70 ? 'from-emerald-500 to-teal-500' : confidence >= 50 ? 'from-amber-500 to-orange-500' : 'from-red-500 to-rose-500'
+    },
+    { 
+      label: 'MAPE', 
+      value: `${accuracy?.mape?.toFixed(1) || 0}%`,
+      subtitle: '낮을수록 정확',
+      color: 'from-blue-500 to-indigo-500'
+    },
+    { 
+      label: '시즌성', 
+      value: seasonality?.weekly ? '주간 패턴' : seasonality?.monthly ? '월간 패턴' : '감지 안됨',
+      color: 'from-purple-500 to-violet-500'
+    },
+  ]
+
   return (
     <div className="space-y-6">
       {/* 예측 요약 */}
       <div className="grid md:grid-cols-4 gap-4">
-        <Card className="p-4 text-center">
-          <div className="text-sm text-slate-500 dark:text-slate-400 mb-1">예측 트렌드</div>
-          <div className={`text-2xl font-bold ${
-            trend === 'up' ? 'text-emerald-600' : 
-            trend === 'down' ? 'text-red-600' : 'text-slate-600'
-          }`}>
-            {trend === 'up' ? '📈 상승' : trend === 'down' ? '📉 하락' : '➡️ 안정'}
-          </div>
-        </Card>
-        <Card className="p-4 text-center">
-          <div className="text-sm text-slate-500 dark:text-slate-400 mb-1">예측 신뢰도</div>
-          <div className={`text-2xl font-bold ${
-            confidence >= 70 ? 'text-emerald-600' : 
-            confidence >= 50 ? 'text-amber-600' : 'text-red-600'
-          }`}>
-            {confidence?.toFixed(0) || 0}%
-          </div>
-        </Card>
-        <Card className="p-4 text-center">
-          <div className="text-sm text-slate-500 dark:text-slate-400 mb-1">MAPE</div>
-          <div className="text-2xl font-bold text-slate-700 dark:text-slate-300">
-            {accuracy?.mape?.toFixed(1) || 0}%
-          </div>
-          <div className="text-xs text-slate-400">낮을수록 정확</div>
-        </Card>
-        <Card className="p-4 text-center">
-          <div className="text-sm text-slate-500 dark:text-slate-400 mb-1">시즌성</div>
-          <div className="text-2xl font-bold text-slate-700 dark:text-slate-300">
-            {seasonality?.weekly ? '주간' : seasonality?.monthly ? '월간' : '없음'}
-          </div>
-        </Card>
+        {forecastCards.map((card, idx) => (
+          <FadeIn key={card.label} delay={idx * 50}>
+            <Card className="p-5 text-center hover:shadow-lg hover:scale-102 transition-all duration-300 overflow-hidden relative">
+              <div className={`absolute inset-0 bg-gradient-to-br ${card.color} opacity-5`} />
+              <div className="relative">
+                <div className="text-xs font-medium text-slate-500 dark:text-slate-400 uppercase tracking-wide mb-2">
+                  {card.label}
+                </div>
+                <div className="text-2xl font-bold text-slate-800 dark:text-slate-100">
+                  {card.value}
+                </div>
+                {card.subtitle && (
+                  <div className="text-xs text-slate-400 mt-1">{card.subtitle}</div>
+                )}
+              </div>
+            </Card>
+          </FadeIn>
+        ))}
       </div>
 
       {/* 예측 차트 */}

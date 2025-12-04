@@ -53,7 +53,15 @@ const navGroups: NavGroup[] = [
       { href: '/customer-analytics', label: '고객 분석', icon: '👥' },
       { href: '/artist-analytics', label: '작가 분석', icon: '👨‍🎨' },
       { href: '/cost-analysis', label: '비용 & 손익', icon: '💰' },
-      { href: '/business-brain', label: 'Business Brain', icon: '🧠' },
+    ],
+  },
+  {
+    title: '경영 인사이트',
+    items: [
+      { href: '/business-brain', label: '현황 & 브리핑', icon: '🧠' },
+      { href: '/business-brain?tab=comprehensive', label: '종합 인사이트', icon: '🎯' },
+      { href: '/business-brain?tab=forecast', label: '매출 예측', icon: '🔮' },
+      { href: '/business-brain?tab=risks', label: '리스크 모니터링', icon: '⚠️' },
     ],
   },
   {

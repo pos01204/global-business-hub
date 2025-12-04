@@ -139,24 +139,25 @@ export class BusinessBrainAgent extends BaseAgent {
   /**
    * 경영 브리핑 생성
    * v2.1: AI 기반 브리핑 생성 지원
+   * @param period 분석 기간 프리셋 (기본: 30d)
    */
-  async generateExecutiveBriefing(): Promise<ExecutiveBriefing> {
-    const cacheKey = 'briefing:executive'
+  async generateExecutiveBriefing(period: PeriodPreset = '30d'): Promise<ExecutiveBriefing> {
+    const cacheKey = `briefing:executive:${period}`
     const cached = businessBrainCache.get<ExecutiveBriefing>(cacheKey)
     if (cached) return cached
 
     try {
-      // 데이터 조회 - logistics 시트 사용 (더 상세한 데이터 포함)
+      // 기간 계산
+      const dateRange = DataProcessor.getDateRangeFromPreset(period)
+      const comparisonRange = DataProcessor.getComparisonPeriod(dateRange)
       const now = new Date()
-      const thirtyDaysAgo = new Date(now.getTime() - 30 * 24 * 60 * 60 * 1000)
-      const sixtyDaysAgo = new Date(now.getTime() - 60 * 24 * 60 * 60 * 1000)
       
       // 현재 기간 데이터
       const logisticsResult = await this.getData({
         sheet: 'logistics',
         dateRange: {
-          start: thirtyDaysAgo.toISOString().split('T')[0],
-          end: now.toISOString().split('T')[0],
+          start: dateRange.start,
+          end: dateRange.end,
         },
       })
 
@@ -164,17 +165,17 @@ export class BusinessBrainAgent extends BaseAgent {
       const previousResult = await this.getData({
         sheet: 'logistics',
         dateRange: {
-          start: sixtyDaysAgo.toISOString().split('T')[0],
-          end: thirtyDaysAgo.toISOString().split('T')[0],
+          start: comparisonRange.start,
+          end: comparisonRange.end,
         },
       })
 
       const orderData = logisticsResult.success ? logisticsResult.data : []
       const previousData = previousResult.success ? previousResult.data : []
-      console.log(`[BusinessBrain] 브리핑 데이터 조회: 현재 ${orderData.length}건, 이전 ${previousData.length}건`)
+      console.log(`[BusinessBrain] 브리핑 데이터 조회 (${period}): 현재 ${orderData.length}건, 이전 ${previousData.length}건`)
 
       // 건강도 점수 계산
-      const healthScore = await this.calculateHealthScore()
+      const healthScore = await this.calculateHealthScore(period)
 
       // 인사이트 발견
       const insights = await this.discoverInsights()
@@ -209,8 +210,8 @@ export class BusinessBrainAgent extends BaseAgent {
       // AI 브리핑 입력 데이터 구성
       const briefingInput: BriefingInput = {
         period: {
-          start: thirtyDaysAgo.toISOString().split('T')[0],
-          end: now.toISOString().split('T')[0],
+          start: dateRange.start,
+          end: dateRange.end,
         },
         metrics: {
           totalGmv: currentGmv,
@@ -252,7 +253,7 @@ export class BusinessBrainAgent extends BaseAgent {
       // 브리핑 생성
       const briefing: ExecutiveBriefing = {
         generatedAt: now,
-        period: { start: thirtyDaysAgo, end: now },
+        period: { start: new Date(dateRange.start), end: new Date(dateRange.end) },
         healthScore,
         summary: aiBriefing.summary || this.generateSummary(healthScore, insights, orderData),
         insights: insights.slice(0, 5),
@@ -282,36 +283,36 @@ export class BusinessBrainAgent extends BaseAgent {
 
   /**
    * 건강도 점수 계산
+   * @param period 분석 기간 프리셋 (기본: 30d)
    */
-  async calculateHealthScore(): Promise<BusinessHealthScore> {
-    const cacheKey = 'health:score'
+  async calculateHealthScore(period: PeriodPreset = '30d'): Promise<BusinessHealthScore> {
+    const cacheKey = `health:score:${period}`
     const cached = businessBrainCache.get<BusinessHealthScore>(cacheKey)
     if (cached) return cached
 
     try {
-      // 데이터 조회 - logistics 시트 사용 (작가, 국가 등 상세 정보 포함)
-      const now = new Date()
-      const thirtyDaysAgo = new Date(now.getTime() - 30 * 24 * 60 * 60 * 1000)
-      const sixtyDaysAgo = new Date(now.getTime() - 60 * 24 * 60 * 60 * 1000)
+      // 기간 계산
+      const dateRange = DataProcessor.getDateRangeFromPreset(period)
+      const comparisonRange = DataProcessor.getComparisonPeriod(dateRange)
 
       const [currentResult, previousResult] = await Promise.all([
         this.getData({
           sheet: 'logistics',
           dateRange: {
-            start: thirtyDaysAgo.toISOString().split('T')[0],
-            end: now.toISOString().split('T')[0],
+            start: dateRange.start,
+            end: dateRange.end,
           },
         }),
         this.getData({
           sheet: 'logistics',
           dateRange: {
-            start: sixtyDaysAgo.toISOString().split('T')[0],
-            end: thirtyDaysAgo.toISOString().split('T')[0],
+            start: comparisonRange.start,
+            end: comparisonRange.end,
           },
         }),
       ])
       
-      console.log(`[BusinessBrain] 건강도 데이터: 현재 ${currentResult.data?.length || 0}건, 이전 ${previousResult.data?.length || 0}건`)
+      console.log(`[BusinessBrain] 건강도 데이터 (${period}): 현재 ${currentResult.data?.length || 0}건, 이전 ${previousResult.data?.length || 0}건`)
 
       const currentData = currentResult.success ? currentResult.data : []
       const previousData = previousResult.success ? previousResult.data : []
@@ -786,7 +787,7 @@ export class BusinessBrainAgent extends BaseAgent {
    * 장기 트렌드 분석
    * PRD 섹션 3.1 - 다차원 분석 매트릭스
    */
-  async analyzeLongTermTrends(): Promise<{
+  async analyzeLongTermTrends(period: PeriodPreset = '90d'): Promise<{
     trends: Array<{
       metric: string
       direction: 'up' | 'down' | 'stable'
@@ -796,19 +797,19 @@ export class BusinessBrainAgent extends BaseAgent {
       implication: string
     }>
   }> {
-    const cacheKey = 'long-term-trends'
+    const cacheKey = `long-term-trends:${period}`
     const cached = businessBrainCache.get<any>(cacheKey)
     if (cached) return cached
 
     try {
-      const now = new Date()
-      const ninetyDaysAgo = new Date(now.getTime() - 90 * 24 * 60 * 60 * 1000)
+      const dateRange = DataProcessor.getDateRangeFromPreset(period)
+      const periodDays = this.getPeriodDays(period)
 
       const logisticsResult = await this.getData({
         sheet: 'logistics',
         dateRange: {
-          start: ninetyDaysAgo.toISOString().split('T')[0],
-          end: now.toISOString().split('T')[0],
+          start: dateRange.start,
+          end: dateRange.end,
         },
       })
 
@@ -848,7 +849,7 @@ export class BusinessBrainAgent extends BaseAgent {
           metric: '총 매출 (GMV)',
           direction: gmvChange > 0.05 ? 'up' : gmvChange < -0.05 ? 'down' : 'stable',
           magnitude: Math.abs(gmvChange * 100),
-          period: '90일',
+          period: `${periodDays}일`,
           significance: Math.abs(gmvChange) > 0.2 ? 'high' : Math.abs(gmvChange) > 0.1 ? 'medium' : 'low',
           implication: gmvChange > 0.1
             ? '매출이 건강하게 성장하고 있습니다.'
@@ -863,7 +864,7 @@ export class BusinessBrainAgent extends BaseAgent {
           metric: '주문 건수',
           direction: orderChange > 0.05 ? 'up' : orderChange < -0.05 ? 'down' : 'stable',
           magnitude: Math.abs(orderChange * 100),
-          period: '90일',
+          period: `${periodDays}일`,
           significance: Math.abs(orderChange) > 0.2 ? 'high' : Math.abs(orderChange) > 0.1 ? 'medium' : 'low',
           implication: orderChange > 0.1
             ? '주문 건수가 증가하고 있습니다.'
@@ -880,7 +881,7 @@ export class BusinessBrainAgent extends BaseAgent {
           metric: '평균 주문 금액 (AOV)',
           direction: aovChange > 0.03 ? 'up' : aovChange < -0.03 ? 'down' : 'stable',
           magnitude: Math.abs(aovChange * 100),
-          period: '90일',
+          period: `${periodDays}일`,
           significance: Math.abs(aovChange) > 0.15 ? 'high' : Math.abs(aovChange) > 0.08 ? 'medium' : 'low',
           implication: aovChange > 0.05
             ? '객단가가 상승하고 있습니다. 프리미엄 전략이 효과적입니다.'
@@ -897,7 +898,7 @@ export class BusinessBrainAgent extends BaseAgent {
           metric: '활성 고객 수',
           direction: customerChange > 0.05 ? 'up' : customerChange < -0.05 ? 'down' : 'stable',
           magnitude: Math.abs(customerChange * 100),
-          period: '90일',
+          period: `${periodDays}일`,
           significance: Math.abs(customerChange) > 0.2 ? 'high' : Math.abs(customerChange) > 0.1 ? 'medium' : 'low',
           implication: customerChange > 0.1
             ? '고객 기반이 확대되고 있습니다.'
@@ -1102,6 +1103,18 @@ export class BusinessBrainAgent extends BaseAgent {
       FR: '프랑스',
     }
     return countries[code] || code
+  }
+
+  private getPeriodDays(period: PeriodPreset): number {
+    const days: Record<PeriodPreset, number> = {
+      '7d': 7,
+      '30d': 30,
+      '90d': 90,
+      '180d': 180,
+      '365d': 365,
+      'custom': 30,
+    }
+    return days[period] || 30
   }
 
   private extractImmediateActions(insights: BusinessInsight[]): string[] {
@@ -1575,13 +1588,15 @@ export class BusinessBrainAgent extends BaseAgent {
     if (cached) return cached
 
     try {
-      // 충분한 기간의 데이터 조회
-      const daysNeeded = periodType === 'weekly' ? numPeriods * 7 + 7 :
-                        periodType === 'monthly' ? numPeriods * 31 + 31 :
-                        numPeriods * 92 + 92
+      // 충분한 기간의 데이터 조회 (더 넉넉하게)
+      const daysNeeded = periodType === 'weekly' ? numPeriods * 7 + 14 :
+                        periodType === 'monthly' ? numPeriods * 35 + 35 :
+                        numPeriods * 100 + 100
       
       const now = new Date()
       const startDate = new Date(now.getTime() - daysNeeded * 24 * 60 * 60 * 1000)
+
+      console.log(`[BusinessBrain] 다중 기간 분석 - 조회 기간: ${startDate.toISOString().split('T')[0]} ~ ${now.toISOString().split('T')[0]}`)
 
       const logisticsResult = await this.getData({
         sheet: 'logistics',
@@ -1592,7 +1607,17 @@ export class BusinessBrainAgent extends BaseAgent {
       })
 
       const orderData = logisticsResult.success ? logisticsResult.data : []
+      console.log(`[BusinessBrain] 다중 기간 분석 - 조회된 데이터: ${orderData.length}건`)
+      
+      // 데이터 샘플 확인
+      if (orderData.length > 0) {
+        const sampleDates = orderData.slice(0, 5).map((row: any) => row.order_created)
+        console.log(`[BusinessBrain] 다중 기간 분석 - 샘플 날짜: ${sampleDates.join(', ')}`)
+      }
+
       const result = this.dataProcessor.analyzeMultiplePeriods(orderData, periodType, numPeriods)
+      
+      console.log(`[BusinessBrain] 다중 기간 분석 결과 - 기간 수: ${result.periods.length}, 첫 기간 GMV: ${result.periods[0]?.gmv || 0}`)
 
       businessBrainCache.set(cacheKey, result, CACHE_TTL.insights)
       return result
