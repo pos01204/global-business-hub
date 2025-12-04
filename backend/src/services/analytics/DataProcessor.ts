@@ -186,14 +186,23 @@ export interface ForecastResult {
   }
 }
 
+// 메트릭 변화 타입
+export interface MetricChange {
+  period1: number
+  period2: number
+  change: number
+  changePercent: number | null  // null = 비교 불가 (이전 기간 0)
+  comparable: boolean           // 비교 가능 여부
+}
+
 export interface PeriodComparison {
   period1: { start: string; end: string; label: string }
   period2: { start: string; end: string; label: string }
   metrics: {
-    gmv: { period1: number; period2: number; change: number; changePercent: number }
-    orders: { period1: number; period2: number; change: number; changePercent: number }
-    aov: { period1: number; period2: number; change: number; changePercent: number }
-    customers: { period1: number; period2: number; change: number; changePercent: number }
+    gmv: MetricChange
+    orders: MetricChange
+    aov: MetricChange
+    customers: MetricChange
   }
   topGrowthSegments: Array<{ segment: string; type: string; growth: number }>
   topDeclineSegments: Array<{ segment: string; type: string; decline: number }>
@@ -1424,12 +1433,18 @@ export class DataProcessor {
     const metrics1 = this.calculatePeriodMetrics(data1)
     const metrics2 = this.calculatePeriodMetrics(data2)
 
-    // 변화율 계산
+    console.log(`[DataProcessor] 기간 비교: 이전(${period1.start}~${period1.end}) ${data1.length}건, 현재(${period2.start}~${period2.end}) ${data2.length}건`)
+    console.log(`[DataProcessor] 메트릭: 이전 GMV=$${metrics1.gmv.toFixed(0)}, 현재 GMV=$${metrics2.gmv.toFixed(0)}`)
+
+    // 변화율 계산 - 이전 기간 데이터가 없으면 null 반환
     const calcChange = (v1: number, v2: number) => ({
       period1: v1,
       period2: v2,
       change: v2 - v1,
-      changePercent: v1 > 0 ? ((v2 - v1) / v1) * 100 : 0,
+      // 이전 기간이 0이면 비교 불가 (null), 아니면 정상 계산
+      changePercent: v1 > 0 ? ((v2 - v1) / v1) * 100 : (v2 > 0 ? null : 0),
+      // 비교 가능 여부
+      comparable: v1 > 0,
     })
 
     // 세그먼트별 성장/하락 분석
@@ -1555,6 +1570,16 @@ export class DataProcessor {
   }
 
   /**
+   * 로컬 날짜를 YYYY-MM-DD 문자열로 변환 (UTC 오프셋 문제 방지)
+   */
+  private formatLocalDate(date: Date): string {
+    const year = date.getFullYear()
+    const month = String(date.getMonth() + 1).padStart(2, '0')
+    const day = String(date.getDate()).padStart(2, '0')
+    return `${year}-${month}-${day}`
+  }
+
+  /**
    * 기간 경계 계산
    */
   private getPeriodBounds(
@@ -1572,8 +1597,8 @@ export class DataProcessor {
         const weekEnd = new Date(weekStart)
         weekEnd.setDate(weekEnd.getDate() + 6)
         return {
-          start: weekStart.toISOString().split('T')[0],
-          end: weekEnd.toISOString().split('T')[0],
+          start: this.formatLocalDate(weekStart),
+          end: this.formatLocalDate(weekEnd),
           label: `${weekStart.getMonth() + 1}/${weekStart.getDate()} 주`,
         }
       }
@@ -1582,8 +1607,8 @@ export class DataProcessor {
         const monthStart = new Date(date.getFullYear(), date.getMonth(), 1)
         const monthEnd = new Date(date.getFullYear(), date.getMonth() + 1, 0)
         return {
-          start: monthStart.toISOString().split('T')[0],
-          end: monthEnd.toISOString().split('T')[0],
+          start: this.formatLocalDate(monthStart),
+          end: this.formatLocalDate(monthEnd),
           label: `${date.getFullYear()}.${String(date.getMonth() + 1).padStart(2, '0')}`,
         }
       }
@@ -1594,8 +1619,8 @@ export class DataProcessor {
         const qStart = new Date(year, q * 3, 1)
         const qEnd = new Date(year, q * 3 + 3, 0)
         return {
-          start: qStart.toISOString().split('T')[0],
-          end: qEnd.toISOString().split('T')[0],
+          start: this.formatLocalDate(qStart),
+          end: this.formatLocalDate(qEnd),
           label: `${year} Q${q + 1}`,
         }
       }
@@ -1697,13 +1722,22 @@ export class DataProcessor {
   ): string[] {
     const insights: string[] = []
 
-    const gmvChange = metrics1.gmv > 0 ? ((metrics2.gmv - metrics1.gmv) / metrics1.gmv) * 100 : 0
-    const orderChange = metrics1.orders > 0 ? ((metrics2.orders - metrics1.orders) / metrics1.orders) * 100 : 0
-    const aovChange = metrics1.aov > 0 ? ((metrics2.aov - metrics1.aov) / metrics1.aov) * 100 : 0
-    const customerChange = metrics1.customers > 0 ? ((metrics2.customers - metrics1.customers) / metrics1.customers) * 100 : 0
+    // 이전 기간 데이터가 없는 경우
+    if (metrics1.gmv === 0 && metrics1.orders === 0) {
+      if (metrics2.gmv > 0) {
+        insights.push(`📊 ${label2}에 총 $${metrics2.gmv.toLocaleString()} 매출, ${metrics2.orders}건 주문이 발생했습니다.`)
+        insights.push(`ℹ️ ${label1}에 비교할 데이터가 없어 성장률 분석이 제한됩니다.`)
+      }
+      return insights
+    }
+
+    const gmvChange = metrics1.gmv > 0 ? ((metrics2.gmv - metrics1.gmv) / metrics1.gmv) * 100 : null
+    const orderChange = metrics1.orders > 0 ? ((metrics2.orders - metrics1.orders) / metrics1.orders) * 100 : null
+    const aovChange = metrics1.aov > 0 ? ((metrics2.aov - metrics1.aov) / metrics1.aov) * 100 : null
+    const customerChange = metrics1.customers > 0 ? ((metrics2.customers - metrics1.customers) / metrics1.customers) * 100 : null
 
     // GMV 인사이트
-    if (Math.abs(gmvChange) > 10) {
+    if (gmvChange !== null && Math.abs(gmvChange) > 10) {
       insights.push(
         gmvChange > 0
           ? `💹 ${label2} 매출이 ${label1} 대비 ${gmvChange.toFixed(1)}% 성장했습니다.`
@@ -1712,17 +1746,21 @@ export class DataProcessor {
     }
 
     // 주문 vs AOV 분석
-    if (orderChange > 5 && aovChange < -5) {
-      insights.push('📊 주문 건수는 증가했으나 객단가가 하락했습니다. 저가 상품 비중 증가 또는 할인 영향을 점검하세요.')
-    } else if (orderChange < -5 && aovChange > 5) {
-      insights.push('📊 주문 건수는 감소했으나 객단가가 상승했습니다. 프리미엄 고객 집중 전략이 효과적입니다.')
+    if (orderChange !== null && aovChange !== null) {
+      if (orderChange > 5 && aovChange < -5) {
+        insights.push('📊 주문 건수는 증가했으나 객단가가 하락했습니다. 저가 상품 비중 증가 또는 할인 영향을 점검하세요.')
+      } else if (orderChange < -5 && aovChange > 5) {
+        insights.push('📊 주문 건수는 감소했으나 객단가가 상승했습니다. 프리미엄 고객 집중 전략이 효과적입니다.')
+      }
     }
 
     // 고객 인사이트
-    if (customerChange > 15) {
-      insights.push(`👥 신규 고객 유입이 ${customerChange.toFixed(1)}% 증가했습니다. 마케팅 효과를 분석하세요.`)
-    } else if (customerChange < -15) {
-      insights.push(`⚠️ 활성 고객이 ${Math.abs(customerChange).toFixed(1)}% 감소했습니다. 리텐션 전략이 필요합니다.`)
+    if (customerChange !== null) {
+      if (customerChange > 15) {
+        insights.push(`👥 신규 고객 유입이 ${customerChange.toFixed(1)}% 증가했습니다. 마케팅 효과를 분석하세요.`)
+      } else if (customerChange < -15) {
+        insights.push(`⚠️ 활성 고객이 ${Math.abs(customerChange).toFixed(1)}% 감소했습니다. 리텐션 전략이 필요합니다.`)
+      }
     }
 
     return insights

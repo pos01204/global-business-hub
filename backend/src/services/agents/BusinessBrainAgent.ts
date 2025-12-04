@@ -1694,14 +1694,15 @@ export class BusinessBrainAgent extends BaseAgent {
       const opportunities: string[] = []
       const recommendations: string[] = []
 
-      // 비교 기반 인사이트
-      if (comparison) {
+      // 비교 기반 인사이트 (이전 기간 데이터가 있는 경우에만)
+      if (comparison && comparison.metrics.gmv.comparable) {
         topInsights.push(...comparison.insights)
         
-        if (comparison.metrics.gmv.changePercent < -10) {
+        // 실제 비교가 가능한 경우에만 변화율 기반 인사이트 추가
+        if (comparison.metrics.gmv.changePercent !== null && comparison.metrics.gmv.changePercent < -10) {
           risks.push(`매출이 이전 기간 대비 ${Math.abs(comparison.metrics.gmv.changePercent).toFixed(1)}% 감소했습니다.`)
         }
-        if (comparison.metrics.customers.changePercent < -15) {
+        if (comparison.metrics.customers.changePercent !== null && comparison.metrics.customers.changePercent < -15) {
           risks.push(`활성 고객이 ${Math.abs(comparison.metrics.customers.changePercent).toFixed(1)}% 감소했습니다.`)
         }
         
@@ -1709,6 +1710,10 @@ export class BusinessBrainAgent extends BaseAgent {
           const topGrowth = comparison.topGrowthSegments[0]
           opportunities.push(`${topGrowth.type === 'country' ? '국가' : '작가'} "${topGrowth.segment}"이(가) ${topGrowth.growth.toFixed(1)}% 성장했습니다.`)
         }
+      } else if (comparison && !comparison.metrics.gmv.comparable && comparison.metrics.gmv.period2 > 0) {
+        // 이전 기간 데이터가 없고 현재 기간에만 데이터가 있는 경우
+        topInsights.push(`선택한 기간에 총 $${comparison.metrics.gmv.period2.toLocaleString()} 매출이 발생했습니다.`)
+        topInsights.push('이전 비교 기간에 데이터가 없어 성장률 분석이 제한됩니다.')
       }
 
       // 집중도 기반 인사이트

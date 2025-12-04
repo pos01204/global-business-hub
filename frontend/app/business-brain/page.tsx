@@ -1,7 +1,7 @@
 'use client'
 
 import { useState, useEffect, useRef } from 'react'
-import { useSearchParams } from 'next/navigation'
+import { useSearchParams, useRouter } from 'next/navigation'
 import { useQuery } from '@tanstack/react-query'
 import { businessBrainApi } from '@/lib/api'
 import { Card } from '@/components/ui/Card'
@@ -11,6 +11,20 @@ import { Badge } from '@/components/ui/Badge'
 
 // 기간 프리셋 타입
 type PeriodPreset = '7d' | '30d' | '90d' | '180d' | '365d'
+
+// 환율 상수 (USD → KRW)
+const USD_TO_KRW = 1350
+
+// 원화 포맷팅 함수
+function formatKRW(usdAmount: number): string {
+  const krwAmount = Math.round(usdAmount * USD_TO_KRW)
+  return `₩${krwAmount.toLocaleString()}`
+}
+
+// 원화 포맷팅 (숫자만)
+function toKRW(usdAmount: number): number {
+  return Math.round(usdAmount * USD_TO_KRW)
+}
 
 // ==================== 애니메이션 훅 ====================
 
@@ -134,6 +148,7 @@ const PERIOD_OPTIONS: { value: PeriodPreset; label: string }[] = [
 
 export default function BusinessBrainPage() {
   const searchParams = useSearchParams()
+  const router = useRouter()
   const tabFromUrl = searchParams.get('tab')
   
   const [activeTab, setActiveTab] = useState(tabFromUrl || 'overview')
@@ -145,6 +160,12 @@ export default function BusinessBrainPage() {
       setActiveTab(tabFromUrl)
     }
   }, [tabFromUrl])
+
+  // 탭 변경 시 URL 업데이트
+  const handleTabChange = (newTab: string) => {
+    setActiveTab(newTab)
+    router.push(`/business-brain?tab=${newTab}`, { scroll: false })
+  }
 
   // 데이터 쿼리 (기간 기반)
   const { data: briefingData, isLoading: briefingLoading } = useQuery({
@@ -248,20 +269,39 @@ export default function BusinessBrainPage() {
 
   const isLoading = briefingLoading || healthLoading
 
-  const tabItems = [
-    { id: 'overview', label: '📊 현황 평가' },
-    { id: 'comprehensive', label: '🎯 종합 인사이트' },
-    { id: 'trends', label: '📈 트렌드 분석' },
-    { id: 'multiperiod', label: '📅 기간별 추이' },
-    { id: 'forecast', label: '🔮 매출 예측' },
-    { id: 'risks', label: '⚠️ 리스크 감지' },
-    { id: 'insights', label: '💡 기회 발견' },
-    { id: 'strategy', label: '🎯 전략 제안' },
-    { id: 'rfm', label: '👥 RFM 분석' },
-    { id: 'pareto', label: '📊 파레토 분석' },
-    { id: 'cohort', label: '📅 코호트 분석' },
-    { id: 'anomaly', label: '🔍 이상 탐지' },
+  // 탭을 카테고리별로 그룹화
+  const tabGroups = [
+    {
+      name: '핵심 분석',
+      tabs: [
+        { id: 'overview', label: '현황 평가', icon: '📊' },
+        { id: 'comprehensive', label: '종합 인사이트', icon: '🎯' },
+        { id: 'forecast', label: '매출 예측', icon: '🔮' },
+      ]
+    },
+    {
+      name: '심층 분석',
+      tabs: [
+        { id: 'trends', label: '트렌드', icon: '📈' },
+        { id: 'multiperiod', label: '기간별 추이', icon: '📅' },
+        { id: 'risks', label: '리스크', icon: '⚠️' },
+        { id: 'insights', label: '기회 발견', icon: '💡' },
+      ]
+    },
+    {
+      name: '고급 분석',
+      tabs: [
+        { id: 'rfm', label: 'RFM', icon: '👥' },
+        { id: 'pareto', label: '파레토', icon: '📊' },
+        { id: 'cohort', label: '코호트', icon: '📈' },
+        { id: 'anomaly', label: '이상 탐지', icon: '🔍' },
+        { id: 'strategy', label: '전략 제안', icon: '🎯' },
+      ]
+    },
   ]
+
+  // 평면화된 탭 목록 (Tabs 컴포넌트용)
+  const tabItems = tabGroups.flatMap(g => g.tabs.map(t => ({ id: t.id, label: `${t.icon} ${t.label}` })))
 
   // 기간 선택이 필요한 탭들
   const periodEnabledTabs = ['overview', 'comprehensive', 'rfm', 'pareto', 'cohort', 'anomaly', 'forecast', 'trends']
@@ -336,9 +376,35 @@ export default function BusinessBrainPage() {
         </FadeIn>
       )}
 
-      {/* 탭 */}
+      {/* 탭 그룹 네비게이션 */}
       <FadeIn delay={150}>
-        <Tabs items={tabItems} activeTab={activeTab} onChange={setActiveTab} />
+        <div className="bg-white dark:bg-slate-900 rounded-xl shadow-sm border border-slate-200 dark:border-slate-700 p-4">
+          <div className="flex flex-wrap gap-6">
+            {tabGroups.map((group, groupIdx) => (
+              <div key={group.name} className="flex-1 min-w-[200px]">
+                <div className="text-xs font-medium text-slate-400 dark:text-slate-500 mb-2 uppercase tracking-wider">
+                  {group.name}
+                </div>
+                <div className="flex flex-wrap gap-2">
+                  {group.tabs.map((tab) => (
+                    <button
+                      key={tab.id}
+                      onClick={() => handleTabChange(tab.id)}
+                      className={`px-3 py-2 rounded-lg text-sm font-medium transition-all duration-200 flex items-center gap-1.5 ${
+                        activeTab === tab.id
+                          ? 'bg-gradient-to-r from-indigo-500 to-purple-500 text-white shadow-md shadow-indigo-500/25'
+                          : 'bg-slate-100 dark:bg-slate-800 text-slate-600 dark:text-slate-400 hover:bg-slate-200 dark:hover:bg-slate-700'
+                      }`}
+                    >
+                      <span>{tab.icon}</span>
+                      <span>{tab.label}</span>
+                    </button>
+                  ))}
+                </div>
+              </div>
+            ))}
+          </div>
+        </div>
       </FadeIn>
 
       {isLoading ? (
@@ -1743,9 +1809,9 @@ function ComprehensiveTab({ data, isLoading, period }: { data: any; isLoading: b
   const { summary, comparison, forecast, topInsights, risks, opportunities, recommendations } = data
 
   const metricCards = [
-    { key: 'gmv', label: '총 매출', value: summary?.gmv || 0, prefix: '$', icon: '💰', color: 'from-emerald-500 to-teal-500' },
+    { key: 'gmv', label: '총 매출', value: toKRW(summary?.gmv || 0), prefix: '₩', icon: '💰', color: 'from-emerald-500 to-teal-500' },
     { key: 'orders', label: '주문 수', value: summary?.orders || 0, icon: '📦', color: 'from-blue-500 to-indigo-500' },
-    { key: 'aov', label: '평균 객단가', value: summary?.aov || 0, prefix: '$', decimals: 0, icon: '💵', color: 'from-purple-500 to-pink-500' },
+    { key: 'aov', label: '평균 객단가', value: toKRW(summary?.aov || 0), prefix: '₩', decimals: 0, icon: '💵', color: 'from-purple-500 to-pink-500' },
     { key: 'customers', label: '고객 수', value: summary?.customers || 0, icon: '👥', color: 'from-amber-500 to-orange-500' },
     { key: 'artists', label: '활동 작가', value: summary?.artists || 0, icon: '🎨', color: 'from-rose-500 to-red-500' },
   ]
@@ -1779,30 +1845,61 @@ function ComprehensiveTab({ data, isLoading, period }: { data: any; isLoading: b
       {/* 기간 비교 */}
       {comparison && (
         <Card className="p-6">
-          <h3 className="text-lg font-semibold text-slate-800 dark:text-slate-100 mb-4">
-            📊 이전 기간 대비 변화
-          </h3>
-          {comparison.metrics?.gmv?.period1 === 0 && comparison.metrics?.gmv?.period2 === 0 ? (
+          <div className="flex items-center justify-between mb-4">
+            <h3 className="text-lg font-semibold text-slate-800 dark:text-slate-100">
+              📊 이전 기간 대비 변화
+            </h3>
+            {comparison.period1 && (
+              <span className="text-xs text-slate-400">
+                비교: {comparison.period1.start} ~ {comparison.period1.end}
+              </span>
+            )}
+          </div>
+          {!comparison.metrics?.gmv?.comparable && comparison.metrics?.gmv?.period2 > 0 ? (
+            <div className="p-6 bg-blue-50 dark:bg-blue-900/20 rounded-lg">
+              <div className="flex items-center gap-3 mb-3">
+                <span className="text-2xl">🆕</span>
+                <div>
+                  <p className="font-medium text-blue-700 dark:text-blue-300">신규 데이터 기간입니다</p>
+                  <p className="text-sm text-blue-600 dark:text-blue-400">이전 비교 기간에 데이터가 없어 변화율을 계산할 수 없습니다.</p>
+                </div>
+              </div>
+              <div className="grid grid-cols-2 md:grid-cols-4 gap-4 mt-4">
+                {Object.entries(comparison.metrics).map(([key, value]: [string, any]) => (
+                  <div key={key} className="p-3 bg-white dark:bg-slate-800 rounded-lg">
+                    <div className="text-xs text-slate-500 dark:text-slate-400 mb-1">
+                      {key === 'gmv' ? '현재 매출' : key === 'orders' ? '현재 주문' : key === 'aov' ? '현재 객단가' : '현재 고객'}
+                    </div>
+                    <div className="text-lg font-bold text-slate-800 dark:text-slate-100">
+                      {key === 'gmv' || key === 'aov' ? formatKRW(value.period2 || 0) : (value.period2 || 0).toLocaleString()}
+                    </div>
+                  </div>
+                ))}
+              </div>
+            </div>
+          ) : comparison.metrics?.gmv?.period1 === 0 && comparison.metrics?.gmv?.period2 === 0 ? (
             <div className="p-8 text-center text-slate-500 dark:text-slate-400">
-              <p>비교할 수 있는 이전 기간 데이터가 없습니다.</p>
-              <p className="text-xs mt-2">더 긴 분석 기간을 선택하거나 데이터가 축적되면 비교 분석이 가능합니다.</p>
+              <p>분석할 데이터가 없습니다.</p>
+              <p className="text-xs mt-2">선택한 기간에 주문 데이터가 없습니다.</p>
             </div>
           ) : (
             <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
               {Object.entries(comparison.metrics).map(([key, value]: [string, any]) => (
-                <div key={key} className="p-4 bg-slate-50 dark:bg-slate-800 rounded-lg">
+                <div key={key} className="p-4 bg-slate-50 dark:bg-slate-800 rounded-lg hover:shadow-md transition-shadow">
                   <div className="text-sm text-slate-500 dark:text-slate-400 mb-1">
                     {key === 'gmv' ? '매출' : key === 'orders' ? '주문' : key === 'aov' ? '객단가' : '고객'}
                   </div>
                   <div className={`text-xl font-bold ${
-                    value.period1 === 0 ? 'text-slate-400' :
+                    value.changePercent === null ? 'text-blue-600' :
                     value.changePercent >= 0 ? 'text-emerald-600' : 'text-red-600'
                   }`}>
-                    {value.period1 === 0 ? 'N/A' : 
+                    {value.changePercent === null ? '신규' : 
                       `${value.changePercent >= 0 ? '+' : ''}${value.changePercent.toFixed(1)}%`}
                   </div>
-                  <div className="text-xs text-slate-400">
-                    {key === 'gmv' || key === 'aov' ? '$' : ''}{(value.period2 || 0).toLocaleString()}
+                  <div className="text-xs text-slate-400 mt-1">
+                    <span className="text-slate-500">{key === 'gmv' || key === 'aov' ? formatKRW(value.period1 || 0) : (value.period1 || 0).toLocaleString()}</span>
+                    <span className="mx-1">→</span>
+                    <span className="font-medium text-slate-600 dark:text-slate-300">{key === 'gmv' || key === 'aov' ? formatKRW(value.period2 || 0) : (value.period2 || 0).toLocaleString()}</span>
                   </div>
                 </div>
               ))}
@@ -1900,7 +1997,7 @@ function ComprehensiveTab({ data, isLoading, period }: { data: any; isLoading: b
             {forecast.predictions.slice(0, 7).map((pred: any, idx: number) => (
               <div key={idx} className="text-center p-2 bg-slate-50 dark:bg-slate-800 rounded">
                 <div className="text-xs text-slate-500">{pred.date?.slice(5)}</div>
-                <div className="text-sm font-medium">${pred.predicted?.toFixed(0)}</div>
+                <div className="text-sm font-medium">{formatKRW(pred.predicted || 0)}</div>
               </div>
             ))}
           </div>
@@ -1941,6 +2038,33 @@ function MultiPeriodTab({ data, isLoading }: { data: any; isLoading: boolean }) 
   }
 
   const { periods, trends, bestPeriod, worstPeriod, insights, seasonalityDetected } = data
+  
+  // 모든 기간의 GMV가 0인지 확인
+  const hasAnyData = periods.some((p: any) => p.gmv > 0)
+  
+  if (!hasAnyData) {
+    return (
+      <Card className="p-8">
+        <div className="text-center">
+          <div className="text-5xl mb-4">📅</div>
+          <h3 className="text-lg font-semibold text-slate-800 dark:text-slate-100 mb-2">
+            선택한 기간에 데이터가 없습니다
+          </h3>
+          <p className="text-sm text-slate-500 dark:text-slate-400 mb-4">
+            분석된 기간({periods[0]?.label} ~ {periods[periods.length-1]?.label})에 주문 데이터가 없습니다.
+          </p>
+          <div className="inline-block p-4 bg-slate-50 dark:bg-slate-800 rounded-lg text-left text-sm text-slate-600 dark:text-slate-400">
+            <p className="font-medium mb-2">확인 사항:</p>
+            <ul className="list-disc list-inside space-y-1">
+              <li>Google Sheets에 logistics 데이터가 있는지 확인하세요</li>
+              <li>order_created 날짜 형식이 올바른지 확인하세요</li>
+              <li>더 짧은 분석 기간을 선택해보세요</li>
+            </ul>
+          </div>
+        </div>
+      </Card>
+    )
+  }
 
   const trendCards = [
     { label: '매출 트렌드', trend: trends?.gmv, icon: '💰' },
@@ -1999,8 +2123,8 @@ function MultiPeriodTab({ data, isLoading }: { data: any; isLoading: boolean }) 
                     style={{ width: `${widthPercent}%` }}
                   />
                 </div>
-                <div className="w-28 text-right text-sm font-medium text-slate-700 dark:text-slate-300">
-                  ${period.gmv?.toLocaleString()}
+                <div className="w-32 text-right text-sm font-medium text-slate-700 dark:text-slate-300">
+                  {formatKRW(period.gmv || 0)}
                 </div>
               </div>
             )
@@ -2031,9 +2155,9 @@ function MultiPeriodTab({ data, isLoading }: { data: any; isLoading: boolean }) 
                   period.label === worstPeriod ? 'bg-red-50 dark:bg-red-900/10' : ''
                 }`}>
                   <td className="py-3 px-4 font-medium">{period.label}</td>
-                  <td className="text-right py-3 px-4">${period.gmv?.toLocaleString()}</td>
+                  <td className="text-right py-3 px-4">{formatKRW(period.gmv || 0)}</td>
                   <td className="text-right py-3 px-4">{period.orders?.toLocaleString()}</td>
-                  <td className="text-right py-3 px-4">${period.aov?.toFixed(0)}</td>
+                  <td className="text-right py-3 px-4">{formatKRW(period.aov || 0)}</td>
                   <td className="text-right py-3 px-4">{period.customers?.toLocaleString()}</td>
                 </tr>
               ))}
@@ -2229,9 +2353,9 @@ function ForecastTab({ data, isLoading }: { data: any; isLoading: boolean }) {
               {predictions?.map((p: any, idx: number) => (
                 <tr key={idx} className="border-b border-slate-100 dark:border-slate-800">
                   <td className="py-2 px-4">{p.date}</td>
-                  <td className="text-right py-2 px-4 font-medium">${p.predicted?.toFixed(0)}</td>
-                  <td className="text-right py-2 px-4 text-slate-500">${p.lower?.toFixed(0)}</td>
-                  <td className="text-right py-2 px-4 text-slate-500">${p.upper?.toFixed(0)}</td>
+                  <td className="text-right py-2 px-4 font-medium">{formatKRW(p.predicted || 0)}</td>
+                  <td className="text-right py-2 px-4 text-slate-500">{formatKRW(p.lower || 0)}</td>
+                  <td className="text-right py-2 px-4 text-slate-500">{formatKRW(p.upper || 0)}</td>
                 </tr>
               ))}
             </tbody>
