@@ -19,6 +19,9 @@ import {
   CubeAnalysisResult,
 } from '../analytics'
 
+// 환율 상수 (USD → KRW)
+const USD_TO_KRW = 1350
+
 export class BusinessBrainAgent extends BaseAgent {
   private cubeAnalyzer: CubeAnalyzer
   private decompositionEngine: DecompositionEngine
@@ -126,19 +129,20 @@ export class BusinessBrainAgent extends BaseAgent {
     if (cached) return cached
 
     try {
-      // 데이터 조회
+      // 데이터 조회 - logistics 시트 사용 (더 상세한 데이터 포함)
       const now = new Date()
       const thirtyDaysAgo = new Date(now.getTime() - 30 * 24 * 60 * 60 * 1000)
       
-      const orderResult = await this.getData({
-        sheet: 'order',
+      const logisticsResult = await this.getData({
+        sheet: 'logistics',
         dateRange: {
           start: thirtyDaysAgo.toISOString().split('T')[0],
           end: now.toISOString().split('T')[0],
         },
       })
 
-      const orderData = orderResult.success ? orderResult.data : []
+      const orderData = logisticsResult.success ? logisticsResult.data : []
+      console.log(`[BusinessBrain] 브리핑 데이터 조회: ${orderData.length}건`)
 
       // 건강도 점수 계산
       const healthScore = await this.calculateHealthScore()
@@ -176,27 +180,29 @@ export class BusinessBrainAgent extends BaseAgent {
     if (cached) return cached
 
     try {
-      // 데이터 조회
+      // 데이터 조회 - logistics 시트 사용 (작가, 국가 등 상세 정보 포함)
       const now = new Date()
       const thirtyDaysAgo = new Date(now.getTime() - 30 * 24 * 60 * 60 * 1000)
       const sixtyDaysAgo = new Date(now.getTime() - 60 * 24 * 60 * 60 * 1000)
 
       const [currentResult, previousResult] = await Promise.all([
         this.getData({
-          sheet: 'order',
+          sheet: 'logistics',
           dateRange: {
             start: thirtyDaysAgo.toISOString().split('T')[0],
             end: now.toISOString().split('T')[0],
           },
         }),
         this.getData({
-          sheet: 'order',
+          sheet: 'logistics',
           dateRange: {
             start: sixtyDaysAgo.toISOString().split('T')[0],
             end: thirtyDaysAgo.toISOString().split('T')[0],
           },
         }),
       ])
+      
+      console.log(`[BusinessBrain] 건강도 데이터: 현재 ${currentResult.data?.length || 0}건, 이전 ${previousResult.data?.length || 0}건`)
 
       const currentData = currentResult.success ? currentResult.data : []
       const previousData = previousResult.success ? previousResult.data : []
@@ -220,19 +226,19 @@ export class BusinessBrainAgent extends BaseAgent {
     if (cached) return cached
 
     try {
-      // 데이터 조회
+      // 데이터 조회 - logistics 시트 사용
       const now = new Date()
       const thirtyDaysAgo = new Date(now.getTime() - 30 * 24 * 60 * 60 * 1000)
 
-      const orderResult = await this.getData({
-        sheet: 'order',
+      const logisticsResult = await this.getData({
+        sheet: 'logistics',
         dateRange: {
           start: thirtyDaysAgo.toISOString().split('T')[0],
           end: now.toISOString().split('T')[0],
         },
       })
 
-      const orderData = orderResult.success ? orderResult.data : []
+      const orderData = logisticsResult.success ? logisticsResult.data : []
 
       // 큐브 분석으로 이상치 탐지
       const cubeResult = await this.cubeAnalyzer.analyze(orderData)
@@ -270,11 +276,11 @@ export class BusinessBrainAgent extends BaseAgent {
 
       const [currentResult, previousResult] = await Promise.all([
         this.getData({
-          sheet: 'order',
+          sheet: 'logistics',
           dateRange: { start: startDate, end: endDate },
         }),
         this.getData({
-          sheet: 'order',
+          sheet: 'logistics',
           dateRange: {
             start: prevStart.toISOString().split('T')[0],
             end: prevEnd.toISOString().split('T')[0],
@@ -311,15 +317,15 @@ export class BusinessBrainAgent extends BaseAgent {
       const now = new Date()
       const thirtyDaysAgo = new Date(now.getTime() - 30 * 24 * 60 * 60 * 1000)
 
-      const orderResult = await this.getData({
-        sheet: 'order',
+      const logisticsResult = await this.getData({
+        sheet: 'logistics',
         dateRange: params.dateRange || {
           start: thirtyDaysAgo.toISOString().split('T')[0],
           end: now.toISOString().split('T')[0],
         },
       })
 
-      const orderData = orderResult.success ? orderResult.data : []
+      const orderData = logisticsResult.success ? logisticsResult.data : []
       const result = await this.cubeAnalyzer.analyze(orderData)
 
       businessBrainCache.set(cacheKey, result, CACHE_TTL.cubeAnalysis)
@@ -352,15 +358,15 @@ export class BusinessBrainAgent extends BaseAgent {
       const now = new Date()
       const thirtyDaysAgo = new Date(now.getTime() - 30 * 24 * 60 * 60 * 1000)
 
-      const orderResult = await this.getData({
-        sheet: 'order',
+      const logisticsResult = await this.getData({
+        sheet: 'logistics',
         dateRange: {
           start: thirtyDaysAgo.toISOString().split('T')[0],
           end: now.toISOString().split('T')[0],
         },
       })
 
-      const orderData = orderResult.success ? orderResult.data : []
+      const orderData = logisticsResult.success ? logisticsResult.data : []
       const checks: Array<{
         name: string
         status: 'pass' | 'warning' | 'fail'
@@ -520,15 +526,15 @@ export class BusinessBrainAgent extends BaseAgent {
       const now = new Date()
       const ninetyDaysAgo = new Date(now.getTime() - 90 * 24 * 60 * 60 * 1000)
 
-      const orderResult = await this.getData({
-        sheet: 'order',
+      const logisticsResult = await this.getData({
+        sheet: 'logistics',
         dateRange: {
           start: ninetyDaysAgo.toISOString().split('T')[0],
           end: now.toISOString().split('T')[0],
         },
       })
 
-      const orderData = orderResult.success ? orderResult.data : []
+      const orderData = logisticsResult.success ? logisticsResult.data : []
       const trends: Array<{
         metric: string
         direction: 'up' | 'down' | 'stable'
@@ -747,23 +753,77 @@ export class BusinessBrainAgent extends BaseAgent {
     insights: BusinessInsight[],
     orderData: any[]
   ): string {
-    const totalGmv = orderData.reduce((sum, row) => sum + (Number(row['Total GMV']) || 0), 0)
+    const totalGmvUsd = orderData.reduce((sum, row) => sum + (Number(row['Total GMV']) || 0), 0)
+    const totalGmvKrw = totalGmvUsd * USD_TO_KRW
     const totalOrders = orderData.length
+    const aov = totalOrders > 0 ? totalGmvKrw / totalOrders : 0
+
+    // 국가별 매출 분석
+    const countryRevenue = new Map<string, number>()
+    orderData.forEach((row: any) => {
+      const country = row.country || 'Unknown'
+      countryRevenue.set(country, (countryRevenue.get(country) || 0) + (Number(row['Total GMV']) || 0) * USD_TO_KRW)
+    })
+    const sortedCountries = [...countryRevenue.entries()].sort((a, b) => b[1] - a[1])
+    const topCountry = sortedCountries[0]
+
+    // 작가별 매출 분석
+    const artistRevenue = new Map<string, number>()
+    orderData.forEach((row: any) => {
+      const artist = row['artist_name (kr)'] || 'Unknown'
+      artistRevenue.set(artist, (artistRevenue.get(artist) || 0) + (Number(row['Total GMV']) || 0) * USD_TO_KRW)
+    })
+    const sortedArtists = [...artistRevenue.entries()].sort((a, b) => b[1] - a[1])
+    const topArtist = sortedArtists[0]
 
     const criticalCount = insights.filter(i => i.type === 'critical').length
+    const warningCount = insights.filter(i => i.type === 'warning').length
     const opportunityCount = insights.filter(i => i.type === 'opportunity').length
 
+    // 풍부한 요약 생성
+    const gmvFormatted = Math.round(totalGmvKrw).toLocaleString()
+    const aovFormatted = Math.round(aov).toLocaleString()
     let summary = `비즈니스 건강도 ${healthScore.overall}점. `
-    summary += `최근 30일 매출 ${this.formatCurrency(totalGmv)}, 주문 ${totalOrders.toLocaleString()}건. `
+    summary += `최근 30일 매출 ₩${gmvFormatted}, 주문 ${totalOrders.toLocaleString()}건, 평균 객단가 ₩${aovFormatted}. `
+
+    if (topCountry) {
+      const topCountryShare = totalGmvKrw > 0 ? (topCountry[1] / totalGmvKrw * 100).toFixed(0) : 0
+      summary += `${this.getCountryName(topCountry[0])} 시장이 ${topCountryShare}%로 최대 비중. `
+    }
+
+    if (topArtist && topArtist[0] !== 'Unknown') {
+      summary += `${topArtist[0]} 작가가 최고 매출. `
+    }
 
     if (criticalCount > 0) {
-      summary += `주의가 필요한 ${criticalCount}개 이슈가 있습니다. `
+      summary += `🚨 ${criticalCount}개 긴급 이슈. `
+    }
+    if (warningCount > 0) {
+      summary += `⚠️ ${warningCount}개 주의 사항. `
     }
     if (opportunityCount > 0) {
-      summary += `${opportunityCount}개의 성장 기회가 발견되었습니다.`
+      summary += `💡 ${opportunityCount}개 성장 기회 발견.`
     }
 
     return summary
+  }
+
+  private getCountryName(code: string): string {
+    const countries: Record<string, string> = {
+      JP: '일본',
+      US: '미국',
+      TW: '대만',
+      HK: '홍콩',
+      SG: '싱가포르',
+      KR: '한국',
+      CN: '중국',
+      AU: '호주',
+      CA: '캐나다',
+      GB: '영국',
+      DE: '독일',
+      FR: '프랑스',
+    }
+    return countries[code] || code
   }
 
   private extractImmediateActions(insights: BusinessInsight[]): string[] {
@@ -835,6 +895,10 @@ export class BusinessBrainAgent extends BaseAgent {
   }
 
   private formatCurrency(value: number): string {
-    return `₩${Math.round(value).toLocaleString()}`
+    // Total GMV는 USD 단위
+    return `$${Math.round(value).toLocaleString()}`
   }
 }
+
+// 환율 변환 헬퍼 (파일 끝에 추가)
+// formatCurrency 함수가 이미 KRW로 변환된 값을 받으므로 ₩ 기호만 추가
