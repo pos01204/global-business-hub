@@ -1470,14 +1470,13 @@ export class DataProcessor {
 
   /**
    * 다중 기간 분석 (트렌드 파악)
-   * v2.1: 데이터가 있는 실제 기간을 기반으로 분석, 불완전한 현재 기간 제외
+   * v2.2: 대시보드와 동일한 방식 - 데이터가 있는 모든 기간 포함
    */
   analyzeMultiplePeriods(
     data: any[],
     periodType: 'weekly' | 'monthly' | 'quarterly',
     numPeriods: number = 6
   ): MultiPeriodAnalysis {
-    const now = new Date()
     const periods: MultiPeriodAnalysis['periods'] = []
 
     console.log(`[DataProcessor] 다중 기간 분석 시작 - 전체 데이터: ${data.length}건, 타입: ${periodType}, 기간 수: ${numPeriods}`)
@@ -1494,9 +1493,6 @@ export class DataProcessor {
     const dataEndDate = dates[dates.length - 1]
     console.log(`[DataProcessor] 데이터 날짜 범위: ${dataStartDate} ~ ${dataEndDate}`)
 
-    // 현재 날짜 기준 불완전한 기간 식별
-    const currentPeriodLabel = this.getCurrentPeriodLabel(now, periodType)
-
     // 데이터 기반으로 기간 집계
     const periodMap = new Map<string, any[]>()
     
@@ -1511,13 +1507,12 @@ export class DataProcessor {
       periodMap.get(label)!.push(row)
     })
 
-    // 불완전한 현재 기간 제외하고 정렬
+    // 모든 기간을 정렬하고 최근 numPeriods개만 선택 (현재 기간도 포함)
     const sortedLabels = [...periodMap.keys()]
-      .filter(label => label !== currentPeriodLabel) // 현재 진행 중인 기간 제외
       .sort()
       .slice(-numPeriods) // 최근 numPeriods개만
 
-    console.log(`[DataProcessor] 분석 대상 기간: ${sortedLabels.join(', ')} (현재 기간 ${currentPeriodLabel} 제외)`)
+    console.log(`[DataProcessor] 분석 대상 기간: ${sortedLabels.join(', ')}`)
 
     for (const label of sortedLabels) {
       const periodData = periodMap.get(label) || []

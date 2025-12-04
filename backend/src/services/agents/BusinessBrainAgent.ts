@@ -786,7 +786,7 @@ export class BusinessBrainAgent extends BaseAgent {
   /**
    * 장기 트렌드 분석
    * PRD 섹션 3.1 - 다차원 분석 매트릭스
-   * v2.1: 불완전한 월 제외, 동일 기간 비교로 정확도 향상
+   * v2.2: 대시보드와 동일한 방식으로 기간 전반부/후반부 비교
    */
   async analyzeLongTermTrends(period: PeriodPreset = '90d'): Promise<{
     trends: Array<{
@@ -815,6 +815,8 @@ export class BusinessBrainAgent extends BaseAgent {
       })
 
       const orderData = logisticsResult.success ? logisticsResult.data : []
+      console.log(`[BusinessBrain] 트렌드 분석 - 조회된 데이터: ${orderData.length}건, 기간: ${dateRange.start} ~ ${dateRange.end}`)
+      
       const trends: Array<{
         metric: string
         direction: 'up' | 'down' | 'stable'
@@ -824,94 +826,122 @@ export class BusinessBrainAgent extends BaseAgent {
         implication: string
       }> = []
 
-      // 현재 날짜 기준 완전한 월만 비교 (불완전한 현재 월 제외)
+      // 데이터가 없으면 빈 트렌드 반환
+      if (orderData.length === 0) {
+        console.log(`[BusinessBrain] 트렌드 분석 - 데이터 없음`)
+        return { trends: [] }
+      }
+
+      // 대시보드와 동일한 방식: 기간을 전반부/후반부로 나눠서 비교
+      const halfPeriod = Math.floor(periodDays / 2)
       const now = new Date()
-      const currentMonth = `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}`
-
-      // 월별 데이터 집계
-      const monthlyData = new Map<string, { gmv: number; orders: number; customers: Set<string> }>()
-      orderData.forEach((row: any) => {
-        const date = row.order_created?.split('T')[0] || row.order_created?.split(' ')[0]
-        if (!date) return
-        const month = date.substring(0, 7) // YYYY-MM
-        if (!monthlyData.has(month)) {
-          monthlyData.set(month, { gmv: 0, orders: 0, customers: new Set() })
-        }
-        const data = monthlyData.get(month)!
-        data.gmv += Number(row['Total GMV']) || 0
-        data.orders += 1
-        if (row.user_id) data.customers.add(row.user_id)
-      })
-
-      // 불완전한 현재 월 제외하고 정렬
-      const months = [...monthlyData.keys()]
-        .filter(m => m < currentMonth) // 현재 진행 중인 월 제외
-        .sort()
       
-      console.log(`[BusinessBrain] 트렌드 분석 - 완전한 월: ${months.join(', ')}, 현재 월(제외): ${currentMonth}`)
+      const secondHalfEnd = new Date(now)
+      const secondHalfStart = new Date(now)
+      secondHalfStart.setDate(secondHalfStart.getDate() - halfPeriod + 1)
       
-      if (months.length >= 2) {
-        const firstMonth = monthlyData.get(months[0])!
-        const lastMonth = monthlyData.get(months[months.length - 1])!
+      const firstHalfEnd = new Date(secondHalfStart)
+      firstHalfEnd.setDate(firstHalfEnd.getDate() - 1)
+      const firstHalfStart = new Date(firstHalfEnd)
+      firstHalfStart.setDate(firstHalfStart.getDate() - halfPeriod + 1)
 
-        // GMV 트렌드
-        const gmvChange = firstMonth.gmv > 0 ? (lastMonth.gmv - firstMonth.gmv) / firstMonth.gmv : 0
+      // 기간별 데이터 필터링
+      const filterByPeriod = (data: any[], start: Date, end: Date) => {
+        return data.filter((row: any) => {
+          const dateStr = row.order_created?.split('T')[0] || row.order_created?.split(' ')[0]
+          if (!dateStr) return false
+          const rowDate = new Date(dateStr)
+          return rowDate >= start && rowDate <= end
+        })
+      }
+
+      const firstHalfData = filterByPeriod(orderData, firstHalfStart, firstHalfEnd)
+      const secondHalfData = filterByPeriod(orderData, secondHalfStart, secondHalfEnd)
+
+      console.log(`[BusinessBrain] 트렌드 분석 - 전반부(${firstHalfStart.toISOString().split('T')[0]} ~ ${firstHalfEnd.toISOString().split('T')[0]}): ${firstHalfData.length}건`)
+      console.log(`[BusinessBrain] 트렌드 분석 - 후반부(${secondHalfStart.toISOString().split('T')[0]} ~ ${secondHalfEnd.toISOString().split('T')[0]}): ${secondHalfData.length}건`)
+
+      // 메트릭 계산
+      const calcMetrics = (data: any[]) => {
+        const gmv = data.reduce((sum, row) => sum + (Number(row['Total GMV']) || 0), 0)
+        const orders = data.length
+        const customers = new Set(data.map(row => row.user_id).filter(Boolean)).size
+        const aov = orders > 0 ? gmv / orders : 0
+        return { gmv, orders, customers, aov }
+      }
+
+      const firstMetrics = calcMetrics(firstHalfData)
+      const secondMetrics = calcMetrics(secondHalfData)
+
+      console.log(`[BusinessBrain] 트렌드 분석 - 전반부 GMV: $${firstMetrics.gmv.toFixed(0)}, 후반부 GMV: $${secondMetrics.gmv.toFixed(0)}`)
+
+      // 변화율 계산 함수
+      const calcChange = (current: number, previous: number): number => {
+        if (previous === 0) return current > 0 ? 100 : 0
+        return ((current - previous) / previous) * 100
+      }
+
+      // GMV 트렌드
+      const gmvChange = calcChange(secondMetrics.gmv, firstMetrics.gmv)
+      if (firstMetrics.gmv > 0 || secondMetrics.gmv > 0) {
         trends.push({
           metric: '총 매출 (GMV)',
-          direction: gmvChange > 0.05 ? 'up' : gmvChange < -0.05 ? 'down' : 'stable',
-          magnitude: Math.abs(gmvChange * 100),
+          direction: gmvChange > 5 ? 'up' : gmvChange < -5 ? 'down' : 'stable',
+          magnitude: Math.abs(gmvChange),
           period: `${periodDays}일`,
-          significance: Math.abs(gmvChange) > 0.2 ? 'high' : Math.abs(gmvChange) > 0.1 ? 'medium' : 'low',
-          implication: gmvChange > 0.1
+          significance: Math.abs(gmvChange) > 20 ? 'high' : Math.abs(gmvChange) > 10 ? 'medium' : 'low',
+          implication: gmvChange > 10
             ? '매출이 건강하게 성장하고 있습니다.'
-            : gmvChange < -0.1
+            : gmvChange < -10
             ? '매출 하락 추세에 대한 원인 분석이 필요합니다.'
             : '매출이 안정적으로 유지되고 있습니다.',
         })
+      }
 
-        // 주문 건수 트렌드
-        const orderChange = firstMonth.orders > 0 ? (lastMonth.orders - firstMonth.orders) / firstMonth.orders : 0
+      // 주문 건수 트렌드
+      const orderChange = calcChange(secondMetrics.orders, firstMetrics.orders)
+      if (firstMetrics.orders > 0 || secondMetrics.orders > 0) {
         trends.push({
           metric: '주문 건수',
-          direction: orderChange > 0.05 ? 'up' : orderChange < -0.05 ? 'down' : 'stable',
-          magnitude: Math.abs(orderChange * 100),
+          direction: orderChange > 5 ? 'up' : orderChange < -5 ? 'down' : 'stable',
+          magnitude: Math.abs(orderChange),
           period: `${periodDays}일`,
-          significance: Math.abs(orderChange) > 0.2 ? 'high' : Math.abs(orderChange) > 0.1 ? 'medium' : 'low',
-          implication: orderChange > 0.1
+          significance: Math.abs(orderChange) > 20 ? 'high' : Math.abs(orderChange) > 10 ? 'medium' : 'low',
+          implication: orderChange > 10
             ? '주문 건수가 증가하고 있습니다.'
-            : orderChange < -0.1
+            : orderChange < -10
             ? '주문 건수 감소에 대한 대응이 필요합니다.'
             : '주문 건수가 안정적입니다.',
         })
+      }
 
-        // AOV 트렌드
-        const firstAov = firstMonth.orders > 0 ? firstMonth.gmv / firstMonth.orders : 0
-        const lastAov = lastMonth.orders > 0 ? lastMonth.gmv / lastMonth.orders : 0
-        const aovChange = firstAov > 0 ? (lastAov - firstAov) / firstAov : 0
+      // AOV 트렌드
+      const aovChange = calcChange(secondMetrics.aov, firstMetrics.aov)
+      if (firstMetrics.aov > 0 || secondMetrics.aov > 0) {
         trends.push({
           metric: '평균 주문 금액 (AOV)',
-          direction: aovChange > 0.03 ? 'up' : aovChange < -0.03 ? 'down' : 'stable',
-          magnitude: Math.abs(aovChange * 100),
+          direction: aovChange > 3 ? 'up' : aovChange < -3 ? 'down' : 'stable',
+          magnitude: Math.abs(aovChange),
           period: `${periodDays}일`,
-          significance: Math.abs(aovChange) > 0.15 ? 'high' : Math.abs(aovChange) > 0.08 ? 'medium' : 'low',
-          implication: aovChange > 0.05
-            ? '객단가가 상승하고 있습니다. 프리미엄 전략이 효과적입니다.'
-            : aovChange < -0.05
+          significance: Math.abs(aovChange) > 15 ? 'high' : Math.abs(aovChange) > 7 ? 'medium' : 'low',
+          implication: aovChange > 7
+            ? '객단가가 상승하고 있습니다. 프리미엄 상품 전략이 효과적입니다.'
+            : aovChange < -7
             ? '객단가 하락 추세입니다. 할인 의존도나 상품 믹스를 점검하세요.'
             : '객단가가 안정적으로 유지되고 있습니다.',
         })
+      }
 
-        // 고객 수 트렌드
-        const customerChange = firstMonth.customers.size > 0
-          ? (lastMonth.customers.size - firstMonth.customers.size) / firstMonth.customers.size
-          : 0
+      // 활성 고객 수 트렌드
+      const customerChange = calcChange(secondMetrics.customers, firstMetrics.customers)
+      if (firstMetrics.customers > 0 || secondMetrics.customers > 0) {
         trends.push({
           metric: '활성 고객 수',
-          direction: customerChange > 0.05 ? 'up' : customerChange < -0.05 ? 'down' : 'stable',
-          magnitude: Math.abs(customerChange * 100),
+          direction: customerChange > 5 ? 'up' : customerChange < -5 ? 'down' : 'stable',
+          magnitude: Math.abs(customerChange),
           period: `${periodDays}일`,
-          significance: Math.abs(customerChange) > 0.2 ? 'high' : Math.abs(customerChange) > 0.1 ? 'medium' : 'low',
-          implication: customerChange > 0.1
+          significance: Math.abs(customerChange) > 20 ? 'high' : Math.abs(customerChange) > 10 ? 'medium' : 'low',
+          implication: customerChange > 10
             ? '고객 기반이 확대되고 있습니다.'
             : customerChange < -0.1
             ? '고객 이탈이 우려됩니다. 리텐션 전략을 강화하세요.'
