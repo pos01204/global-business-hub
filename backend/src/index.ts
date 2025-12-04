@@ -31,6 +31,7 @@ import slackRoutes from './routes/slack';
 import customerAnalyticsRoutes from './routes/customer-analytics';
 import calendarRoutes from './routes/calendarRoutes';
 import artistAnalyticsRoutes from './routes/artist-analytics';
+import businessBrainRoutes from './routes/business-brain';
 
 // .env 파일 로드 (backend 폴더 기준)
 let envPath: string;
@@ -111,6 +112,8 @@ app.use('/api/calendar', calendarRoutes);
 console.log('[Server] Calendar 라우터 등록 완료: /api/calendar');
 app.use('/api/artist-analytics', artistAnalyticsRoutes);
 console.log('[Server] Artist Analytics 라우터 등록 완료: /api/artist-analytics');
+app.use('/api/business-brain', businessBrainRoutes);
+console.log('[Server] Business Brain 라우터 등록 완료: /api/business-brain');
 
 app.get('/api', (req, res) => {
   res.json({ message: 'Global Business Hub API' });

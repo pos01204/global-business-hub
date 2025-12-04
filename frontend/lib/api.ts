@@ -1067,5 +1067,90 @@ export const artistAnalyticsApi = {
   },
 }
 
+// Business Brain API
+export const businessBrainApi = {
+  // 경영 브리핑
+  getBriefing: async () => {
+    const response = await api.get('/api/business-brain/briefing')
+    return response.data
+  },
+
+  // 건강도 점수
+  getHealthScore: async () => {
+    const response = await api.get('/api/business-brain/health-score')
+    return response.data
+  },
+
+  // 인사이트 목록
+  getInsights: async (params?: { type?: string; limit?: number }) => {
+    const response = await api.get('/api/business-brain/insights', { params })
+    return response.data
+  },
+
+  // 매출 분해 분석
+  getDecomposition: async (startDate: string, endDate: string, compareWith?: string) => {
+    const response = await api.get('/api/business-brain/decomposition', {
+      params: { startDate, endDate, compareWith },
+    })
+    return response.data
+  },
+
+  // 큐브 분석
+  getCubeAnalysis: async (params?: {
+    dimensions?: string[]
+    metrics?: string[]
+    startDate?: string
+    endDate?: string
+  }) => {
+    const response = await api.get('/api/business-brain/cube', {
+      params: {
+        dimensions: params?.dimensions?.join(','),
+        metrics: params?.metrics?.join(','),
+        startDate: params?.startDate,
+        endDate: params?.endDate,
+      },
+    })
+    return response.data
+  },
+
+  // AI 채팅
+  chat: async (query: string, context?: any) => {
+    const response = await api.post('/api/business-brain/chat', { query, context })
+    return response.data
+  },
+
+  // 휴먼 에러 체크
+  getHumanErrorChecks: async () => {
+    const response = await api.get('/api/business-brain/human-error-checks')
+    return response.data
+  },
+
+  // 장기 트렌드 분석
+  getTrends: async () => {
+    const response = await api.get('/api/business-brain/trends')
+    return response.data
+  },
+
+  // 전략 제안
+  getRecommendations: async () => {
+    const response = await api.get('/api/business-brain/recommendations')
+    return response.data
+  },
+
+  // 캐시 통계 (개발용)
+  getCacheStats: async () => {
+    const response = await api.get('/api/business-brain/cache/stats')
+    return response.data
+  },
+
+  // 캐시 클리어 (개발용)
+  clearCache: async (pattern?: string) => {
+    const response = await api.delete('/api/business-brain/cache', {
+      params: pattern ? { pattern } : {},
+    })
+    return response.data
+  },
+}
+
 export default api
 

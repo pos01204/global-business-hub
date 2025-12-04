@@ -1,11 +1,12 @@
 import { DataAnalystAgent } from './DataAnalystAgent'
 import { PerformanceMarketerAgent } from './PerformanceMarketerAgent'
 import { BusinessManagerAgent } from './BusinessManagerAgent'
+import { BusinessBrainAgent } from './BusinessBrainAgent'
 import { AgentContext } from './BaseAgent'
 import { conversationManager } from './ConversationManager'
 import { agentOrchestrator } from './AgentOrchestrator'
 
-export type AgentType = 'data_analyst' | 'performance_marketer' | 'business_manager' | 'auto'
+export type AgentType = 'data_analyst' | 'performance_marketer' | 'business_manager' | 'business_brain' | 'auto'
 
 export interface EnhancedAgentContext extends AgentContext {
   previousQuery?: string
@@ -17,6 +18,7 @@ export class AgentRouter {
   private dataAnalyst: DataAnalystAgent
   private performanceMarketer: PerformanceMarketerAgent
   private businessManager: BusinessManagerAgent
+  private businessBrain: BusinessBrainAgent
   private context: EnhancedAgentContext
 
   constructor(context: EnhancedAgentContext = {}) {
@@ -24,6 +26,7 @@ export class AgentRouter {
     this.dataAnalyst = new DataAnalystAgent(context)
     this.performanceMarketer = new PerformanceMarketerAgent(context)
     this.businessManager = new BusinessManagerAgent(context)
+    this.businessBrain = new BusinessBrainAgent(context)
   }
 
   /**
@@ -57,7 +60,7 @@ export class AgentRouter {
     const selectedAgentType = agentType === 'auto' ? await this.classifyIntent(finalQuery) : agentType
 
     // 적절한 Agent 선택
-    let agent: DataAnalystAgent | PerformanceMarketerAgent | BusinessManagerAgent
+    let agent: DataAnalystAgent | PerformanceMarketerAgent | BusinessManagerAgent | BusinessBrainAgent
     let agentName: string
 
     switch (selectedAgentType) {
@@ -72,6 +75,10 @@ export class AgentRouter {
       case 'business_manager':
         agent = this.businessManager
         agentName = '비즈니스 매니저'
+        break
+      case 'business_brain':
+        agent = this.businessBrain
+        agentName = 'Business Brain'
         break
       default:
         agent = this.dataAnalyst
@@ -140,6 +147,22 @@ export class AgentRouter {
   private async classifyIntent(query: string): Promise<AgentType> {
     const lowerQuery = query.toLowerCase()
 
+    // Business Brain 키워드 (우선순위 높음)
+    const brainKeywords = [
+      '건강도',
+      '브리핑',
+      '요약',
+      '종합',
+      '전체 현황',
+      '경영',
+      'brain',
+      'briefing',
+      'health score',
+      '큐브',
+      '분해',
+      'decomposition',
+    ]
+
     // Performance Marketer 키워드
     const marketerKeywords = [
       '트렌드',
@@ -197,9 +220,15 @@ export class AgentRouter {
       'top',
     ]
 
+    const brainScore = brainKeywords.filter((kw) => lowerQuery.includes(kw)).length
     const marketerScore = marketerKeywords.filter((kw) => lowerQuery.includes(kw)).length
     const managerScore = managerKeywords.filter((kw) => lowerQuery.includes(kw)).length
     const analystScore = analystKeywords.filter((kw) => lowerQuery.includes(kw)).length
+
+    // Business Brain 우선
+    if (brainScore > 0 && brainScore >= marketerScore && brainScore >= managerScore) {
+      return 'business_brain'
+    }
 
     if (marketerScore > managerScore && marketerScore > analystScore) {
       return 'performance_marketer'
@@ -231,6 +260,11 @@ export class AgentRouter {
         type: 'business_manager',
         name: '비즈니스 매니저',
         description: '전략 수립, 메트릭 예측, 시나리오 시뮬레이션 등을 수행합니다.',
+      },
+      {
+        type: 'business_brain',
+        name: 'Business Brain',
+        description: 'AI 기반 경영 인사이트, 건강도 점수, 브리핑 등을 제공합니다.',
       },
       {
         type: 'auto',

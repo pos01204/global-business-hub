@@ -1,7 +1,7 @@
 'use client'
 
 import { useQuery } from '@tanstack/react-query'
-import { dashboardApi, controlTowerApi, artistAnalyticsApi } from '@/lib/api'
+import { dashboardApi, controlTowerApi, artistAnalyticsApi, businessBrainApi } from '@/lib/api'
 import Link from 'next/link'
 import { useState, useEffect } from 'react'
 import { format } from 'date-fns'
@@ -73,6 +73,19 @@ export default function DashboardPage() {
   const { data: artistData } = useQuery({
     queryKey: ['artist-overview-summary'],
     queryFn: () => artistAnalyticsApi.getOverview(),
+    staleTime: 5 * 60 * 1000,
+  })
+
+  // Business Brain 데이터
+  const { data: brainHealthData } = useQuery({
+    queryKey: ['business-brain-health-dashboard'],
+    queryFn: businessBrainApi.getHealthScore,
+    staleTime: 5 * 60 * 1000,
+  })
+
+  const { data: brainBriefingData } = useQuery({
+    queryKey: ['business-brain-briefing-dashboard'],
+    queryFn: businessBrainApi.getBriefing,
     staleTime: 5 * 60 * 1000,
   })
 
@@ -195,6 +208,92 @@ export default function DashboardPage() {
           </Link>
         </div>
       </div>
+
+      {/* Business Brain 위젯 */}
+      {(brainHealthData || brainBriefingData) && (
+        <div className="bg-gradient-to-br from-purple-50 to-indigo-50 dark:from-purple-900/20 dark:to-indigo-900/20 rounded-xl border border-purple-200 dark:border-purple-800 p-4 lg:p-6">
+          <div className="flex items-center justify-between mb-4">
+            <div className="flex items-center gap-3">
+              <div className="w-10 h-10 bg-gradient-to-br from-purple-500 to-indigo-600 rounded-xl flex items-center justify-center">
+                <span className="text-white text-lg">🧠</span>
+              </div>
+              <div>
+                <h3 className="font-bold text-slate-800 dark:text-slate-100">Business Brain</h3>
+                <p className="text-xs text-slate-500 dark:text-slate-400">AI 경영 인사이트</p>
+              </div>
+            </div>
+            <Link 
+              href="/business-brain"
+              className="text-xs text-purple-600 hover:text-purple-700 dark:text-purple-400 dark:hover:text-purple-300 font-medium transition-colors"
+            >
+              상세 분석 →
+            </Link>
+          </div>
+
+          <div className="grid md:grid-cols-2 gap-4">
+            {/* 건강도 점수 */}
+            {brainHealthData?.score && (
+              <div className="bg-white/60 dark:bg-slate-800/60 rounded-xl p-4 backdrop-blur-sm">
+                <div className="flex items-center justify-between mb-2">
+                  <span className="text-sm text-slate-600 dark:text-slate-400">비즈니스 건강도</span>
+                  <span className={`text-lg font-bold ${
+                    brainHealthData.score.overall >= 70 ? 'text-emerald-600' :
+                    brainHealthData.score.overall >= 50 ? 'text-amber-600' : 'text-red-600'
+                  }`}>
+                    {brainHealthData.score.overall}/100
+                  </span>
+                </div>
+                <div className="w-full bg-slate-200 dark:bg-slate-700 rounded-full h-2 mb-3">
+                  <div 
+                    className={`h-2 rounded-full transition-all duration-500 ${
+                      brainHealthData.score.overall >= 70 ? 'bg-emerald-500' :
+                      brainHealthData.score.overall >= 50 ? 'bg-amber-500' : 'bg-red-500'
+                    }`}
+                    style={{ width: `${brainHealthData.score.overall}%` }}
+                  />
+                </div>
+                <div className="grid grid-cols-4 gap-2">
+                  {Object.entries(brainHealthData.score.dimensions).map(([key, dim]: [string, any]) => (
+                    <div key={key} className="text-center">
+                      <div className="text-xs text-slate-500 dark:text-slate-400">
+                        {key === 'revenue' ? '매출' : key === 'customer' ? '고객' : key === 'artist' ? '작가' : '운영'}
+                      </div>
+                      <div className={`text-sm font-semibold ${
+                        dim.trend === 'up' ? 'text-emerald-600' :
+                        dim.trend === 'down' ? 'text-red-600' : 'text-slate-600 dark:text-slate-400'
+                      }`}>
+                        {dim.score}
+                        <span className="text-xs ml-0.5">
+                          {dim.trend === 'up' ? '↗' : dim.trend === 'down' ? '↘' : '→'}
+                        </span>
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              </div>
+            )}
+
+            {/* AI 브리핑 */}
+            {brainBriefingData?.briefing && (
+              <div className="bg-white/60 dark:bg-slate-800/60 rounded-xl p-4 backdrop-blur-sm">
+                <div className="flex items-center gap-2 mb-2">
+                  <span>💬</span>
+                  <span className="text-sm font-medium text-slate-700 dark:text-slate-300">AI 브리핑</span>
+                </div>
+                <p className="text-sm text-slate-600 dark:text-slate-400 leading-relaxed line-clamp-3">
+                  {brainBriefingData.briefing.summary}
+                </p>
+                {brainBriefingData.briefing.immediateActions?.length > 0 && (
+                  <div className="mt-2 flex items-center gap-2 text-xs text-red-600 dark:text-red-400">
+                    <span>🚨</span>
+                    <span>{brainBriefingData.briefing.immediateActions.length}개 즉시 조치 필요</span>
+                  </div>
+                )}
+              </div>
+            )}
+          </div>
+        </div>
+      )}
 
       {/* 긴급 알림 배너 */}
       {data && data.inventoryStatus.delayed > 0 && (

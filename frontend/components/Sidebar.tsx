@@ -53,6 +53,7 @@ const navGroups: NavGroup[] = [
       { href: '/customer-analytics', label: '고객 분석', icon: '👥' },
       { href: '/artist-analytics', label: '작가 분석', icon: '👨‍🎨' },
       { href: '/cost-analysis', label: '비용 & 손익', icon: '💰' },
+      { href: '/business-brain', label: 'Business Brain', icon: '🧠' },
     ],
   },
   {
