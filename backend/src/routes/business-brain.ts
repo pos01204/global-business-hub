@@ -317,4 +317,369 @@ router.delete('/cache', async (req, res) => {
   }
 })
 
+// ==================== 새로운 고급 분석 API ====================
+
+/**
+ * GET /api/business-brain/cohort
+ * 코호트 분석 결과
+ */
+router.get('/cohort', async (_req, res) => {
+  try {
+    console.log('[BusinessBrain] 코호트 분석 요청')
+    
+    const agent = new BusinessBrainAgent()
+    const result = await agent.runCohortAnalysis()
+    
+    res.json({
+      success: true,
+      ...result,
+    })
+  } catch (error: any) {
+    console.error('[BusinessBrain] 코호트 분석 오류:', error)
+    res.status(500).json({ 
+      success: false,
+      error: error.message || '코호트 분석 중 오류가 발생했습니다.',
+    })
+  }
+})
+
+/**
+ * GET /api/business-brain/rfm
+ * RFM 세분화 분석 결과
+ */
+router.get('/rfm', async (_req, res) => {
+  try {
+    console.log('[BusinessBrain] RFM 분석 요청')
+    
+    const agent = new BusinessBrainAgent()
+    const result = await agent.runRFMAnalysis()
+    
+    res.json({
+      success: true,
+      ...result,
+    })
+  } catch (error: any) {
+    console.error('[BusinessBrain] RFM 분석 오류:', error)
+    res.status(500).json({ 
+      success: false,
+      error: error.message || 'RFM 분석 중 오류가 발생했습니다.',
+    })
+  }
+})
+
+/**
+ * GET /api/business-brain/pareto
+ * 파레토 분석 결과
+ */
+router.get('/pareto', async (_req, res) => {
+  try {
+    console.log('[BusinessBrain] 파레토 분석 요청')
+    
+    const agent = new BusinessBrainAgent()
+    const result = await agent.runParetoAnalysis()
+    
+    res.json({
+      success: true,
+      ...result,
+    })
+  } catch (error: any) {
+    console.error('[BusinessBrain] 파레토 분석 오류:', error)
+    res.status(500).json({ 
+      success: false,
+      error: error.message || '파레토 분석 중 오류가 발생했습니다.',
+    })
+  }
+})
+
+/**
+ * GET /api/business-brain/correlation
+ * 상관관계 분석 결과
+ */
+router.get('/correlation', async (_req, res) => {
+  try {
+    console.log('[BusinessBrain] 상관관계 분석 요청')
+    
+    const agent = new BusinessBrainAgent()
+    const result = await agent.runCorrelationAnalysis()
+    
+    res.json({
+      success: true,
+      ...result,
+    })
+  } catch (error: any) {
+    console.error('[BusinessBrain] 상관관계 분석 오류:', error)
+    res.status(500).json({ 
+      success: false,
+      error: error.message || '상관관계 분석 중 오류가 발생했습니다.',
+    })
+  }
+})
+
+/**
+ * GET /api/business-brain/anomaly
+ * 이상 탐지 결과
+ */
+router.get('/anomaly', async (req, res) => {
+  try {
+    console.log('[BusinessBrain] 이상 탐지 요청')
+    
+    const sensitivity = (req.query.sensitivity as 'low' | 'medium' | 'high') || 'medium'
+    
+    const agent = new BusinessBrainAgent()
+    const result = await agent.runAnomalyDetection(sensitivity)
+    
+    res.json({
+      success: true,
+      ...result,
+    })
+  } catch (error: any) {
+    console.error('[BusinessBrain] 이상 탐지 오류:', error)
+    res.status(500).json({ 
+      success: false,
+      error: error.message || '이상 탐지 중 오류가 발생했습니다.',
+    })
+  }
+})
+
+/**
+ * GET /api/business-brain/timeseries
+ * 시계열 분석 결과
+ */
+router.get('/timeseries', async (_req, res) => {
+  try {
+    console.log('[BusinessBrain] 시계열 분석 요청')
+    
+    const agent = new BusinessBrainAgent()
+    const result = await agent.runTimeSeriesAnalysis()
+    
+    res.json({
+      success: true,
+      ...result,
+    })
+  } catch (error: any) {
+    console.error('[BusinessBrain] 시계열 분석 오류:', error)
+    res.status(500).json({ 
+      success: false,
+      error: error.message || '시계열 분석 중 오류가 발생했습니다.',
+    })
+  }
+})
+
+/**
+ * GET /api/business-brain/advanced
+ * 종합 고급 분석 결과 (모든 분석 통합)
+ */
+router.get('/advanced', async (_req, res) => {
+  try {
+    console.log('[BusinessBrain] 종합 고급 분석 요청')
+    
+    const agent = new BusinessBrainAgent()
+    const result = await agent.runAdvancedAnalytics()
+    
+    res.json({
+      success: true,
+      ...result,
+    })
+  } catch (error: any) {
+    console.error('[BusinessBrain] 종합 고급 분석 오류:', error)
+    res.status(500).json({ 
+      success: false,
+      error: error.message || '종합 고급 분석 중 오류가 발생했습니다.',
+    })
+  }
+})
+
+// ==================== 기간별 분석 API (v2.1) ====================
+
+/**
+ * GET /api/business-brain/analysis/:type
+ * 기간별 분석 (rfm, pareto, cohort, anomaly, timeseries)
+ * Query: period (7d, 30d, 90d, 180d, 365d), startDate, endDate (custom)
+ */
+router.get('/analysis/:type', async (req, res) => {
+  try {
+    const { type } = req.params
+    const { period = '30d', startDate, endDate } = req.query
+
+    console.log(`[BusinessBrain] 기간별 ${type} 분석 요청 (${period})`)
+    
+    const validTypes = ['rfm', 'pareto', 'cohort', 'anomaly', 'timeseries']
+    if (!validTypes.includes(type)) {
+      return res.status(400).json({
+        success: false,
+        error: `유효하지 않은 분석 유형입니다. 허용: ${validTypes.join(', ')}`,
+      })
+    }
+
+    const agent = new BusinessBrainAgent()
+    const customRange = startDate && endDate 
+      ? { start: startDate as string, end: endDate as string }
+      : undefined
+    
+    const result = await agent.runAnalysisWithPeriod(
+      type as any,
+      period as any,
+      customRange
+    )
+    
+    res.json({
+      success: true,
+      analysisType: type,
+      ...result,
+    })
+  } catch (error: any) {
+    console.error(`[BusinessBrain] 기간별 분석 오류:`, error)
+    res.status(500).json({ 
+      success: false,
+      error: error.message || '기간별 분석 중 오류가 발생했습니다.',
+    })
+  }
+})
+
+/**
+ * GET /api/business-brain/forecast
+ * 매출 예측
+ * Query: period (기본 90d), forecastDays (기본 30)
+ */
+router.get('/forecast', async (req, res) => {
+  try {
+    const { period = '90d', forecastDays = '30', startDate, endDate } = req.query
+
+    console.log(`[BusinessBrain] 예측 요청 (${period}, ${forecastDays}일)`)
+    
+    const agent = new BusinessBrainAgent()
+    const customRange = startDate && endDate 
+      ? { start: startDate as string, end: endDate as string }
+      : undefined
+    
+    const result = await agent.runForecast(
+      period as any,
+      parseInt(forecastDays as string, 10),
+      customRange
+    )
+    
+    res.json({
+      success: true,
+      ...result,
+    })
+  } catch (error: any) {
+    console.error('[BusinessBrain] 예측 오류:', error)
+    res.status(500).json({ 
+      success: false,
+      error: error.message || '예측 중 오류가 발생했습니다.',
+    })
+  }
+})
+
+/**
+ * GET /api/business-brain/compare
+ * 기간 비교 분석
+ * Query: period1Start, period1End, period2Start, period2End
+ */
+router.get('/compare', async (req, res) => {
+  try {
+    const { period1Start, period1End, period2Start, period2End, period1Label, period2Label } = req.query
+
+    if (!period1Start || !period1End || !period2Start || !period2End) {
+      return res.status(400).json({
+        success: false,
+        error: '두 기간의 시작일과 종료일이 모두 필요합니다.',
+      })
+    }
+
+    console.log(`[BusinessBrain] 기간 비교 요청`)
+    
+    const agent = new BusinessBrainAgent()
+    const result = await agent.runPeriodComparison(
+      { start: period1Start as string, end: period1End as string },
+      { start: period2Start as string, end: period2End as string },
+      period1Label as string,
+      period2Label as string
+    )
+    
+    res.json({
+      success: true,
+      ...result,
+    })
+  } catch (error: any) {
+    console.error('[BusinessBrain] 기간 비교 오류:', error)
+    res.status(500).json({ 
+      success: false,
+      error: error.message || '기간 비교 중 오류가 발생했습니다.',
+    })
+  }
+})
+
+/**
+ * GET /api/business-brain/multi-period
+ * 다중 기간 트렌드 분석
+ * Query: periodType (weekly, monthly, quarterly), numPeriods
+ */
+router.get('/multi-period', async (req, res) => {
+  try {
+    const { periodType = 'monthly', numPeriods = '6' } = req.query
+
+    console.log(`[BusinessBrain] 다중 기간 분석 요청 (${periodType}, ${numPeriods}개)`)
+    
+    const validTypes = ['weekly', 'monthly', 'quarterly']
+    if (!validTypes.includes(periodType as string)) {
+      return res.status(400).json({
+        success: false,
+        error: `유효하지 않은 기간 유형입니다. 허용: ${validTypes.join(', ')}`,
+      })
+    }
+
+    const agent = new BusinessBrainAgent()
+    const result = await agent.runMultiPeriodAnalysis(
+      periodType as any,
+      parseInt(numPeriods as string, 10)
+    )
+    
+    res.json({
+      success: true,
+      ...result,
+    })
+  } catch (error: any) {
+    console.error('[BusinessBrain] 다중 기간 분석 오류:', error)
+    res.status(500).json({ 
+      success: false,
+      error: error.message || '다중 기간 분석 중 오류가 발생했습니다.',
+    })
+  }
+})
+
+/**
+ * GET /api/business-brain/comprehensive
+ * 종합 인사이트 분석 (기간 기반)
+ * Query: period (7d, 30d, 90d, 180d, 365d)
+ */
+router.get('/comprehensive', async (req, res) => {
+  try {
+    const { period = '30d', startDate, endDate } = req.query
+
+    console.log(`[BusinessBrain] 종합 인사이트 분석 요청 (${period})`)
+    
+    const agent = new BusinessBrainAgent()
+    const customRange = startDate && endDate 
+      ? { start: startDate as string, end: endDate as string }
+      : undefined
+    
+    const result = await agent.runComprehensiveAnalysis(
+      period as any,
+      customRange
+    )
+    
+    res.json({
+      success: true,
+      ...result,
+    })
+  } catch (error: any) {
+    console.error('[BusinessBrain] 종합 인사이트 분석 오류:', error)
+    res.status(500).json({ 
+      success: false,
+      error: error.message || '종합 인사이트 분석 중 오류가 발생했습니다.',
+    })
+  }
+})
+
 export default router

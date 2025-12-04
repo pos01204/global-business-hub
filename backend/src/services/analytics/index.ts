@@ -8,6 +8,10 @@ export { DecompositionEngine } from './DecompositionEngine'
 export { InsightScorer } from './InsightScorer'
 export { HealthScoreCalculator } from './HealthScoreCalculator'
 export { BusinessBrainCache, businessBrainCache, CACHE_TTL } from './BusinessBrainCache'
+export { DataProcessor } from './DataProcessor'
+export { AIBriefingGenerator, aiBriefingGenerator } from './AIBriefingGenerator'
 
 // Types
 export * from './types'
+export * from './DataProcessor'
+export * from './AIBriefingGenerator'

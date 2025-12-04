@@ -1,6 +1,8 @@
 /**
  * 비즈니스 건강도 점수 계산기
  * 4개 차원(매출, 고객, 작가, 운영)의 건강도를 0-100으로 수치화
+ * 
+ * v2.0: 하드코딩 제거, 실제 데이터 기반 계산
  */
 
 import {
@@ -9,7 +11,7 @@ import {
   ScoreFactor,
 } from './types'
 
-interface HealthData {
+export interface HealthData {
   // 매출 관련
   currentGmv: number
   previousGmv: number
@@ -40,6 +42,10 @@ interface HealthData {
   customerComplaintRatio: number
 }
 
+// 물류 상태 정의
+const DELAYED_STATUSES = ['14일+ 미입고', '7-14일 미입고', '지연', 'delayed', 'overdue']
+const QC_FAIL_STATUSES = ['반품', '불량', 'QC실패', 'rejected', 'defective']
+
 export class HealthScoreCalculator {
   /**
    * Raw 주문 데이터에서 건강도 점수 계산
@@ -51,9 +57,10 @@ export class HealthScoreCalculator {
 
   /**
    * Raw 데이터에서 HealthData 추출
+   * v2.0: 하드코딩 제거, 실제 데이터 기반 계산
    */
   private extractHealthData(currentData: any[], previousData: any[]): HealthData {
-    // 매출 관련
+    // ==================== 매출 관련 ====================
     const currentGmv = currentData.reduce((sum, row) => sum + (Number(row['Total GMV']) || 0), 0)
     const previousGmv = previousData.reduce((sum, row) => sum + (Number(row['Total GMV']) || 0), 0)
     const currentAov = currentData.length > 0 ? currentGmv / currentData.length : 0
@@ -69,13 +76,50 @@ export class HealthScoreCalculator {
     })
     const dailyGmvValues = Array.from(dailyGmvMap.values())
 
-    // 고객 관련
+    // ==================== 고객 관련 ====================
     const currentCustomers = new Set(currentData.map(row => row.user_id).filter(Boolean))
     const previousCustomers = new Set(previousData.map(row => row.user_id).filter(Boolean))
+    
+    // 재구매 고객 (현재 기간에 구매한 고객 중 이전 기간에도 구매한 고객)
     const repeatCustomers = [...currentCustomers].filter(c => previousCustomers.has(c))
     const repeatPurchaseRate = currentCustomers.size > 0 ? repeatCustomers.length / currentCustomers.size : 0
+    
+    // 이전 기간 재구매율 계산 (60일 전 데이터가 있다면)
+    const previousRepeatRate = previousCustomers.size > 0 ? repeatCustomers.length / previousCustomers.size : 0.3
 
-    // 작가 관련
+    // VIP 고객 정의: 구매 금액 상위 20%
+    const customerSpending = new Map<string, number>()
+    currentData.forEach(row => {
+      const customerId = row.user_id
+      if (customerId) {
+        customerSpending.set(customerId, (customerSpending.get(customerId) || 0) + (Number(row['Total GMV']) || 0))
+      }
+    })
+    const sortedCustomerSpending = [...customerSpending.entries()].sort((a, b) => b[1] - a[1])
+    const vipThreshold = Math.ceil(sortedCustomerSpending.length * 0.2)
+    const currentVips = new Set(sortedCustomerSpending.slice(0, vipThreshold).map(([id]) => id))
+
+    // 이전 기간 VIP 계산
+    const prevCustomerSpending = new Map<string, number>()
+    previousData.forEach(row => {
+      const customerId = row.user_id
+      if (customerId) {
+        prevCustomerSpending.set(customerId, (prevCustomerSpending.get(customerId) || 0) + (Number(row['Total GMV']) || 0))
+      }
+    })
+    const sortedPrevSpending = [...prevCustomerSpending.entries()].sort((a, b) => b[1] - a[1])
+    const prevVipThreshold = Math.ceil(sortedPrevSpending.length * 0.2)
+    const previousVips = new Set(sortedPrevSpending.slice(0, prevVipThreshold).map(([id]) => id))
+
+    // VIP 유지율: 이전 VIP 중 현재도 VIP인 비율
+    const retainedVips = [...previousVips].filter(v => currentVips.has(v))
+    const vipRetentionRate = previousVips.size > 0 ? retainedVips.length / previousVips.size : 0.85
+
+    // 이탈 위험 고객: 이전 기간에 구매했으나 현재 기간에 구매 없는 고객
+    const atRiskCustomers = [...previousCustomers].filter(c => !currentCustomers.has(c))
+    const atRiskCustomerRatio = previousCustomers.size > 0 ? atRiskCustomers.length / previousCustomers.size : 0
+
+    // ==================== 작가 관련 ====================
     const currentArtists = new Set(currentData.map(row => row['artist_name (kr)']).filter(Boolean))
     const previousArtists = new Set(previousData.map(row => row['artist_name (kr)']).filter(Boolean))
 
@@ -91,6 +135,57 @@ export class HealthScoreCalculator {
     const top5Revenue = sortedArtistRevenue.slice(0, 5).reduce((sum, [, rev]) => sum + rev, 0)
     const top5ArtistRevenueShare = currentGmv > 0 ? top5Revenue / currentGmv : 0
 
+    // 이탈 위험 작가: 이전 기간 활동했으나 현재 기간 활동 없는 작가
+    const atRiskArtists = [...previousArtists].filter(a => !currentArtists.has(a))
+    const atRiskArtistCount = atRiskArtists.length
+
+    // 신규 작가: 현재 기간에만 있는 작가
+    const newArtists = [...currentArtists].filter(a => !previousArtists.has(a))
+    const newArtistsThisMonth = newArtists.length
+
+    // ==================== 운영 관련 ====================
+    // 물류 처리 시간 계산 (order_created → 현재 상태까지)
+    let totalProcessingDays = 0
+    let processedOrders = 0
+    let delayedOrders = 0
+    let qcFailedOrders = 0
+    let complaintOrders = 0
+
+    currentData.forEach(row => {
+      // 처리 시간 계산
+      const orderDate = new Date(row.order_created)
+      const statusDate = row.status_updated ? new Date(row.status_updated) : new Date()
+      if (!isNaN(orderDate.getTime())) {
+        const processingDays = Math.floor((statusDate.getTime() - orderDate.getTime()) / (1000 * 60 * 60 * 24))
+        if (processingDays >= 0 && processingDays < 365) {  // 합리적인 범위
+          totalProcessingDays += processingDays
+          processedOrders += 1
+        }
+      }
+
+      // 지연 건수 확인
+      const status = String(row.status || row.logistics_status || '').toLowerCase()
+      if (DELAYED_STATUSES.some(s => status.includes(s.toLowerCase()))) {
+        delayedOrders += 1
+      }
+
+      // QC 실패 확인
+      if (QC_FAIL_STATUSES.some(s => status.includes(s.toLowerCase()))) {
+        qcFailedOrders += 1
+      }
+
+      // 고객 불만 확인 (비고나 상태에서)
+      const note = String(row.note || row.remarks || '').toLowerCase()
+      if (note.includes('불만') || note.includes('클레임') || note.includes('complaint')) {
+        complaintOrders += 1
+      }
+    })
+
+    const avgProcessingDays = processedOrders > 0 ? totalProcessingDays / processedOrders : 10
+    const delayedOrderRatio = currentData.length > 0 ? delayedOrders / currentData.length : 0
+    const qcPassRate = currentData.length > 0 ? 1 - (qcFailedOrders / currentData.length) : 0.92
+    const customerComplaintRatio = currentData.length > 0 ? complaintOrders / currentData.length : 0
+
     return {
       currentGmv,
       previousGmv,
@@ -100,18 +195,18 @@ export class HealthScoreCalculator {
       newCustomers: currentCustomers.size,
       previousNewCustomers: previousCustomers.size,
       repeatPurchaseRate,
-      previousRepeatRate: 0.3, // 기본값
-      vipRetentionRate: 0.85, // 기본값
-      atRiskCustomerRatio: 0.15, // 기본값
+      previousRepeatRate,
+      vipRetentionRate,
+      atRiskCustomerRatio,
       activeArtists: currentArtists.size,
       previousActiveArtists: previousArtists.size,
       top5ArtistRevenueShare,
-      atRiskArtistCount: 0, // 기본값
-      newArtistsThisMonth: Math.max(0, currentArtists.size - previousArtists.size),
-      avgProcessingDays: 10, // 기본값
-      delayedOrderRatio: 0.1, // 기본값
-      qcPassRate: 0.92, // 기본값
-      customerComplaintRatio: 0.02, // 기본값
+      atRiskArtistCount,
+      newArtistsThisMonth,
+      avgProcessingDays,
+      delayedOrderRatio,
+      qcPassRate,
+      customerComplaintRatio,
     }
   }
 

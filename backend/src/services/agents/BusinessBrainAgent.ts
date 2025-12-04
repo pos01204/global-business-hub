@@ -10,6 +10,8 @@ import {
   DecompositionEngine,
   InsightScorer,
   HealthScoreCalculator,
+  DataProcessor,
+  aiBriefingGenerator,
   businessBrainCache,
   CACHE_TTL,
   BusinessHealthScore,
@@ -17,6 +19,18 @@ import {
   ExecutiveBriefing,
   DecompositionResult,
   CubeAnalysisResult,
+  CohortAnalysis,
+  RFMAnalysis,
+  ParetoAnalysis,
+  CorrelationAnalysis,
+  AnomalyDetection,
+  TimeSeriesData,
+  ForecastResult,
+  PeriodComparison,
+  MultiPeriodAnalysis,
+  PeriodPreset,
+  DateRange,
+  BriefingInput,
 } from '../analytics'
 
 // 환율 상수 (USD → KRW)
@@ -27,6 +41,7 @@ export class BusinessBrainAgent extends BaseAgent {
   private decompositionEngine: DecompositionEngine
   private insightScorer: InsightScorer
   private healthCalculator: HealthScoreCalculator
+  private dataProcessor: DataProcessor
 
   constructor(context: AgentContext = {}) {
     super(context)
@@ -56,6 +71,7 @@ export class BusinessBrainAgent extends BaseAgent {
 
     this.insightScorer = new InsightScorer()
     this.healthCalculator = new HealthScoreCalculator()
+    this.dataProcessor = new DataProcessor()
   }
 
   /**
@@ -122,6 +138,7 @@ export class BusinessBrainAgent extends BaseAgent {
 
   /**
    * 경영 브리핑 생성
+   * v2.1: AI 기반 브리핑 생성 지원
    */
   async generateExecutiveBriefing(): Promise<ExecutiveBriefing> {
     const cacheKey = 'briefing:executive'
@@ -132,7 +149,9 @@ export class BusinessBrainAgent extends BaseAgent {
       // 데이터 조회 - logistics 시트 사용 (더 상세한 데이터 포함)
       const now = new Date()
       const thirtyDaysAgo = new Date(now.getTime() - 30 * 24 * 60 * 60 * 1000)
+      const sixtyDaysAgo = new Date(now.getTime() - 60 * 24 * 60 * 60 * 1000)
       
+      // 현재 기간 데이터
       const logisticsResult = await this.getData({
         sheet: 'logistics',
         dateRange: {
@@ -141,8 +160,18 @@ export class BusinessBrainAgent extends BaseAgent {
         },
       })
 
+      // 이전 기간 데이터 (비교용)
+      const previousResult = await this.getData({
+        sheet: 'logistics',
+        dateRange: {
+          start: sixtyDaysAgo.toISOString().split('T')[0],
+          end: thirtyDaysAgo.toISOString().split('T')[0],
+        },
+      })
+
       const orderData = logisticsResult.success ? logisticsResult.data : []
-      console.log(`[BusinessBrain] 브리핑 데이터 조회: ${orderData.length}건`)
+      const previousData = previousResult.success ? previousResult.data : []
+      console.log(`[BusinessBrain] 브리핑 데이터 조회: 현재 ${orderData.length}건, 이전 ${previousData.length}건`)
 
       // 건강도 점수 계산
       const healthScore = await this.calculateHealthScore()
@@ -150,18 +179,98 @@ export class BusinessBrainAgent extends BaseAgent {
       // 인사이트 발견
       const insights = await this.discoverInsights()
 
+      // 메트릭 계산
+      const currentGmv = orderData.reduce((sum: number, row: any) => sum + (Number(row['Total GMV']) || 0), 0)
+      const previousGmv = previousData.reduce((sum: number, row: any) => sum + (Number(row['Total GMV']) || 0), 0)
+      const currentOrders = orderData.length
+      const previousOrders = previousData.length
+      const currentAov = currentOrders > 0 ? currentGmv / currentOrders : 0
+      const previousAov = previousOrders > 0 ? previousGmv / previousOrders : 0
+
+      // 고객 분석
+      const currentCustomers = new Set(orderData.map((row: any) => row.user_id).filter(Boolean))
+      const previousCustomers = new Set(previousData.map((row: any) => row.user_id).filter(Boolean))
+      const repeatCustomers = [...currentCustomers].filter(c => previousCustomers.has(c))
+      const repeatRate = currentCustomers.size > 0 ? (repeatCustomers.length / currentCustomers.size) * 100 : 0
+
+      // 국가/작가 분석
+      const countryRevenue = new Map<string, number>()
+      const artistRevenue = new Map<string, number>()
+      orderData.forEach((row: any) => {
+        const country = row.country
+        const artist = row['artist_name (kr)']
+        const gmv = Number(row['Total GMV']) || 0
+        if (country) countryRevenue.set(country, (countryRevenue.get(country) || 0) + gmv)
+        if (artist) artistRevenue.set(artist, (artistRevenue.get(artist) || 0) + gmv)
+      })
+      const sortedCountries = [...countryRevenue.entries()].sort((a, b) => b[1] - a[1])
+      const sortedArtists = [...artistRevenue.entries()].sort((a, b) => b[1] - a[1])
+
+      // AI 브리핑 입력 데이터 구성
+      const briefingInput: BriefingInput = {
+        period: {
+          start: thirtyDaysAgo.toISOString().split('T')[0],
+          end: now.toISOString().split('T')[0],
+        },
+        metrics: {
+          totalGmv: currentGmv,
+          gmvChange: previousGmv > 0 ? ((currentGmv - previousGmv) / previousGmv) * 100 : 0,
+          orderCount: currentOrders,
+          orderChange: previousOrders > 0 ? ((currentOrders - previousOrders) / previousOrders) * 100 : 0,
+          aov: currentAov,
+          aovChange: previousAov > 0 ? ((currentAov - previousAov) / previousAov) * 100 : 0,
+          newCustomers: currentCustomers.size - repeatCustomers.length,
+          repeatRate,
+        },
+        healthScore,
+        insights,
+        anomalies: insights
+          .filter(i => i.type === 'critical' || i.type === 'warning')
+          .slice(0, 5)
+          .map(i => ({ metric: i.metric, description: i.description })),
+        trends: insights
+          .filter(i => i.deviationPercent !== 0)
+          .slice(0, 5)
+          .map(i => ({
+            metric: i.metric,
+            direction: i.deviationPercent > 0 ? '상승' : '하락',
+            magnitude: Math.abs(i.deviationPercent),
+          })),
+        topCountry: sortedCountries[0] ? {
+          name: this.getCountryName(sortedCountries[0][0]),
+          share: currentGmv > 0 ? sortedCountries[0][1] / currentGmv : 0,
+        } : undefined,
+        topArtist: sortedArtists[0] ? {
+          name: sortedArtists[0][0],
+          revenue: sortedArtists[0][1],
+        } : undefined,
+      }
+
+      // AI 브리핑 생성 시도
+      const aiBriefing = await aiBriefingGenerator.generateExecutiveBriefing(briefingInput)
+
       // 브리핑 생성
       const briefing: ExecutiveBriefing = {
         generatedAt: now,
         period: { start: thirtyDaysAgo, end: now },
         healthScore,
-        summary: this.generateSummary(healthScore, insights, orderData),
+        summary: aiBriefing.summary || this.generateSummary(healthScore, insights, orderData),
         insights: insights.slice(0, 5),
-        immediateActions: this.extractImmediateActions(insights),
-        weeklyFocus: this.extractWeeklyFocus(insights),
-        risks: this.extractRisks(insights),
-        opportunities: this.extractOpportunities(insights),
+        immediateActions: aiBriefing.immediateActions.length > 0 
+          ? aiBriefing.immediateActions 
+          : this.extractImmediateActions(insights),
+        weeklyFocus: aiBriefing.weeklyFocus.length > 0 
+          ? aiBriefing.weeklyFocus 
+          : this.extractWeeklyFocus(insights),
+        risks: aiBriefing.risks.length > 0 
+          ? aiBriefing.risks 
+          : this.extractRisks(insights),
+        opportunities: aiBriefing.opportunities.length > 0 
+          ? aiBriefing.opportunities 
+          : this.extractOpportunities(insights),
       }
+
+      console.log(`[BusinessBrain] 브리핑 생성 완료 (LLM 사용: ${aiBriefing.usedLLM}, 신뢰도: ${aiBriefing.confidence}%)`)
 
       businessBrainCache.set(cacheKey, briefing, CACHE_TTL.briefing)
       return briefing
@@ -484,16 +593,185 @@ export class BusinessBrainAgent extends BaseAgent {
         threshold: -10,
       })
 
+      // 6. VIP 고객 이탈 징후 체크 (PRD 추가)
+      const customerSpending = new Map<string, { current: number; previous: number }>()
+      const sixtyDaysAgo = new Date(now.getTime() - 60 * 24 * 60 * 60 * 1000)
+      
+      // 60일 전 데이터도 조회
+      const previousResult = await this.getData({
+        sheet: 'logistics',
+        dateRange: {
+          start: sixtyDaysAgo.toISOString().split('T')[0],
+          end: thirtyDaysAgo.toISOString().split('T')[0],
+        },
+      })
+      const previousData = previousResult.success ? previousResult.data : []
+
+      // 이전 기간 고객 지출
+      previousData.forEach((row: any) => {
+        const customerId = row.user_id
+        const gmv = Number(row['Total GMV']) || 0
+        if (customerId) {
+          const existing = customerSpending.get(customerId) || { current: 0, previous: 0 }
+          existing.previous += gmv
+          customerSpending.set(customerId, existing)
+        }
+      })
+
+      // 현재 기간 고객 지출
+      orderData.forEach((row: any) => {
+        const customerId = row.user_id
+        const gmv = Number(row['Total GMV']) || 0
+        if (customerId) {
+          const existing = customerSpending.get(customerId) || { current: 0, previous: 0 }
+          existing.current += gmv
+          customerSpending.set(customerId, existing)
+        }
+      })
+
+      // VIP 정의: 이전 기간 상위 20% 고객
+      const previousSpenders = [...customerSpending.entries()]
+        .filter(([, s]) => s.previous > 0)
+        .sort((a, b) => b[1].previous - a[1].previous)
+      const vipThreshold = Math.ceil(previousSpenders.length * 0.2)
+      const previousVips = previousSpenders.slice(0, vipThreshold)
+      
+      // VIP 중 이탈 위험 (현재 기간 구매 없음)
+      const atRiskVips = previousVips.filter(([, s]) => s.current === 0)
+      const vipAtRiskRate = previousVips.length > 0 ? atRiskVips.length / previousVips.length : 0
+
+      checks.push({
+        name: 'VIP 고객 이탈 징후',
+        status: vipAtRiskRate > 0.3 ? 'fail' : vipAtRiskRate > 0.15 ? 'warning' : 'pass',
+        message: vipAtRiskRate > 0.3
+          ? `VIP 고객 ${atRiskVips.length}명(${(vipAtRiskRate * 100).toFixed(1)}%)이 최근 30일간 구매하지 않았습니다. 긴급 리텐션 필요!`
+          : vipAtRiskRate > 0.15
+          ? `VIP 고객 ${atRiskVips.length}명이 이탈 위험 상태입니다.`
+          : 'VIP 고객 유지율이 양호합니다.',
+        value: vipAtRiskRate * 100,
+        threshold: 15,
+      })
+
+      // 7. 물류 병목 누적 체크 (PRD 추가)
+      const DELAYED_STATUSES = ['14일+ 미입고', '7-14일 미입고', '지연', 'delayed', 'overdue', '미입고']
+      let delayedCount = 0
+      let longDelayedCount = 0  // 14일 이상
+
+      orderData.forEach((row: any) => {
+        const status = String(row.status || row.logistics_status || row['물류상태'] || '').toLowerCase()
+        if (DELAYED_STATUSES.some(s => status.includes(s.toLowerCase()))) {
+          delayedCount += 1
+          if (status.includes('14일') || status.includes('14+')) {
+            longDelayedCount += 1
+          }
+        }
+      })
+
+      const delayedRatio = orderData.length > 0 ? delayedCount / orderData.length : 0
+      const longDelayedRatio = orderData.length > 0 ? longDelayedCount / orderData.length : 0
+
+      checks.push({
+        name: '물류 병목 누적',
+        status: longDelayedRatio > 0.1 ? 'fail' : delayedRatio > 0.15 ? 'warning' : 'pass',
+        message: longDelayedRatio > 0.1
+          ? `14일 이상 지연 건이 ${longDelayedCount}건(${(longDelayedRatio * 100).toFixed(1)}%)입니다. 즉시 조치 필요!`
+          : delayedRatio > 0.15
+          ? `지연 건이 ${delayedCount}건(${(delayedRatio * 100).toFixed(1)}%)으로 누적 중입니다.`
+          : '물류 처리가 원활합니다.',
+        value: delayedRatio * 100,
+        threshold: 15,
+      })
+
+      // 8. 품질 이슈 확산 체크 (PRD 추가)
+      // 리뷰 데이터 조회 시도
+      let lowRatingCount = 0
+      let totalReviews = 0
+      
+      try {
+        const reviewResult = await this.getData({
+          sheet: 'review',
+          dateRange: {
+            start: thirtyDaysAgo.toISOString().split('T')[0],
+            end: now.toISOString().split('T')[0],
+          },
+        })
+        
+        if (reviewResult.success && reviewResult.data) {
+          reviewResult.data.forEach((review: any) => {
+            const rating = Number(review.rating || review.score || review['평점'])
+            if (!isNaN(rating)) {
+              totalReviews += 1
+              if (rating <= 2) {
+                lowRatingCount += 1
+              }
+            }
+          })
+        }
+      } catch {
+        // 리뷰 시트가 없는 경우 스킵
+      }
+
+      const lowRatingRatio = totalReviews > 0 ? lowRatingCount / totalReviews : 0
+
+      checks.push({
+        name: '품질 이슈 (저평점 비율)',
+        status: lowRatingRatio > 0.15 ? 'fail' : lowRatingRatio > 0.08 ? 'warning' : 'pass',
+        message: totalReviews > 0
+          ? lowRatingRatio > 0.15
+            ? `저평점(1-2점) 리뷰가 ${lowRatingCount}건(${(lowRatingRatio * 100).toFixed(1)}%)으로 급증했습니다. 품질 점검 필요!`
+            : lowRatingRatio > 0.08
+            ? `저평점 리뷰가 ${(lowRatingRatio * 100).toFixed(1)}%입니다. 모니터링 권장.`
+            : '고객 만족도가 양호합니다.'
+          : '리뷰 데이터가 없습니다.',
+        value: lowRatingRatio * 100,
+        threshold: 8,
+      })
+
+      // 9. 시즌성 미반영 체크 (YoY 비교)
+      // 작년 동기 데이터 조회
+      const lastYearStart = new Date(thirtyDaysAgo)
+      lastYearStart.setFullYear(lastYearStart.getFullYear() - 1)
+      const lastYearEnd = new Date(now)
+      lastYearEnd.setFullYear(lastYearEnd.getFullYear() - 1)
+
+      try {
+        const lastYearResult = await this.getData({
+          sheet: 'logistics',
+          dateRange: {
+            start: lastYearStart.toISOString().split('T')[0],
+            end: lastYearEnd.toISOString().split('T')[0],
+          },
+        })
+
+        if (lastYearResult.success && lastYearResult.data && lastYearResult.data.length > 0) {
+          const lastYearGmv = lastYearResult.data.reduce((sum: number, row: any) => 
+            sum + (Number(row['Total GMV']) || 0), 0)
+          const yoyChange = lastYearGmv > 0 ? (totalGmv - lastYearGmv) / lastYearGmv : 0
+
+          checks.push({
+            name: '시즌성 분석 (YoY)',
+            status: Math.abs(yoyChange) > 0.3 ? 'warning' : 'pass',
+            message: Math.abs(yoyChange) > 0.3
+              ? `전년 동기 대비 ${yoyChange > 0 ? '+' : ''}${(yoyChange * 100).toFixed(1)}% 변화. 시즌 요인 점검 필요.`
+              : `전년 동기 대비 ${yoyChange > 0 ? '+' : ''}${(yoyChange * 100).toFixed(1)}%로 안정적입니다.`,
+            value: yoyChange * 100,
+            threshold: 30,
+          })
+        }
+      } catch {
+        // 작년 데이터가 없는 경우 스킵
+      }
+
       const failCount = checks.filter(c => c.status === 'fail').length
       const warningCount = checks.filter(c => c.status === 'warning').length
 
       const result = {
         checks,
         summary: failCount > 0
-          ? `${failCount}개의 심각한 이슈와 ${warningCount}개의 주의 사항이 발견되었습니다.`
+          ? `🚨 ${failCount}개의 심각한 이슈와 ${warningCount}개의 주의 사항이 발견되었습니다.`
           : warningCount > 0
-          ? `${warningCount}개의 주의 사항이 있습니다.`
-          : '모든 체크 항목이 정상입니다.',
+          ? `⚠️ ${warningCount}개의 주의 사항이 있습니다.`
+          : '✅ 모든 체크 항목이 정상입니다.',
       }
 
       businessBrainCache.set(cacheKey, result, CACHE_TTL.insights)
@@ -898,7 +1176,564 @@ export class BusinessBrainAgent extends BaseAgent {
     // Total GMV는 USD 단위
     return `$${Math.round(value).toLocaleString()}`
   }
-}
 
-// 환율 변환 헬퍼 (파일 끝에 추가)
-// formatCurrency 함수가 이미 KRW로 변환된 값을 받으므로 ₩ 기호만 추가
+  // ==================== 새로운 분석 메서드 (PRD 미구현 영역) ====================
+
+  /**
+   * 코호트 분석 실행
+   * PRD 섹션 2.2.2 - 가입 월별 코호트, 리텐션, LTV
+   */
+  async runCohortAnalysis(): Promise<CohortAnalysis> {
+    const cacheKey = 'cohort-analysis'
+    const cached = businessBrainCache.get<CohortAnalysis>(cacheKey)
+    if (cached) return cached
+
+    try {
+      const now = new Date()
+      const ninetyDaysAgo = new Date(now.getTime() - 90 * 24 * 60 * 60 * 1000)
+
+      const logisticsResult = await this.getData({
+        sheet: 'logistics',
+        dateRange: {
+          start: ninetyDaysAgo.toISOString().split('T')[0],
+          end: now.toISOString().split('T')[0],
+        },
+      })
+
+      const orderData = logisticsResult.success ? logisticsResult.data : []
+      const result = this.dataProcessor.runCohortAnalysis([], orderData, 'order_created')
+
+      businessBrainCache.set(cacheKey, result, CACHE_TTL.insights)
+      return result
+    } catch (error: any) {
+      console.error('[BusinessBrainAgent] 코호트 분석 오류:', error)
+      throw error
+    }
+  }
+
+  /**
+   * RFM 세분화 실행
+   * PRD 섹션 2.2.3 - 7개 세그먼트, 이동 추적
+   */
+  async runRFMAnalysis(): Promise<RFMAnalysis> {
+    const cacheKey = 'rfm-analysis'
+    const cached = businessBrainCache.get<RFMAnalysis>(cacheKey)
+    if (cached) return cached
+
+    try {
+      const now = new Date()
+      const ninetyDaysAgo = new Date(now.getTime() - 90 * 24 * 60 * 60 * 1000)
+
+      const logisticsResult = await this.getData({
+        sheet: 'logistics',
+        dateRange: {
+          start: ninetyDaysAgo.toISOString().split('T')[0],
+          end: now.toISOString().split('T')[0],
+        },
+      })
+
+      const orderData = logisticsResult.success ? logisticsResult.data : []
+      const result = this.dataProcessor.runRFMSegmentation(orderData, {
+        analysisDate: now,
+      })
+
+      businessBrainCache.set(cacheKey, result, CACHE_TTL.insights)
+      return result
+    } catch (error: any) {
+      console.error('[BusinessBrainAgent] RFM 분석 오류:', error)
+      throw error
+    }
+  }
+
+  /**
+   * 파레토 분석 실행
+   * PRD 섹션 2.2.4 - 작가/상품/국가 집중도
+   */
+  async runParetoAnalysis(): Promise<ParetoAnalysis> {
+    const cacheKey = 'pareto-analysis'
+    const cached = businessBrainCache.get<ParetoAnalysis>(cacheKey)
+    if (cached) return cached
+
+    try {
+      const now = new Date()
+      const thirtyDaysAgo = new Date(now.getTime() - 30 * 24 * 60 * 60 * 1000)
+
+      const logisticsResult = await this.getData({
+        sheet: 'logistics',
+        dateRange: {
+          start: thirtyDaysAgo.toISOString().split('T')[0],
+          end: now.toISOString().split('T')[0],
+        },
+      })
+
+      const orderData = logisticsResult.success ? logisticsResult.data : []
+      const result = this.dataProcessor.runParetoAnalysis(orderData, 'artist_name (kr)', 'Total GMV')
+
+      businessBrainCache.set(cacheKey, result, CACHE_TTL.insights)
+      return result
+    } catch (error: any) {
+      console.error('[BusinessBrainAgent] 파레토 분석 오류:', error)
+      throw error
+    }
+  }
+
+  /**
+   * 상관관계 분석 실행
+   * PRD 섹션 2.2.5 - 변수 간 상관관계, 선행 지표 발견
+   */
+  async runCorrelationAnalysis(): Promise<CorrelationAnalysis> {
+    const cacheKey = 'correlation-analysis'
+    const cached = businessBrainCache.get<CorrelationAnalysis>(cacheKey)
+    if (cached) return cached
+
+    try {
+      const now = new Date()
+      const ninetyDaysAgo = new Date(now.getTime() - 90 * 24 * 60 * 60 * 1000)
+
+      const logisticsResult = await this.getData({
+        sheet: 'logistics',
+        dateRange: {
+          start: ninetyDaysAgo.toISOString().split('T')[0],
+          end: now.toISOString().split('T')[0],
+        },
+      })
+
+      const orderData = logisticsResult.success ? logisticsResult.data : []
+      const result = this.dataProcessor.analyzeCorrelations(orderData, [
+        'gmv', 'orders', 'uniqueCustomers'
+      ])
+
+      businessBrainCache.set(cacheKey, result, CACHE_TTL.insights)
+      return result
+    } catch (error: any) {
+      console.error('[BusinessBrainAgent] 상관관계 분석 오류:', error)
+      throw error
+    }
+  }
+
+  /**
+   * 이상 탐지 실행
+   * PRD 섹션 2.2.6 - Z-score 기반 이상치 감지
+   */
+  async runAnomalyDetection(
+    sensitivity: 'low' | 'medium' | 'high' = 'medium'
+  ): Promise<AnomalyDetection> {
+    const cacheKey = `anomaly-detection:${sensitivity}`
+    const cached = businessBrainCache.get<AnomalyDetection>(cacheKey)
+    if (cached) return cached
+
+    try {
+      const now = new Date()
+      const ninetyDaysAgo = new Date(now.getTime() - 90 * 24 * 60 * 60 * 1000)
+
+      const logisticsResult = await this.getData({
+        sheet: 'logistics',
+        dateRange: {
+          start: ninetyDaysAgo.toISOString().split('T')[0],
+          end: now.toISOString().split('T')[0],
+        },
+      })
+
+      const orderData = logisticsResult.success ? logisticsResult.data : []
+      
+      // 시계열 데이터 생성
+      const timeSeries = this.dataProcessor.processTimeSeries(
+        orderData,
+        'order_created',
+        ['Total GMV'],
+        'daily'
+      )
+
+      const result = this.dataProcessor.detectAnomalies(timeSeries, sensitivity)
+
+      businessBrainCache.set(cacheKey, result, CACHE_TTL.insights)
+      return result
+    } catch (error: any) {
+      console.error('[BusinessBrainAgent] 이상 탐지 오류:', error)
+      throw error
+    }
+  }
+
+  /**
+   * 시계열 분석 실행
+   * PRD 섹션 2.2.1 - 일별/주별/월별 집계, 이동평균
+   */
+  async runTimeSeriesAnalysis(): Promise<TimeSeriesData> {
+    const cacheKey = 'timeseries-analysis'
+    const cached = businessBrainCache.get<TimeSeriesData>(cacheKey)
+    if (cached) return cached
+
+    try {
+      const now = new Date()
+      const ninetyDaysAgo = new Date(now.getTime() - 90 * 24 * 60 * 60 * 1000)
+
+      const logisticsResult = await this.getData({
+        sheet: 'logistics',
+        dateRange: {
+          start: ninetyDaysAgo.toISOString().split('T')[0],
+          end: now.toISOString().split('T')[0],
+        },
+      })
+
+      const orderData = logisticsResult.success ? logisticsResult.data : []
+      const result = this.dataProcessor.processTimeSeries(
+        orderData,
+        'order_created',
+        ['Total GMV'],
+        'daily'
+      )
+
+      businessBrainCache.set(cacheKey, result, CACHE_TTL.insights)
+      return result
+    } catch (error: any) {
+      console.error('[BusinessBrainAgent] 시계열 분석 오류:', error)
+      throw error
+    }
+  }
+
+  /**
+   * 종합 고급 분석 실행
+   * 모든 분석을 병렬로 실행하고 결과 통합
+   */
+  async runAdvancedAnalytics(): Promise<{
+    cohort: CohortAnalysis
+    rfm: RFMAnalysis
+    pareto: ParetoAnalysis
+    correlation: CorrelationAnalysis
+    anomaly: AnomalyDetection
+    timeSeries: TimeSeriesData
+  }> {
+    const cacheKey = 'advanced-analytics'
+    const cached = businessBrainCache.get<any>(cacheKey)
+    if (cached) return cached
+
+    try {
+      const [cohort, rfm, pareto, correlation, anomaly, timeSeries] = await Promise.all([
+        this.runCohortAnalysis(),
+        this.runRFMAnalysis(),
+        this.runParetoAnalysis(),
+        this.runCorrelationAnalysis(),
+        this.runAnomalyDetection('medium'),
+        this.runTimeSeriesAnalysis(),
+      ])
+
+      const result = { cohort, rfm, pareto, correlation, anomaly, timeSeries }
+      businessBrainCache.set(cacheKey, result, CACHE_TTL.insights)
+      return result
+    } catch (error: any) {
+      console.error('[BusinessBrainAgent] 고급 분석 오류:', error)
+      throw error
+    }
+  }
+
+  // ==================== 기간별 분석 메서드 (v2.1) ====================
+
+  /**
+   * 기간 기반 분석 실행
+   * 다양한 기간 프리셋 지원 (7d, 30d, 90d, 180d, 365d, custom)
+   */
+  async runAnalysisWithPeriod(
+    analysisType: 'rfm' | 'pareto' | 'cohort' | 'anomaly' | 'timeseries',
+    period: PeriodPreset = '30d',
+    customRange?: DateRange
+  ): Promise<any> {
+    const dateRange = DataProcessor.getDateRangeFromPreset(period, customRange)
+    const cacheKey = `${analysisType}-${period}-${dateRange.start}-${dateRange.end}`
+    
+    const cached = businessBrainCache.get<any>(cacheKey)
+    if (cached) return cached
+
+    try {
+      const logisticsResult = await this.getData({
+        sheet: 'logistics',
+        dateRange: {
+          start: dateRange.start,
+          end: dateRange.end,
+        },
+      })
+
+      const orderData = logisticsResult.success ? logisticsResult.data : []
+      let result: any
+
+      switch (analysisType) {
+        case 'rfm':
+          result = this.dataProcessor.runRFMSegmentation(orderData, {
+            analysisDate: new Date(dateRange.end),
+          })
+          break
+        case 'pareto':
+          result = this.dataProcessor.runParetoAnalysis(orderData, 'artist_name (kr)', 'Total GMV')
+          break
+        case 'cohort':
+          result = this.dataProcessor.runCohortAnalysis([], orderData, 'order_created')
+          break
+        case 'anomaly':
+          const timeSeries = this.dataProcessor.processTimeSeries(orderData, 'order_created', ['Total GMV'], 'daily')
+          result = this.dataProcessor.detectAnomalies(timeSeries, 'medium')
+          break
+        case 'timeseries':
+          result = this.dataProcessor.processTimeSeries(orderData, 'order_created', ['Total GMV'], 'daily')
+          break
+      }
+
+      businessBrainCache.set(cacheKey, result, CACHE_TTL.insights)
+      return { ...result, period: { preset: period, ...dateRange } }
+    } catch (error: any) {
+      console.error(`[BusinessBrainAgent] 기간별 ${analysisType} 분석 오류:`, error)
+      throw error
+    }
+  }
+
+  /**
+   * 매출 예측 실행
+   */
+  async runForecast(
+    period: PeriodPreset = '90d',
+    forecastDays: number = 30,
+    customRange?: DateRange
+  ): Promise<ForecastResult> {
+    const dateRange = DataProcessor.getDateRangeFromPreset(period, customRange)
+    const cacheKey = `forecast-${period}-${forecastDays}-${dateRange.start}`
+    
+    const cached = businessBrainCache.get<ForecastResult>(cacheKey)
+    if (cached) return cached
+
+    try {
+      const logisticsResult = await this.getData({
+        sheet: 'logistics',
+        dateRange: {
+          start: dateRange.start,
+          end: dateRange.end,
+        },
+      })
+
+      const orderData = logisticsResult.success ? logisticsResult.data : []
+      const result = this.dataProcessor.forecast(orderData, 'order_created', forecastDays)
+
+      businessBrainCache.set(cacheKey, result, CACHE_TTL.insights)
+      return result
+    } catch (error: any) {
+      console.error('[BusinessBrainAgent] 예측 오류:', error)
+      throw error
+    }
+  }
+
+  /**
+   * 기간 비교 분석 실행
+   */
+  async runPeriodComparison(
+    period1: DateRange,
+    period2: DateRange,
+    period1Label?: string,
+    period2Label?: string
+  ): Promise<PeriodComparison> {
+    const cacheKey = `comparison-${period1.start}-${period1.end}-${period2.start}-${period2.end}`
+    
+    const cached = businessBrainCache.get<PeriodComparison>(cacheKey)
+    if (cached) return cached
+
+    try {
+      // 두 기간을 포함하는 전체 범위 조회
+      const allStart = period1.start < period2.start ? period1.start : period2.start
+      const allEnd = period1.end > period2.end ? period1.end : period2.end
+
+      const logisticsResult = await this.getData({
+        sheet: 'logistics',
+        dateRange: {
+          start: allStart,
+          end: allEnd,
+        },
+      })
+
+      const orderData = logisticsResult.success ? logisticsResult.data : []
+      const result = this.dataProcessor.comparePeriods(
+        orderData,
+        period1,
+        period2,
+        period1Label || `${period1.start} ~ ${period1.end}`,
+        period2Label || `${period2.start} ~ ${period2.end}`
+      )
+
+      businessBrainCache.set(cacheKey, result, CACHE_TTL.insights)
+      return result
+    } catch (error: any) {
+      console.error('[BusinessBrainAgent] 기간 비교 오류:', error)
+      throw error
+    }
+  }
+
+  /**
+   * 다중 기간 트렌드 분석
+   */
+  async runMultiPeriodAnalysis(
+    periodType: 'weekly' | 'monthly' | 'quarterly' = 'monthly',
+    numPeriods: number = 6
+  ): Promise<MultiPeriodAnalysis> {
+    const cacheKey = `multi-period-${periodType}-${numPeriods}`
+    
+    const cached = businessBrainCache.get<MultiPeriodAnalysis>(cacheKey)
+    if (cached) return cached
+
+    try {
+      // 충분한 기간의 데이터 조회
+      const daysNeeded = periodType === 'weekly' ? numPeriods * 7 + 7 :
+                        periodType === 'monthly' ? numPeriods * 31 + 31 :
+                        numPeriods * 92 + 92
+      
+      const now = new Date()
+      const startDate = new Date(now.getTime() - daysNeeded * 24 * 60 * 60 * 1000)
+
+      const logisticsResult = await this.getData({
+        sheet: 'logistics',
+        dateRange: {
+          start: startDate.toISOString().split('T')[0],
+          end: now.toISOString().split('T')[0],
+        },
+      })
+
+      const orderData = logisticsResult.success ? logisticsResult.data : []
+      const result = this.dataProcessor.analyzeMultiplePeriods(orderData, periodType, numPeriods)
+
+      businessBrainCache.set(cacheKey, result, CACHE_TTL.insights)
+      return result
+    } catch (error: any) {
+      console.error('[BusinessBrainAgent] 다중 기간 분석 오류:', error)
+      throw error
+    }
+  }
+
+  /**
+   * 종합 인사이트 분석 (기간 기반)
+   * 선택한 기간에 대한 모든 분석을 실행하고 핵심 인사이트 추출
+   */
+  async runComprehensiveAnalysis(
+    period: PeriodPreset = '30d',
+    customRange?: DateRange
+  ): Promise<{
+    period: { preset: string; start: string; end: string }
+    summary: {
+      gmv: number
+      orders: number
+      aov: number
+      customers: number
+      artists: number
+    }
+    comparison: PeriodComparison | null
+    forecast: ForecastResult
+    topInsights: string[]
+    risks: string[]
+    opportunities: string[]
+    recommendations: string[]
+  }> {
+    const dateRange = DataProcessor.getDateRangeFromPreset(period, customRange)
+    const cacheKey = `comprehensive-${period}-${dateRange.start}-${dateRange.end}`
+    
+    const cached = businessBrainCache.get<any>(cacheKey)
+    if (cached) return cached
+
+    try {
+      // 현재 기간 데이터 조회
+      const logisticsResult = await this.getData({
+        sheet: 'logistics',
+        dateRange: {
+          start: dateRange.start,
+          end: dateRange.end,
+        },
+      })
+
+      const orderData = logisticsResult.success ? logisticsResult.data : []
+
+      // 요약 계산
+      const gmv = orderData.reduce((sum: number, row: any) => sum + (Number(row['Total GMV']) || 0), 0)
+      const orders = orderData.length
+      const customers = new Set(orderData.map((row: any) => row.user_id).filter(Boolean)).size
+      const artists = new Set(orderData.map((row: any) => row['artist_name (kr)']).filter(Boolean)).size
+
+      // 병렬 분석 실행
+      const comparisonPeriod = DataProcessor.getComparisonPeriod(dateRange)
+      
+      const [comparison, forecast, pareto, rfm] = await Promise.all([
+        this.runPeriodComparison(comparisonPeriod, dateRange, '이전 기간', '현재 기간').catch(() => null),
+        this.runForecast(period, 14, customRange).catch(() => null),
+        this.dataProcessor.runParetoAnalysis(orderData, 'artist_name (kr)', 'Total GMV'),
+        this.dataProcessor.runRFMSegmentation(orderData, { analysisDate: new Date(dateRange.end) }),
+      ])
+
+      // 인사이트 추출
+      const topInsights: string[] = []
+      const risks: string[] = []
+      const opportunities: string[] = []
+      const recommendations: string[] = []
+
+      // 비교 기반 인사이트
+      if (comparison) {
+        topInsights.push(...comparison.insights)
+        
+        if (comparison.metrics.gmv.changePercent < -10) {
+          risks.push(`매출이 이전 기간 대비 ${Math.abs(comparison.metrics.gmv.changePercent).toFixed(1)}% 감소했습니다.`)
+        }
+        if (comparison.metrics.customers.changePercent < -15) {
+          risks.push(`활성 고객이 ${Math.abs(comparison.metrics.customers.changePercent).toFixed(1)}% 감소했습니다.`)
+        }
+        
+        if (comparison.topGrowthSegments.length > 0) {
+          const topGrowth = comparison.topGrowthSegments[0]
+          opportunities.push(`${topGrowth.type === 'country' ? '국가' : '작가'} "${topGrowth.segment}"이(가) ${topGrowth.growth.toFixed(1)}% 성장했습니다.`)
+        }
+      }
+
+      // 집중도 기반 인사이트
+      if (pareto.artistConcentration.top10Percent.revenueShare > 0.6) {
+        risks.push(`상위 10% 작가가 매출의 ${(pareto.artistConcentration.top10Percent.revenueShare * 100).toFixed(1)}%를 차지합니다. 포트폴리오 다각화가 필요합니다.`)
+      }
+
+      // RFM 기반 인사이트
+      const atRiskCount = rfm.atRiskVIPs.length
+      if (atRiskCount > 0) {
+        risks.push(`${atRiskCount}명의 VIP 고객이 이탈 위험 상태입니다.`)
+        recommendations.push('이탈 위험 VIP 고객에게 리텐션 캠페인을 진행하세요.')
+      }
+
+      const vipSegment = rfm.segments.find(s => s.segment === 'VIP')
+      if (vipSegment && vipSegment.percentage < 0.1) {
+        opportunities.push('VIP 고객 비율이 낮습니다. 충성 고객 육성 프로그램을 검토하세요.')
+      }
+
+      // 예측 기반 인사이트
+      if (forecast && forecast.trend === 'down') {
+        risks.push('향후 매출 하락이 예상됩니다. 선제적 대응이 필요합니다.')
+      } else if (forecast && forecast.trend === 'up') {
+        opportunities.push(`향후 ${forecast.predictions.length}일간 매출 상승이 예상됩니다.`)
+      }
+
+      // 기본 추천
+      if (recommendations.length === 0) {
+        recommendations.push('현재 성과를 유지하면서 신규 고객 확보에 집중하세요.')
+        recommendations.push('고객 세그먼트별 맞춤 마케팅 전략을 수립하세요.')
+      }
+
+      const result = {
+        period: { preset: period, ...dateRange },
+        summary: {
+          gmv,
+          orders,
+          aov: orders > 0 ? gmv / orders : 0,
+          customers,
+          artists,
+        },
+        comparison,
+        forecast: forecast || this.dataProcessor['emptyForecast'](),
+        topInsights: topInsights.slice(0, 5),
+        risks: risks.slice(0, 5),
+        opportunities: opportunities.slice(0, 5),
+        recommendations: recommendations.slice(0, 5),
+      }
+
+      businessBrainCache.set(cacheKey, result, CACHE_TTL.insights)
+      return result
+    } catch (error: any) {
+      console.error('[BusinessBrainAgent] 종합 분석 오류:', error)
+      throw error
+    }
+  }
+}

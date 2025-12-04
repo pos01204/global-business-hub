@@ -1150,6 +1150,119 @@ export const businessBrainApi = {
     })
     return response.data
   },
+
+  // ==================== 새로운 고급 분석 API ====================
+
+  // 코호트 분석
+  getCohortAnalysis: async () => {
+    const response = await api.get('/api/business-brain/cohort')
+    return response.data
+  },
+
+  // RFM 세분화 분석
+  getRFMAnalysis: async () => {
+    const response = await api.get('/api/business-brain/rfm')
+    return response.data
+  },
+
+  // 파레토 분석
+  getParetoAnalysis: async () => {
+    const response = await api.get('/api/business-brain/pareto')
+    return response.data
+  },
+
+  // 상관관계 분석
+  getCorrelationAnalysis: async () => {
+    const response = await api.get('/api/business-brain/correlation')
+    return response.data
+  },
+
+  // 이상 탐지
+  getAnomalyDetection: async (sensitivity?: 'low' | 'medium' | 'high') => {
+    const response = await api.get('/api/business-brain/anomaly', {
+      params: sensitivity ? { sensitivity } : {},
+    })
+    return response.data
+  },
+
+  // 시계열 분석
+  getTimeSeriesAnalysis: async () => {
+    const response = await api.get('/api/business-brain/timeseries')
+    return response.data
+  },
+
+  // 종합 고급 분석
+  getAdvancedAnalytics: async () => {
+    const response = await api.get('/api/business-brain/advanced')
+    return response.data
+  },
+
+  // ==================== 기간별 분석 API (v2.1) ====================
+
+  // 기간별 분석 (유형별)
+  getAnalysisByPeriod: async (
+    type: 'rfm' | 'pareto' | 'cohort' | 'anomaly' | 'timeseries',
+    period: '7d' | '30d' | '90d' | '180d' | '365d' | 'custom' = '30d',
+    customRange?: { startDate: string; endDate: string }
+  ) => {
+    const params: any = { period }
+    if (customRange) {
+      params.startDate = customRange.startDate
+      params.endDate = customRange.endDate
+    }
+    const response = await api.get(`/api/business-brain/analysis/${type}`, { params })
+    return response.data
+  },
+
+  // 매출 예측
+  getForecast: async (
+    period: '7d' | '30d' | '90d' | '180d' | '365d' = '90d',
+    forecastDays: number = 30
+  ) => {
+    const response = await api.get('/api/business-brain/forecast', {
+      params: { period, forecastDays },
+    })
+    return response.data
+  },
+
+  // 기간 비교 분석
+  getPeriodComparison: async (
+    period1: { start: string; end: string; label?: string },
+    period2: { start: string; end: string; label?: string }
+  ) => {
+    const response = await api.get('/api/business-brain/compare', {
+      params: {
+        period1Start: period1.start,
+        period1End: period1.end,
+        period2Start: period2.start,
+        period2End: period2.end,
+        period1Label: period1.label,
+        period2Label: period2.label,
+      },
+    })
+    return response.data
+  },
+
+  // 다중 기간 트렌드 분석
+  getMultiPeriodAnalysis: async (
+    periodType: 'weekly' | 'monthly' | 'quarterly' = 'monthly',
+    numPeriods: number = 6
+  ) => {
+    const response = await api.get('/api/business-brain/multi-period', {
+      params: { periodType, numPeriods },
+    })
+    return response.data
+  },
+
+  // 종합 인사이트 분석
+  getComprehensiveAnalysis: async (
+    period: '7d' | '30d' | '90d' | '180d' | '365d' = '30d'
+  ) => {
+    const response = await api.get('/api/business-brain/comprehensive', {
+      params: { period },
+    })
+    return response.data
+  },
 }
 
 export default api
