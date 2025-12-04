@@ -346,14 +346,14 @@ router.post('/upload', upload.single('file'), async (req, res) => {
     const validationIssues = validationResult.results
       .filter(r => r.status === 'warning' || r.status === 'error')
       .map(r => ({
-        recordId: r.recordId,
-        status: r.status,
-        message: r.message,
-        expectedRate: r.expectedRate,
-        actualRate: r.actualRate,
-        difference: r.difference,
-        differencePercent: Math.round(r.differencePercent * 10) / 10,
-        details: r.details,
+        recordId: r.recordId ?? '',
+        status: r.status ?? 'unknown',
+        message: r.message ?? '',
+        expectedRate: r.expectedRate ?? 0,
+        actualRate: r.actualRate ?? 0,
+        difference: r.difference ?? 0,
+        differencePercent: Math.round((r.differencePercent ?? 0) * 10) / 10,
+        details: r.details ?? {},
       }));
 
     res.json({

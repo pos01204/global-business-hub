@@ -901,25 +901,26 @@ export class RateService {
     
     // 추가비용만 청구된 건은 별도 처리
     if (isAdditionalChargeOnly) {
+      const safeActualRate = typeof actualRate === 'number' && isFinite(actualRate) ? actualRate : 0;
       return {
         isValid: true,
         expectedRate: null,
-        actualRate: actualRate,
+        actualRate: safeActualRate,
         difference: 0,
         differencePercent: 0,
         status: 'additional_charge',
-        message: `추가비용 청구 건 (${options?.surchargeType || '할증료'}): ₩${actualRate.toLocaleString()}`,
+        message: `추가비용 청구 건 (${options?.surchargeType || '할증료'}): ₩${safeActualRate.toLocaleString()}`,
         details: {
           carrier: normalizedCarrier,
           country,
           countryCode,
-          weight,
-          actualWeight: options?.actualWeight,
-          volumetricWeight: options?.volumetricWeight,
+          weight: weight ?? 0,
+          actualWeight: options?.actualWeight ?? 0,
+          volumetricWeight: options?.volumetricWeight ?? 0,
           shippingFee,
           surchargeAmount,
-          surchargeType: options?.surchargeType,
-          shipmentId: options?.shipmentId,
+          surchargeType: options?.surchargeType ?? '',
+          shipmentId: options?.shipmentId ?? '',
           isAdditionalChargeOnly: true,
         },
       };
@@ -964,35 +965,45 @@ export class RateService {
       }
     }
 
+    // 안전한 숫자 변환 헬퍼
+    const safeNumber = (val: any): number => {
+      if (typeof val === 'number' && isFinite(val)) return val;
+      return 0;
+    };
+    
+    const safeCompareRate = safeNumber(compareRate);
+    const safeWeight = safeNumber(weight);
+    
     if (expectedRate === null) {
       return {
         isValid: true,
         expectedRate: null,
-        actualRate: compareRate,
+        actualRate: safeCompareRate,
         difference: 0,
         differencePercent: 0,
         status: 'unknown',
-        message: `요금표에 없는 조합 (${normalizedCarrier}, ${countryCode}, ${weight}kg)`,
+        message: `요금표에 없는 조합 (${normalizedCarrier}, ${countryCode}, ${safeWeight}kg)`,
         details: {
           carrier: normalizedCarrier,
           country,
           countryCode,
-          weight,
-          actualWeight: options?.actualWeight,
-          volumetricWeight: options?.volumetricWeight,
+          weight: safeWeight,
+          actualWeight: safeNumber(options?.actualWeight),
+          volumetricWeight: safeNumber(options?.volumetricWeight),
           shippingFee,
           surchargeAmount,
-          surchargeType: options?.surchargeType,
-          shipmentId: options?.shipmentId,
-          service,
-          rateSource,
+          surchargeType: options?.surchargeType ?? '',
+          shipmentId: options?.shipmentId ?? '',
+          service: service ?? '',
+          rateSource: rateSource ?? '',
           isAdditionalChargeOnly: false,
         },
       };
     }
 
-    const difference = compareRate - expectedRate;
-    const differencePercent = (difference / expectedRate) * 100;
+    const safeExpectedRate = safeNumber(expectedRate);
+    const difference = safeCompareRate - safeExpectedRate;
+    const differencePercent = safeExpectedRate > 0 ? (difference / safeExpectedRate) * 100 : 0;
 
     let status: 'normal' | 'warning' | 'error' = 'normal';
     let message = '';
@@ -1007,13 +1018,13 @@ export class RateService {
       message = `예상 요금 대비 ${differencePercent > 0 ? '초과' : '미달'} (${differencePercent.toFixed(1)}%)`;
     } else {
       status = 'error';
-      message = `큰 차이 발생! 예상: ₩${expectedRate.toLocaleString()}, 실제: ₩${compareRate.toLocaleString()} (${differencePercent.toFixed(1)}%)`;
+      message = `큰 차이 발생! 예상: ₩${safeExpectedRate.toLocaleString()}, 실제: ₩${safeCompareRate.toLocaleString()} (${differencePercent.toFixed(1)}%)`;
     }
 
     return {
       isValid: status !== 'error',
-      expectedRate,
-      actualRate: compareRate,
+      expectedRate: safeExpectedRate,
+      actualRate: safeCompareRate,
       difference,
       differencePercent,
       status,
@@ -1022,15 +1033,15 @@ export class RateService {
         carrier: normalizedCarrier,
         country,
         countryCode,
-        weight,
-        actualWeight: options?.actualWeight,
-        volumetricWeight: options?.volumetricWeight,
+        weight: safeWeight,
+        actualWeight: safeNumber(options?.actualWeight),
+        volumetricWeight: safeNumber(options?.volumetricWeight),
         shippingFee,
         surchargeAmount,
-        surchargeType: options?.surchargeType,
-        shipmentId: options?.shipmentId,
-        service,
-        rateSource,
+        surchargeType: options?.surchargeType ?? '',
+        shipmentId: options?.shipmentId ?? '',
+        service: service ?? '',
+        rateSource: rateSource ?? '',
         isAdditionalChargeOnly: false,
       },
     };
@@ -1212,7 +1223,8 @@ export class RateService {
         recordId: record.id,
       });
 
-      totalActualCost += record.total_cost;
+      const safeTotalCost = typeof record.total_cost === 'number' && isFinite(record.total_cost) ? record.total_cost : 0;
+      totalActualCost += safeTotalCost;
 
       switch (result.status) {
         case 'normal':
