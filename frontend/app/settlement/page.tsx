@@ -154,8 +154,11 @@ export default function SettlementPage() {
     }
   }, [uploadMutation])
 
-  // 금액 포맷
-  const formatCurrency = (value: number) => {
+  // 금액 포맷 (null/undefined 안전 처리)
+  const formatCurrency = (value: number | null | undefined) => {
+    if (value === null || value === undefined || isNaN(value)) {
+      return '₩0'
+    }
     return `₩${Math.round(value).toLocaleString()}`
   }
 
@@ -378,11 +381,11 @@ export default function SettlementPage() {
                       </div>
                       <div className="bg-white rounded-lg p-3 shadow-sm">
                         <p className="text-sm text-gray-500">총 운송료</p>
-                        <p className="font-medium">{formatCurrency(uploadResult.data.summary.totalCost)}</p>
+                        <p className="font-medium">{formatCurrency(uploadResult.data?.summary?.totalCost)}</p>
                       </div>
                       <div className="bg-white rounded-lg p-3 shadow-sm">
                         <p className="text-sm text-gray-500">건당 평균</p>
-                        <p className="font-medium">{formatCurrency(uploadResult.data.summary.avgCostPerShipment)}</p>
+                        <p className="font-medium">{formatCurrency(uploadResult.data?.summary?.avgCostPerShipment)}</p>
                       </div>
                     </div>
                     {uploadResult.data.skippedRows > 0 && (
@@ -418,35 +421,35 @@ export default function SettlementPage() {
                       <div className="grid grid-cols-2 md:grid-cols-5 gap-3 mb-4">
                         <div className="bg-white rounded-lg p-3 shadow-sm">
                           <p className="text-xs text-gray-500">총 검증</p>
-                          <p className="font-bold">{uploadResult.data.validation.summary.total}건</p>
+                          <p className="font-bold">{uploadResult.data?.validation?.summary?.total ?? 0}건</p>
                         </div>
                         <div className="bg-white rounded-lg p-3 shadow-sm">
                           <p className="text-xs text-green-600">정상</p>
-                          <p className="font-bold text-green-600">{uploadResult.data.validation.summary.normal}건</p>
+                          <p className="font-bold text-green-600">{uploadResult.data?.validation?.summary?.normal ?? 0}건</p>
                         </div>
                         <div className="bg-white rounded-lg p-3 shadow-sm">
                           <p className="text-xs text-yellow-600">경고</p>
-                          <p className="font-bold text-yellow-600">{uploadResult.data.validation.summary.warning}건</p>
+                          <p className="font-bold text-yellow-600">{uploadResult.data?.validation?.summary?.warning ?? 0}건</p>
                         </div>
                         <div className="bg-white rounded-lg p-3 shadow-sm">
                           <p className="text-xs text-red-600">오류</p>
-                          <p className="font-bold text-red-600">{uploadResult.data.validation.summary.error}건</p>
+                          <p className="font-bold text-red-600">{uploadResult.data?.validation?.summary?.error ?? 0}건</p>
                         </div>
                         <div className="bg-white rounded-lg p-3 shadow-sm">
                           <p className="text-xs text-gray-500">미검증</p>
-                          <p className="font-bold text-gray-500">{uploadResult.data.validation.summary.unknown}건</p>
+                          <p className="font-bold text-gray-500">{uploadResult.data?.validation?.summary?.unknown ?? 0}건</p>
                         </div>
                       </div>
 
                       {/* 비용 차이 요약 */}
-                      {uploadResult.data.validation.summary.totalDifference !== 0 && (
+                      {(uploadResult.data?.validation?.summary?.totalDifference ?? 0) !== 0 && (
                         <div className={`p-3 rounded-lg ${
-                          uploadResult.data.validation.summary.totalDifference > 0 ? 'bg-red-100' : 'bg-green-100'
+                          (uploadResult.data?.validation?.summary?.totalDifference ?? 0) > 0 ? 'bg-red-100' : 'bg-green-100'
                         }`}>
                           <p className="text-sm">
-                            {uploadResult.data.validation.summary.totalDifference > 0 
-                              ? `📈 예상보다 ${formatCurrency(uploadResult.data.validation.summary.totalDifference)} 더 청구됨`
-                              : `📉 예상보다 ${formatCurrency(Math.abs(uploadResult.data.validation.summary.totalDifference))} 적게 청구됨`
+                            {(uploadResult.data?.validation?.summary?.totalDifference ?? 0) > 0 
+                              ? `📈 예상보다 ${formatCurrency(uploadResult.data?.validation?.summary?.totalDifference)} 더 청구됨`
+                              : `📉 예상보다 ${formatCurrency(Math.abs(uploadResult.data?.validation?.summary?.totalDifference ?? 0))} 적게 청구됨`
                             }
                           </p>
                         </div>
@@ -532,19 +535,19 @@ export default function SettlementPage() {
                 <div className="grid grid-cols-1 md:grid-cols-4 gap-4 mb-6">
                   <div className="card">
                     <p className="text-sm text-gray-500">총 건수</p>
-                    <p className="text-2xl font-bold">{listData.data.summary.totalRecords}건</p>
+                    <p className="text-2xl font-bold">{listData.data?.summary?.totalRecords ?? 0}건</p>
                   </div>
                   <div className="card">
                     <p className="text-sm text-gray-500">총 운송료</p>
-                    <p className="text-2xl font-bold">{formatCurrency(listData.data.summary.totalShippingFee)}</p>
+                    <p className="text-2xl font-bold">{formatCurrency(listData.data?.summary?.totalShippingFee)}</p>
                   </div>
                   <div className="card">
                     <p className="text-sm text-gray-500">총 비용</p>
-                    <p className="text-2xl font-bold">{formatCurrency(listData.data.summary.totalCost)}</p>
+                    <p className="text-2xl font-bold">{formatCurrency(listData.data?.summary?.totalCost)}</p>
                   </div>
                   <div className="card">
                     <p className="text-sm text-gray-500">건당 평균</p>
-                    <p className="text-2xl font-bold">{formatCurrency(listData.data.summary.avgCostPerShipment)}</p>
+                    <p className="text-2xl font-bold">{formatCurrency(listData.data?.summary?.avgCostPerShipment)}</p>
                   </div>
                 </div>
 
@@ -869,7 +872,7 @@ export default function SettlementPage() {
                   </div>
                   <div className="card">
                     <p className="text-sm text-gray-500">총 발송 건수</p>
-                    <p className="text-2xl font-bold">{trendData.data.summary.totalRecords.toLocaleString()}건</p>
+                    <p className="text-2xl font-bold">{(trendData.data.summary.totalRecords ?? 0).toLocaleString()}건</p>
                   </div>
                   <div className="card">
                     <p className="text-sm text-gray-500">총 물류비</p>
@@ -948,7 +951,7 @@ export default function SettlementPage() {
                       인사이트
                     </h3>
                     <ul className="text-sm text-gray-700 space-y-2">
-                      <li>• 월평균 <strong>{trendData.data.summary.avgMonthlyCount.toLocaleString()}건</strong> 발송</li>
+                      <li>• 월평균 <strong>{(trendData.data.summary.avgMonthlyCount ?? 0).toLocaleString()}건</strong> 발송</li>
                       <li>• 월평균 물류비 <strong>{formatCurrency(trendData.data.summary.avgMonthlyCost)}</strong></li>
                       {(() => {
                         const latest = trendData.data.trend[trendData.data.trend.length - 1];
