@@ -154,12 +154,24 @@ export default function SettlementPage() {
     }
   }, [uploadMutation])
 
-  // 금액 포맷 (null/undefined 안전 처리)
-  const formatCurrency = (value: number | null | undefined) => {
-    if (value === null || value === undefined || isNaN(value)) {
+  // 금액 포맷 (null/undefined/NaN 안전 처리)
+  const formatCurrency = (value: number | string | null | undefined) => {
+    // null, undefined 체크
+    if (value === null || value === undefined) {
       return '₩0'
     }
-    return `₩${Math.round(value).toLocaleString()}`
+    // 문자열인 경우 숫자로 변환 (쉼표 제거)
+    let numValue: number
+    if (typeof value === 'string') {
+      numValue = parseFloat(value.replace(/[,\s]/g, ''))
+    } else {
+      numValue = value
+    }
+    // NaN 또는 유한하지 않은 숫자 체크
+    if (isNaN(numValue) || !isFinite(numValue)) {
+      return '₩0'
+    }
+    return `₩${Math.round(numValue).toLocaleString()}`
   }
 
   return (

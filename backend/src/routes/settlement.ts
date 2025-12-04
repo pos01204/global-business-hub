@@ -34,6 +34,7 @@ const HEADER_MAPPING: Record<string, string> = {
   '부출고번호': 'logistics_sub_shipment_code', // 물류사 전용 (내부 매핑 없음)
   '내품 수': 'item_count',
   '발송일자(선적일자)': 'shipped_at',
+  '발송일자': 'shipped_at', // 신규 형식 지원
   '보내는 사람': 'sender',
   '받는 사람': 'recipient',
   '도착국': 'country_code',
@@ -45,9 +46,15 @@ const HEADER_MAPPING: Record<string, string> = {
   '해외운송료': 'shipping_fee',
   '기타운임1': 'surcharge1',
   '기타운임1 항목': 'surcharge1_type',
+  ' 기타운임1 ': 'surcharge1', // 공백 포함 버전
+  '기타운임1 항목': 'surcharge1_type',
   '기타운임2': 'surcharge2',
   '기타운임2항목': 'surcharge2_type',
+  ' 기타운임2 ': 'surcharge2', // 공백 포함 버전
+  '기타운임2항목': 'surcharge2_type',
   '기타운임3': 'surcharge3',
+  '기타운임3항목': 'surcharge3_type',
+  ' 기타운임3 ': 'surcharge3', // 공백 포함 버전
   '기타운임3항목': 'surcharge3_type',
   '운임 합계': 'total_cost',
   '비고': 'note',
@@ -220,7 +227,8 @@ router.post('/upload', upload.single('file'), async (req, res) => {
       // 헤더 매핑으로 데이터 추출
       const rowData: Record<string, any> = {};
       headers.forEach((header: string, idx: number) => {
-        const cleanHeader = header.trim();
+        // 헤더에서 공백 정규화 (앞뒤 공백 제거 + 중복 공백 단일화)
+        const cleanHeader = header.trim().replace(/\s+/g, ' ');
         const standardKey = HEADER_MAPPING[cleanHeader];
         if (standardKey && row[idx] !== undefined) {
           rowData[standardKey] = row[idx];
@@ -302,23 +310,33 @@ router.post('/upload', upload.single('file'), async (req, res) => {
     const periods = [...new Set(processedRows.map(row => row[1]).filter(Boolean))];
 
     // 요약 통계 계산
-    const totalShippingFee = processedRows.reduce((sum, row) => sum + (row[19] || 0), 0);
-    const totalCost = processedRows.reduce((sum, row) => sum + (row[27] || 0), 0);
+    // 인덱스 매핑: 19=shipping_fee, 26=total_cost, 27=note
+    const totalShippingFee = processedRows.reduce((sum, row) => {
+      const val = row[19];
+      return sum + (typeof val === 'number' ? val : 0);
+    }, 0);
+    const totalCostSum = processedRows.reduce((sum, row) => {
+      const val = row[26];
+      return sum + (typeof val === 'number' ? val : 0);
+    }, 0);
 
     // ======== 요금 검증 (자동) ========
+    // 인덱스 매핑: 0=id, 4=carrier, 6=shipment_id, 13=country_code, 16=actual_weight, 
+    // 17=volumetric_weight, 18=charged_weight, 19=shipping_fee, 20=surcharge1, 
+    // 21=surcharge1_type, 26=total_cost, 27=note
     const validationRecords = processedRows.map(row => ({
       id: row[0],
-      shipment_id: row[6],                // shipment_id 추가
+      shipment_id: row[6],                // shipment_id
       carrier: row[4],
       country: row[13],                   // country_code
-      actual_weight: row[16],             // 실중량 추가
-      volumetric_weight: row[17],         // 부피중량 추가
-      charged_weight: row[18],
-      shipping_fee: row[19],              // 해외운송료 추가
-      surcharge1: row[20],                // 할증료1 추가
-      surcharge1_type: row[21],           // 할증료1 항목 추가
-      total_cost: row[27],
-      note: row[28],                      // 비고 추가
+      actual_weight: row[16] ?? 0,        // 실중량
+      volumetric_weight: row[17] ?? 0,    // 부피중량
+      charged_weight: row[18] ?? 0,
+      shipping_fee: row[19] ?? 0,         // 해외운송료
+      surcharge1: row[20] ?? 0,           // 할증료1
+      surcharge1_type: row[21] ?? '',     // 할증료1 항목
+      total_cost: row[26] ?? 0,           // 운임 합계 (인덱스 26)
+      note: row[27] ?? '',                // 비고 (인덱스 27)
     }));
 
     const validationResult = rateService.validateBatch(validationRecords);
@@ -349,8 +367,8 @@ router.post('/upload', upload.single('file'), async (req, res) => {
         uploadedAt,
         summary: {
           totalShippingFee,
-          totalCost,
-          avgCostPerShipment: processedRows.length > 0 ? Math.round(totalCost / processedRows.length) : 0,
+          totalCost: totalCostSum,
+          avgCostPerShipment: processedRows.length > 0 ? Math.round(totalCostSum / processedRows.length) : 0,
         },
         // 검증 결과 추가
         validation: {
