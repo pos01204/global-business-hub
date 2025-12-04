@@ -786,6 +786,7 @@ export class BusinessBrainAgent extends BaseAgent {
   /**
    * 장기 트렌드 분석
    * PRD 섹션 3.1 - 다차원 분석 매트릭스
+   * v2.1: 불완전한 월 제외, 동일 기간 비교로 정확도 향상
    */
   async analyzeLongTermTrends(period: PeriodPreset = '90d'): Promise<{
     trends: Array<{
@@ -823,6 +824,10 @@ export class BusinessBrainAgent extends BaseAgent {
         implication: string
       }> = []
 
+      // 현재 날짜 기준 완전한 월만 비교 (불완전한 현재 월 제외)
+      const now = new Date()
+      const currentMonth = `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}`
+
       // 월별 데이터 집계
       const monthlyData = new Map<string, { gmv: number; orders: number; customers: Set<string> }>()
       orderData.forEach((row: any) => {
@@ -838,7 +843,13 @@ export class BusinessBrainAgent extends BaseAgent {
         if (row.user_id) data.customers.add(row.user_id)
       })
 
-      const months = [...monthlyData.keys()].sort()
+      // 불완전한 현재 월 제외하고 정렬
+      const months = [...monthlyData.keys()]
+        .filter(m => m < currentMonth) // 현재 진행 중인 월 제외
+        .sort()
+      
+      console.log(`[BusinessBrain] 트렌드 분석 - 완전한 월: ${months.join(', ')}, 현재 월(제외): ${currentMonth}`)
+      
       if (months.length >= 2) {
         const firstMonth = monthlyData.get(months[0])!
         const lastMonth = monthlyData.get(months[months.length - 1])!

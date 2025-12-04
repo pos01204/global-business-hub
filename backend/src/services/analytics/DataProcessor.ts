@@ -1470,6 +1470,7 @@ export class DataProcessor {
 
   /**
    * 다중 기간 분석 (트렌드 파악)
+   * v2.1: 데이터가 있는 실제 기간을 기반으로 분석, 불완전한 현재 기간 제외
    */
   analyzeMultiplePeriods(
     data: any[],
@@ -1481,28 +1482,56 @@ export class DataProcessor {
 
     console.log(`[DataProcessor] 다중 기간 분석 시작 - 전체 데이터: ${data.length}건, 타입: ${periodType}, 기간 수: ${numPeriods}`)
 
-    // 데이터의 날짜 범위 확인
-    if (data.length > 0) {
-      const dates = data.map(row => this.extractDate(row.order_created)).filter(Boolean).sort()
-      console.log(`[DataProcessor] 데이터 날짜 범위: ${dates[0]} ~ ${dates[dates.length - 1]}`)
+    // 데이터가 없으면 빈 결과 반환
+    if (data.length === 0) {
+      console.log(`[DataProcessor] 데이터가 없습니다.`)
+      return this.createEmptyMultiPeriodAnalysis()
     }
 
-    for (let i = numPeriods - 1; i >= 0; i--) {
-      const { start, end, label } = this.getPeriodBounds(now, periodType, i)
-      
-      const periodData = data.filter(row => {
-        const date = this.extractDate(row.order_created)
-        return date >= start && date <= end
-      })
+    // 데이터의 날짜 범위 확인
+    const dates = data.map(row => this.extractDate(row.order_created)).filter(Boolean).sort()
+    const dataStartDate = dates[0]
+    const dataEndDate = dates[dates.length - 1]
+    console.log(`[DataProcessor] 데이터 날짜 범위: ${dataStartDate} ~ ${dataEndDate}`)
 
+    // 현재 날짜 기준 불완전한 기간 식별
+    const currentPeriodLabel = this.getCurrentPeriodLabel(now, periodType)
+
+    // 데이터 기반으로 기간 집계
+    const periodMap = new Map<string, any[]>()
+    
+    data.forEach(row => {
+      const date = this.extractDate(row.order_created)
+      if (!date) return
+      
+      const label = this.getPeriodLabelFromDate(date, periodType)
+      if (!periodMap.has(label)) {
+        periodMap.set(label, [])
+      }
+      periodMap.get(label)!.push(row)
+    })
+
+    // 불완전한 현재 기간 제외하고 정렬
+    const sortedLabels = [...periodMap.keys()]
+      .filter(label => label !== currentPeriodLabel) // 현재 진행 중인 기간 제외
+      .sort()
+      .slice(-numPeriods) // 최근 numPeriods개만
+
+    console.log(`[DataProcessor] 분석 대상 기간: ${sortedLabels.join(', ')} (현재 기간 ${currentPeriodLabel} 제외)`)
+
+    for (const label of sortedLabels) {
+      const periodData = periodMap.get(label) || []
       const metrics = this.calculatePeriodMetrics(periodData)
       
-      console.log(`[DataProcessor] 기간 ${label} (${start} ~ ${end}): ${periodData.length}건, GMV: $${metrics.gmv.toFixed(0)}`)
+      // 기간의 시작/끝 날짜 계산
+      const bounds = this.getPeriodBoundsFromLabel(label, periodType)
+      
+      console.log(`[DataProcessor] 기간 ${label} (${bounds.start} ~ ${bounds.end}): ${periodData.length}건, GMV: $${metrics.gmv.toFixed(0)}`)
       
       periods.push({
         label,
-        start,
-        end,
+        start: bounds.start,
+        end: bounds.end,
         ...metrics,
       })
     }
@@ -1599,7 +1628,7 @@ export class DataProcessor {
         return {
           start: this.formatLocalDate(weekStart),
           end: this.formatLocalDate(weekEnd),
-          label: `${weekStart.getMonth() + 1}/${weekStart.getDate()} 주`,
+          label: this.getWeekNumber(this.formatLocalDate(weekStart)),
         }
       }
       case 'monthly': {
@@ -1624,6 +1653,102 @@ export class DataProcessor {
           label: `${year} Q${q + 1}`,
         }
       }
+    }
+  }
+
+  /**
+   * 현재 기간의 라벨 반환
+   */
+  private getCurrentPeriodLabel(date: Date, periodType: 'weekly' | 'monthly' | 'quarterly'): string {
+    switch (periodType) {
+      case 'weekly':
+        return this.getWeekNumber(this.formatLocalDate(date))
+      case 'monthly':
+        return `${date.getFullYear()}.${String(date.getMonth() + 1).padStart(2, '0')}`
+      case 'quarterly':
+        const q = Math.floor(date.getMonth() / 3) + 1
+        return `${date.getFullYear()} Q${q}`
+    }
+  }
+
+  /**
+   * 날짜에서 기간 라벨 추출
+   */
+  private getPeriodLabelFromDate(dateStr: string, periodType: 'weekly' | 'monthly' | 'quarterly'): string {
+    const date = new Date(dateStr)
+    switch (periodType) {
+      case 'weekly':
+        return this.getWeekNumber(dateStr)
+      case 'monthly':
+        return `${date.getFullYear()}.${String(date.getMonth() + 1).padStart(2, '0')}`
+      case 'quarterly':
+        const q = Math.floor(date.getMonth() / 3) + 1
+        return `${date.getFullYear()} Q${q}`
+    }
+  }
+
+  /**
+   * 기간 라벨에서 시작/끝 날짜 추출
+   */
+  private getPeriodBoundsFromLabel(label: string, periodType: 'weekly' | 'monthly' | 'quarterly'): { start: string; end: string } {
+    switch (periodType) {
+      case 'weekly': {
+        // 라벨 형식: YYYY-WNN
+        const [yearStr, weekStr] = label.split('-W')
+        const year = parseInt(yearStr)
+        const week = parseInt(weekStr)
+        const jan1 = new Date(year, 0, 1)
+        const daysOffset = (week - 1) * 7 - jan1.getDay()
+        const weekStart = new Date(year, 0, 1 + daysOffset)
+        const weekEnd = new Date(weekStart)
+        weekEnd.setDate(weekEnd.getDate() + 6)
+        return {
+          start: this.formatLocalDate(weekStart),
+          end: this.formatLocalDate(weekEnd),
+        }
+      }
+      case 'monthly': {
+        // 라벨 형식: YYYY.MM
+        const [yearStr, monthStr] = label.split('.')
+        const year = parseInt(yearStr)
+        const month = parseInt(monthStr) - 1
+        const monthStart = new Date(year, month, 1)
+        const monthEnd = new Date(year, month + 1, 0)
+        return {
+          start: this.formatLocalDate(monthStart),
+          end: this.formatLocalDate(monthEnd),
+        }
+      }
+      case 'quarterly': {
+        // 라벨 형식: YYYY QN
+        const [yearStr, qStr] = label.split(' Q')
+        const year = parseInt(yearStr)
+        const q = parseInt(qStr) - 1
+        const qStart = new Date(year, q * 3, 1)
+        const qEnd = new Date(year, q * 3 + 3, 0)
+        return {
+          start: this.formatLocalDate(qStart),
+          end: this.formatLocalDate(qEnd),
+        }
+      }
+    }
+  }
+
+  /**
+   * 빈 다중 기간 분석 결과 생성
+   */
+  private createEmptyMultiPeriodAnalysis(): MultiPeriodAnalysis {
+    return {
+      periods: [],
+      trends: {
+        gmv: { direction: 'stable', avgGrowth: 0 },
+        orders: { direction: 'stable', avgGrowth: 0 },
+        aov: { direction: 'stable', avgGrowth: 0 },
+      },
+      seasonalityDetected: false,
+      bestPeriod: '',
+      worstPeriod: '',
+      insights: [],
     }
   }
 
