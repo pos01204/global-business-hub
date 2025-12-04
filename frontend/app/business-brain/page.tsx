@@ -1,6 +1,7 @@
 'use client'
 
 import { useState, useEffect, useRef } from 'react'
+import { useSearchParams } from 'next/navigation'
 import { useQuery } from '@tanstack/react-query'
 import { businessBrainApi } from '@/lib/api'
 import { Card } from '@/components/ui/Card'
@@ -132,8 +133,18 @@ const PERIOD_OPTIONS: { value: PeriodPreset; label: string }[] = [
 ]
 
 export default function BusinessBrainPage() {
-  const [activeTab, setActiveTab] = useState('overview')
+  const searchParams = useSearchParams()
+  const tabFromUrl = searchParams.get('tab')
+  
+  const [activeTab, setActiveTab] = useState(tabFromUrl || 'overview')
   const [selectedPeriod, setSelectedPeriod] = useState<PeriodPreset>('30d')
+
+  // URL 쿼리 파라미터 변경 시 탭 업데이트
+  useEffect(() => {
+    if (tabFromUrl && tabFromUrl !== activeTab) {
+      setActiveTab(tabFromUrl)
+    }
+  }, [tabFromUrl])
 
   // 데이터 쿼리 (기간 기반)
   const { data: briefingData, isLoading: briefingLoading } = useQuery({
@@ -1771,21 +1782,32 @@ function ComprehensiveTab({ data, isLoading, period }: { data: any; isLoading: b
           <h3 className="text-lg font-semibold text-slate-800 dark:text-slate-100 mb-4">
             📊 이전 기간 대비 변화
           </h3>
-          <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
-            {Object.entries(comparison.metrics).map(([key, value]: [string, any]) => (
-              <div key={key} className="p-4 bg-slate-50 dark:bg-slate-800 rounded-lg">
-                <div className="text-sm text-slate-500 dark:text-slate-400 mb-1">
-                  {key === 'gmv' ? '매출' : key === 'orders' ? '주문' : key === 'aov' ? '객단가' : '고객'}
+          {comparison.metrics?.gmv?.period1 === 0 && comparison.metrics?.gmv?.period2 === 0 ? (
+            <div className="p-8 text-center text-slate-500 dark:text-slate-400">
+              <p>비교할 수 있는 이전 기간 데이터가 없습니다.</p>
+              <p className="text-xs mt-2">더 긴 분석 기간을 선택하거나 데이터가 축적되면 비교 분석이 가능합니다.</p>
+            </div>
+          ) : (
+            <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
+              {Object.entries(comparison.metrics).map(([key, value]: [string, any]) => (
+                <div key={key} className="p-4 bg-slate-50 dark:bg-slate-800 rounded-lg">
+                  <div className="text-sm text-slate-500 dark:text-slate-400 mb-1">
+                    {key === 'gmv' ? '매출' : key === 'orders' ? '주문' : key === 'aov' ? '객단가' : '고객'}
+                  </div>
+                  <div className={`text-xl font-bold ${
+                    value.period1 === 0 ? 'text-slate-400' :
+                    value.changePercent >= 0 ? 'text-emerald-600' : 'text-red-600'
+                  }`}>
+                    {value.period1 === 0 ? 'N/A' : 
+                      `${value.changePercent >= 0 ? '+' : ''}${value.changePercent.toFixed(1)}%`}
+                  </div>
+                  <div className="text-xs text-slate-400">
+                    {key === 'gmv' || key === 'aov' ? '$' : ''}{(value.period2 || 0).toLocaleString()}
+                  </div>
                 </div>
-                <div className={`text-xl font-bold ${value.changePercent >= 0 ? 'text-emerald-600' : 'text-red-600'}`}>
-                  {value.changePercent >= 0 ? '+' : ''}{value.changePercent.toFixed(1)}%
-                </div>
-                <div className="text-xs text-slate-400">
-                  {key === 'gmv' || key === 'aov' ? '$' : ''}{value.period2.toLocaleString()}
-                </div>
-              </div>
-            ))}
-          </div>
+              ))}
+            </div>
+          )}
         </Card>
       )}
 

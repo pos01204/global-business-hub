@@ -1677,8 +1677,12 @@ export class BusinessBrainAgent extends BaseAgent {
       // 병렬 분석 실행
       const comparisonPeriod = DataProcessor.getComparisonPeriod(dateRange)
       
+      // 비교: period1=이전기간, period2=현재기간 (변화율 = (현재-이전)/이전)
       const [comparison, forecast, pareto, rfm] = await Promise.all([
-        this.runPeriodComparison(comparisonPeriod, dateRange, '이전 기간', '현재 기간').catch(() => null),
+        this.runPeriodComparison(comparisonPeriod, dateRange, '이전 기간', '현재 기간').catch((e) => {
+          console.error('[BusinessBrain] 기간 비교 실패:', e.message)
+          return null
+        }),
         this.runForecast(period, 14, customRange).catch(() => null),
         this.dataProcessor.runParetoAnalysis(orderData, 'artist_name (kr)', 'Total GMV'),
         this.dataProcessor.runRFMSegmentation(orderData, { analysisDate: new Date(dateRange.end) }),

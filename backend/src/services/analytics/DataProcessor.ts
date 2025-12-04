@@ -1338,51 +1338,47 @@ export class DataProcessor {
    * 예측 정확도 계산
    */
   private calculateForecastAccuracy(values: number[]): { mape: number; rmse: number } {
-    if (values.length < 14) {
-      // 데이터가 적으면 기본값 반환 (높은 신뢰도 가정)
-      return { mape: 25, rmse: 0 }
+    // 0이 아닌 값만 필터링
+    const nonZeroValues = values.filter(v => v > 0)
+    
+    if (nonZeroValues.length < 7) {
+      // 데이터가 적으면 합리적인 기본값 반환
+      return { mape: 20, rmse: 0 }
     }
 
-    // 마지막 7일을 테스트셋으로 사용
-    const trainValues = values.slice(0, -7)
-    const testValues = values.slice(-7)
+    // 마지막 몇 개를 테스트셋으로 사용 (최대 7개)
+    const testSize = Math.min(7, Math.floor(nonZeroValues.length / 3))
+    const trainValues = nonZeroValues.slice(0, -testSize)
+    const testValues = nonZeroValues.slice(-testSize)
 
-    // 0이 아닌 값만 사용
-    const nonZeroTestValues = testValues.filter(v => v > 0)
-    if (nonZeroTestValues.length === 0) {
-      return { mape: 30, rmse: 0 }
+    if (trainValues.length < 3 || testValues.length === 0) {
+      return { mape: 20, rmse: 0 }
     }
 
-    // 단순 이동평균 예측 (0이 아닌 값만 사용)
-    const nonZeroTrainValues = trainValues.filter(v => v > 0).slice(-7)
-    if (nonZeroTrainValues.length === 0) {
-      return { mape: 30, rmse: 0 }
+    // 단순 이동평균 예측
+    const movingAvg = this.mean(trainValues.slice(-7))
+    
+    if (movingAvg === 0) {
+      return { mape: 20, rmse: 0 }
     }
-    const movingAvg = this.mean(nonZeroTrainValues)
     
     let sumAbsPercentError = 0
     let sumSquaredError = 0
-    let validCount = 0
 
     testValues.forEach(actual => {
-      if (actual > 0) {
-        const error = actual - movingAvg
-        sumAbsPercentError += Math.abs(error / actual)
-        sumSquaredError += error * error
-        validCount++
-      }
+      const error = actual - movingAvg
+      // MAPE 계산: |actual - predicted| / actual
+      sumAbsPercentError += Math.abs(error) / actual
+      sumSquaredError += error * error
     })
 
-    if (validCount === 0) {
-      return { mape: 30, rmse: 0 }
-    }
-
-    // MAPE를 합리적인 범위로 제한 (최대 100%)
-    const mape = Math.min(100, (sumAbsPercentError / validCount) * 100)
+    // MAPE를 합리적인 범위로 제한 (최소 5%, 최대 80%)
+    const rawMape = (sumAbsPercentError / testValues.length) * 100
+    const mape = Math.max(5, Math.min(80, rawMape))
     
     return {
       mape,
-      rmse: Math.sqrt(sumSquaredError / validCount),
+      rmse: Math.sqrt(sumSquaredError / testValues.length),
     }
   }
 
@@ -1468,6 +1464,14 @@ export class DataProcessor {
     const now = new Date()
     const periods: MultiPeriodAnalysis['periods'] = []
 
+    console.log(`[DataProcessor] 다중 기간 분석 시작 - 전체 데이터: ${data.length}건, 타입: ${periodType}, 기간 수: ${numPeriods}`)
+
+    // 데이터의 날짜 범위 확인
+    if (data.length > 0) {
+      const dates = data.map(row => this.extractDate(row.order_created)).filter(Boolean).sort()
+      console.log(`[DataProcessor] 데이터 날짜 범위: ${dates[0]} ~ ${dates[dates.length - 1]}`)
+    }
+
     for (let i = numPeriods - 1; i >= 0; i--) {
       const { start, end, label } = this.getPeriodBounds(now, periodType, i)
       
@@ -1477,6 +1481,9 @@ export class DataProcessor {
       })
 
       const metrics = this.calculatePeriodMetrics(periodData)
+      
+      console.log(`[DataProcessor] 기간 ${label} (${start} ~ ${end}): ${periodData.length}건, GMV: $${metrics.gmv.toFixed(0)}`)
+      
       periods.push({
         label,
         start,
