@@ -849,7 +849,8 @@ function InsightsTab({ insights, isLoading }: { insights: any[]; isLoading: bool
               </div>
             ))}
           </div>
-        </Card>
+          </Card>
+        </FadeIn>
       )}
 
       {/* 기타 인사이트 */}
@@ -1303,7 +1304,8 @@ function ParetoTab({ data, isLoading }: { data: any; isLoading: boolean }) {
               </div>
             </div>
           )}
-        </Card>
+          </Card>
+        </FadeIn>
       )}
 
       {/* 국가 집중도 */}
@@ -1633,7 +1635,8 @@ function AnomalyTab({ data, isLoading }: { data: any; isLoading: boolean }) {
             ))}
           </div>
         )}
-      </Card>
+        </Card>
+      </FadeIn>
 
       {/* 패턴 이탈 */}
       {patternBreaks.length > 0 && (

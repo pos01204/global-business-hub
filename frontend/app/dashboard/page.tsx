@@ -79,13 +79,13 @@ export default function DashboardPage() {
   // Business Brain 데이터
   const { data: brainHealthData } = useQuery({
     queryKey: ['business-brain-health-dashboard'],
-    queryFn: businessBrainApi.getHealthScore,
+    queryFn: () => businessBrainApi.getHealthScore('30d'),
     staleTime: 5 * 60 * 1000,
   })
 
   const { data: brainBriefingData } = useQuery({
     queryKey: ['business-brain-briefing-dashboard'],
-    queryFn: businessBrainApi.getBriefing,
+    queryFn: () => businessBrainApi.getBriefing('30d'),
     staleTime: 5 * 60 * 1000,
   })
 
