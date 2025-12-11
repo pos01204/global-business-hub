@@ -222,6 +222,9 @@ async function loadArtists(forceReload: boolean = false) {
 
 /**
  * 텍스트 QC 데이터 로드 (Google Sheets 원본 시트에서)
+ * 
+ * 텍스트 QC 원본 시트 구조:
+ * global_product_id, kr_product_uuid, global_artist_id, name, pdp_descr, created_at, product_name, korean_place, status
  */
 async function loadTextQCData() {
   try {
@@ -235,69 +238,67 @@ async function loadTextQCData() {
     if (textData.length > 0) {
       const columns = Object.keys(textData[0]);
       console.log('[QC] 텍스트 시트 컬럼명:', columns.join(', '));
-      console.log('[QC] 텍스트 시트 첫 번째 레코드 샘플:', JSON.stringify({
-        status: textData[0].status,
-        completedAt: textData[0].completedAt,
-        needsRevision: textData[0].needsRevision,
-      }));
     }
 
     for (const record of textData) {
-      const id = generateId('text', record);
+      // global_product_id 기반으로 ID 생성
+      const globalProductId = record.global_product_id;
+      if (!globalProductId) {
+        continue; // ID가 없으면 스킵
+      }
       
-      // completedAt 확인 - 이 값이 있으면 QC 완료된 항목
-      const completedAtValue = record.completedAt || record.completed_at || record.CompletedAt;
-      const hasCompletedAt = completedAtValue && String(completedAtValue).trim() !== '';
+      const id = `text_${globalProductId}`;
       
       // status 컬럼 확인 (QC 상태: approved, needs_revision, excluded, archived)
       const rawStatus = String(record.status || '').trim().toLowerCase();
       
-      // QC 상태로 인정되는 값들만 체크
+      // QC 상태로 인정되는 값들
       const validQcStatuses = ['approved', 'needs_revision', 'excluded', 'archived'];
       const isValidQcStatus = validQcStatuses.includes(rawStatus);
       
-      // QC 완료 조건: completedAt이 있음 (가장 확실한 기준)
-      const isCompleted = hasCompletedAt;
-      
-      if (isCompleted) {
-        // 완료된 항목은 아카이브로
-        const status: 'pending' | 'approved' | 'needs_revision' | 'excluded' | 'archived' = 
-          isValidQcStatus ? rawStatus as any : 'approved';
-        
+      // archived 상태면 아카이브로
+      if (rawStatus === 'archived') {
         const qcItem: QCItem = {
           id,
           type: 'text',
           data: record,
-          status,
-          needsRevision: status === 'needs_revision' || record.needsRevision === true || String(record.needsRevision).toUpperCase() === 'TRUE',
-          createdAt: record.createdAt ? new Date(record.createdAt) : new Date(),
-          completedAt: new Date(completedAtValue),
+          status: 'archived',
+          needsRevision: false,
+          createdAt: record.created_at ? new Date(record.created_at) : new Date(),
+          completedAt: new Date(),
         };
         qcDataStore.archive.set(id, qcItem);
-        if (status === 'archived') {
-          archived++;
-        } else {
-          completed++;
-        }
+        archived++;
         continue;
       }
       
-      // 미검수 항목 (completedAt이 없음)
+      // 그 외 상태 처리
+      const status: QCItem['status'] = isValidQcStatus ? rawStatus as QCItem['status'] : 'pending';
+      const needsRevision = status === 'needs_revision';
+      
       const qcItem: QCItem = {
         id,
         type: 'text',
         data: record,
-        status: 'pending',
-        needsRevision: false,
-        createdAt: record.createdAt ? new Date(record.createdAt) : new Date(),
+        status,
+        needsRevision,
+        createdAt: record.created_at ? new Date(record.created_at) : new Date(),
         completedAt: undefined,
       };
 
-      qcDataStore.text.set(id, qcItem);
-      pending++;
+      if (status === 'approved' || status === 'excluded') {
+        // 승인/제외된 항목은 아카이브로
+        qcItem.completedAt = new Date();
+        qcDataStore.archive.set(id, qcItem);
+        completed++;
+      } else {
+        // 미검수 또는 수정필요 항목은 활성 목록에
+        qcDataStore.text.set(id, qcItem);
+        pending++;
+      }
     }
 
-    console.log(`[QC] 텍스트 QC 데이터 로드 완료: 전체 ${textData.length}개, 미검수 ${pending}개, 완료 ${completed}개, 아카이브 ${archived}개`);
+    console.log(`[QC] 텍스트 QC 데이터 로드 완료: 전체 ${textData.length}개, 미검수/수정필요 ${pending}개, 완료 ${completed}개, 아카이브 ${archived}개`);
   } catch (error) {
     console.error('[QC] 텍스트 QC 데이터 로드 실패:', error);
   }
@@ -305,6 +306,9 @@ async function loadTextQCData() {
 
 /**
  * 이미지 QC 데이터 로드 (Google Sheets 원본 시트에서)
+ * 
+ * 이미지 QC 원본 시트 구조:
+ * artist_id, product_id, description_id, detected_text, image_url, page_name, cmd_type, product_name, product_uuid, status, needsRevision, completedAt
  */
 async function loadImageQCData() {
   try {
@@ -313,76 +317,88 @@ async function loadImageQCData() {
     let pending = 0;
     let completed = 0;
     let archived = 0;
+    let needsRevisionCount = 0;
     
     // 첫 번째 레코드로 컬럼명 확인 (디버깅용)
     if (imageData.length > 0) {
       const columns = Object.keys(imageData[0]);
       console.log('[QC] 이미지 시트 컬럼명:', columns.join(', '));
-      console.log('[QC] 이미지 시트 첫 번째 레코드 샘플:', JSON.stringify({
-        status: imageData[0].status,
-        completedAt: imageData[0].completedAt,
-        needsRevision: imageData[0].needsRevision,
-        cmd_type: imageData[0].cmd_type,
-      }));
     }
 
     for (const record of imageData) {
-      const id = generateId('image', record);
+      // product_id + description_id + page_name 조합으로 고유 ID 생성
+      const productId = record.product_id;
+      const descriptionId = record.description_id;
+      const pageName = record.page_name || '';
       
-      // completedAt 확인 - 이 값이 있으면 QC 완료된 항목
-      const completedAtValue = record.completedAt || record.completed_at || record.CompletedAt;
-      const hasCompletedAt = completedAtValue && String(completedAtValue).trim() !== '';
+      if (!productId) {
+        continue; // product_id가 없으면 스킵
+      }
       
-      // status 컬럼 확인 (QC 상태: approved, needs_revision, excluded, archived)
+      const id = `image_${productId}_${descriptionId}_${pageName}`;
+      
+      // status 컬럼 확인 (J열)
       const rawStatus = String(record.status || '').trim().toLowerCase();
       
-      // QC 상태로 인정되는 값들만 체크 (NOCHANGE, NEW 등은 cmd_type이므로 제외)
+      // QC 상태로 인정되는 값들
       const validQcStatuses = ['approved', 'needs_revision', 'excluded', 'archived'];
       const isValidQcStatus = validQcStatuses.includes(rawStatus);
       
-      // QC 완료 조건: completedAt이 있음 (가장 확실한 기준)
-      // status가 유효한 QC 상태인 경우도 완료로 처리
-      const isCompleted = hasCompletedAt;
+      // needsRevision 확인 (K열)
+      const needsRevision = record.needsRevision === true || 
+                           String(record.needsRevision).toUpperCase() === 'TRUE' ||
+                           rawStatus === 'needs_revision';
       
-      if (isCompleted) {
-        // 완료된 항목은 아카이브로
-        const status: 'pending' | 'approved' | 'needs_revision' | 'excluded' | 'archived' = 
-          isValidQcStatus ? rawStatus as any : 'approved';
-        
+      // completedAt 확인 (L열)
+      const completedAtValue = record.completedAt;
+      const hasCompletedAt = completedAtValue && String(completedAtValue).trim() !== '';
+      
+      // archived 상태면 아카이브로
+      if (rawStatus === 'archived') {
         const qcItem: QCItem = {
           id,
           type: 'image',
           data: record,
-          status,
-          needsRevision: status === 'needs_revision' || record.needsRevision === true || String(record.needsRevision).toUpperCase() === 'TRUE',
-          createdAt: record.createdAt ? new Date(record.createdAt) : new Date(),
-          completedAt: new Date(completedAtValue),
+          status: 'archived',
+          needsRevision: false,
+          createdAt: new Date(),
+          completedAt: hasCompletedAt ? new Date(completedAtValue) : new Date(),
         };
         qcDataStore.archive.set(id, qcItem);
-        if (status === 'archived') {
-          archived++;
-        } else {
-          completed++;
-        }
+        archived++;
         continue;
       }
       
-      // 미검수 항목 (completedAt이 없음)
+      // 그 외 상태 처리
+      const status: QCItem['status'] = isValidQcStatus ? rawStatus as QCItem['status'] : 'pending';
+      
       const qcItem: QCItem = {
         id,
         type: 'image',
         data: record,
-        status: 'pending',
-        needsRevision: false,
-        createdAt: record.createdAt ? new Date(record.createdAt) : new Date(),
-        completedAt: undefined,
+        status,
+        needsRevision,
+        createdAt: new Date(),
+        completedAt: hasCompletedAt ? new Date(completedAtValue) : undefined,
       };
 
-      qcDataStore.image.set(id, qcItem);
-      pending++;
+      if (status === 'approved' || status === 'excluded') {
+        // 승인/제외된 항목은 아카이브로
+        qcItem.completedAt = qcItem.completedAt || new Date();
+        qcDataStore.archive.set(id, qcItem);
+        completed++;
+      } else if (status === 'needs_revision') {
+        // 수정필요 항목은 활성 목록에 (작가 알람용)
+        qcDataStore.image.set(id, qcItem);
+        needsRevisionCount++;
+      } else {
+        // 미검수 항목은 활성 목록에
+        qcDataStore.image.set(id, qcItem);
+        pending++;
+      }
     }
 
-    console.log(`[QC] 이미지 QC 데이터 로드 완료: 전체 ${imageData.length}개, 미검수 ${pending}개, 완료 ${completed}개, 아카이브 ${archived}개`);
+    console.log(`[QC] 이미지 QC 데이터 로드 완료: 전체 ${imageData.length}개, 미검수 ${pending}개, 수정필요 ${needsRevisionCount}개, 완료 ${completed}개, 아카이브 ${archived}개`);
   } catch (error) {
     console.error('[QC] 이미지 QC 데이터 로드 실패:', error);
   }
@@ -390,7 +406,12 @@ async function loadImageQCData() {
 
 /**
  * 아카이브 데이터 로드 (Google Sheets에서)
- * ARCHIVE_HEADERS 순서에 맞춰 데이터를 파싱
+ * 
+ * 아카이브 시트 구조 (이미지 QC 기준):
+ * artist_id, product_id, description_id, detected_text, image_url, page_name, cmd_type, product_name, product_uuid, status, needsRevision, completedAt, type, createdAt
+ * 
+ * 아카이브 시트 구조 (텍스트 QC 기준):
+ * global_product_id, kr_product_uuid, global_artist_id, name, pdp_descr, created_at, product_name, korean_place, status, needsRevision, completedAt, type, createdAt
  */
 async function loadArchiveData() {
   try {
@@ -399,29 +420,38 @@ async function loadArchiveData() {
     let skipped = 0;
 
     for (const record of archiveData) {
-      // 타입 확인 (필수 필드)
-      const recordType = record.type as 'text' | 'image';
-      if (!recordType || (recordType !== 'text' && recordType !== 'image')) {
-        skipped++;
-        continue;
-      }
-
-      // product_id 기반으로 ID 생성 (아카이브 시트 구조에 맞춤)
-      const productId = record.product_id || record.global_product_id;
-      if (!productId) {
+      // 타입 확인 - type 컬럼이 있으면 사용, 없으면 데이터 구조로 추론
+      let recordType: 'text' | 'image';
+      
+      if (record.type === 'text' || record.type === 'image') {
+        recordType = record.type;
+      } else if (record.artist_id && record.product_id && record.image_url) {
+        // 이미지 QC 구조로 추론
+        recordType = 'image';
+      } else if (record.global_product_id || record.kr_product_uuid) {
+        // 텍스트 QC 구조로 추론
+        recordType = 'text';
+      } else {
         skipped++;
         continue;
       }
 
       // 고유 ID 생성
-      const id = recordType === 'image' 
-        ? `${recordType}_${productId}_${record.page_name || ''}_${record.cmd_type || ''}`
-        : `${recordType}_${productId}`;
+      let id: string;
+      if (recordType === 'image') {
+        const productId = record.product_id || '';
+        const descriptionId = record.description_id || '';
+        const pageName = record.page_name || '';
+        id = `image_${productId}_${descriptionId}_${pageName}`;
+      } else {
+        const globalProductId = record.global_product_id || '';
+        id = `text_${globalProductId}`;
+      }
       
       // 상태 파싱
-      const rawStatus = String(record.status || 'approved').toLowerCase().trim();
+      const rawStatus = String(record.status || 'archived').toLowerCase().trim();
       const validStatuses = ['approved', 'needs_revision', 'excluded', 'archived'];
-      const status = validStatuses.includes(rawStatus) ? rawStatus as QCItem['status'] : 'approved';
+      const status = validStatuses.includes(rawStatus) ? rawStatus as QCItem['status'] : 'archived';
       
       // needsRevision 파싱
       const needsRevision = record.needsRevision === true || 
@@ -431,26 +461,7 @@ async function loadArchiveData() {
       const qcItem: QCItem = {
         id,
         type: recordType,
-        data: {
-          // 아카이브 시트의 컬럼을 원본 데이터 형식으로 매핑
-          product_id: record.product_id,
-          global_product_id: record.product_id,
-          product_name: record.product_name,
-          name: record.product_name,
-          artist_id: record.artist_id,
-          global_artist_id: record.artist_id,
-          artist_name: record.artist_name,
-          image_url: record.image_url,
-          page_name: record.page_name,
-          cmd_type: record.cmd_type,
-          detected_text: record.detected_text,
-          ocr_result: record.detected_text,
-          pdp_descr: record.original_text,
-          original_text: record.original_text,
-          korean_place: record.translated_text,
-          translated_text: record.translated_text,
-          memo: record.memo,
-        },
+        data: record, // 원본 데이터 그대로 저장
         status,
         needsRevision,
         createdAt: record.createdAt ? new Date(record.createdAt) : new Date(),
@@ -690,37 +701,30 @@ function getArtistInfo(artistId: string | number): { name: string; email?: strin
 
 /**
  * 고유 ID 생성
+ * 
+ * 이미지 QC: product_id + description_id + page_name 조합
+ * 텍스트 QC: global_product_id
  */
 function generateId(prefix: string, data: any): string {
-  // 이미지 QC의 경우 다양한 컬럼 조합 시도
+  // 이미지 QC의 경우: product_id + description_id + page_name 조합 (실제 시트 구조 기준)
   if (prefix === 'image') {
-    // 1. product_id + page_name + cmd_type 조합 (가장 고유함)
-    if (data.product_id && data.page_name && data.cmd_type) {
-      return `${prefix}_${data.product_id}_${data.page_name}_${data.cmd_type}`;
+    const productId = data.product_id || '';
+    const descriptionId = data.description_id || '';
+    const pageName = data.page_name || '';
+    
+    // 1. product_id + description_id + page_name 조합 (가장 고유함)
+    if (productId && descriptionId) {
+      return `${prefix}_${productId}_${descriptionId}_${pageName}`;
     }
     // 2. product_id + page_name 조합
-    if (data.product_id && data.page_name) {
-      return `${prefix}_${data.product_id}_${data.page_name}`;
+    if (productId && pageName) {
+      return `${prefix}_${productId}_${pageName}`;
     }
-    // 3. product_id + cmd_type 조합
-    if (data.product_id && data.cmd_type) {
-      return `${prefix}_${data.product_id}_${data.cmd_type}`;
+    // 3. product_id만 있는 경우
+    if (productId) {
+      return `${prefix}_${productId}`;
     }
-    // 4. product_id + image_url (이미지 URL의 일부 사용)
-    if (data.product_id && data.image_url) {
-      // URL에서 파일명 추출하여 사용
-      const urlParts = data.image_url.split('/');
-      const filename = urlParts[urlParts.length - 1] || '';
-      const fileId = filename.split('.')[0] || '';
-      if (fileId) {
-        return `${prefix}_${data.product_id}_${fileId}`;
-      }
-    }
-    // 5. product_id만 있는 경우
-    if (data.product_id) {
-      return `${prefix}_${data.product_id}`;
-    }
-    // 6. image_url만 있는 경우 (URL 해시 사용)
+    // 4. image_url만 있는 경우 (URL 해시 사용)
     if (data.image_url) {
       const urlHash = data.image_url.split('/').pop()?.split('.')[0] || '';
       if (urlHash) {
@@ -1170,8 +1174,13 @@ router.put('/:type/:id/status', async (req, res) => {
 /**
  * QC 상태를 Google Sheets 원본 시트에 저장하는 헬퍼 함수
  * 
- * 원본 시트 구조 (스크린샷 기준):
- * A: type, B: status, C: needsRevision, D: createdAt, E: completedAt, F~: 원본 데이터
+ * 이미지 QC 원본 시트 구조:
+ * A: artist_id, B: product_id, C: description_id, D: detected_text, E: image_url, 
+ * F: page_name, G: cmd_type, H: product_name, I: product_uuid, J: status, K: needsRevision, L: completedAt
+ * 
+ * 텍스트 QC 원본 시트 구조:
+ * A: global_product_id, B: kr_product_uuid, C: global_artist_id, D: name, E: pdp_descr, 
+ * F: created_at, G: product_name, H: korean_place, I: status
  */
 async function saveQCStatusToSheets(type: 'text' | 'image', item: QCItem) {
   try {
@@ -1179,11 +1188,9 @@ async function saveQCStatusToSheets(type: 'text' | 'image', item: QCItem) {
     const sheetName = type === 'text' ? SHEET_NAMES.QC_TEXT_RAW : SHEET_NAMES.QC_IMAGE_RAW;
     
     // 원본 시트 구조에 맞는 ID 컬럼 찾기
-    // 이미지 QC: product_id 또는 다른 고유 식별자
-    // 텍스트 QC: global_product_id 또는 product_id
     const possibleIdColumns = type === 'text' 
-      ? ['global_product_id', 'product_id', 'kr_product_uuid']
-      : ['product_id', 'image_url'];
+      ? ['global_product_id', 'kr_product_uuid']
+      : ['product_id', 'description_id'];
     
     let rowIndex: number | null = null;
     let itemId: string | null = null;
@@ -1207,38 +1214,44 @@ async function saveQCStatusToSheets(type: 'text' | 'image', item: QCItem) {
       console.error(`[QC] 시트에서 항목을 찾을 수 없습니다.`);
       console.error(`[QC] 시트: ${sheetName}`);
       console.error(`[QC] 시도한 ID 컬럼: ${possibleIdColumns.join(', ')}`);
-      console.error(`[QC] 항목 데이터 키:`, Object.keys(item.data).join(', '));
       return;
     }
 
-    // 원본 시트의 상태 컬럼 업데이트 (B, C, E 열 - 고정 위치)
-    // 시트 구조: A=type, B=status, C=needsRevision, D=createdAt, E=completedAt
     const updates: Array<{ range: string; value: any }> = [];
 
-    // status 컬럼 (B열)
-    const statusRange = await sheetsService.getCellRange(sheetName, 'status', rowIndex);
-    if (statusRange) {
-      updates.push({ range: statusRange, value: item.status });
-    } else {
-      // 컬럼이 없으면 B열에 직접 업데이트 시도
-      updates.push({ range: `B${rowIndex}`, value: item.status });
-    }
-
-    // needsRevision 컬럼 (C열)
-    const needsRevisionRange = await sheetsService.getCellRange(sheetName, 'needsRevision', rowIndex);
-    if (needsRevisionRange) {
-      updates.push({ range: needsRevisionRange, value: item.needsRevision ? 'TRUE' : 'FALSE' });
-    } else {
-      updates.push({ range: `C${rowIndex}`, value: item.needsRevision ? 'TRUE' : 'FALSE' });
-    }
-
-    // completedAt 컬럼 (E열) - 완료 상태일 때만
-    if (item.completedAt) {
+    if (type === 'image') {
+      // 이미지 QC: J=status, K=needsRevision, L=completedAt
+      const statusRange = await sheetsService.getCellRange(sheetName, 'status', rowIndex);
+      const needsRevisionRange = await sheetsService.getCellRange(sheetName, 'needsRevision', rowIndex);
       const completedAtRange = await sheetsService.getCellRange(sheetName, 'completedAt', rowIndex);
-      if (completedAtRange) {
-        updates.push({ range: completedAtRange, value: item.completedAt.toISOString() });
+      
+      if (statusRange) {
+        updates.push({ range: statusRange, value: item.status });
       } else {
-        updates.push({ range: `E${rowIndex}`, value: item.completedAt.toISOString() });
+        updates.push({ range: `J${rowIndex}`, value: item.status });
+      }
+      
+      if (needsRevisionRange) {
+        updates.push({ range: needsRevisionRange, value: item.needsRevision ? 'TRUE' : 'FALSE' });
+      } else {
+        updates.push({ range: `K${rowIndex}`, value: item.needsRevision ? 'TRUE' : 'FALSE' });
+      }
+      
+      if (item.completedAt) {
+        if (completedAtRange) {
+          updates.push({ range: completedAtRange, value: item.completedAt.toISOString() });
+        } else {
+          updates.push({ range: `L${rowIndex}`, value: item.completedAt.toISOString() });
+        }
+      }
+    } else {
+      // 텍스트 QC: I=status (needsRevision, completedAt 컬럼이 없으므로 status만 업데이트)
+      const statusRange = await sheetsService.getCellRange(sheetName, 'status', rowIndex);
+      
+      if (statusRange) {
+        updates.push({ range: statusRange, value: item.status });
+      } else {
+        updates.push({ range: `I${rowIndex}`, value: item.status });
       }
     }
 
@@ -1258,48 +1271,67 @@ async function saveQCStatusToSheets(type: 'text' | 'image', item: QCItem) {
 
 /**
  * 아카이브 시트 헤더 정의
- * [QC] archiving 시트의 컬럼 순서와 일치해야 함
+ * [QC] archiving 시트의 컬럼 순서
+ * 
+ * 이미지 QC 원본 시트 구조:
+ * artist_id, product_id, description_id, detected_text, image_url, page_name, cmd_type, product_name, product_uuid, status, needsRevision, completedAt
+ * 
+ * 텍스트 QC 원본 시트 구조:
+ * global_product_id, kr_product_uuid, global_artist_id, name, pdp_descr, created_at, product_name, korean_place, status
+ * 
+ * 아카이브 시트는 두 타입을 모두 저장해야 하므로 통합 구조 사용
  */
-const ARCHIVE_HEADERS = [
-  'type',           // A: QC 타입 (text/image)
-  'status',         // B: 상태 (approved, needs_revision, excluded, archived)
-  'needsRevision',  // C: 수정 필요 여부
-  'createdAt',      // D: 생성일시
-  'completedAt',    // E: 완료일시
-  'product_id',     // F: 제품 ID
-  'product_name',   // G: 제품명
-  'artist_id',      // H: 작가 ID
-  'artist_name',    // I: 작가명
-  'image_url',      // J: 이미지 URL (이미지 QC)
-  'page_name',      // K: 페이지명 (이미지 QC)
-  'cmd_type',       // L: 명령 타입 (이미지 QC)
-  'detected_text',  // M: OCR 결과 (이미지 QC)
-  'original_text',  // N: 원본 텍스트 (텍스트 QC)
-  'translated_text', // O: 번역 텍스트 (텍스트 QC)
-  'memo',           // P: 메모
+const ARCHIVE_HEADERS_IMAGE = [
+  'artist_id',      // A: 작가 ID
+  'product_id',     // B: 제품 ID
+  'description_id', // C: 설명 ID
+  'detected_text',  // D: OCR 감지 텍스트
+  'image_url',      // E: 이미지 URL
+  'page_name',      // F: 페이지명
+  'cmd_type',       // G: 명령 타입
+  'product_name',   // H: 제품명
+  'product_uuid',   // I: 제품 UUID
+  'status',         // J: 상태
+  'needsRevision',  // K: 수정 필요 여부
+  'completedAt',    // L: 완료일시
+  'type',           // M: QC 타입 (image/text)
+  'createdAt',      // N: 생성일시
+];
+
+const ARCHIVE_HEADERS_TEXT = [
+  'global_product_id', // A: 글로벌 제품 ID
+  'kr_product_uuid',   // B: KR 제품 UUID
+  'global_artist_id',  // C: 글로벌 작가 ID
+  'name',              // D: 일본어 제품명
+  'pdp_descr',         // E: 일본어 상세 설명
+  'created_at',        // F: 생성일
+  'product_name',      // G: 한글 제품명
+  'korean_place',      // H: 한글 위치
+  'status',            // I: 상태
+  'needsRevision',     // J: 수정 필요 여부
+  'completedAt',       // K: 완료일시
+  'type',              // L: QC 타입 (image/text)
+  'createdAt',         // M: QC 생성일시
 ];
 
 /**
- * 아카이브 시트 헤더 초기화 (없으면 생성)
+ * 아카이브 시트 헤더 초기화는 더 이상 필요하지 않음
+ * 아카이브 시트는 원본 시트와 동일한 구조를 사용
  */
 async function ensureArchiveHeaders() {
-  try {
-    // 아카이브 시트 첫 행 확인
-    const archiveData = await sheetsService.getSheetDataAsJson(SHEET_NAMES.QC_ARCHIVE, false);
-    
-    // 데이터가 없거나 헤더가 없으면 헤더 추가
-    if (archiveData.length === 0) {
-      console.log('[QC] 아카이브 시트에 헤더 추가 중...');
-      await sheetsService.appendRow(SHEET_NAMES.QC_ARCHIVE, ARCHIVE_HEADERS);
-      console.log('[QC] 아카이브 시트 헤더 추가 완료');
-    }
-  } catch (error) {
-    console.error('[QC] 아카이브 헤더 확인/추가 실패:', error);
-  }
+  // 아카이브 시트는 타입별로 다른 구조를 가지므로 헤더 자동 생성하지 않음
+  // 대신 데이터 저장 시 원본 시트 구조를 그대로 사용
+  console.log('[QC] 아카이브 시트 헤더 확인 완료 (원본 시트 구조 사용)');
 }
 
 /**
  * QC 완료 항목을 아카이브 시트에 저장하는 헬퍼 함수
+ * 
+ * 이미지 QC 원본 시트 구조:
+ * artist_id, product_id, description_id, detected_text, image_url, page_name, cmd_type, product_name, product_uuid, status, needsRevision, completedAt
+ * 
+ * 텍스트 QC 원본 시트 구조:
+ * global_product_id, kr_product_uuid, global_artist_id, name, pdp_descr, created_at, product_name, korean_place, status
  */
 async function saveToArchiveSheet(item: QCItem) {
   try {
@@ -1307,8 +1339,8 @@ async function saveToArchiveSheet(item: QCItem) {
     
     // 원본 시트에서 해당 행 찾기
     const possibleIdColumns = item.type === 'text' 
-      ? ['global_product_id', 'product_id', 'kr_product_uuid']
-      : ['product_id', 'image_url', 'page_name'];
+      ? ['global_product_id', 'kr_product_uuid']
+      : ['product_id', 'description_id'];
     
     let rowIndex: number | null = null;
     
@@ -1327,37 +1359,64 @@ async function saveToArchiveSheet(item: QCItem) {
         await sheetsService.updateCell(sheetName, statusRange, 'archived');
       }
       
-      const completedAtRange = await sheetsService.getCellRange(sheetName, 'completedAt', rowIndex) ||
-                               await sheetsService.getCellRange(sheetName, 'completed_at', rowIndex);
+      const completedAtRange = await sheetsService.getCellRange(sheetName, 'completedAt', rowIndex);
       if (completedAtRange && item.completedAt) {
         await sheetsService.updateCell(sheetName, completedAtRange, item.completedAt.toISOString());
       }
+      
+      // needsRevision 컬럼도 업데이트 (이미지 QC만 해당)
+      if (item.type === 'image') {
+        const needsRevisionRange = await sheetsService.getCellRange(sheetName, 'needsRevision', rowIndex);
+        if (needsRevisionRange) {
+          await sheetsService.updateCell(sheetName, needsRevisionRange, item.needsRevision ? 'TRUE' : 'FALSE');
+        }
+      }
     }
 
-    // 아카이브 시트에 정해진 컬럼 순서로 데이터 저장
-    const archiveRow = [
-      item.type,                                                    // type
-      item.status,                                                  // status
-      item.needsRevision ? 'TRUE' : 'FALSE',                       // needsRevision
-      item.createdAt.toISOString(),                                // createdAt
-      item.completedAt?.toISOString() || new Date().toISOString(), // completedAt
-      item.data.product_id || item.data.global_product_id || '',   // product_id
-      item.data.product_name || item.data.name || '',              // product_name
-      item.data.artist_id || item.data.global_artist_id || '',     // artist_id
-      item.data.artist_name || '',                                 // artist_name
-      item.data.image_url || '',                                   // image_url
-      item.data.page_name || '',                                   // page_name
-      item.data.cmd_type || '',                                    // cmd_type
-      item.data.detected_text || item.data.ocr_result || '',       // detected_text
-      item.data.pdp_descr || item.data.original_text || '',        // original_text (일본어)
-      item.data.korean_place || item.data.translated_text || '',   // translated_text (한글)
-      item.data.memo || '',                                        // memo
-    ];
+    // 아카이브 시트에 원본 시트 구조와 동일하게 저장
+    let archiveRow: any[];
+    
+    if (item.type === 'image') {
+      // 이미지 QC: artist_id, product_id, description_id, detected_text, image_url, page_name, cmd_type, product_name, product_uuid, status, needsRevision, completedAt, type, createdAt
+      archiveRow = [
+        item.data.artist_id || '',                                   // A: artist_id
+        item.data.product_id || '',                                  // B: product_id
+        item.data.description_id || '',                              // C: description_id
+        item.data.detected_text || '',                               // D: detected_text
+        item.data.image_url || '',                                   // E: image_url
+        item.data.page_name || '',                                   // F: page_name
+        item.data.cmd_type || '',                                    // G: cmd_type
+        item.data.product_name || '',                                // H: product_name
+        item.data.product_uuid || '',                                // I: product_uuid
+        item.status,                                                 // J: status
+        item.needsRevision ? 'TRUE' : 'FALSE',                       // K: needsRevision
+        item.completedAt?.toISOString() || new Date().toISOString(), // L: completedAt
+        item.type,                                                   // M: type
+        item.createdAt.toISOString(),                                // N: createdAt
+      ];
+    } else {
+      // 텍스트 QC: global_product_id, kr_product_uuid, global_artist_id, name, pdp_descr, created_at, product_name, korean_place, status, needsRevision, completedAt, type, createdAt
+      archiveRow = [
+        item.data.global_product_id || '',                           // A: global_product_id
+        item.data.kr_product_uuid || '',                             // B: kr_product_uuid
+        item.data.global_artist_id || '',                            // C: global_artist_id
+        item.data.name || '',                                        // D: name (일본어)
+        item.data.pdp_descr || '',                                   // E: pdp_descr (일본어 설명)
+        item.data.created_at || '',                                  // F: created_at
+        item.data.product_name || '',                                // G: product_name (한글)
+        item.data.korean_place || '',                                // H: korean_place
+        item.status,                                                 // I: status
+        item.needsRevision ? 'TRUE' : 'FALSE',                       // J: needsRevision
+        item.completedAt?.toISOString() || new Date().toISOString(), // K: completedAt
+        item.type,                                                   // L: type
+        item.createdAt.toISOString(),                                // M: createdAt
+      ];
+    }
 
     await sheetsService.appendRow(SHEET_NAMES.QC_ARCHIVE, archiveRow);
     
     console.log(`[QC] 아카이브 저장 완료: ${item.type} QC 항목 (${item.id})`);
-    console.log(`[QC] 저장된 데이터: product_id=${archiveRow[5]}, status=${archiveRow[1]}`);
+    console.log(`[QC] 저장된 데이터: ${item.type === 'image' ? 'product_id=' + archiveRow[1] : 'global_product_id=' + archiveRow[0]}, status=${item.status}`);
   } catch (error) {
     console.error('[QC] 아카이브 시트 저장 실패:', error);
     throw error;
