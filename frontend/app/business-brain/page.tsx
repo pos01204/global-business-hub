@@ -626,7 +626,7 @@ export default function BusinessBrainPage() {
 
           {/* 기회 발견 탭 */}
           {activeTab === 'insights' && (
-            <InsightsTab insights={insights} isLoading={insightsLoading} />
+            <InsightsTab insights={insights} isLoading={insightsLoading} period={selectedPeriod} />
           )}
 
           {/* 전략 제안 탭 */}
@@ -1066,7 +1066,15 @@ interface InsightAction {
   downloadType?: 'csv' | 'excel'
 }
 
-function InsightActionButton({ action, variant = 'default' }: { action: InsightAction; variant?: 'default' | 'primary' }) {
+function InsightActionButton({ 
+  action, 
+  variant = 'default',
+  period = '30d'
+}: { 
+  action: InsightAction
+  variant?: 'default' | 'primary'
+  period?: string
+}) {
   const router = useRouter()
   
   const handleClick = () => {
@@ -1105,9 +1113,10 @@ function InsightActionButton({ action, variant = 'default' }: { action: InsightA
 }
 
 // 인사이트 카드 컴포넌트 (v4.0 - 액션 버튼 포함)
-function InsightCard({ insight, colorScheme = 'slate' }: { 
+function InsightCard({ insight, colorScheme = 'slate', period = '30d' }: { 
   insight: any; 
-  colorScheme?: 'emerald' | 'slate' | 'red' | 'amber' 
+  colorScheme?: 'emerald' | 'slate' | 'red' | 'amber'
+  period?: string
 }) {
   const colorClasses = {
     emerald: {
@@ -1174,6 +1183,7 @@ function InsightCard({ insight, colorScheme = 'slate' }: {
                     key={action.id} 
                     action={action} 
                     variant={idx === 0 ? 'primary' : 'default'}
+                    period={period}
                   />
                 ))}
               </div>
@@ -1186,7 +1196,7 @@ function InsightCard({ insight, colorScheme = 'slate' }: {
 }
 
 // 인사이트 탭
-function InsightsTab({ insights, isLoading }: { insights: any[]; isLoading: boolean }) {
+function InsightsTab({ insights, isLoading, period = '30d' }: { insights: any[]; isLoading: boolean; period?: string }) {
   if (isLoading) {
     return (
       <FadeIn>
@@ -1239,7 +1249,7 @@ function InsightsTab({ insights, isLoading }: { insights: any[]; isLoading: bool
             </div>
             <div className="space-y-3">
               {criticals.map((insight: any) => (
-                <InsightCard key={insight.id} insight={insight} colorScheme="red" />
+                <InsightCard key={insight.id} insight={insight} colorScheme="red" period={period} />
               ))}
             </div>
           </Card>
@@ -1263,7 +1273,7 @@ function InsightsTab({ insights, isLoading }: { insights: any[]; isLoading: bool
             </div>
             <div className="space-y-3">
               {warnings.map((insight: any) => (
-                <InsightCard key={insight.id} insight={insight} colorScheme="amber" />
+                <InsightCard key={insight.id} insight={insight} colorScheme="amber" period={period} />
               ))}
             </div>
           </Card>
@@ -1287,7 +1297,7 @@ function InsightsTab({ insights, isLoading }: { insights: any[]; isLoading: bool
             </div>
             <div className="space-y-3">
               {opportunities.map((insight: any) => (
-                <InsightCard key={insight.id} insight={insight} colorScheme="emerald" />
+                <InsightCard key={insight.id} insight={insight} colorScheme="emerald" period={period} />
               ))}
             </div>
           </Card>
@@ -1311,7 +1321,7 @@ function InsightsTab({ insights, isLoading }: { insights: any[]; isLoading: bool
             </div>
             <div className="space-y-3">
               {infos.map((insight: any) => (
-                <InsightCard key={insight.id} insight={insight} colorScheme="slate" />
+                <InsightCard key={insight.id} insight={insight} colorScheme="slate" period={period} />
               ))}
             </div>
           </Card>

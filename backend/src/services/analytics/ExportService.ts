@@ -267,22 +267,22 @@ async function exportHealthScore(period: string): Promise<ExportResult> {
   const healthScore = await agent.calculateHealthScore(period as any)
   
   const dimensions = healthScore.dimensions
-  const exportData = [
+  const exportData: Array<Record<string, string | number>> = [
     { '차원': '종합', '점수': healthScore.overall, '추세': '-', '변화': '-' },
-    { '차원': '매출', '점수': dimensions.revenue.score, '추세': dimensions.revenue.trend, '변화': dimensions.revenue.change },
-    { '차원': '고객', '점수': dimensions.customer.score, '추세': dimensions.customer.trend, '변화': dimensions.customer.change },
-    { '차원': '작가', '점수': dimensions.artist.score, '추세': dimensions.artist.trend, '변화': dimensions.artist.change },
-    { '차원': '운영', '점수': dimensions.operations.score, '추세': dimensions.operations.trend, '변화': dimensions.operations.change }
+    { '차원': '매출', '점수': dimensions.revenue.score, '추세': dimensions.revenue.trend, '변화': String(dimensions.revenue.change) },
+    { '차원': '고객', '점수': dimensions.customer.score, '추세': dimensions.customer.trend, '변화': String(dimensions.customer.change) },
+    { '차원': '작가', '점수': dimensions.artist.score, '추세': dimensions.artist.trend, '변화': String(dimensions.artist.change) },
+    { '차원': '운영', '점수': dimensions.operations.score, '추세': dimensions.operations.trend, '변화': String(dimensions.operations.change) }
   ]
   
   // 요인별 상세
-  exportData.push({ '차원': '--- 매출 요인 ---', '점수': 0, '추세': '-', '변화': 0 })
+  exportData.push({ '차원': '--- 매출 요인 ---', '점수': 0, '추세': '-', '변화': '-' })
   for (const factor of dimensions.revenue.factors || []) {
     exportData.push({
       '차원': `  ${factor.name}`,
       '점수': factor.value,
       '추세': factor.status,
-      '변화': factor.contribution
+      '변화': String(factor.contribution)
     })
   }
   
