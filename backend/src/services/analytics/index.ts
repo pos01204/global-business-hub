@@ -11,6 +11,12 @@ export { BusinessBrainCache, businessBrainCache, CACHE_TTL } from './BusinessBra
 export { DataProcessor } from './DataProcessor'
 export { AIBriefingGenerator, aiBriefingGenerator } from './AIBriefingGenerator'
 
+// v4.0 추가 서비스
+export { mapActionsToInsight, mapActionsToInsights } from './InsightActionMapper'
+export { exportData, getSupportedExportTypes } from './ExportService'
+export { ChurnPredictor } from './ChurnPredictor'
+export { ArtistHealthCalculator } from './ArtistHealthCalculator'
+
 // Types
 export * from './types'
 export * from './DataProcessor'

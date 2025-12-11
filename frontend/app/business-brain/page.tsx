@@ -138,6 +138,174 @@ function AnimatedNumber({
   )
 }
 
+// ==================== 다운로드 버튼 컴포넌트 (v4.0) ====================
+
+type ExportType = 
+  | 'rfm-segments'
+  | 'rfm-customers'
+  | 'cohort-analysis'
+  | 'pareto-artists'
+  | 'anomaly-detection'
+  | 'insights'
+  | 'health-score'
+  | 'trends'
+
+const EXPORT_TYPE_LABELS: Record<ExportType, string> = {
+  'rfm-segments': 'RFM 세그먼트',
+  'rfm-customers': 'RFM 고객 목록',
+  'cohort-analysis': '코호트 분석',
+  'pareto-artists': '작가 파레토',
+  'anomaly-detection': '이상 탐지',
+  'insights': '인사이트',
+  'health-score': '건강도 점수',
+  'trends': '트렌드 분석'
+}
+
+function ExportButton({ 
+  type, 
+  period = '30d',
+  segment,
+  label,
+  variant = 'default'
+}: { 
+  type: ExportType
+  period?: string
+  segment?: string
+  label?: string
+  variant?: 'default' | 'icon-only'
+}) {
+  const [isExporting, setIsExporting] = useState(false)
+  
+  const handleExport = async () => {
+    setIsExporting(true)
+    try {
+      const url = businessBrainApi.getExportUrl(type, period as any, segment)
+      const link = document.createElement('a')
+      link.href = url
+      link.download = ''
+      document.body.appendChild(link)
+      link.click()
+      document.body.removeChild(link)
+    } catch (error) {
+      console.error('Export error:', error)
+    } finally {
+      setTimeout(() => setIsExporting(false), 1000)
+    }
+  }
+  
+  if (variant === 'icon-only') {
+    return (
+      <button
+        onClick={handleExport}
+        disabled={isExporting}
+        className="p-2 rounded-lg hover:bg-slate-100 dark:hover:bg-slate-700 transition-colors disabled:opacity-50"
+        title={`${label || EXPORT_TYPE_LABELS[type]} 다운로드`}
+      >
+        {isExporting ? (
+          <svg className="w-5 h-5 animate-spin text-slate-500" fill="none" viewBox="0 0 24 24">
+            <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" />
+            <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4z" />
+          </svg>
+        ) : (
+          <svg className="w-5 h-5 text-slate-500 hover:text-indigo-600 dark:text-slate-400 dark:hover:text-indigo-400" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-4l-4 4m0 0l-4-4m4 4V4" />
+          </svg>
+        )}
+      </button>
+    )
+  }
+  
+  return (
+    <button
+      onClick={handleExport}
+      disabled={isExporting}
+      className="inline-flex items-center gap-2 px-3 py-1.5 text-sm font-medium text-slate-600 dark:text-slate-300 bg-white dark:bg-slate-700 border border-slate-200 dark:border-slate-600 rounded-lg hover:bg-slate-50 dark:hover:bg-slate-600 transition-colors disabled:opacity-50"
+    >
+      {isExporting ? (
+        <>
+          <svg className="w-4 h-4 animate-spin" fill="none" viewBox="0 0 24 24">
+            <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" />
+            <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4z" />
+          </svg>
+          <span>다운로드 중...</span>
+        </>
+      ) : (
+        <>
+          <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-4l-4 4m0 0l-4-4m4 4V4" />
+          </svg>
+          <span>{label || '다운로드'}</span>
+        </>
+      )}
+    </button>
+  )
+}
+
+// 다운로드 드롭다운 메뉴 컴포넌트
+function ExportDropdown({ 
+  types, 
+  period = '30d' 
+}: { 
+  types: { type: ExportType; label: string }[]
+  period?: string 
+}) {
+  const [isOpen, setIsOpen] = useState(false)
+  const dropdownRef = useRef<HTMLDivElement>(null)
+  
+  // 외부 클릭 시 닫기
+  useEffect(() => {
+    function handleClickOutside(event: MouseEvent) {
+      if (dropdownRef.current && !dropdownRef.current.contains(event.target as Node)) {
+        setIsOpen(false)
+      }
+    }
+    document.addEventListener('mousedown', handleClickOutside)
+    return () => document.removeEventListener('mousedown', handleClickOutside)
+  }, [])
+  
+  const handleExport = (type: ExportType) => {
+    const url = businessBrainApi.getExportUrl(type, period as any)
+    const link = document.createElement('a')
+    link.href = url
+    link.download = ''
+    document.body.appendChild(link)
+    link.click()
+    document.body.removeChild(link)
+    setIsOpen(false)
+  }
+  
+  return (
+    <div className="relative" ref={dropdownRef}>
+      <button
+        onClick={() => setIsOpen(!isOpen)}
+        className="inline-flex items-center gap-2 px-3 py-1.5 text-sm font-medium text-slate-600 dark:text-slate-300 bg-white dark:bg-slate-700 border border-slate-200 dark:border-slate-600 rounded-lg hover:bg-slate-50 dark:hover:bg-slate-600 transition-colors"
+      >
+        <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-4l-4 4m0 0l-4-4m4 4V4" />
+        </svg>
+        <span>다운로드</span>
+        <svg className={`w-4 h-4 transition-transform ${isOpen ? 'rotate-180' : ''}`} fill="none" viewBox="0 0 24 24" stroke="currentColor">
+          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" />
+        </svg>
+      </button>
+      
+      {isOpen && (
+        <div className="absolute right-0 mt-2 w-48 bg-white dark:bg-slate-800 rounded-lg shadow-lg border border-slate-200 dark:border-slate-700 py-1 z-50">
+          {types.map(({ type, label }) => (
+            <button
+              key={type}
+              onClick={() => handleExport(type)}
+              className="w-full px-4 py-2 text-sm text-left text-slate-700 dark:text-slate-300 hover:bg-slate-50 dark:hover:bg-slate-700 transition-colors"
+            >
+              {label}
+            </button>
+          ))}
+        </div>
+      )}
+    </div>
+  )
+}
+
 const PERIOD_OPTIONS: { value: PeriodPreset; label: string }[] = [
   { value: '7d', label: '최근 7일' },
   { value: '30d', label: '최근 30일' },
@@ -260,6 +428,22 @@ export default function BusinessBrainPage() {
     enabled: activeTab === 'multiperiod',
   })
 
+  // v4.0: 이탈 예측
+  const { data: churnData, isLoading: churnLoading } = useQuery({
+    queryKey: ['business-brain-churn', selectedPeriod],
+    queryFn: () => businessBrainApi.getChurnPrediction(selectedPeriod === '7d' ? '90d' : selectedPeriod as any),
+    staleTime: 5 * 60 * 1000,
+    enabled: activeTab === 'churn',
+  })
+
+  // v4.0: 작가 건강도
+  const { data: artistHealthData, isLoading: artistHealthLoading } = useQuery({
+    queryKey: ['business-brain-artist-health', selectedPeriod],
+    queryFn: () => businessBrainApi.getArtistHealth(selectedPeriod === '7d' ? '90d' : selectedPeriod as any),
+    staleTime: 5 * 60 * 1000,
+    enabled: activeTab === 'artist-health',
+  })
+
   const briefing = briefingData?.briefing
   const healthScore = healthData?.score
   const insights = insightsData?.insights || []
@@ -292,6 +476,8 @@ export default function BusinessBrainPage() {
       name: '고급 분석',
       tabs: [
         { id: 'rfm', label: 'RFM', icon: '👥' },
+        { id: 'churn', label: '이탈 예측', icon: '🔮' },
+        { id: 'artist-health', label: '작가 건강도', icon: '🎨' },
         { id: 'pareto', label: '파레토', icon: '📊' },
         { id: 'cohort', label: '코호트', icon: '📈' },
         { id: 'anomaly', label: '이상 탐지', icon: '🔍' },
@@ -304,7 +490,7 @@ export default function BusinessBrainPage() {
   const tabItems = tabGroups.flatMap(g => g.tabs.map(t => ({ id: t.id, label: `${t.icon} ${t.label}` })))
 
   // 기간 선택이 필요한 탭들
-  const periodEnabledTabs = ['overview', 'comprehensive', 'rfm', 'pareto', 'cohort', 'anomaly', 'forecast', 'trends']
+  const periodEnabledTabs = ['overview', 'comprehensive', 'rfm', 'pareto', 'cohort', 'anomaly', 'forecast', 'trends', 'churn', 'artist-health']
 
   return (
     <div className="p-6 space-y-6 min-h-screen">
@@ -481,6 +667,16 @@ export default function BusinessBrainPage() {
           {/* 매출 예측 탭 */}
           {activeTab === 'forecast' && (
             <ForecastTab data={forecastData} isLoading={forecastLoading} />
+          )}
+
+          {/* v4.0: 이탈 예측 탭 */}
+          {activeTab === 'churn' && (
+            <ChurnPredictionTab data={churnData} isLoading={churnLoading} period={selectedPeriod} />
+          )}
+
+          {/* v4.0: 작가 건강도 탭 */}
+          {activeTab === 'artist-health' && (
+            <ArtistHealthTab data={artistHealthData} isLoading={artistHealthLoading} />
           )}
         </>
       )}
@@ -857,6 +1053,130 @@ function RisksTab({ checks, isLoading, summary }: { checks: any[]; isLoading: bo
   )
 }
 
+// ==================== 액션 버튼 컴포넌트 (v4.0) ====================
+
+interface InsightAction {
+  id: string
+  label: string
+  icon: string
+  type: 'navigate' | 'api_call' | 'download'
+  href?: string
+  params?: Record<string, any>
+}
+
+function InsightActionButton({ action, variant = 'default' }: { action: InsightAction; variant?: 'default' | 'primary' }) {
+  const router = useRouter()
+  
+  const handleClick = () => {
+    if (action.type === 'navigate' && action.href) {
+      const params = action.params ? new URLSearchParams(
+        Object.entries(action.params).map(([k, v]) => [k, String(v)])
+      ).toString() : ''
+      const url = params ? `${action.href}?${params}` : action.href
+      router.push(url)
+    } else if (action.type === 'download') {
+      // TODO: 다운로드 기능 구현
+      console.log('Download:', action.dataKey)
+    }
+  }
+  
+  const baseStyles = "inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-medium transition-all duration-200"
+  const variantStyles = variant === 'primary'
+    ? "bg-indigo-600 text-white hover:bg-indigo-700 shadow-sm hover:shadow"
+    : "bg-white dark:bg-slate-700 text-slate-700 dark:text-slate-200 border border-slate-200 dark:border-slate-600 hover:bg-slate-50 dark:hover:bg-slate-600 hover:border-slate-300 dark:hover:border-slate-500"
+  
+  return (
+    <button
+      onClick={handleClick}
+      className={`${baseStyles} ${variantStyles}`}
+    >
+      <span>{action.icon}</span>
+      <span>{action.label}</span>
+    </button>
+  )
+}
+
+// 인사이트 카드 컴포넌트 (v4.0 - 액션 버튼 포함)
+function InsightCard({ insight, colorScheme = 'slate' }: { 
+  insight: any; 
+  colorScheme?: 'emerald' | 'slate' | 'red' | 'amber' 
+}) {
+  const colorClasses = {
+    emerald: {
+      bg: 'bg-emerald-50 dark:bg-emerald-900/20',
+      title: 'text-emerald-800 dark:text-emerald-200',
+      desc: 'text-emerald-600 dark:text-emerald-400',
+      rec: 'text-emerald-700 dark:text-emerald-300',
+      actionBg: 'bg-emerald-100/50 dark:bg-emerald-800/30'
+    },
+    slate: {
+      bg: 'bg-slate-50 dark:bg-slate-800',
+      title: 'text-slate-800 dark:text-slate-100',
+      desc: 'text-slate-600 dark:text-slate-400',
+      rec: 'text-slate-700 dark:text-slate-300',
+      actionBg: 'bg-slate-100/50 dark:bg-slate-700/50'
+    },
+    red: {
+      bg: 'bg-red-50 dark:bg-red-900/20',
+      title: 'text-red-800 dark:text-red-200',
+      desc: 'text-red-600 dark:text-red-400',
+      rec: 'text-red-700 dark:text-red-300',
+      actionBg: 'bg-red-100/50 dark:bg-red-800/30'
+    },
+    amber: {
+      bg: 'bg-amber-50 dark:bg-amber-900/20',
+      title: 'text-amber-800 dark:text-amber-200',
+      desc: 'text-amber-600 dark:text-amber-400',
+      rec: 'text-amber-700 dark:text-amber-300',
+      actionBg: 'bg-amber-100/50 dark:bg-amber-800/30'
+    }
+  }
+  
+  const colors = colorClasses[colorScheme]
+  const hasActions = insight.actions && insight.actions.length > 0
+  
+  return (
+    <div className={`p-4 ${colors.bg} rounded-lg`}>
+      <div className="flex items-start gap-3">
+        <span className="text-xl">{getInsightIcon(insight.type)}</span>
+        <div className="flex-1 min-w-0">
+          <div className="flex items-center gap-2 mb-1 flex-wrap">
+            <h3 className={`font-medium ${colors.title}`}>
+              {insight.title}
+            </h3>
+            <Badge variant={getInsightVariant(insight.type)}>
+              {getInsightLabel(insight.type)}
+            </Badge>
+          </div>
+          <p className={`text-sm ${colors.desc} mt-1`}>
+            {insight.description}
+          </p>
+          {insight.recommendation && (
+            <p className={`text-sm ${colors.rec} mt-2 font-medium`}>
+              → {insight.recommendation}
+            </p>
+          )}
+          
+          {/* 액션 버튼 영역 (v4.0) */}
+          {hasActions && (
+            <div className={`mt-3 pt-3 border-t border-slate-200/50 dark:border-slate-600/50`}>
+              <div className="flex flex-wrap gap-2">
+                {insight.actions.slice(0, 4).map((action: InsightAction, idx: number) => (
+                  <InsightActionButton 
+                    key={action.id} 
+                    action={action} 
+                    variant={idx === 0 ? 'primary' : 'default'}
+                  />
+                ))}
+              </div>
+            </div>
+          )}
+        </div>
+      </div>
+    </div>
+  )
+}
+
 // 인사이트 탭
 function InsightsTab({ insights, isLoading }: { insights: any[]; isLoading: boolean }) {
   if (isLoading) {
@@ -877,8 +1197,10 @@ function InsightsTab({ insights, isLoading }: { insights: any[]; isLoading: bool
     )
   }
 
+  const criticals = insights.filter(i => i.type === 'critical')
+  const warnings = insights.filter(i => i.type === 'warning')
   const opportunities = insights.filter(i => i.type === 'opportunity')
-  const others = insights.filter(i => i.type !== 'opportunity')
+  const infos = insights.filter(i => i.type === 'info')
 
   if (insights.length === 0) {
     return (
@@ -892,82 +1214,641 @@ function InsightsTab({ insights, isLoading }: { insights: any[]; isLoading: bool
 
   return (
     <div className="space-y-6">
-      {/* 기회 */}
-      {opportunities.length > 0 && (
+      {/* 긴급 (Critical) */}
+      {criticals.length > 0 && (
         <FadeIn>
-          <Card className="p-6">
-            <div className="flex items-center gap-3 mb-6">
-              <div className="w-10 h-10 bg-gradient-to-br from-yellow-500 to-amber-600 rounded-xl flex items-center justify-center">
-                <span className="text-xl">💡</span>
+          <Card className="p-6 border-l-4 border-l-red-500">
+            <div className="flex items-center gap-3 mb-4">
+              <div className="w-10 h-10 bg-gradient-to-br from-red-500 to-red-600 rounded-xl flex items-center justify-center">
+                <span className="text-xl">🚨</span>
               </div>
-              <h2 className="text-lg font-semibold text-slate-800 dark:text-slate-100">
-                발견된 기회
-              </h2>
+              <div>
+                <h2 className="text-lg font-semibold text-slate-800 dark:text-slate-100">
+                  즉시 조치 필요
+                </h2>
+                <p className="text-xs text-red-600 dark:text-red-400">{criticals.length}건의 긴급 사항</p>
+              </div>
             </div>
-          <div className="space-y-4">
-            {opportunities.map((insight: any) => (
-              <div key={insight.id} className="p-4 bg-emerald-50 dark:bg-emerald-900/20 rounded-lg">
-                <div className="flex items-start gap-3">
-                  <span className="text-xl">💡</span>
-                  <div className="flex-1">
-                    <h3 className="font-medium text-emerald-800 dark:text-emerald-200">
-                      {insight.title}
-                    </h3>
-                    <p className="text-sm text-emerald-600 dark:text-emerald-400 mt-1">
-                      {insight.description}
-                    </p>
-                    {insight.recommendation && (
-                      <p className="text-sm text-emerald-700 dark:text-emerald-300 mt-2 font-medium">
-                        → {insight.recommendation}
-                      </p>
-                    )}
-                  </div>
-                </div>
-              </div>
-            ))}
-          </div>
+            <div className="space-y-3">
+              {criticals.map((insight: any) => (
+                <InsightCard key={insight.id} insight={insight} colorScheme="red" />
+              ))}
+            </div>
           </Card>
         </FadeIn>
       )}
 
-      {/* 기타 인사이트 */}
-      {others.length > 0 && (
-        <Card className="p-6">
-          <h2 className="text-lg font-semibold text-slate-800 dark:text-slate-100 mb-4">
-            📊 기타 인사이트
-          </h2>
-          <div className="space-y-4">
-            {others.map((insight: any) => (
-              <div key={insight.id} className="p-4 bg-slate-50 dark:bg-slate-800 rounded-lg">
-                <div className="flex items-start gap-3">
-                  <span className="text-xl">{getInsightIcon(insight.type)}</span>
-                  <div className="flex-1">
-                    <div className="flex items-center gap-2 mb-1">
-                      <h3 className="font-medium text-slate-800 dark:text-slate-100">
-                        {insight.title}
-                      </h3>
-                      <Badge variant={getInsightVariant(insight.type)}>
-                        {getInsightLabel(insight.type)}
-                      </Badge>
-                    </div>
-                    <p className="text-sm text-slate-600 dark:text-slate-400">
-                      {insight.description}
-                    </p>
-                  </div>
-                </div>
+      {/* 주의 (Warning) */}
+      {warnings.length > 0 && (
+        <FadeIn delay={100}>
+          <Card className="p-6 border-l-4 border-l-amber-500">
+            <div className="flex items-center gap-3 mb-4">
+              <div className="w-10 h-10 bg-gradient-to-br from-amber-500 to-amber-600 rounded-xl flex items-center justify-center">
+                <span className="text-xl">⚠️</span>
               </div>
-            ))}
-          </div>
-        </Card>
+              <div>
+                <h2 className="text-lg font-semibold text-slate-800 dark:text-slate-100">
+                  주의 관찰 필요
+                </h2>
+                <p className="text-xs text-amber-600 dark:text-amber-400">{warnings.length}건의 주의 사항</p>
+              </div>
+            </div>
+            <div className="space-y-3">
+              {warnings.map((insight: any) => (
+                <InsightCard key={insight.id} insight={insight} colorScheme="amber" />
+              ))}
+            </div>
+          </Card>
+        </FadeIn>
       )}
 
-      {insights.length === 0 && (
-        <Card className="p-8 text-center">
-          <p className="text-slate-500 dark:text-slate-400">
-            현재 발견된 인사이트가 없습니다.
-          </p>
-        </Card>
+      {/* 기회 (Opportunity) */}
+      {opportunities.length > 0 && (
+        <FadeIn delay={200}>
+          <Card className="p-6 border-l-4 border-l-emerald-500">
+            <div className="flex items-center gap-3 mb-4">
+              <div className="w-10 h-10 bg-gradient-to-br from-emerald-500 to-emerald-600 rounded-xl flex items-center justify-center">
+                <span className="text-xl">💡</span>
+              </div>
+              <div>
+                <h2 className="text-lg font-semibold text-slate-800 dark:text-slate-100">
+                  성장 기회
+                </h2>
+                <p className="text-xs text-emerald-600 dark:text-emerald-400">{opportunities.length}건의 기회 발견</p>
+              </div>
+            </div>
+            <div className="space-y-3">
+              {opportunities.map((insight: any) => (
+                <InsightCard key={insight.id} insight={insight} colorScheme="emerald" />
+              ))}
+            </div>
+          </Card>
+        </FadeIn>
       )}
+
+      {/* 정보 (Info) */}
+      {infos.length > 0 && (
+        <FadeIn delay={300}>
+          <Card className="p-6">
+            <div className="flex items-center gap-3 mb-4">
+              <div className="w-10 h-10 bg-gradient-to-br from-slate-500 to-slate-600 rounded-xl flex items-center justify-center">
+                <span className="text-xl">📊</span>
+              </div>
+              <div>
+                <h2 className="text-lg font-semibold text-slate-800 dark:text-slate-100">
+                  참고 정보
+                </h2>
+                <p className="text-xs text-slate-500 dark:text-slate-400">{infos.length}건의 정보</p>
+              </div>
+            </div>
+            <div className="space-y-3">
+              {infos.map((insight: any) => (
+                <InsightCard key={insight.id} insight={insight} colorScheme="slate" />
+              ))}
+            </div>
+          </Card>
+        </FadeIn>
+      )}
+    </div>
+  )
+}
+
+// ==================== v4.0: 이탈 예측 탭 ====================
+
+function ChurnPredictionTab({ data, isLoading, period }: { data: any; isLoading: boolean; period: string }) {
+  const router = useRouter()
+  
+  if (isLoading) {
+    return (
+      <FadeIn>
+        <div className="flex flex-col items-center justify-center h-64 gap-4">
+          <div className="relative">
+            <div className="w-16 h-16 border-4 border-rose-200 dark:border-rose-800 rounded-full animate-spin border-t-rose-600" />
+            <div className="absolute inset-0 flex items-center justify-center">
+              <span className="text-2xl">🔮</span>
+            </div>
+          </div>
+          <p className="text-sm text-slate-500 dark:text-slate-400 animate-pulse">
+            고객 이탈 위험을 분석하고 있습니다...
+          </p>
+        </div>
+      </FadeIn>
+    )
+  }
+
+  const summary = data?.summary
+  const predictions = data?.predictions || []
+
+  if (!summary || predictions.length === 0) {
+    return (
+      <EmptyState 
+        icon="🔮" 
+        title="이탈 예측 데이터가 없습니다" 
+        description="충분한 고객 구매 이력이 쌓이면 이탈 예측 분석을 제공합니다."
+      />
+    )
+  }
+
+  const riskLevelColors: Record<string, { bg: string; text: string; border: string }> = {
+    critical: { 
+      bg: 'bg-red-50 dark:bg-red-900/20', 
+      text: 'text-red-700 dark:text-red-300',
+      border: 'border-l-red-500'
+    },
+    high: { 
+      bg: 'bg-orange-50 dark:bg-orange-900/20', 
+      text: 'text-orange-700 dark:text-orange-300',
+      border: 'border-l-orange-500'
+    },
+    medium: { 
+      bg: 'bg-amber-50 dark:bg-amber-900/20', 
+      text: 'text-amber-700 dark:text-amber-300',
+      border: 'border-l-amber-500'
+    },
+    low: { 
+      bg: 'bg-green-50 dark:bg-green-900/20', 
+      text: 'text-green-700 dark:text-green-300',
+      border: 'border-l-green-500'
+    }
+  }
+
+  const riskLevelLabels: Record<string, string> = {
+    critical: '🚨 위험',
+    high: '⚠️ 높음',
+    medium: '📊 중간',
+    low: '✅ 낮음'
+  }
+
+  return (
+    <div className="space-y-6">
+      {/* 요약 카드 */}
+      <FadeIn>
+        <Card className="p-6">
+          <div className="flex items-center justify-between mb-6">
+            <div className="flex items-center gap-3">
+              <div className="w-10 h-10 bg-gradient-to-br from-rose-500 to-pink-600 rounded-xl flex items-center justify-center">
+                <span className="text-xl">🔮</span>
+              </div>
+              <div>
+                <h2 className="text-lg font-semibold text-slate-800 dark:text-slate-100">
+                  고객 이탈 예측
+                </h2>
+                <p className="text-xs text-slate-500">구매 패턴 기반 이탈 확률 분석</p>
+              </div>
+            </div>
+            <ExportButton type="rfm-customers" label="위험 고객 목록" />
+          </div>
+
+          {/* 요약 통계 */}
+          <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
+            <div className="p-4 bg-slate-50 dark:bg-slate-800 rounded-xl text-center">
+              <div className="text-2xl font-bold text-slate-800 dark:text-slate-100">
+                {summary.totalCustomers.toLocaleString()}
+              </div>
+              <div className="text-xs text-slate-500 mt-1">전체 고객</div>
+            </div>
+            <div className="p-4 bg-red-50 dark:bg-red-900/20 rounded-xl text-center">
+              <div className="text-2xl font-bold text-red-600 dark:text-red-400">
+                {summary.atRiskCustomers.toLocaleString()}
+              </div>
+              <div className="text-xs text-red-600 dark:text-red-400 mt-1">이탈 위험 고객</div>
+            </div>
+            <div className="p-4 bg-rose-50 dark:bg-rose-900/20 rounded-xl text-center">
+              <div className="text-2xl font-bold text-rose-600 dark:text-rose-400">
+                ${summary.totalValueAtRisk.toLocaleString()}
+              </div>
+              <div className="text-xs text-rose-600 dark:text-rose-400 mt-1">위험 예상 가치</div>
+            </div>
+            <div className="p-4 bg-amber-50 dark:bg-amber-900/20 rounded-xl text-center">
+              <div className="text-2xl font-bold text-amber-600 dark:text-amber-400">
+                {summary.avgChurnProbability.toFixed(1)}%
+              </div>
+              <div className="text-xs text-amber-600 dark:text-amber-400 mt-1">평균 이탈 확률</div>
+            </div>
+          </div>
+
+          {/* 리스크 레벨별 분포 */}
+          <div className="mt-6">
+            <h3 className="text-sm font-medium text-slate-700 dark:text-slate-300 mb-3">리스크 레벨 분포</h3>
+            <div className="flex gap-2">
+              {[
+                { level: 'critical', count: summary.criticalCount, color: 'bg-red-500' },
+                { level: 'high', count: summary.highCount, color: 'bg-orange-500' },
+                { level: 'medium', count: summary.mediumCount, color: 'bg-amber-500' },
+                { level: 'low', count: summary.lowCount, color: 'bg-green-500' }
+              ].map(item => (
+                <div key={item.level} className="flex items-center gap-2 px-3 py-1.5 bg-slate-100 dark:bg-slate-700 rounded-lg">
+                  <div className={`w-3 h-3 ${item.color} rounded-full`} />
+                  <span className="text-sm text-slate-600 dark:text-slate-300">
+                    {riskLevelLabels[item.level]}: {item.count}명
+                  </span>
+                </div>
+              ))}
+            </div>
+          </div>
+        </Card>
+      </FadeIn>
+
+      {/* 위험 고객 목록 */}
+      <FadeIn delay={100}>
+        <Card className="p-6">
+          <div className="flex items-center justify-between mb-4">
+            <h3 className="text-lg font-semibold text-slate-800 dark:text-slate-100">
+              🚨 이탈 위험 고객 (상위 {Math.min(predictions.length, 20)}명)
+            </h3>
+          </div>
+
+          <div className="space-y-3">
+            {predictions.slice(0, 20).map((prediction: any, idx: number) => {
+              const colors = riskLevelColors[prediction.riskLevel] || riskLevelColors.low
+              
+              return (
+                <FadeIn key={prediction.customerId} delay={idx * 30}>
+                  <div className={`p-4 rounded-xl border-l-4 ${colors.bg} ${colors.border}`}>
+                    <div className="flex items-start justify-between gap-4">
+                      <div className="flex-1 min-w-0">
+                        <div className="flex items-center gap-2 mb-2">
+                          <span className="font-medium text-slate-800 dark:text-slate-100">
+                            {prediction.customerName || `고객 #${prediction.customerId}`}
+                          </span>
+                          <Badge variant={
+                            prediction.riskLevel === 'critical' ? 'danger' :
+                            prediction.riskLevel === 'high' ? 'warning' : 'default'
+                          }>
+                            {riskLevelLabels[prediction.riskLevel]}
+                          </Badge>
+                          <span className="text-sm text-slate-500">
+                            {prediction.currentSegment}
+                          </span>
+                        </div>
+                        
+                        <div className="flex flex-wrap gap-4 text-sm text-slate-600 dark:text-slate-400 mb-2">
+                          <span>이탈 확률: <strong className={colors.text}>{prediction.churnProbability}%</strong></span>
+                          <span>예상 이탈까지: <strong>{prediction.daysUntilChurn}일</strong></span>
+                          <span>마지막 주문: {prediction.lastOrderDate}</span>
+                          <span>총 주문: {prediction.totalOrders}건</span>
+                          <span>총 구매: ${prediction.lifetimeValue?.historical?.toFixed(0) || 0}</span>
+                        </div>
+                        
+                        {/* 위험 요인 */}
+                        {prediction.riskFactors && prediction.riskFactors.length > 0 && (
+                          <div className="flex flex-wrap gap-2 mb-2">
+                            {prediction.riskFactors.slice(0, 3).map((factor: any, fIdx: number) => (
+                              <span 
+                                key={fIdx}
+                                className="text-xs px-2 py-1 bg-white/50 dark:bg-slate-700/50 rounded text-slate-600 dark:text-slate-400"
+                              >
+                                {factor.factor}: {factor.currentValue}
+                              </span>
+                            ))}
+                          </div>
+                        )}
+                        
+                        {/* 권장 조치 */}
+                        {prediction.recommendedActions && prediction.recommendedActions.length > 0 && (
+                          <div className="flex flex-wrap gap-2 mt-3">
+                            {prediction.recommendedActions.slice(0, 2).map((action: any, aIdx: number) => (
+                              <button
+                                key={aIdx}
+                                onClick={() => {
+                                  if (action.action.includes('쿠폰')) {
+                                    router.push('/coupon-generator')
+                                  }
+                                }}
+                                className="text-xs px-3 py-1.5 bg-indigo-100 dark:bg-indigo-900/30 text-indigo-700 dark:text-indigo-300 rounded-lg hover:bg-indigo-200 dark:hover:bg-indigo-800/40 transition-colors"
+                              >
+                                {action.action}
+                              </button>
+                            ))}
+                          </div>
+                        )}
+                      </div>
+                      
+                      {/* 이탈 확률 게이지 */}
+                      <div className="flex-shrink-0 w-16 text-center">
+                        <div className="relative w-14 h-14 mx-auto">
+                          <svg className="w-14 h-14 transform -rotate-90">
+                            <circle
+                              cx="28"
+                              cy="28"
+                              r="24"
+                              stroke="currentColor"
+                              strokeWidth="4"
+                              fill="none"
+                              className="text-slate-200 dark:text-slate-700"
+                            />
+                            <circle
+                              cx="28"
+                              cy="28"
+                              r="24"
+                              stroke="currentColor"
+                              strokeWidth="4"
+                              fill="none"
+                              strokeDasharray={`${prediction.churnProbability * 1.51} 151`}
+                              className={
+                                prediction.churnProbability >= 70 ? 'text-red-500' :
+                                prediction.churnProbability >= 50 ? 'text-orange-500' :
+                                prediction.churnProbability >= 30 ? 'text-amber-500' : 'text-green-500'
+                              }
+                            />
+                          </svg>
+                          <div className="absolute inset-0 flex items-center justify-center">
+                            <span className={`text-sm font-bold ${colors.text}`}>
+                              {prediction.churnProbability}%
+                            </span>
+                          </div>
+                        </div>
+                      </div>
+                    </div>
+                  </div>
+                </FadeIn>
+              )
+            })}
+          </div>
+        </Card>
+      </FadeIn>
+    </div>
+  )
+}
+
+// ==================== v4.0: 작가 건강도 탭 ====================
+
+function ArtistHealthTab({ data, isLoading }: { data: any; isLoading: boolean }) {
+  if (isLoading) {
+    return (
+      <FadeIn>
+        <div className="flex flex-col items-center justify-center h-64 gap-4">
+          <div className="relative">
+            <div className="w-16 h-16 border-4 border-violet-200 dark:border-violet-800 rounded-full animate-spin border-t-violet-600" />
+            <div className="absolute inset-0 flex items-center justify-center">
+              <span className="text-2xl">🎨</span>
+            </div>
+          </div>
+          <p className="text-sm text-slate-500 dark:text-slate-400 animate-pulse">
+            작가 건강도를 분석하고 있습니다...
+          </p>
+        </div>
+      </FadeIn>
+    )
+  }
+
+  const summary = data?.summary
+  const artists = data?.artists || []
+
+  if (!summary || artists.length === 0) {
+    return (
+      <EmptyState 
+        icon="🎨" 
+        title="작가 건강도 데이터가 없습니다" 
+        description="충분한 작가 활동 데이터가 쌓이면 건강도 분석을 제공합니다."
+      />
+    )
+  }
+
+  const tierColors: Record<string, { bg: string; text: string; border: string }> = {
+    S: { bg: 'bg-purple-50 dark:bg-purple-900/20', text: 'text-purple-700 dark:text-purple-300', border: 'border-purple-500' },
+    A: { bg: 'bg-blue-50 dark:bg-blue-900/20', text: 'text-blue-700 dark:text-blue-300', border: 'border-blue-500' },
+    B: { bg: 'bg-emerald-50 dark:bg-emerald-900/20', text: 'text-emerald-700 dark:text-emerald-300', border: 'border-emerald-500' },
+    C: { bg: 'bg-amber-50 dark:bg-amber-900/20', text: 'text-amber-700 dark:text-amber-300', border: 'border-amber-500' },
+    D: { bg: 'bg-red-50 dark:bg-red-900/20', text: 'text-red-700 dark:text-red-300', border: 'border-red-500' }
+  }
+
+  const tierLabels: Record<string, string> = {
+    S: '🏆 S티어',
+    A: '🥇 A티어',
+    B: '🥈 B티어',
+    C: '🥉 C티어',
+    D: '⚠️ D티어'
+  }
+
+  return (
+    <div className="space-y-6">
+      {/* 요약 카드 */}
+      <FadeIn>
+        <Card className="p-6">
+          <div className="flex items-center justify-between mb-6">
+            <div className="flex items-center gap-3">
+              <div className="w-10 h-10 bg-gradient-to-br from-violet-500 to-purple-600 rounded-xl flex items-center justify-center">
+                <span className="text-xl">🎨</span>
+              </div>
+              <div>
+                <h2 className="text-lg font-semibold text-slate-800 dark:text-slate-100">
+                  작가 건강도
+                </h2>
+                <p className="text-xs text-slate-500">4차원 종합 건강도 분석</p>
+              </div>
+            </div>
+            <ExportButton type="pareto-artists" label="작가 데이터" />
+          </div>
+
+          {/* 요약 통계 */}
+          <div className="grid grid-cols-2 md:grid-cols-4 gap-4 mb-6">
+            <div className="p-4 bg-slate-50 dark:bg-slate-800 rounded-xl text-center">
+              <div className="text-2xl font-bold text-slate-800 dark:text-slate-100">
+                {summary.totalArtists}
+              </div>
+              <div className="text-xs text-slate-500 mt-1">전체 작가</div>
+            </div>
+            <div className="p-4 bg-violet-50 dark:bg-violet-900/20 rounded-xl text-center">
+              <div className="text-2xl font-bold text-violet-600 dark:text-violet-400">
+                {summary.avgOverallScore.toFixed(1)}
+              </div>
+              <div className="text-xs text-violet-600 dark:text-violet-400 mt-1">평균 건강도</div>
+            </div>
+            <div className="p-4 bg-purple-50 dark:bg-purple-900/20 rounded-xl text-center">
+              <div className="text-2xl font-bold text-purple-600 dark:text-purple-400">
+                {(summary.tierDistribution?.S || 0) + (summary.tierDistribution?.A || 0)}
+              </div>
+              <div className="text-xs text-purple-600 dark:text-purple-400 mt-1">우수 작가 (S/A)</div>
+            </div>
+            <div className="p-4 bg-amber-50 dark:bg-amber-900/20 rounded-xl text-center">
+              <div className="text-2xl font-bold text-amber-600 dark:text-amber-400">
+                {(summary.tierDistribution?.C || 0) + (summary.tierDistribution?.D || 0)}
+              </div>
+              <div className="text-xs text-amber-600 dark:text-amber-400 mt-1">관리 필요 (C/D)</div>
+            </div>
+          </div>
+
+          {/* 티어 분포 */}
+          <div>
+            <h3 className="text-sm font-medium text-slate-700 dark:text-slate-300 mb-3">티어 분포</h3>
+            <div className="flex gap-2 flex-wrap">
+              {['S', 'A', 'B', 'C', 'D'].map(tier => {
+                const count = summary.tierDistribution?.[tier] || 0
+                const colors = tierColors[tier]
+                return (
+                  <div 
+                    key={tier} 
+                    className={`flex items-center gap-2 px-3 py-1.5 ${colors.bg} rounded-lg`}
+                  >
+                    <span className={`text-sm font-medium ${colors.text}`}>
+                      {tierLabels[tier]}: {count}명
+                    </span>
+                  </div>
+                )
+              })}
+            </div>
+          </div>
+        </Card>
+      </FadeIn>
+
+      {/* 관리 필요 작가 */}
+      {summary.needsAttention && summary.needsAttention.length > 0 && (
+        <FadeIn delay={100}>
+          <Card className="p-6 border-l-4 border-l-amber-500">
+            <h3 className="text-lg font-semibold text-slate-800 dark:text-slate-100 mb-4">
+              ⚠️ 관리 필요 작가
+            </h3>
+            <div className="space-y-2">
+              {summary.needsAttention.map((artist: any, idx: number) => (
+                <div 
+                  key={idx}
+                  className="flex items-center justify-between p-3 bg-amber-50 dark:bg-amber-900/20 rounded-lg"
+                >
+                  <div>
+                    <span className="font-medium text-slate-800 dark:text-slate-100">{artist.name}</span>
+                    <span className="ml-2 text-sm text-amber-600 dark:text-amber-400">({artist.issue})</span>
+                  </div>
+                  <span className="text-sm font-medium text-amber-700 dark:text-amber-300">
+                    점수: {artist.score}
+                  </span>
+                </div>
+              ))}
+            </div>
+          </Card>
+        </FadeIn>
+      )}
+
+      {/* 작가 목록 */}
+      <FadeIn delay={200}>
+        <Card className="p-6">
+          <h3 className="text-lg font-semibold text-slate-800 dark:text-slate-100 mb-4">
+            📊 작가 건강도 현황
+          </h3>
+
+          <div className="space-y-3">
+            {artists.slice(0, 20).map((artist: any, idx: number) => {
+              const colors = tierColors[artist.tier] || tierColors.B
+              
+              return (
+                <FadeIn key={artist.artistId} delay={idx * 30}>
+                  <div className={`p-4 rounded-xl border-l-4 ${colors.bg} ${colors.border}`}>
+                    <div className="flex items-start justify-between gap-4">
+                      <div className="flex-1 min-w-0">
+                        <div className="flex items-center gap-2 mb-2">
+                          <span className="font-medium text-slate-800 dark:text-slate-100">
+                            {artist.artistName}
+                          </span>
+                          <Badge variant={
+                            artist.tier === 'S' || artist.tier === 'A' ? 'success' :
+                            artist.tier === 'D' ? 'danger' :
+                            artist.tier === 'C' ? 'warning' : 'default'
+                          }>
+                            {tierLabels[artist.tier]}
+                          </Badge>
+                        </div>
+                        
+                        {/* 4차원 점수 */}
+                        <div className="grid grid-cols-4 gap-2 mb-2">
+                          {[
+                            { key: 'sales', label: '매출', icon: '💰' },
+                            { key: 'operations', label: '운영', icon: '📦' },
+                            { key: 'customer', label: '고객', icon: '😊' },
+                            { key: 'engagement', label: '활동', icon: '⚡' }
+                          ].map(dim => (
+                            <div key={dim.key} className="text-center p-2 bg-white/50 dark:bg-slate-700/50 rounded">
+                              <div className="text-xs text-slate-500">{dim.icon} {dim.label}</div>
+                              <div className={`text-sm font-bold ${
+                                artist.dimensions?.[dim.key]?.score >= 70 ? 'text-emerald-600' :
+                                artist.dimensions?.[dim.key]?.score >= 50 ? 'text-amber-600' : 'text-red-600'
+                              }`}>
+                                {artist.dimensions?.[dim.key]?.score || '-'}
+                              </div>
+                            </div>
+                          ))}
+                        </div>
+                        
+                        {/* 인사이트 */}
+                        {artist.dimensions?.sales?.insights && artist.dimensions.sales.insights.length > 0 && (
+                          <div className="flex flex-wrap gap-1 mt-2">
+                            {[
+                              ...(artist.dimensions.sales?.insights || []),
+                              ...(artist.dimensions.operations?.insights || []),
+                              ...(artist.dimensions.customer?.insights || []),
+                              ...(artist.dimensions.engagement?.insights || [])
+                            ].slice(0, 3).map((insight: string, iIdx: number) => (
+                              <span 
+                                key={iIdx}
+                                className="text-xs px-2 py-0.5 bg-white/70 dark:bg-slate-700/70 rounded text-slate-600 dark:text-slate-400"
+                              >
+                                {insight}
+                              </span>
+                            ))}
+                          </div>
+                        )}
+                        
+                        {/* 알림 */}
+                        {artist.alerts && artist.alerts.length > 0 && (
+                          <div className="flex flex-wrap gap-1 mt-2">
+                            {artist.alerts.slice(0, 2).map((alert: any, aIdx: number) => (
+                              <span 
+                                key={aIdx}
+                                className={`text-xs px-2 py-0.5 rounded ${
+                                  alert.type === 'critical' ? 'bg-red-100 text-red-700 dark:bg-red-900/30 dark:text-red-400' :
+                                  alert.type === 'warning' ? 'bg-amber-100 text-amber-700 dark:bg-amber-900/30 dark:text-amber-400' :
+                                  'bg-blue-100 text-blue-700 dark:bg-blue-900/30 dark:text-blue-400'
+                                }`}
+                              >
+                                {alert.type === 'critical' ? '🚨' : alert.type === 'warning' ? '⚠️' : 'ℹ️'} {alert.message}
+                              </span>
+                            ))}
+                          </div>
+                        )}
+                      </div>
+                      
+                      {/* 종합 점수 게이지 */}
+                      <div className="flex-shrink-0 w-16 text-center">
+                        <div className="relative w-14 h-14 mx-auto">
+                          <svg className="w-14 h-14 transform -rotate-90">
+                            <circle
+                              cx="28"
+                              cy="28"
+                              r="24"
+                              stroke="currentColor"
+                              strokeWidth="4"
+                              fill="none"
+                              className="text-slate-200 dark:text-slate-700"
+                            />
+                            <circle
+                              cx="28"
+                              cy="28"
+                              r="24"
+                              stroke="currentColor"
+                              strokeWidth="4"
+                              fill="none"
+                              strokeDasharray={`${artist.overallScore * 1.51} 151`}
+                              className={
+                                artist.overallScore >= 70 ? 'text-emerald-500' :
+                                artist.overallScore >= 55 ? 'text-blue-500' :
+                                artist.overallScore >= 40 ? 'text-amber-500' : 'text-red-500'
+                              }
+                            />
+                          </svg>
+                          <div className="absolute inset-0 flex items-center justify-center">
+                            <span className={`text-sm font-bold ${colors.text}`}>
+                              {artist.overallScore}
+                            </span>
+                          </div>
+                        </div>
+                      </div>
+                    </div>
+                  </div>
+                </FadeIn>
+              )
+            })}
+          </div>
+        </Card>
+      </FadeIn>
     </div>
   )
 }
@@ -1185,12 +2066,23 @@ function RFMTab({ data, isLoading }: { data: any; isLoading: boolean }) {
     <div className="space-y-6">
       {/* 세그먼트 분포 */}
       <Card className="p-6">
-        <h2 className="text-lg font-semibold text-slate-800 dark:text-slate-100 mb-4">
-          👥 RFM 고객 세분화
-        </h2>
-        <p className="text-sm text-slate-500 dark:text-slate-400 mb-4">
-          최근 90일 구매 데이터 기반 고객 세그먼트 분석
-        </p>
+        <div className="flex items-center justify-between mb-4">
+          <div>
+            <h2 className="text-lg font-semibold text-slate-800 dark:text-slate-100">
+              👥 RFM 고객 세분화
+            </h2>
+            <p className="text-sm text-slate-500 dark:text-slate-400 mt-1">
+              최근 90일 구매 데이터 기반 고객 세그먼트 분석
+            </p>
+          </div>
+          {/* v4.0: 다운로드 버튼 */}
+          <ExportDropdown 
+            types={[
+              { type: 'rfm-segments', label: 'RFM 세그먼트 통계' },
+              { type: 'rfm-customers', label: '전체 고객 목록' }
+            ]} 
+          />
+        </div>
         
         <div className="grid grid-cols-2 md:grid-cols-4 lg:grid-cols-7 gap-4">
           {segments.map((seg: any) => (
@@ -1318,13 +2210,17 @@ function ParetoTab({ data, isLoading }: { data: any; isLoading: boolean }) {
       {artistConcentration && (
         <FadeIn>
           <Card className="p-6">
-            <div className="flex items-center gap-3 mb-6">
-              <div className="w-10 h-10 bg-gradient-to-br from-purple-500 to-pink-600 rounded-xl flex items-center justify-center">
-                <span className="text-xl">🎨</span>
+            <div className="flex items-center justify-between mb-6">
+              <div className="flex items-center gap-3">
+                <div className="w-10 h-10 bg-gradient-to-br from-purple-500 to-pink-600 rounded-xl flex items-center justify-center">
+                  <span className="text-xl">🎨</span>
+                </div>
+                <h2 className="text-lg font-semibold text-slate-800 dark:text-slate-100">
+                  작가 매출 집중도
+                </h2>
               </div>
-              <h2 className="text-lg font-semibold text-slate-800 dark:text-slate-100">
-                작가 매출 집중도
-              </h2>
+              {/* v4.0: 다운로드 버튼 */}
+              <ExportButton type="pareto-artists" label="작가 데이터" />
             </div>
           
           <div className="grid md:grid-cols-3 gap-6 mb-6">
@@ -1496,16 +2392,20 @@ function CohortTab({ data, isLoading }: { data: any; isLoading: boolean }) {
       {/* 리텐션 곡선 */}
       <FadeIn>
         <Card className="p-6">
-          <div className="flex items-center gap-3 mb-4">
-            <div className="w-10 h-10 bg-gradient-to-br from-cyan-500 to-blue-600 rounded-xl flex items-center justify-center">
-              <span className="text-xl">📅</span>
+          <div className="flex items-center justify-between mb-4">
+            <div className="flex items-center gap-3">
+              <div className="w-10 h-10 bg-gradient-to-br from-cyan-500 to-blue-600 rounded-xl flex items-center justify-center">
+                <span className="text-xl">📅</span>
+              </div>
+              <div>
+                <h2 className="text-lg font-semibold text-slate-800 dark:text-slate-100">
+                  코호트 리텐션 분석
+                </h2>
+                <p className="text-xs text-slate-500">첫 구매 월 기준 고객 리텐션 추이</p>
+              </div>
             </div>
-            <div>
-              <h2 className="text-lg font-semibold text-slate-800 dark:text-slate-100">
-                코호트 리텐션 분석
-              </h2>
-              <p className="text-xs text-slate-500">첫 구매 월 기준 고객 리텐션 추이</p>
-            </div>
+            {/* v4.0: 다운로드 버튼 */}
+            <ExportButton type="cohort-analysis" label="코호트 데이터" />
           </div>
 
           {/* 전체 리텐션 곡선 */}
@@ -1651,16 +2551,20 @@ function AnomalyTab({ data, isLoading }: { data: any; isLoading: boolean }) {
       {/* 이상치 목록 */}
       <FadeIn>
         <Card className="p-6">
-          <div className="flex items-center gap-3 mb-4">
-            <div className="w-10 h-10 bg-gradient-to-br from-amber-500 to-orange-600 rounded-xl flex items-center justify-center">
-              <span className="text-xl">🔍</span>
+          <div className="flex items-center justify-between mb-4">
+            <div className="flex items-center gap-3">
+              <div className="w-10 h-10 bg-gradient-to-br from-amber-500 to-orange-600 rounded-xl flex items-center justify-center">
+                <span className="text-xl">🔍</span>
+              </div>
+              <div>
+                <h2 className="text-lg font-semibold text-slate-800 dark:text-slate-100">
+                  탐지된 이상치
+                </h2>
+                <p className="text-xs text-slate-500">통계적으로 유의미한 편차가 발견된 데이터 포인트</p>
+              </div>
             </div>
-            <div>
-              <h2 className="text-lg font-semibold text-slate-800 dark:text-slate-100">
-                탐지된 이상치
-              </h2>
-              <p className="text-xs text-slate-500">통계적으로 유의미한 편차가 발견된 데이터 포인트</p>
-            </div>
+            {/* v4.0: 다운로드 버튼 */}
+            <ExportButton type="anomaly-detection" label="이상 탐지 데이터" />
           </div>
 
           {anomalies.length === 0 ? (

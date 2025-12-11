@@ -1263,6 +1263,81 @@ export const businessBrainApi = {
     })
     return response.data
   },
+
+  // ==================== v4.0: 데이터 내보내기 API ====================
+
+  // 지원하는 내보내기 유형 목록
+  getExportTypes: async () => {
+    const response = await api.get('/api/business-brain/export/types')
+    return response.data
+  },
+
+  // 데이터 내보내기 URL 생성
+  getExportUrl: (
+    type: string,
+    period: '7d' | '30d' | '90d' | '180d' | '365d' = '30d',
+    segment?: string
+  ) => {
+    const baseUrl = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:3001'
+    const params = new URLSearchParams({ period })
+    if (segment) params.append('segment', segment)
+    return `${baseUrl}/api/business-brain/export/${type}?${params.toString()}`
+  },
+
+  // 데이터 내보내기 (직접 다운로드)
+  exportData: async (
+    type: string,
+    period: '7d' | '30d' | '90d' | '180d' | '365d' = '30d',
+    segment?: string
+  ) => {
+    const url = businessBrainApi.getExportUrl(type, period, segment)
+    // 브라우저에서 직접 다운로드
+    const link = document.createElement('a')
+    link.href = url
+    link.download = ''
+    document.body.appendChild(link)
+    link.click()
+    document.body.removeChild(link)
+  },
+
+  // ==================== v4.0: 고객 이탈 예측 API ====================
+
+  // 이탈 예측 목록
+  getChurnPrediction: async (
+    period: '30d' | '90d' | '180d' | '365d' = '90d',
+    options?: { minOrders?: number; riskLevel?: string[] }
+  ) => {
+    const params: any = { period }
+    if (options?.minOrders) params.minOrders = options.minOrders
+    if (options?.riskLevel) params.riskLevel = options.riskLevel.join(',')
+    const response = await api.get('/api/business-brain/churn-prediction', { params })
+    return response.data
+  },
+
+  // 특정 고객 이탈 예측 상세
+  getCustomerChurnPrediction: async (customerId: string) => {
+    const response = await api.get(`/api/business-brain/churn-prediction/${customerId}`)
+    return response.data
+  },
+
+  // ==================== v4.0: 작가 건강도 API ====================
+
+  // 작가 건강도 목록
+  getArtistHealth: async (
+    period: '30d' | '90d' | '180d' | '365d' = '90d',
+    tier?: string[]
+  ) => {
+    const params: any = { period }
+    if (tier) params.tier = tier.join(',')
+    const response = await api.get('/api/business-brain/artist-health', { params })
+    return response.data
+  },
+
+  // 특정 작가 건강도 상세
+  getArtistHealthDetail: async (artistId: string) => {
+    const response = await api.get(`/api/business-brain/artist-health/${artistId}`)
+    return response.data
+  },
 }
 
 export default api

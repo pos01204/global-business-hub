@@ -6,6 +6,10 @@
 import { Router } from 'express'
 import { BusinessBrainAgent } from '../services/agents/BusinessBrainAgent'
 import { businessBrainCache } from '../services/analytics'
+import { mapActionsToInsights } from '../services/analytics/InsightActionMapper'
+import { exportData, getSupportedExportTypes, ExportType } from '../services/analytics/ExportService'
+import { ChurnPredictor } from '../services/analytics/ChurnPredictor'
+import { ArtistHealthCalculator } from '../services/analytics/ArtistHealthCalculator'
 
 const router = Router()
 
@@ -67,7 +71,7 @@ router.get('/health-score', async (req, res) => {
 
 /**
  * GET /api/business-brain/insights
- * 인사이트 목록
+ * 인사이트 목록 (v4.0: 액션 매핑 포함)
  */
 router.get('/insights', async (req, res) => {
   try {
@@ -88,10 +92,13 @@ router.get('/insights', async (req, res) => {
       .sort((a, b) => b.totalScore - a.totalScore)
       .slice(0, Number(limit))
     
+    // v4.0: 액션 매핑 추가
+    const insightsWithActions = mapActionsToInsights(insights)
+    
     res.json({
       success: true,
-      insights,
-      total: insights.length,
+      insights: insightsWithActions,
+      total: insightsWithActions.length,
     })
   } catch (error: any) {
     console.error('[BusinessBrain] 인사이트 오류:', error)
@@ -687,6 +694,197 @@ router.get('/comprehensive', async (req, res) => {
     res.status(500).json({ 
       success: false,
       error: error.message || '종합 인사이트 분석 중 오류가 발생했습니다.',
+    })
+  }
+})
+
+// ==================== v4.0: 데이터 내보내기 API ====================
+
+/**
+ * GET /api/business-brain/export/types
+ * 지원하는 내보내기 유형 목록
+ */
+router.get('/export/types', async (req, res) => {
+  try {
+    const types = getSupportedExportTypes()
+    res.json({
+      success: true,
+      types,
+    })
+  } catch (error: any) {
+    console.error('[BusinessBrain] 내보내기 유형 조회 오류:', error)
+    res.status(500).json({ 
+      success: false,
+      error: error.message || '내보내기 유형 조회 중 오류가 발생했습니다.',
+    })
+  }
+})
+
+/**
+ * GET /api/business-brain/export/:type
+ * 데이터 내보내기 (CSV)
+ * Params: type - 내보내기 유형
+ * Query: period, segment, format
+ */
+router.get('/export/:type', async (req, res) => {
+  try {
+    const { type } = req.params
+    const { period = '30d', segment, format = 'csv' } = req.query
+
+    console.log(`[BusinessBrain] 데이터 내보내기 요청: ${type} (${period})`)
+    
+    const result = await exportData(type as ExportType, {
+      period: period as string,
+      segment: segment as string | undefined,
+      format: format as 'csv' | 'json'
+    })
+    
+    // CSV 다운로드로 응답
+    res.setHeader('Content-Type', result.contentType)
+    res.setHeader('Content-Disposition', `attachment; filename="${result.filename}"`)
+    res.send('\uFEFF' + result.data) // BOM 추가 (Excel 한글 호환)
+    
+  } catch (error: any) {
+    console.error('[BusinessBrain] 데이터 내보내기 오류:', error)
+    res.status(500).json({ 
+      success: false,
+      error: error.message || '데이터 내보내기 중 오류가 발생했습니다.',
+    })
+  }
+})
+
+// ==================== v4.0: 고객 이탈 예측 API ====================
+
+/**
+ * GET /api/business-brain/churn-prediction
+ * 고객 이탈 예측 목록
+ * Query: period, minOrders, riskLevel
+ */
+router.get('/churn-prediction', async (req, res) => {
+  try {
+    const { period = '90d', minOrders = '2', riskLevel } = req.query
+
+    console.log(`[BusinessBrain] 이탈 예측 요청 (${period})`)
+    
+    const predictor = new ChurnPredictor()
+    const result = await predictor.predictChurn(
+      period as any,
+      {
+        minOrders: parseInt(minOrders as string, 10),
+        riskLevelFilter: riskLevel ? (riskLevel as string).split(',') : undefined
+      }
+    )
+    
+    res.json({
+      success: true,
+      ...result,
+    })
+  } catch (error: any) {
+    console.error('[BusinessBrain] 이탈 예측 오류:', error)
+    res.status(500).json({ 
+      success: false,
+      error: error.message || '이탈 예측 중 오류가 발생했습니다.',
+    })
+  }
+})
+
+/**
+ * GET /api/business-brain/churn-prediction/:customerId
+ * 특정 고객 이탈 예측 상세
+ */
+router.get('/churn-prediction/:customerId', async (req, res) => {
+  try {
+    const { customerId } = req.params
+
+    console.log(`[BusinessBrain] 고객 이탈 예측 상세 요청: ${customerId}`)
+    
+    const predictor = new ChurnPredictor()
+    const prediction = await predictor.predictCustomerChurn(customerId)
+    
+    if (!prediction) {
+      return res.status(404).json({
+        success: false,
+        error: '해당 고객을 찾을 수 없습니다.',
+      })
+    }
+    
+    res.json({
+      success: true,
+      prediction,
+    })
+  } catch (error: any) {
+    console.error('[BusinessBrain] 고객 이탈 예측 오류:', error)
+    res.status(500).json({ 
+      success: false,
+      error: error.message || '고객 이탈 예측 중 오류가 발생했습니다.',
+    })
+  }
+})
+
+// ==================== v4.0: 작가 건강도 API ====================
+
+/**
+ * GET /api/business-brain/artist-health
+ * 작가 건강도 목록
+ * Query: period, tier
+ */
+router.get('/artist-health', async (req, res) => {
+  try {
+    const { period = '90d', tier } = req.query
+
+    console.log(`[BusinessBrain] 작가 건강도 요청 (${period})`)
+    
+    const calculator = new ArtistHealthCalculator()
+    const result = await calculator.calculateAllArtistHealth(period as any)
+    
+    // 티어 필터링
+    if (tier) {
+      const tiers = (tier as string).split(',')
+      result.artists = result.artists.filter(a => tiers.includes(a.tier))
+    }
+    
+    res.json({
+      success: true,
+      ...result,
+    })
+  } catch (error: any) {
+    console.error('[BusinessBrain] 작가 건강도 오류:', error)
+    res.status(500).json({ 
+      success: false,
+      error: error.message || '작가 건강도 계산 중 오류가 발생했습니다.',
+    })
+  }
+})
+
+/**
+ * GET /api/business-brain/artist-health/:artistId
+ * 특정 작가 건강도 상세
+ */
+router.get('/artist-health/:artistId', async (req, res) => {
+  try {
+    const { artistId } = req.params
+
+    console.log(`[BusinessBrain] 작가 건강도 상세 요청: ${artistId}`)
+    
+    const calculator = new ArtistHealthCalculator()
+    const artist = await calculator.getArtistHealth(artistId)
+    
+    if (!artist) {
+      return res.status(404).json({
+        success: false,
+        error: '해당 작가를 찾을 수 없습니다.',
+      })
+    }
+    
+    res.json({
+      success: true,
+      artist,
+    })
+  } catch (error: any) {
+    console.error('[BusinessBrain] 작가 건강도 상세 오류:', error)
+    res.status(500).json({ 
+      success: false,
+      error: error.message || '작가 건강도 조회 중 오류가 발생했습니다.',
     })
   }
 })

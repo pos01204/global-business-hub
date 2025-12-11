@@ -48,6 +48,34 @@ export interface BusinessInsight {
   totalScore: number
   createdAt: Date
   expiresAt?: Date
+  // v4.0 추가: 액션 연결
+  actions?: InsightAction[]
+  affectedEntities?: AffectedEntities
+}
+
+// ==================== 인사이트 액션 (v4.0) ====================
+export interface InsightAction {
+  id: string
+  label: string
+  icon: string
+  type: 'navigate' | 'api_call' | 'download'
+  // navigate 타입
+  href?: string
+  params?: Record<string, any>
+  // api_call 타입
+  endpoint?: string
+  method?: 'GET' | 'POST'
+  body?: any
+  // download 타입
+  downloadType?: 'csv' | 'excel'
+  dataKey?: string
+}
+
+export interface AffectedEntities {
+  type: 'customer' | 'artist' | 'product' | 'country'
+  ids: string[]
+  names: string[]
+  count: number
 }
 
 export type InsightCategory = 
