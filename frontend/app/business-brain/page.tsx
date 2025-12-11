@@ -1062,6 +1062,8 @@ interface InsightAction {
   type: 'navigate' | 'api_call' | 'download'
   href?: string
   params?: Record<string, any>
+  dataKey?: string
+  downloadType?: 'csv' | 'excel'
 }
 
 function InsightActionButton({ action, variant = 'default' }: { action: InsightAction; variant?: 'default' | 'primary' }) {
@@ -1074,9 +1076,15 @@ function InsightActionButton({ action, variant = 'default' }: { action: InsightA
       ).toString() : ''
       const url = params ? `${action.href}?${params}` : action.href
       router.push(url)
-    } else if (action.type === 'download') {
-      // TODO: 다운로드 기능 구현
-      console.log('Download:', action.dataKey)
+    } else if (action.type === 'download' && action.dataKey) {
+      // 다운로드 기능
+      const url = businessBrainApi.getExportUrl(action.dataKey, period as any)
+      const link = document.createElement('a')
+      link.href = url
+      link.download = ''
+      document.body.appendChild(link)
+      link.click()
+      document.body.removeChild(link)
     }
   }
   

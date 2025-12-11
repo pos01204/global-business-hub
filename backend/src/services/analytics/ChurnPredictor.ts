@@ -3,8 +3,8 @@
  * v4.0: 규칙 기반 스코어링으로 고객 이탈 확률 예측
  */
 
-import { GoogleSheetsService } from '../googleSheets'
-import { SHEET_NAMES } from '../../config/sheets'
+import GoogleSheetsService from '../googleSheets'
+import { SHEET_NAMES, sheetsConfig } from '../../config/sheets'
 
 // ==================== 타입 정의 ====================
 
@@ -413,7 +413,7 @@ export class ChurnPredictor {
   private sheetsService: GoogleSheetsService
   
   constructor() {
-    this.sheetsService = new GoogleSheetsService()
+    this.sheetsService = new GoogleSheetsService(sheetsConfig)
   }
   
   /**
@@ -431,7 +431,7 @@ export class ChurnPredictor {
     
     try {
       // 물류 데이터에서 고객 정보 추출
-      const logisticsData = await this.sheetsService.getSheetData(SHEET_NAMES.LOGISTICS)
+      const logisticsData = await this.sheetsService.getSheetDataAsJson(SHEET_NAMES.LOGISTICS, true)
       
       // 기간 필터
       const periodDays = parseInt(period)

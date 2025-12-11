@@ -56,7 +56,7 @@ function arrayToCSV(data: Record<string, any>[], headers?: string[]): string {
  */
 async function exportRFMSegments(period: string): Promise<ExportResult> {
   const agent = new BusinessBrainAgent()
-  const rfmData = await agent.runRFMAnalysis(period as any)
+  const rfmData = await agent.runRFMAnalysis()
   
   const segments = rfmData.segments.map(seg => ({
     '세그먼트': seg.segment,
@@ -80,7 +80,7 @@ async function exportRFMSegments(period: string): Promise<ExportResult> {
  */
 async function exportRFMCustomers(period: string, segment?: string): Promise<ExportResult> {
   const agent = new BusinessBrainAgent()
-  const rfmData = await agent.runRFMAnalysis(period as any)
+  const rfmData = await agent.runRFMAnalysis()
   
   let customers = rfmData.customers || []
   if (segment) {
@@ -111,7 +111,7 @@ async function exportRFMCustomers(period: string, segment?: string): Promise<Exp
  */
 async function exportAtRiskVIP(period: string): Promise<ExportResult> {
   const agent = new BusinessBrainAgent()
-  const rfmData = await agent.runRFMAnalysis(period as any)
+  const rfmData = await agent.runRFMAnalysis()
   
   const atRiskVIPs = rfmData.atRiskVIPs || []
   const exportData = atRiskVIPs.map((c: any) => ({
@@ -136,7 +136,7 @@ async function exportAtRiskVIP(period: string): Promise<ExportResult> {
  */
 async function exportCohortAnalysis(period: string): Promise<ExportResult> {
   const agent = new BusinessBrainAgent()
-  const cohortData = await agent.runCohortAnalysis(period as any)
+  const cohortData = await agent.runCohortAnalysis()
   
   const cohorts = cohortData.cohorts || []
   const exportData = cohorts.map((c: any) => {
@@ -168,7 +168,7 @@ async function exportCohortAnalysis(period: string): Promise<ExportResult> {
  */
 async function exportParetoArtists(period: string): Promise<ExportResult> {
   const agent = new BusinessBrainAgent()
-  const paretoData = await agent.runParetoAnalysis(period as any)
+  const paretoData = await agent.runParetoAnalysis()
   
   const artists = paretoData.artistConcentration?.top10Percent?.names || []
   const exportData = artists.map((name: string, idx: number) => ({
@@ -179,22 +179,22 @@ async function exportParetoArtists(period: string): Promise<ExportResult> {
   
   // 추가 통계
   exportData.push({
-    '순위': '-',
+    '순위': 0,
     '작가명': '--- 통계 ---',
     '구분': '-'
   })
   exportData.push({
-    '순위': '-',
+    '순위': 0,
     '작가명': `Top 10% 매출 비중: ${(paretoData.artistConcentration?.top10Percent?.revenueShare * 100 || 0).toFixed(1)}%`,
     '구분': '-'
   })
   exportData.push({
-    '순위': '-',
+    '순위': 0,
     '작가명': `Top 20% 매출 비중: ${(paretoData.artistConcentration?.top20Percent?.revenueShare * 100 || 0).toFixed(1)}%`,
     '구분': '-'
   })
   exportData.push({
-    '순위': '-',
+    '순위': 0,
     '작가명': `지니계수: ${paretoData.artistConcentration?.giniCoefficient?.toFixed(3) || '-'}`,
     '구분': '-'
   })
@@ -211,7 +211,7 @@ async function exportParetoArtists(period: string): Promise<ExportResult> {
  */
 async function exportAnomalyDetection(period: string): Promise<ExportResult> {
   const agent = new BusinessBrainAgent()
-  const anomalyData = await agent.runAnomalyDetection(period as any)
+  const anomalyData = await agent.runAnomalyDetection('medium')
   
   const anomalies = anomalyData.anomalies || []
   const exportData = anomalies.map((a: any) => ({
@@ -276,7 +276,7 @@ async function exportHealthScore(period: string): Promise<ExportResult> {
   ]
   
   // 요인별 상세
-  exportData.push({ '차원': '--- 매출 요인 ---', '점수': '-' as any, '추세': '-', '변화': '-' as any })
+  exportData.push({ '차원': '--- 매출 요인 ---', '점수': 0, '추세': '-', '변화': 0 })
   for (const factor of dimensions.revenue.factors || []) {
     exportData.push({
       '차원': `  ${factor.name}`,
@@ -298,7 +298,7 @@ async function exportHealthScore(period: string): Promise<ExportResult> {
  */
 async function exportTrends(period: string): Promise<ExportResult> {
   const agent = new BusinessBrainAgent()
-  const trends = await agent.analyzeLongTermTrends(period as any)
+  const trends = await agent.analyzeLongTermTrends()
   
   const exportData = (trends.trends || []).map((t: any) => ({
     '지표': t.metric,

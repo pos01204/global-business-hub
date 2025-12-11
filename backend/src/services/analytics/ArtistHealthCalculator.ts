@@ -3,8 +3,8 @@
  * v4.0: 4차원 종합 건강도 점수 (매출/운영/고객만족/활동성)
  */
 
-import { GoogleSheetsService } from '../googleSheets'
-import { SHEET_NAMES } from '../../config/sheets'
+import GoogleSheetsService from '../googleSheets'
+import { SHEET_NAMES, sheetsConfig } from '../../config/sheets'
 
 // ==================== 타입 정의 ====================
 
@@ -486,7 +486,7 @@ export class ArtistHealthCalculator {
   private sheetsService: GoogleSheetsService
   
   constructor() {
-    this.sheetsService = new GoogleSheetsService()
+    this.sheetsService = new GoogleSheetsService(sheetsConfig)
   }
   
   /**
@@ -497,7 +497,7 @@ export class ArtistHealthCalculator {
   ): Promise<ArtistHealthResult> {
     try {
       // 물류 데이터 로드
-      const logisticsData = await this.sheetsService.getSheetData(SHEET_NAMES.LOGISTICS)
+      const logisticsData = await this.sheetsService.getSheetDataAsJson(SHEET_NAMES.LOGISTICS, true)
       
       // 기간 필터
       const periodDays = parseInt(period)
