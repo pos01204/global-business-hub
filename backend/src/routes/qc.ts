@@ -390,21 +390,69 @@ async function loadImageQCData() {
 
 /**
  * 아카이브 데이터 로드 (Google Sheets에서)
+ * ARCHIVE_HEADERS 순서에 맞춰 데이터를 파싱
  */
 async function loadArchiveData() {
   try {
     const archiveData = await sheetsService.getSheetDataAsJson(SHEET_NAMES.QC_ARCHIVE, false);
     let imported = 0;
+    let skipped = 0;
 
     for (const record of archiveData) {
-      const id = generateId(record.type || 'text', record);
+      // 타입 확인 (필수 필드)
+      const recordType = record.type as 'text' | 'image';
+      if (!recordType || (recordType !== 'text' && recordType !== 'image')) {
+        skipped++;
+        continue;
+      }
+
+      // product_id 기반으로 ID 생성 (아카이브 시트 구조에 맞춤)
+      const productId = record.product_id || record.global_product_id;
+      if (!productId) {
+        skipped++;
+        continue;
+      }
+
+      // 고유 ID 생성
+      const id = recordType === 'image' 
+        ? `${recordType}_${productId}_${record.page_name || ''}_${record.cmd_type || ''}`
+        : `${recordType}_${productId}`;
+      
+      // 상태 파싱
+      const rawStatus = String(record.status || 'approved').toLowerCase().trim();
+      const validStatuses = ['approved', 'needs_revision', 'excluded', 'archived'];
+      const status = validStatuses.includes(rawStatus) ? rawStatus as QCItem['status'] : 'approved';
+      
+      // needsRevision 파싱
+      const needsRevision = record.needsRevision === true || 
+                           String(record.needsRevision).toUpperCase() === 'TRUE' ||
+                           status === 'needs_revision';
       
       const qcItem: QCItem = {
         id,
-        type: (record.type as 'text' | 'image') || 'text',
-        data: record,
-        status: 'approved',
-        needsRevision: false,
+        type: recordType,
+        data: {
+          // 아카이브 시트의 컬럼을 원본 데이터 형식으로 매핑
+          product_id: record.product_id,
+          global_product_id: record.product_id,
+          product_name: record.product_name,
+          name: record.product_name,
+          artist_id: record.artist_id,
+          global_artist_id: record.artist_id,
+          artist_name: record.artist_name,
+          image_url: record.image_url,
+          page_name: record.page_name,
+          cmd_type: record.cmd_type,
+          detected_text: record.detected_text,
+          ocr_result: record.detected_text,
+          pdp_descr: record.original_text,
+          original_text: record.original_text,
+          korean_place: record.translated_text,
+          translated_text: record.translated_text,
+          memo: record.memo,
+        },
+        status,
+        needsRevision,
         createdAt: record.createdAt ? new Date(record.createdAt) : new Date(),
         completedAt: record.completedAt ? new Date(record.completedAt) : new Date(),
       };
@@ -413,7 +461,7 @@ async function loadArchiveData() {
       imported++;
     }
 
-    console.log(`[QC] 아카이브 데이터 로드 완료: ${imported}개`);
+    console.log(`[QC] 아카이브 데이터 로드 완료: ${imported}개 (스킵: ${skipped}개)`);
   } catch (error) {
     console.error('[QC] 아카이브 데이터 로드 실패:', error);
   }
@@ -422,6 +470,10 @@ async function loadArchiveData() {
 // 서버 시작 시 데이터 로드
 async function initializeQCData() {
   console.log('[QC] QC 데이터 초기화 시작...');
+  
+  // 아카이브 시트 헤더 확인/생성
+  await ensureArchiveHeaders();
+  
   await loadArtists();
   await loadTextQCData();
   await loadImageQCData();
@@ -1116,17 +1168,22 @@ router.put('/:type/:id/status', async (req, res) => {
 });
 
 /**
- * QC 상태를 Google Sheets에 저장하는 헬퍼 함수
+ * QC 상태를 Google Sheets 원본 시트에 저장하는 헬퍼 함수
+ * 
+ * 원본 시트 구조 (스크린샷 기준):
+ * A: type, B: status, C: needsRevision, D: createdAt, E: completedAt, F~: 원본 데이터
  */
 async function saveQCStatusToSheets(type: 'text' | 'image', item: QCItem) {
   try {
     console.log(`[QC] Google Sheets 상태 저장 시작: ${type} QC, ID: ${item.id}, Status: ${item.status}`);
     const sheetName = type === 'text' ? SHEET_NAMES.QC_TEXT_RAW : SHEET_NAMES.QC_IMAGE_RAW;
     
-    // ID 컬럼 찾기 (여러 가능한 컬럼명 시도)
+    // 원본 시트 구조에 맞는 ID 컬럼 찾기
+    // 이미지 QC: product_id 또는 다른 고유 식별자
+    // 텍스트 QC: global_product_id 또는 product_id
     const possibleIdColumns = type === 'text' 
       ? ['global_product_id', 'product_id', 'kr_product_uuid']
-      : ['product_id', 'image_url', 'page_name'];
+      : ['product_id', 'image_url'];
     
     let rowIndex: number | null = null;
     let itemId: string | null = null;
@@ -1150,58 +1207,94 @@ async function saveQCStatusToSheets(type: 'text' | 'image', item: QCItem) {
       console.error(`[QC] 시트에서 항목을 찾을 수 없습니다.`);
       console.error(`[QC] 시트: ${sheetName}`);
       console.error(`[QC] 시도한 ID 컬럼: ${possibleIdColumns.join(', ')}`);
-      console.error(`[QC] 항목 데이터:`, JSON.stringify(item.data, null, 2));
+      console.error(`[QC] 항목 데이터 키:`, Object.keys(item.data).join(', '));
       return;
     }
 
-    // 상태 컬럼이 없으면 자동으로 추가
-    await sheetsService.ensureColumnExists(sheetName, 'status');
-    await sheetsService.ensureColumnExists(sheetName, 'needsRevision');
-    await sheetsService.ensureColumnExists(sheetName, 'completedAt');
+    // 원본 시트의 상태 컬럼 업데이트 (B, C, E 열 - 고정 위치)
+    // 시트 구조: A=type, B=status, C=needsRevision, D=createdAt, E=completedAt
+    const updates: Array<{ range: string; value: any }> = [];
 
-    // 상태 컬럼 동적으로 찾기
+    // status 컬럼 (B열)
     const statusRange = await sheetsService.getCellRange(sheetName, 'status', rowIndex);
-    const needsRevisionRange = await sheetsService.getCellRange(sheetName, 'needsRevision', rowIndex);
-    const needsRevisionRange2 = await sheetsService.getCellRange(sheetName, 'needs_revision', rowIndex);
-    const completedAtRange = await sheetsService.getCellRange(sheetName, 'completedAt', rowIndex);
-    const completedAtRange2 = await sheetsService.getCellRange(sheetName, 'completed_at', rowIndex);
-
-    console.log(`[QC] 컬럼 찾기 결과:`);
-    console.log(`[QC]   status: ${statusRange || '없음'}`);
-    console.log(`[QC]   needsRevision: ${needsRevisionRange || needsRevisionRange2 || '없음'}`);
-    console.log(`[QC]   completedAt: ${completedAtRange || completedAtRange2 || '없음'}`);
-
-    // 상태 업데이트 (컬럼이 없으면 추가했으므로 반드시 있어야 함)
     if (statusRange) {
-      await sheetsService.updateCell(sheetName, statusRange, item.status);
-      console.log(`[QC] ✅ 상태 업데이트 성공: ${statusRange} = ${item.status}`);
+      updates.push({ range: statusRange, value: item.status });
     } else {
-      console.error(`[QC] ❌ 'status' 컬럼을 찾을 수 없습니다. (자동 추가 실패)`);
-      console.error(`[QC] 시트: ${sheetName}, 행: ${rowIndex}`);
+      // 컬럼이 없으면 B열에 직접 업데이트 시도
+      updates.push({ range: `B${rowIndex}`, value: item.status });
     }
 
-    // needsRevision 업데이트
-    const revisionRange = needsRevisionRange || needsRevisionRange2;
-    if (revisionRange) {
-      await sheetsService.updateCell(sheetName, revisionRange, item.needsRevision ? 'TRUE' : 'FALSE');
-      console.log(`[QC] needsRevision 업데이트 성공: ${revisionRange} = ${item.needsRevision}`);
+    // needsRevision 컬럼 (C열)
+    const needsRevisionRange = await sheetsService.getCellRange(sheetName, 'needsRevision', rowIndex);
+    if (needsRevisionRange) {
+      updates.push({ range: needsRevisionRange, value: item.needsRevision ? 'TRUE' : 'FALSE' });
+    } else {
+      updates.push({ range: `C${rowIndex}`, value: item.needsRevision ? 'TRUE' : 'FALSE' });
     }
 
-    // completedAt 업데이트
+    // completedAt 컬럼 (E열) - 완료 상태일 때만
     if (item.completedAt) {
-      const completedRange = completedAtRange || completedAtRange2;
-      if (completedRange) {
-        await sheetsService.updateCell(sheetName, completedRange, item.completedAt.toISOString());
-        console.log(`[QC] completedAt 업데이트 성공: ${completedRange} = ${item.completedAt.toISOString()}`);
+      const completedAtRange = await sheetsService.getCellRange(sheetName, 'completedAt', rowIndex);
+      if (completedAtRange) {
+        updates.push({ range: completedAtRange, value: item.completedAt.toISOString() });
+      } else {
+        updates.push({ range: `E${rowIndex}`, value: item.completedAt.toISOString() });
       }
     }
 
-    console.log(`[QC] ✅ 상태 업데이트 완료: ${sheetName} 행 ${rowIndex} (${foundIdColumn}=${itemId})`);
+    // 배치 업데이트 실행
+    if (updates.length > 0) {
+      await sheetsService.updateCells(sheetName, updates);
+      console.log(`[QC] ✅ 상태 업데이트 완료: ${sheetName} 행 ${rowIndex}`);
+      console.log(`[QC]   업데이트된 셀: ${updates.map(u => `${u.range}=${u.value}`).join(', ')}`);
+    }
+
   } catch (error: any) {
     // Google Sheets 저장 실패해도 메모리 업데이트는 유지
     console.error('[QC] ❌ Google Sheets 상태 저장 실패:', error);
     console.error('[QC] 오류 상세:', error.message);
-    console.error('[QC] 스택:', error.stack);
+  }
+}
+
+/**
+ * 아카이브 시트 헤더 정의
+ * [QC] archiving 시트의 컬럼 순서와 일치해야 함
+ */
+const ARCHIVE_HEADERS = [
+  'type',           // A: QC 타입 (text/image)
+  'status',         // B: 상태 (approved, needs_revision, excluded, archived)
+  'needsRevision',  // C: 수정 필요 여부
+  'createdAt',      // D: 생성일시
+  'completedAt',    // E: 완료일시
+  'product_id',     // F: 제품 ID
+  'product_name',   // G: 제품명
+  'artist_id',      // H: 작가 ID
+  'artist_name',    // I: 작가명
+  'image_url',      // J: 이미지 URL (이미지 QC)
+  'page_name',      // K: 페이지명 (이미지 QC)
+  'cmd_type',       // L: 명령 타입 (이미지 QC)
+  'detected_text',  // M: OCR 결과 (이미지 QC)
+  'original_text',  // N: 원본 텍스트 (텍스트 QC)
+  'translated_text', // O: 번역 텍스트 (텍스트 QC)
+  'memo',           // P: 메모
+];
+
+/**
+ * 아카이브 시트 헤더 초기화 (없으면 생성)
+ */
+async function ensureArchiveHeaders() {
+  try {
+    // 아카이브 시트 첫 행 확인
+    const archiveData = await sheetsService.getSheetDataAsJson(SHEET_NAMES.QC_ARCHIVE, false);
+    
+    // 데이터가 없거나 헤더가 없으면 헤더 추가
+    if (archiveData.length === 0) {
+      console.log('[QC] 아카이브 시트에 헤더 추가 중...');
+      await sheetsService.appendRow(SHEET_NAMES.QC_ARCHIVE, ARCHIVE_HEADERS);
+      console.log('[QC] 아카이브 시트 헤더 추가 완료');
+    }
+  } catch (error) {
+    console.error('[QC] 아카이브 헤더 확인/추가 실패:', error);
   }
 }
 
@@ -1241,21 +1334,30 @@ async function saveToArchiveSheet(item: QCItem) {
       }
     }
 
-    // 아카이브 시트에 전체 데이터 저장
-    const archiveData = {
-      ...item.data,
-      type: item.type,
-      status: item.status,
-      needsRevision: item.needsRevision,
-      createdAt: item.createdAt.toISOString(),
-      completedAt: item.completedAt?.toISOString() || new Date().toISOString(),
-    };
+    // 아카이브 시트에 정해진 컬럼 순서로 데이터 저장
+    const archiveRow = [
+      item.type,                                                    // type
+      item.status,                                                  // status
+      item.needsRevision ? 'TRUE' : 'FALSE',                       // needsRevision
+      item.createdAt.toISOString(),                                // createdAt
+      item.completedAt?.toISOString() || new Date().toISOString(), // completedAt
+      item.data.product_id || item.data.global_product_id || '',   // product_id
+      item.data.product_name || item.data.name || '',              // product_name
+      item.data.artist_id || item.data.global_artist_id || '',     // artist_id
+      item.data.artist_name || '',                                 // artist_name
+      item.data.image_url || '',                                   // image_url
+      item.data.page_name || '',                                   // page_name
+      item.data.cmd_type || '',                                    // cmd_type
+      item.data.detected_text || item.data.ocr_result || '',       // detected_text
+      item.data.pdp_descr || item.data.original_text || '',        // original_text (일본어)
+      item.data.korean_place || item.data.translated_text || '',   // translated_text (한글)
+      item.data.memo || '',                                        // memo
+    ];
 
-    // 객체를 배열로 변환 (원본 데이터의 모든 필드 포함)
-    const values = Object.values(archiveData);
-    await sheetsService.appendRow(SHEET_NAMES.QC_ARCHIVE, values);
+    await sheetsService.appendRow(SHEET_NAMES.QC_ARCHIVE, archiveRow);
     
     console.log(`[QC] 아카이브 저장 완료: ${item.type} QC 항목 (${item.id})`);
+    console.log(`[QC] 저장된 데이터: product_id=${archiveRow[5]}, status=${archiveRow[1]}`);
   } catch (error) {
     console.error('[QC] 아카이브 시트 저장 실패:', error);
     throw error;
@@ -1718,4 +1820,5 @@ router.get('/check-duplicates', async (req, res) => {
 });
 
 export default router;
+
 

@@ -441,3 +441,5 @@ ${insight.description}
 // 싱글톤 인스턴스
 export const aiBriefingGenerator = new AIBriefingGenerator()
 
+
+
