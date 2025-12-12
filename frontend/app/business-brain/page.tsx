@@ -692,7 +692,7 @@ export default function BusinessBrainPage() {
 
           {/* 트렌드 분석 탭 */}
           {activeTab === 'trends' && (
-            <TrendsTab trends={trends} isLoading={trendsLoading} period={selectedPeriod} />
+            <TrendsTab trends={trends} trendsData={trendsData} isLoading={trendsLoading} period={selectedPeriod} />
           )}
 
           {/* 리스크 감지 탭 */}
@@ -1021,7 +1021,7 @@ function OverviewTab({
 }
 
 // 트렌드 분석 탭
-function TrendsTab({ trends, isLoading, period }: { trends: any[]; isLoading: boolean; period: string }) {
+function TrendsTab({ trends, trendsData, isLoading, period }: { trends: any[]; trendsData?: any; isLoading: boolean; period: string }) {
   if (isLoading) {
     return (
       <FadeIn>
@@ -1050,26 +1050,24 @@ function TrendsTab({ trends, isLoading, period }: { trends: any[]; isLoading: bo
     )
   }
 
-  // 트렌드 데이터를 차트 형식으로 변환
-  const trendChartData = trends.length > 0 ? {
-    labels: trends.map((t: any) => t.period || t.date || `트렌드 ${t.metric || ''}`),
+  // 트렌드 데이터를 차트 형식으로 변환 (시계열 데이터 사용)
+  const trendChartData = (trendsData as any)?.timeSeries?.dailyAggregation && (trendsData as any).timeSeries.dailyAggregation.length > 0 ? {
+    labels: (trendsData as any).timeSeries.dailyAggregation.map((d: any) => {
+      // 날짜 포맷팅 (YYYY-MM-DD -> MM/DD)
+      const date = new Date(d.date)
+      return `${date.getMonth() + 1}/${date.getDate()}`
+    }),
     datasets: [
       {
         label: '매출 (GMV)',
-        data: trends.map((t: any) => t.gmv || t.revenue || 0),
+        data: (trendsData as any).timeSeries.dailyAggregation.map((d: any) => d.gmv || 0),
         color: '#10B981', // emerald-500
         fill: true,
       },
       {
         label: '주문 수',
-        data: trends.map((t: any) => t.orders || 0),
+        data: (trendsData as any).timeSeries.dailyAggregation.map((d: any) => d.orders || 0),
         color: '#3B82F6', // blue-500
-        fill: false,
-      },
-      {
-        label: '고객 수',
-        data: trends.map((t: any) => t.customers || 0),
-        color: '#8B5CF6', // purple-500
         fill: false,
       },
     ],

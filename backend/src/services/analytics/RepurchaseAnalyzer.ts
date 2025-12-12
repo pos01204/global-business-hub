@@ -34,6 +34,8 @@ export interface RepurchaseConversion {
   period: string              // 30일, 60일, 90일
   conversionRate: number      // 해당 기간 내 재구매율
   avgDaysToRepurchase: number
+  repurchased: number         // v4.3: 재구매 고객 수 (차트용)
+  total: number               // v4.3: 전체 첫 구매 고객 수 (차트용)
   factors: {
     factor: string            // 재구매에 영향을 미치는 요인
     impact: number            // 영향도 (0-100)
@@ -336,6 +338,8 @@ function analyzeRepurchaseConversion(
       period: period.label,
       conversionRate: Math.round(conversionRate * 100) / 100,
       avgDaysToRepurchase: Math.round(avgDaysToRepurchase * 100) / 100,
+      repurchased: repurchased.length, // v4.3: 재구매 고객 수
+      total: allFirstPurchaseCustomers.length, // v4.3: 전체 첫 구매 고객 수
       factors,
       // v4.2: 신뢰도 정보
       conversionRateConfidence,

@@ -801,6 +801,7 @@ export class BusinessBrainAgent extends BaseAgent {
       significance: 'high' | 'medium' | 'low'
       implication: string
     }>
+    timeSeries?: TimeSeriesData  // v4.3: 차트용 시계열 데이터
   }> {
     const cacheKey = `long-term-trends:${period}`
     const cached = businessBrainCache.get<any>(cacheKey)
@@ -953,7 +954,15 @@ export class BusinessBrainAgent extends BaseAgent {
         })
       }
 
-      const result = { trends }
+      // v4.3: 차트용 시계열 데이터 생성
+      const timeSeries = this.dataProcessor.processTimeSeries(
+        orderData,
+        'order_created',
+        ['Total GMV'],
+        'daily'
+      )
+      
+      const result = { trends, timeSeries }
       businessBrainCache.set(cacheKey, result, CACHE_TTL.insights)
       return result
     } catch (error: any) {
