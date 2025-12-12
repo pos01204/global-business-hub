@@ -1068,10 +1068,289 @@ function ComparisonTab({
   )
 }
 
+// 일일 운영 대시보드 탭 컴포넌트 (v4.2)
+function DailyOperationsTab({
+  onNavigateToBusinessBrain,
+}: {
+  onNavigateToBusinessBrain: (params: Record<string, string>) => void
+}) {
+  const router = useRouter()
+  
+  // 오늘의 데이터 (1일)
+  const { data: todayData, isLoading: todayLoading } = useQuery({
+    queryKey: ['analytics', 'today', 'all'],
+    queryFn: () => analyticsApi.getData('1d', 'all'),
+    staleTime: 2 * 60 * 1000, // 2분
+  })
+
+  // 오늘 할 일
+  const { data: tasksData, isLoading: tasksLoading } = useQuery({
+    queryKey: ['dashboard-tasks'],
+    queryFn: dashboardApi.getTasks,
+    staleTime: 2 * 60 * 1000,
+  })
+
+  // 물류 파이프라인 현황
+  const { data: logisticsData, isLoading: logisticsLoading } = useQuery({
+    queryKey: ['logistics-performance', 'today', 'all'],
+    queryFn: () => logisticsPerformanceApi.getData('1d', 'all'),
+    staleTime: 2 * 60 * 1000,
+  })
+
+  const formatCurrency = (value: number | null | undefined): string => {
+    if (value === null || value === undefined || isNaN(value)) {
+      return '₩0'
+    }
+    return `₩${Math.round(value).toLocaleString()}`
+  }
+
+  const formatChange = (change: number) => {
+    if (change === Infinity) return 'New'
+    if (isNaN(change) || !isFinite(change)) return '-'
+    const sign = change >= 0 ? '+' : ''
+    return `${sign}${(change * 100).toFixed(1)}%`
+  }
+
+  const isLoading = todayLoading || tasksLoading || logisticsLoading
+
+  if (isLoading) {
+    return (
+      <div className="flex items-center justify-center py-12">
+        <div className="text-center">
+          <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-primary mx-auto mb-4"></div>
+          <p>데이터를 불러오는 중...</p>
+        </div>
+      </div>
+    )
+  }
+
+  const today = todayData?.kpis || {}
+  const urgentTasks = tasksData?.tasks?.filter((t: any) => t.priority === 'high') || []
+  const totalTasks = tasksData?.totalTasks || 0
+
+  return (
+    <div className="space-y-6">
+      {/* 오늘의 핵심 지표 */}
+      <div>
+        <h2 className="text-xl font-semibold mb-4">📊 오늘의 핵심 지표</h2>
+        <div className="grid grid-cols-1 md:grid-cols-4 gap-6">
+          <div className="card bg-gradient-to-br from-blue-50 to-blue-100 dark:from-blue-900/20 dark:to-blue-800/20">
+            <h3 className="text-sm font-medium text-muted-color mb-2">오늘 GMV</h3>
+            <p className="text-2xl font-bold">{formatCurrency(today.totalSales?.value)}</p>
+            {today.totalSales?.change !== undefined && (
+              <p
+                className={`text-sm mt-2 ${
+                  today.totalSales.change >= 0 ? 'text-green-600' : 'text-red-600'
+                }`}
+              >
+                {formatChange(today.totalSales.change)} vs 어제
+              </p>
+            )}
+          </div>
+
+          <div className="card bg-gradient-to-br from-green-50 to-green-100 dark:from-green-900/20 dark:to-green-800/20">
+            <h3 className="text-sm font-medium text-muted-color mb-2">오늘 주문</h3>
+            <p className="text-2xl font-bold">{today.orderCount?.value || 0}건</p>
+            {today.orderCount?.change !== undefined && (
+              <p
+                className={`text-sm mt-2 ${
+                  today.orderCount.change >= 0 ? 'text-green-600' : 'text-red-600'
+                }`}
+              >
+                {formatChange(today.orderCount.change)} vs 어제
+              </p>
+            )}
+          </div>
+
+          <div className="card bg-gradient-to-br from-purple-50 to-purple-100 dark:from-purple-900/20 dark:to-purple-800/20">
+            <h3 className="text-sm font-medium text-muted-color mb-2">오늘 고객</h3>
+            <p className="text-2xl font-bold">{today.customerCount?.value || 0}명</p>
+            {today.customerCount?.change !== undefined && (
+              <p
+                className={`text-sm mt-2 ${
+                  today.customerCount.change >= 0 ? 'text-green-600' : 'text-red-600'
+                }`}
+              >
+                {formatChange(today.customerCount.change)} vs 어제
+              </p>
+            )}
+          </div>
+
+          <div className="card bg-gradient-to-br from-orange-50 to-orange-100 dark:from-orange-900/20 dark:to-orange-800/20">
+            <h3 className="text-sm font-medium text-muted-color mb-2">긴급 이슈</h3>
+            <p className="text-2xl font-bold text-red-600">{urgentTasks.length}건</p>
+            <p className="text-sm text-muted-color mt-2">
+              총 {totalTasks}건의 작업
+            </p>
+          </div>
+        </div>
+      </div>
+
+      {/* 긴급 이슈 알림 */}
+      {urgentTasks.length > 0 && (
+        <div className="card border-l-4 border-red-500 bg-red-50 dark:bg-red-900/10">
+          <h2 className="text-xl font-semibold mb-4 text-red-800 dark:text-red-400">
+            🚨 긴급 이슈 ({urgentTasks.length}건)
+          </h2>
+          <div className="space-y-3">
+            {urgentTasks.map((task: any) => (
+              <div
+                key={task.id}
+                className="flex items-center justify-between p-4 bg-white dark:bg-gray-800 rounded-lg border border-red-200 dark:border-red-800"
+              >
+                <div className="flex items-center gap-3">
+                  <span className="text-2xl">{task.icon}</span>
+                  <div>
+                    <h3 className="font-semibold text-gray-900 dark:text-gray-100">
+                      {task.title}
+                    </h3>
+                    <p className="text-sm text-gray-600 dark:text-gray-400">
+                      {task.description}
+                    </p>
+                  </div>
+                </div>
+                <div className="flex items-center gap-3">
+                  <span className="px-3 py-1 bg-red-100 dark:bg-red-900/30 text-red-800 dark:text-red-400 rounded-full font-semibold">
+                    {task.count}건
+                  </span>
+                  <button
+                    onClick={() => {
+                      if (task.link) {
+                        router.push(task.link)
+                      }
+                    }}
+                    className="px-4 py-2 bg-red-600 text-white rounded-lg hover:bg-red-700 transition-colors"
+                  >
+                    확인
+                  </button>
+                  <button
+                    onClick={() => {
+                      onNavigateToBusinessBrain({
+                        tab: 'insights',
+                        focus: task.id,
+                        period: '7d'
+                      })
+                    }}
+                    className="px-4 py-2 bg-primary text-white rounded-lg hover:bg-primary/90 transition-colors"
+                  >
+                    원인 분석
+                  </button>
+                </div>
+              </div>
+            ))}
+          </div>
+        </div>
+      )}
+
+      {/* 물류 파이프라인 현황 */}
+      {logisticsData && (
+        <div className="card">
+          <div className="flex items-center justify-between mb-4">
+            <h2 className="text-xl font-semibold">📦 물류 파이프라인 현황</h2>
+            <button
+              onClick={() => router.push('/analytics?tab=logistics-performance')}
+              className="text-sm text-primary hover:underline"
+            >
+              상세 보기 →
+            </button>
+          </div>
+          {logisticsData.summary && (
+            <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
+              <div className="p-4 bg-blue-50 dark:bg-blue-900/20 rounded-lg">
+                <h3 className="text-sm font-medium text-muted-color mb-1">주문 → 작가 발송</h3>
+                <p className="text-xl font-bold">
+                  {logisticsData.summary.orderToShip?.avg?.toFixed(1) || 'N/A'}일
+                </p>
+              </div>
+              <div className="p-4 bg-green-50 dark:bg-green-900/20 rounded-lg">
+                <h3 className="text-sm font-medium text-muted-color mb-1">작가 발송 → 검수</h3>
+                <p className="text-xl font-bold">
+                  {logisticsData.summary.shipToInspection?.avg?.toFixed(1) || 'N/A'}일
+                </p>
+              </div>
+              <div className="p-4 bg-purple-50 dark:bg-purple-900/20 rounded-lg">
+                <h3 className="text-sm font-medium text-muted-color mb-1">검수 → 배송 시작</h3>
+                <p className="text-xl font-bold">
+                  {logisticsData.summary.inspectionToShipment?.avg?.toFixed(1) || 'N/A'}일
+                </p>
+              </div>
+              <div className="p-4 bg-orange-50 dark:bg-orange-900/20 rounded-lg">
+                <h3 className="text-sm font-medium text-muted-color mb-1">전체 처리 시간</h3>
+                <p className="text-xl font-bold text-primary">
+                  {logisticsData.summary.total?.avg?.toFixed(1) || 'N/A'}일
+                </p>
+              </div>
+            </div>
+          )}
+        </div>
+      )}
+
+      {/* 오늘 할 일 요약 */}
+      {tasksData && tasksData.tasks && tasksData.tasks.length > 0 && (
+        <div className="card">
+          <h2 className="text-xl font-semibold mb-4">✅ 오늘 할 일 ({tasksData.totalTasks}건)</h2>
+          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+            {tasksData.tasks.slice(0, 6).map((task: any) => (
+              <div
+                key={task.id}
+                className={`p-4 rounded-lg border ${
+                  task.priority === 'high'
+                    ? 'border-red-200 bg-red-50 dark:bg-red-900/10'
+                    : task.priority === 'medium'
+                    ? 'border-yellow-200 bg-yellow-50 dark:bg-yellow-900/10'
+                    : 'border-gray-200 bg-gray-50 dark:bg-gray-800'
+                }`}
+              >
+                <div className="flex items-center gap-2 mb-2">
+                  <span className="text-xl">{task.icon}</span>
+                  <h3 className="font-semibold">{task.title}</h3>
+                </div>
+                <p className="text-sm text-muted-color mb-2">{task.description}</p>
+                <div className="flex items-center justify-between">
+                  <span className="px-2 py-1 bg-white dark:bg-gray-700 rounded text-sm font-semibold">
+                    {task.count}건
+                  </span>
+                  <button
+                    onClick={() => {
+                      if (task.link) {
+                        router.push(task.link)
+                      }
+                    }}
+                    className="text-sm text-primary hover:underline"
+                  >
+                    확인 →
+                  </button>
+                </div>
+              </div>
+            ))}
+          </div>
+        </div>
+      )}
+    </div>
+  )
+}
+
 export default function AnalyticsPage() {
+  const router = useRouter()
+  const searchParams = useSearchParams()
+  const tabFromUrl = searchParams.get('tab')
+  
   const [dateRange, setDateRange] = useState('30d')
   const [countryFilter, setCountryFilter] = useState('all')
-  const [activeTab, setActiveTab] = useState('overview')
+  const [activeTab, setActiveTab] = useState(tabFromUrl || 'daily') // 기본 탭을 일일 운영으로 변경
+
+  // URL 쿼리 파라미터 변경 시 탭 업데이트
+  useEffect(() => {
+    if (tabFromUrl && tabFromUrl !== activeTab) {
+      setActiveTab(tabFromUrl)
+    }
+  }, [tabFromUrl])
+
+  // 탭 변경 시 URL 업데이트
+  const handleTabChange = (newTab: string) => {
+    setActiveTab(newTab)
+    router.push(`/analytics?tab=${newTab}`, { scroll: false })
+  }
   const [selectedCustomerId, setSelectedCustomerId] = useState<string | null>(null)
   const [isOrderDetailModalOpen, setIsOrderDetailModalOpen] = useState(false)
   const [selectedOrderCode, setSelectedOrderCode] = useState<string | null>(null)
@@ -1249,7 +1528,17 @@ export default function AnalyticsPage() {
       <div className="border-b mb-6">
         <div className="flex gap-4">
           <button
-            onClick={() => setActiveTab('overview')}
+            onClick={() => handleTabChange('daily')}
+            className={`pb-2 px-4 font-medium ${
+              activeTab === 'daily'
+                ? 'border-b-2 border-primary text-primary'
+                : 'text-muted-color hover:text-primary'
+            }`}
+          >
+            📊 일일 운영
+          </button>
+          <button
+            onClick={() => handleTabChange('overview')}
             className={`pb-2 px-4 font-medium ${
               activeTab === 'overview'
                 ? 'border-b-2 border-primary text-primary'
@@ -1259,7 +1548,7 @@ export default function AnalyticsPage() {
             종합 성과
           </button>
           <button
-            onClick={() => setActiveTab('customer')}
+            onClick={() => handleTabChange('customer')}
             className={`pb-2 px-4 font-medium ${
               activeTab === 'customer'
                 ? 'border-b-2 border-primary text-primary'
@@ -1269,7 +1558,7 @@ export default function AnalyticsPage() {
             고객 확보
           </button>
           <button
-            onClick={() => setActiveTab('channel')}
+            onClick={() => handleTabChange('channel')}
             className={`pb-2 px-4 font-medium ${
               activeTab === 'channel'
                 ? 'border-b-2 border-primary text-primary'
@@ -1280,7 +1569,7 @@ export default function AnalyticsPage() {
           </button>
           {countryFilter === 'all' && (
             <button
-              onClick={() => setActiveTab('regional')}
+              onClick={() => handleTabChange('regional')}
               className={`pb-2 px-4 font-medium ${
                 activeTab === 'regional'
                   ? 'border-b-2 border-primary text-primary'
@@ -1291,7 +1580,7 @@ export default function AnalyticsPage() {
             </button>
           )}
           <button
-            onClick={() => setActiveTab('logistics-performance')}
+            onClick={() => handleTabChange('logistics-performance')}
             className={`pb-2 px-4 font-medium ${
               activeTab === 'logistics-performance'
                 ? 'border-b-2 border-primary text-primary'
@@ -1301,7 +1590,7 @@ export default function AnalyticsPage() {
             물류 처리 시간
           </button>
           <button
-            onClick={() => setActiveTab('comparison')}
+            onClick={() => handleTabChange('comparison')}
             className={`pb-2 px-4 font-medium ${
               activeTab === 'comparison'
                 ? 'border-b-2 border-primary text-primary'

@@ -31,8 +31,11 @@ import {
   PeriodPreset,
   DateRange,
   BriefingInput,
+  EnhancedBriefingInput,
   TimeSeriesDecomposer,
   TimeSeriesDecomposition,
+  compareGroups,
+  assessDataQuality,
 } from '../analytics'
 
 // 환율 상수 (USD → KRW)
@@ -211,48 +214,29 @@ export class BusinessBrainAgent extends BaseAgent {
       const sortedCountries = [...countryRevenue.entries()].sort((a, b) => b[1] - a[1])
       const sortedArtists = [...artistRevenue.entries()].sort((a, b) => b[1] - a[1])
 
-      // AI 브리핑 입력 데이터 구성
-      const briefingInput: BriefingInput = {
-        period: {
-          start: dateRange.start,
-          end: dateRange.end,
-        },
-        metrics: {
-          totalGmv: currentGmv,
-          gmvChange: previousGmv > 0 ? ((currentGmv - previousGmv) / previousGmv) * 100 : 0,
-          orderCount: currentOrders,
-          orderChange: previousOrders > 0 ? ((currentOrders - previousOrders) / previousOrders) * 100 : 0,
-          aov: currentAov,
-          aovChange: previousAov > 0 ? ((currentAov - previousAov) / previousAov) * 100 : 0,
-          newCustomers: currentCustomers.size - repeatCustomers.length,
-          repeatRate,
-        },
+      // v4.2: EnhancedBriefingInput 생성 (향상된 AI 분석 품질)
+      const enhancedBriefingInput = await this.buildEnhancedBriefingInput(
+        dateRange,
+        comparisonRange,
+        orderData,
+        previousData,
+        currentGmv,
+        previousGmv,
+        currentOrders,
+        previousOrders,
+        currentAov,
+        previousAov,
+        currentCustomers,
+        repeatCustomers,
+        repeatRate,
+        sortedCountries,
+        sortedArtists,
         healthScore,
-        insights,
-        anomalies: insights
-          .filter(i => i.type === 'critical' || i.type === 'warning')
-          .slice(0, 5)
-          .map(i => ({ metric: i.metric, description: i.description })),
-        trends: insights
-          .filter(i => i.deviationPercent !== 0)
-          .slice(0, 5)
-          .map(i => ({
-            metric: i.metric,
-            direction: i.deviationPercent > 0 ? '상승' : '하락',
-            magnitude: Math.abs(i.deviationPercent),
-          })),
-        topCountry: sortedCountries[0] ? {
-          name: this.getCountryName(sortedCountries[0][0]),
-          share: currentGmv > 0 ? sortedCountries[0][1] / currentGmv : 0,
-        } : undefined,
-        topArtist: sortedArtists[0] ? {
-          name: sortedArtists[0][0],
-          revenue: sortedArtists[0][1],
-        } : undefined,
-      }
+        insights
+      )
 
-      // AI 브리핑 생성 시도
-      const aiBriefing = await aiBriefingGenerator.generateExecutiveBriefing(briefingInput)
+      // AI 브리핑 생성 시도 (EnhancedBriefingInput 사용)
+      const aiBriefing = await aiBriefingGenerator.generateExecutiveBriefing(enhancedBriefingInput)
 
       // 브리핑 생성
       const briefing: ExecutiveBriefing = {
@@ -1903,5 +1887,151 @@ export class BusinessBrainAgent extends BaseAgent {
       console.error('[BusinessBrainAgent] 시계열 분해 오류:', error)
       throw error
     }
+  }
+
+  /**
+   * EnhancedBriefingInput 생성 (v4.2)
+   */
+  private async buildEnhancedBriefingInput(
+    dateRange: DateRange,
+    comparisonRange: DateRange,
+    orderData: any[],
+    previousData: any[],
+    currentGmv: number,
+    previousGmv: number,
+    currentOrders: number,
+    previousOrders: number,
+    currentAov: number,
+    previousAov: number,
+    currentCustomers: Set<string>,
+    repeatCustomers: string[],
+    repeatRate: number,
+    sortedCountries: Array<[string, number]>,
+    sortedArtists: Array<[string, number]>,
+    healthScore: BusinessHealthScore,
+    insights: BusinessInsight[]
+  ): Promise<EnhancedBriefingInput> {
+    // 기본 BriefingInput 생성
+    const baseInput: BriefingInput = {
+      period: {
+        start: dateRange.start,
+        end: dateRange.end,
+      },
+      metrics: {
+        totalGmv: currentGmv,
+        gmvChange: previousGmv > 0 ? ((currentGmv - previousGmv) / previousGmv) * 100 : 0,
+        orderCount: currentOrders,
+        orderChange: previousOrders > 0 ? ((currentOrders - previousOrders) / previousOrders) * 100 : 0,
+        aov: currentAov,
+        aovChange: previousAov > 0 ? ((currentAov - previousAov) / previousAov) * 100 : 0,
+        newCustomers: currentCustomers.size - repeatCustomers.length,
+        repeatRate,
+      },
+      healthScore,
+      insights,
+      anomalies: insights
+        .filter(i => i.type === 'critical' || i.type === 'warning')
+        .slice(0, 5)
+        .map(i => ({ metric: i.metric, description: i.description })),
+      trends: insights
+        .filter(i => i.deviationPercent !== 0)
+        .slice(0, 5)
+        .map(i => ({
+          metric: i.metric,
+          direction: i.deviationPercent > 0 ? '상승' : '하락',
+          magnitude: Math.abs(i.deviationPercent),
+        })),
+      topCountry: sortedCountries[0] ? {
+        name: this.getCountryName(sortedCountries[0][0]),
+        share: currentGmv > 0 ? sortedCountries[0][1] / currentGmv : 0,
+      } : undefined,
+      topArtist: sortedArtists[0] ? {
+        name: sortedArtists[0][0],
+        revenue: sortedArtists[0][1],
+      } : undefined,
+    }
+
+    // 비즈니스 컨텍스트
+    const businessContext = {
+      businessAge: 2, // 비즈니스 운영 기간 (년)
+      marketFocus: Array.from(new Set(orderData.map((row: any) => row.country).filter(Boolean))),
+      serviceLaunch: {
+        JP: '2025-03-01' // 일본 현지화 서비스 런칭 일자
+      },
+      businessGoals: [
+        '신규 유저 유치',
+        '재구매율 향상',
+        '일본 시장 확대'
+      ]
+    }
+
+    // 전기 데이터 (previousPeriod)
+    const previousPeriodInput: BriefingInput = {
+      ...baseInput,
+      period: {
+        start: comparisonRange.start,
+        end: comparisonRange.end,
+      },
+      metrics: {
+        totalGmv: previousGmv,
+        gmvChange: 0,
+        orderCount: previousOrders,
+        orderChange: 0,
+        aov: previousAov,
+        aovChange: 0,
+        newCustomers: previousData.length > 0 ? new Set(previousData.map((row: any) => row.user_id).filter(Boolean)).size : 0,
+        repeatRate: 0,
+      },
+    }
+
+    // 통계적 검증 (주요 메트릭에 대해)
+    const significanceTests = []
+    if (orderData.length > 0 && previousData.length > 0) {
+      try {
+        // GMV 통계적 검증
+        const currentGmvValues = orderData.map((row: any) => Number(row['Total GMV']) || 0)
+        const previousGmvValues = previousData.map((row: any) => Number(row['Total GMV']) || 0)
+        
+        if (currentGmvValues.length > 0 && previousGmvValues.length > 0) {
+          const gmvTest = compareGroups(currentGmvValues, previousGmvValues, '현재 기간', '이전 기간')
+          significanceTests.push({
+            metric: 'GMV',
+            isSignificant: gmvTest.interpretation.isSignificant,
+            pValue: gmvTest.test.pValue,
+            effectSize: gmvTest.test.effectSize,
+            interpretation: gmvTest.test.effectSizeInterpretation
+          })
+        }
+      } catch (error) {
+        console.warn('[BusinessBrainAgent] 통계적 검증 실패:', error)
+      }
+    }
+
+    // 데이터 품질 평가
+    const dataQuality = assessDataQuality(orderData, 'logistics')
+
+    // EnhancedBriefingInput 구성
+    const enhancedInput: EnhancedBriefingInput = {
+      ...baseInput,
+      businessContext,
+      historicalContext: {
+        previousPeriod: previousPeriodInput,
+        // 전년 동기 데이터는 현재 비즈니스가 2년이므로 제한적
+        // seasonalPatterns는 향후 추가 가능
+      },
+      statisticalContext: {
+        significanceTests: significanceTests.length > 0 ? significanceTests : undefined,
+        dataQuality: {
+          overall: Math.round((dataQuality.completeness + dataQuality.accuracy) / 2 * 100),
+          sampleSize: orderData.length,
+          missingRate: dataQuality.missingData / Math.max(orderData.length, 1),
+          completeness: dataQuality.completeness,
+          accuracy: dataQuality.accuracy,
+          freshness: dataQuality.freshness
+        }
+      }
+    }
+
+    return enhancedInput
   }
 }

@@ -6,7 +6,8 @@
  */
 
 import OpenAI from 'openai'
-import { BusinessHealthScore, BusinessInsight } from './types'
+import { BusinessHealthScore, BusinessInsight, EnhancedBriefingInput, BriefingInput } from './types'
+import { CausalInferenceEngine, CausalAnalysis } from './CausalInferenceEngine'
 
 // OpenAI 클라이언트 (환경변수에서 API 키 로드)
 let openaiClient: OpenAI | null = null
@@ -65,8 +66,11 @@ export class AIBriefingGenerator {
   
   /**
    * Executive Summary 생성
+   * v4.2: EnhancedBriefingInput 지원 추가
    */
-  async generateExecutiveBriefing(input: BriefingInput): Promise<AIBriefing> {
+  async generateExecutiveBriefing(
+    input: BriefingInput | EnhancedBriefingInput
+  ): Promise<AIBriefing> {
     const client = getOpenAIClient()
     
     // LLM 사용 불가 시 템플릿 기반 브리핑 생성
@@ -75,22 +79,38 @@ export class AIBriefingGenerator {
     }
 
     try {
-      const prompt = this.buildExecutiveSummaryPrompt(input)
+      // EnhancedBriefingInput인지 확인
+      const isEnhanced = 'businessContext' in input
+      
+      const prompt = isEnhanced
+        ? this.buildEnhancedExecutiveSummaryPrompt(input as EnhancedBriefingInput)
+        : this.buildExecutiveSummaryPrompt(input)
+      
+      const systemPrompt = isEnhanced
+        ? this.buildSystemPrompt((input as EnhancedBriefingInput).businessContext)
+        : '당신은 글로벌 이커머스 비즈니스의 경영 고문입니다. 데이터를 분석하여 경영진에게 명확하고 실행 가능한 인사이트를 제공합니다. 한국어로 응답하세요.'
+      
+      // v4.2: GPT-4o 모델 사용 (향상된 분석 품질)
+      const model = process.env.OPENAI_MODEL || 'gpt-4o-mini'
+      const useEnhancedModel = model === 'gpt-4o' || model === 'gpt-4-turbo-preview' || isEnhanced
       
       const response = await client.chat.completions.create({
-        model: 'gpt-4o-mini',
+        model: useEnhancedModel ? 'gpt-4o' : 'gpt-4o-mini',
         messages: [
           {
             role: 'system',
-            content: '당신은 글로벌 이커머스 비즈니스의 경영 고문입니다. 데이터를 분석하여 경영진에게 명확하고 실행 가능한 인사이트를 제공합니다. 한국어로 응답하세요.'
+            content: systemPrompt
           },
           {
             role: 'user',
             content: prompt
           }
         ],
-        temperature: 0.5,  // v4.1: 더 일관된 결과를 위해 낮춤
-        max_tokens: 1500,  // v4.1: 더 상세한 브리핑을 위해 증가
+        temperature: 0.3,  // v4.2: 더 일관된 결과
+        max_tokens: 2500,  // v4.2: 더 상세한 브리핑
+        top_p: 0.9,
+        frequency_penalty: 0.3,
+        presence_penalty: 0.3
       })
 
       const content = response.choices[0]?.message?.content || ''
@@ -138,6 +158,299 @@ export class AIBriefingGenerator {
       console.error('[AIBriefingGenerator] 인사이트 해석 오류:', error.message)
       return this.generateTemplateInterpretation(insight)
     }
+  }
+
+  /**
+   * 인과관계 분석을 통합한 인사이트 해석 (v4.2)
+   */
+  async interpretInsightWithCausality(
+    insight: BusinessInsight,
+    causalAnalysis?: CausalAnalysis
+  ): Promise<string> {
+    const client = getOpenAIClient()
+    
+    if (!client) {
+      return this.generateTemplateInterpretation(insight)
+    }
+
+    const prompt = `
+## 발견된 인사이트
+- 제목: ${insight.title}
+- 설명: ${insight.description}
+- 유형: ${insight.type}
+- 통계적 유의성: ${insight.scores?.statisticalSignificance || 'N/A'}/100
+
+## 인과관계 분석 결과
+${causalAnalysis ? `
+- 주요 원인: ${causalAnalysis.mostLikelyCause ? `${causalAnalysis.mostLikelyCause.cause} (영향도: ${causalAnalysis.mostLikelyCause.estimatedImpact}%, 신뢰도: ${causalAnalysis.mostLikelyCause.confidence})` : 'N/A'}
+- 잠재적 원인들:
+${causalAnalysis.potentialCauses.map(c => `  - ${c.cause} (영향도: ${c.estimatedImpact}%, 신뢰도: ${c.confidence})`).join('\n')}
+- 예상 효과: ${causalAnalysis.recommendations.map(r => r.expectedImpact).join(', ')}
+` : '- 인과관계 분석 없음'}
+
+## 작성 지침
+1. 인사이트를 비즈니스 관점에서 해석
+2. 인과관계 분석 결과를 바탕으로 근본 원인 설명
+3. 구체적인 액션 제안 (누가, 무엇을, 언제까지)
+4. 예상 효과를 정량적으로 제시
+
+응답 형식:
+[해석]
+(인사이트의 의미와 비즈니스 영향)
+
+[근본 원인]
+- 원인1: [설명] (영향도: X%)
+- 원인2: [설명] (영향도: Y%)
+
+[권장 액션]
+1. [액션1] (담당자: [이름], 일정: [날짜], 예상 효과: [정량적])
+2. [액션2] (담당자: [이름], 일정: [날짜], 예상 효과: [정량적])
+
+[모니터링 지표]
+- [지표1]: [목표값] (현재: [현재값])
+- [지표2]: [목표값] (현재: [현재값])
+`
+
+    try {
+      const response = await client.chat.completions.create({
+        model: 'gpt-4o',
+        messages: [
+          {
+            role: 'system',
+            content: '당신은 데이터 분석 전문가이자 비즈니스 전략가입니다. 인사이트를 깊이 있게 해석하고 실행 가능한 조언을 제공합니다.'
+          },
+          {
+            role: 'user',
+            content: prompt
+          }
+        ],
+        temperature: 0.4,
+        max_tokens: 500
+      })
+
+      return response.choices[0]?.message?.content || this.generateTemplateInterpretation(insight)
+    } catch (error: any) {
+      console.error('[AIBriefingGenerator] 인과관계 분석 통합 해석 오류:', error.message)
+      return this.generateTemplateInterpretation(insight)
+    }
+  }
+
+  /**
+   * 시스템 프롬프트 생성 (v4.2)
+   */
+  private buildSystemPrompt(businessContext: EnhancedBriefingInput['businessContext']): string {
+    return `당신은 아이디어스(idus) 글로벌 서비스의 경영 고문입니다.
+
+## 비즈니스 배경
+- 운영 기간: ${businessContext.businessAge}년
+- 주요 시장: ${businessContext.marketFocus.join(', ')}
+- 현재 목표: ${businessContext.businessGoals.join(', ')}
+${Object.keys(businessContext.serviceLaunch).length > 0 ? `- 서비스 런칭: ${Object.entries(businessContext.serviceLaunch).map(([market, date]) => `${market}: ${date}`).join(', ')}` : ''}
+
+## 역할
+데이터를 깊이 있게 분석하여 경영진에게 명확하고 실행 가능한 인사이트를 제공합니다. 모든 주장은 데이터로 뒷받침되어야 하며, 통계적 유의성을 고려해야 합니다.
+
+## 작성 원칙
+1. 구체성: 숫자, 날짜, 담당자 등 구체적 정보 포함
+2. 실행 가능성: 제안된 액션이 실제로 실행 가능해야 함
+3. 데이터 기반: 모든 주장이 데이터로 뒷받침되어야 함
+4. 통계적 엄밀성: 통계적으로 유의하지 않은 변화는 과대 해석하지 않음
+
+한국어로 응답하세요.`
+  }
+
+  /**
+   * 향상된 Executive Summary 프롬프트 생성 (v4.2)
+   */
+  private buildEnhancedExecutiveSummaryPrompt(input: EnhancedBriefingInput): string {
+    const {
+      period,
+      metrics,
+      healthScore,
+      insights,
+      anomalies,
+      trends,
+      topCountry,
+      topArtist,
+      businessContext,
+      historicalContext,
+      statisticalContext
+    } = input
+
+    const criticalInsights = insights.filter(i => i.type === 'critical')
+    const warningInsights = insights.filter(i => i.type === 'warning')
+    const opportunityInsights = insights.filter(i => i.type === 'opportunity')
+    const significantInsights = insights.filter(i => 
+      i.scores?.statisticalSignificance && i.scores.statisticalSignificance >= 70
+    )
+
+    // 1. 비즈니스 컨텍스트 섹션
+    const businessContextSection = `
+## 비즈니스 컨텍스트
+- 운영 기간: ${businessContext.businessAge}년
+- 주요 시장: ${businessContext.marketFocus.join(', ')}
+- 현재 목표: ${businessContext.businessGoals.join(', ')}
+${Object.keys(businessContext.serviceLaunch).length > 0 ? `- 일본 현지화 서비스: ${businessContext.serviceLaunch['JP'] ? `${businessContext.serviceLaunch['JP']} 런칭 (데이터 축적 중)` : 'N/A'}` : ''}
+`
+
+    // 2. 비교 분석 섹션
+    let comparisonSection = `
+## 비교 분석
+### 전기 대비
+- 매출: ${metrics.gmvChange >= 0 ? '+' : ''}${metrics.gmvChange.toFixed(1)}%
+- 주문: ${metrics.orderChange >= 0 ? '+' : ''}${metrics.orderChange.toFixed(1)}%
+`
+
+    if (historicalContext?.yearOverYear) {
+      const yoyGmvChange = ((metrics.totalGmv / historicalContext.yearOverYear.metrics.totalGmv - 1) * 100)
+      const yoyOrderChange = ((metrics.orderCount / historicalContext.yearOverYear.metrics.orderCount - 1) * 100)
+      comparisonSection += `
+### 전년 동기 대비
+- 매출: ${yoyGmvChange >= 0 ? '+' : ''}${yoyGmvChange.toFixed(1)}%
+- 주문: ${yoyOrderChange >= 0 ? '+' : ''}${yoyOrderChange.toFixed(1)}%
+`
+    } else {
+      comparisonSection += `
+### 전년 동기 대비
+- 전년 동기 데이터 없음 (신규 비즈니스)
+`
+    }
+
+    if (historicalContext?.seasonalPatterns && historicalContext.seasonalPatterns.length > 0) {
+      comparisonSection += `
+### 계절성 고려
+${historicalContext.seasonalPatterns.map(p => {
+        const monthNames = ['1월', '2월', '3월', '4월', '5월', '6월', '7월', '8월', '9월', '10월', '11월', '12월']
+        return `- ${monthNames[p.month - 1]}: 평균 ${p.avgChange >= 0 ? '+' : ''}${p.avgChange.toFixed(1)}% 변화 (역사적 패턴)`
+      }).join('\n')}
+`
+    }
+
+    // 3. 통계적 유의성 섹션
+    let statisticalSection = ''
+    if (statisticalContext?.significanceTests && statisticalContext.significanceTests.length > 0) {
+      statisticalSection = `
+## 통계적 검증
+${statisticalContext.significanceTests.map(test => `
+- ${test.metric}: ${test.isSignificant ? '✅ 유의함' : '⚠️ 유의하지 않음'} (p=${test.pValue.toFixed(3)})
+  - 효과 크기: ${test.effectSize.toFixed(3)} (${test.interpretation})
+`).join('')}
+`
+    }
+
+    if (statisticalContext?.dataQuality) {
+      statisticalSection += `
+### 데이터 신뢰도
+- 데이터 품질 점수: ${statisticalContext.dataQuality.overall}/100
+- 샘플 크기: ${statisticalContext.dataQuality.sampleSize}
+- 결측치 비율: ${(statisticalContext.dataQuality.missingRate * 100).toFixed(1)}%
+- 완전성: ${(statisticalContext.dataQuality.completeness * 100).toFixed(1)}%
+- 정확도: ${(statisticalContext.dataQuality.accuracy * 100).toFixed(1)}%
+`
+    }
+
+    // 4. 강화된 작성 지침
+    const enhancedGuidelines = `
+## 작성 지침 (엄격히 준수)
+
+### 1. 요약 작성 원칙
+- 첫 문장: 비즈니스 전체 상태를 한 줄로 요약 (숫자 포함)
+- 두 번째 문단: 가장 중요한 변화 1개를 구체적으로 설명
+- 세 번째 문단: 통계적으로 유의한 인사이트 1-2개 언급
+
+### 2. 즉시 조치 항목 작성
+- 🚨 표시는 통계적으로 유의하고 즉시 대응이 필요한 항목만
+- 각 항목은 다음 형식:
+  "[문제] → [원인 분석] → [구체적 액션] → [예상 효과]"
+- 예시: "일본 시장 매출 20% 감소 (p<0.05) → A작가 신작 지연 영향 → 작가 연락 및 프로모션 준비 → 예상 회복: +15%"
+
+### 3. 기회 항목 작성
+- 💡 표시는 데이터로 뒷받침되는 성장 기회만
+- 각 항목은 다음 형식:
+  "[기회] → [근거] → [실행 방안] → [예상 효과]"
+- 예시: "신규 유저 유입 증가 (+30%) → 재구매율 낮음 (15%) → 재구매 촉진 캠페인 → 예상 효과: 재구매율 +10%p"
+
+### 4. 리스크 항목 작성
+- ⚠️ 표시는 통계적으로 유의하거나 추세가 명확한 위험만
+- 각 항목은 다음 형식:
+  "[리스크] → [근거] → [모니터링 지표] → [대응 계획]"
+- 예시: "고객 이탈 위험 증가 → 6개월 미구매 고객 +15% → 주간 이탈률 모니터링 → 이탈 예방 캠페인 준비"
+
+### 5. 이번 주 집중 사항
+- 우선순위 1: 가장 긴급하고 효과가 큰 항목
+- 우선순위 2: 중기 전략적 중요 항목
+- 우선순위 3: 모니터링 및 데이터 수집 항목
+- 각 항목은 구체적인 액션과 담당자/일정 포함
+
+### 6. 금지 사항
+- ❌ 일반적이고 추상적인 표현 ("성장 전략 수립", "고객 만족도 향상")
+- ❌ 데이터로 뒷받침되지 않는 추측
+- ❌ 통계적으로 유의하지 않은 변화를 과대 해석
+- ❌ 실행 불가능한 제안
+
+### 7. 필수 포함 사항
+- ✅ 모든 숫자는 비교 기준 명시 (전기 대비, 전년 동기 대비)
+- ✅ 통계적 유의성 언급 (p-value 또는 신뢰구간)
+- ✅ 데이터 신뢰도 표시 (샘플 크기, 데이터 품질)
+- ✅ 구체적인 액션 아이템 (누가, 무엇을, 언제까지)
+`
+
+    return `
+${businessContextSection}
+${comparisonSection}
+${statisticalSection}
+
+## 핵심 지표
+- 총 매출: $${metrics.totalGmv.toLocaleString()} (전기 대비 ${metrics.gmvChange >= 0 ? '+' : ''}${metrics.gmvChange.toFixed(1)}%)
+- 주문 건수: ${metrics.orderCount.toLocaleString()}건 (전기 대비 ${metrics.orderChange >= 0 ? '+' : ''}${metrics.orderChange.toFixed(1)}%)
+- AOV: $${metrics.aov.toFixed(0)} (전기 대비 ${metrics.aovChange >= 0 ? '+' : ''}${metrics.aovChange.toFixed(1)}%)
+- 신규 고객: ${metrics.newCustomers.toLocaleString()}명
+- 재구매율: ${metrics.repeatRate.toFixed(1)}%
+${topCountry ? `- 주력 시장: ${topCountry.name} (${(topCountry.share * 100).toFixed(1)}%)` : ''}
+${topArtist ? `- 최고 매출 작가: ${topArtist.name}` : ''}
+
+## 건강도 점수
+- 종합: ${healthScore.overall}/100
+- 매출: ${healthScore.dimensions.revenue.score}/100 (${healthScore.dimensions.revenue.trend})
+- 고객: ${healthScore.dimensions.customer.score}/100 (${healthScore.dimensions.customer.trend})
+- 작가: ${healthScore.dimensions.artist.score}/100 (${healthScore.dimensions.artist.trend})
+- 운영: ${healthScore.dimensions.operations.score}/100 (${healthScore.dimensions.operations.trend})
+
+## 발견된 이슈
+- 긴급 이슈: ${criticalInsights.length}개
+- 주의 사항: ${warningInsights.length}개
+- 기회 요인: ${opportunityInsights.length}개
+- 통계적으로 유의한 인사이트: ${significantInsights.length}개
+
+${anomalies.length > 0 ? `## 이상 징후\n${anomalies.slice(0, 3).map(a => `- ${a.metric}: ${a.description}`).join('\n')}` : ''}
+
+${trends.length > 0 ? `## 주요 트렌드\n${trends.slice(0, 3).map(t => `- ${t.metric}: ${t.direction} (${t.magnitude > 0 ? '+' : ''}${t.magnitude.toFixed(1)}%)`).join('\n')}` : ''}
+
+${enhancedGuidelines}
+
+${this.getFewShotExamples()}
+
+응답 형식 (엄격히 준수):
+[요약]
+(3문단: 전체 상태 → 주요 변화 → 통계적 인사이트)
+
+[즉시 조치]
+🚨 항목1: [문제] → [원인] → [액션] → [효과]
+🚨 항목2: [문제] → [원인] → [액션] → [효과]
+
+[기회]
+💡 항목1: [기회] → [근거] → [방안] → [효과]
+💡 항목2: [기회] → [근거] → [방안] → [효과]
+
+[리스크]
+⚠️ 항목1: [리스크] → [근거] → [모니터링] → [대응]
+⚠️ 항목2: [리스크] → [근거] → [모니터링] → [대응]
+
+[이번 주 집중]
+1. [우선순위 1]: [구체적 액션] (담당자: [이름], 일정: [날짜])
+2. [우선순위 2]: [구체적 액션] (담당자: [이름], 일정: [날짜])
+3. [우선순위 3]: [구체적 액션] (담당자: [이름], 일정: [날짜])
+`
   }
 
   /**
@@ -308,9 +621,48 @@ ${insight.description}
   }
 
   /**
+   * Few-shot 예시 추가 (v4.2)
+   */
+  private getFewShotExamples(): string {
+    return `
+## 예시 1: 긍정적 변화
+[요약]
+비즈니스 건강도 75점으로 양호한 상태입니다. 최근 30일간 매출 $150,000, 주문 1,200건을 기록했으며, 전기 대비 매출이 +15.3% 증가했습니다 (p<0.01, 통계적으로 유의함). 신규 유저 유입이 +30% 증가했으나 재구매율은 15%로 낮아 개선 기회가 있습니다.
+
+[즉시 조치]
+🚨 재구매율 개선 필요: 현재 15% (업계 평균 25%) → 신규 유저 유입 증가했으나 재구매 전환 부족 → 재구매 촉진 캠페인 실행 (쿠폰 발급, 이메일 마케팅) → 예상 효과: 재구매율 +10%p, 매출 +$20,000
+
+[기회]
+💡 신규 유저 품질 향상: 신규 유저 유입 +30% (통계적으로 유의, p<0.05) → 첫 구매 평균 금액 $45 (전기 $38 대비 +18%) → 신규 유저 타겟 프로모션 확대 → 예상 효과: 신규 유저 LTV +20%
+
+[이번 주 집중]
+1. 재구매 촉진 캠페인 실행 (담당자: 마케팅팀, 일정: 이번 주 금요일까지)
+2. 신규 유저 온보딩 프로세스 개선 (담당자: CX팀, 일정: 다음 주 월요일까지)
+3. 주간 재구매율 모니터링 (담당자: 데이터팀, 일정: 매일)
+
+---
+
+## 예시 2: 부정적 변화
+[요약]
+비즈니스 건강도 58점으로 주의가 필요한 상태입니다. 최근 30일간 매출 $120,000, 주문 950건을 기록했으며, 전기 대비 매출이 -12.5% 감소했습니다 (p<0.05, 통계적으로 유의함). 일본 시장 매출이 -20% 감소한 것이 주요 원인으로 분석됩니다.
+
+[즉시 조치]
+🚨 일본 시장 매출 급감: -20% (p<0.05) → A작가 신작 출시 지연 및 B작가 재고 부족 → 작가 연락 및 재고 확보, 프로모션 준비 → 예상 효과: 다음 주 +15% 회복
+
+[리스크]
+⚠️ 고객 이탈 위험: 6개월 미구매 고객 +15% (추세 지속) → 주간 이탈률 모니터링 강화 → 이탈 예방 캠페인 준비 (다음 주 실행)
+
+[이번 주 집중]
+1. 일본 시장 매출 회복 조치 (담당자: 운영팀, 일정: 이번 주 수요일까지)
+2. 작가 재고 현황 점검 (담당자: 물류팀, 일정: 이번 주 목요일까지)
+3. 고객 이탈률 모니터링 (담당자: 데이터팀, 일정: 매일)
+`
+  }
+
+  /**
    * 템플릿 기반 브리핑 생성 (LLM 폴백)
    */
-  private generateTemplateBriefing(input: BriefingInput): AIBriefing {
+  private generateTemplateBriefing(input: BriefingInput | EnhancedBriefingInput): AIBriefing {
     const { metrics, healthScore, insights, topCountry, topArtist } = input
 
     // 상태 판단
@@ -406,6 +758,87 @@ ${insight.description}
       confidence: 70,
       generatedAt: new Date(),
       usedLLM: false,
+    }
+  }
+
+  /**
+   * 브리핑 품질 검증 (v4.2)
+   */
+  async validateBriefingQuality(briefing: AIBriefing): Promise<{
+    specificity: number
+    actionability: number
+    dataBacking: number
+    overall: number
+    issues: string[]
+  }> {
+    const client = getOpenAIClient()
+    
+    if (!client) {
+      return {
+        specificity: 50,
+        actionability: 50,
+        dataBacking: 50,
+        overall: 50,
+        issues: ['LLM 사용 불가']
+      }
+    }
+
+    const prompt = `
+다음 브리핑의 품질을 평가하세요:
+
+${JSON.stringify(briefing, null, 2)}
+
+평가 기준:
+1. 구체성: 숫자, 날짜, 담당자 등 구체적 정보 포함 여부
+2. 실행 가능성: 제안된 액션이 실제로 실행 가능한지
+3. 데이터 기반: 모든 주장이 데이터로 뒷받침되는지
+
+각 항목을 0-100점으로 평가하고, 개선 필요 사항을 제시하세요.
+
+응답 형식 (JSON):
+{
+  "specificity": 85,
+  "actionability": 90,
+  "dataBacking": 80,
+  "overall": 85,
+  "issues": ["일부 액션에 담당자 정보 부족", "예상 효과 정량화 부족"]
+}
+`
+
+    try {
+      const response = await client.chat.completions.create({
+        model: 'gpt-4o',
+        messages: [
+          {
+            role: 'system',
+            content: '당신은 문서 품질 평가 전문가입니다. 객관적이고 구체적인 평가를 제공합니다.'
+          },
+          {
+            role: 'user',
+            content: prompt
+          }
+        ],
+        temperature: 0.2,
+        response_format: { type: 'json_object' }
+      })
+
+      const quality = JSON.parse(response.choices[0]?.message?.content || '{}')
+      return {
+        specificity: quality.specificity || 50,
+        actionability: quality.actionability || 50,
+        dataBacking: quality.dataBacking || 50,
+        overall: quality.overall || 50,
+        issues: quality.issues || []
+      }
+    } catch (error: any) {
+      console.error('[AIBriefingGenerator] 품질 검증 실패:', error.message)
+      return {
+        specificity: 50,
+        actionability: 50,
+        dataBacking: 50,
+        overall: 50,
+        issues: ['품질 검증 실패']
+      }
     }
   }
 

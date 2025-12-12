@@ -196,6 +196,56 @@ export function evaluateDataQuality(
   }
 }
 
+/**
+ * 데이터 배열로부터 데이터 품질 평가 (v4.2)
+ * @param data 데이터 배열
+ * @param sheetName 시트 이름 (선택적, 로깅용)
+ */
+export function assessDataQuality(
+  data: any[],
+  sheetName?: string
+): DataQualityMetrics {
+  if (!data || data.length === 0) {
+    return {
+      completeness: 0,
+      accuracy: 0,
+      freshness: Infinity,
+      missingData: 0
+    }
+  }
+
+  const totalRecords = data.length
+  
+  // 필수 필드 체크 (logistics 시트 기준)
+  const requiredFields = ['user_id', 'order_created', 'Total GMV']
+  let missingRecords = 0
+  
+  for (const row of data) {
+    const hasAllFields = requiredFields.every(field => {
+      const value = row[field]
+      return value !== null && value !== undefined && value !== ''
+    })
+    if (!hasAllFields) {
+      missingRecords++
+    }
+  }
+  
+  // 데이터 정확도 추정 (기본값 0.95, 실제로는 데이터 검증 로직 필요)
+  const accuracyEstimate = 0.95
+  
+  // 데이터 신선도 (실제로는 데이터 소스에서 가져와야 함, 여기서는 기본값)
+  const lastUpdateTime = new Date()
+  const now = new Date()
+  const freshness = 0 // 매일 업데이트되므로 0시간으로 가정
+  
+  return {
+    completeness: totalRecords > 0 ? 1 - (missingRecords / totalRecords) : 0,
+    accuracy: accuracyEstimate,
+    freshness,
+    missingData: missingRecords
+  }
+}
+
 // ==================== 메인 계산 함수 ====================
 
 /**

@@ -9,9 +9,17 @@ import { BusinessInsight, InsightAction, AffectedEntities, InsightCategory } fro
 const CATEGORY_ACTION_MAP: Record<InsightCategory, InsightAction[]> = {
   revenue: [
     {
+      id: 'view-revenue-analytics',
+      label: '상세 성과 확인',
+      icon: '📊',
+      type: 'navigate',
+      href: '/analytics',
+      params: { tab: 'overview' }
+    },
+    {
       id: 'view-revenue-detail',
       label: '매출 상세 보기',
-      icon: '📊',
+      icon: '📈',
       type: 'navigate',
       href: '/business-brain',
       params: { tab: 'comprehensive' }
@@ -26,6 +34,14 @@ const CATEGORY_ACTION_MAP: Record<InsightCategory, InsightAction[]> = {
     }
   ],
   customer: [
+    {
+      id: 'view-customer-analytics',
+      label: '상세 성과 확인',
+      icon: '📊',
+      type: 'navigate',
+      href: '/analytics',
+      params: { tab: 'customer' }
+    },
     {
       id: 'view-rfm',
       label: 'RFM 분석 보기',
@@ -44,6 +60,14 @@ const CATEGORY_ACTION_MAP: Record<InsightCategory, InsightAction[]> = {
   ],
   artist: [
     {
+      id: 'view-artist-analytics',
+      label: '상세 성과 확인',
+      icon: '📊',
+      type: 'navigate',
+      href: '/analytics',
+      params: { tab: 'overview' }
+    },
+    {
       id: 'view-artist-detail',
       label: '작가 분석 보기',
       icon: '🎨',
@@ -53,13 +77,21 @@ const CATEGORY_ACTION_MAP: Record<InsightCategory, InsightAction[]> = {
     {
       id: 'view-pareto',
       label: '파레토 분석',
-      icon: '📊',
+      icon: '📈',
       type: 'navigate',
       href: '/business-brain',
       params: { tab: 'pareto' }
     }
   ],
   operations: [
+    {
+      id: 'view-logistics-analytics',
+      label: '상세 성과 확인',
+      icon: '📊',
+      type: 'navigate',
+      href: '/analytics',
+      params: { tab: 'logistics-performance' }
+    },
     {
       id: 'view-qc',
       label: 'QC 관리',

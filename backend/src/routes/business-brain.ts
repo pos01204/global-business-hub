@@ -12,6 +12,7 @@ import { ChurnPredictor } from '../services/analytics/ChurnPredictor'
 import { ArtistHealthCalculator } from '../services/analytics/ArtistHealthCalculator'
 import { NewUserAcquisitionAnalyzer } from '../services/analytics/NewUserAcquisitionAnalyzer'
 import { RepurchaseAnalyzer } from '../services/analytics/RepurchaseAnalyzer'
+import { enhancedAgentOrchestrator } from '../services/agents/EnhancedAgentOrchestrator'
 
 const router = Router()
 
@@ -978,6 +979,43 @@ router.get('/time-series-decompose', async (req, res) => {
     res.status(500).json({ 
       success: false,
       error: error.message || '시계열 분해 분석 중 오류가 발생했습니다.',
+    })
+  }
+})
+
+/**
+ * POST /api/business-brain/orchestrate
+ * v4.2: Enhanced Agent Orchestrator를 사용한 복잡한 질문 처리
+ */
+router.post('/orchestrate', async (req, res) => {
+  try {
+    const { query } = req.body
+    
+    if (!query || typeof query !== 'string') {
+      return res.status(400).json({
+        success: false,
+        error: 'query 파라미터가 필요합니다.'
+      })
+    }
+
+    console.log(`[BusinessBrain] 복잡한 질문 처리 요청: "${query}"`)
+    
+    const result = await enhancedAgentOrchestrator.orchestrateComplexQuery(query, {
+      userId: req.body.userId,
+      sessionId: req.body.sessionId
+    })
+    
+    res.json({
+      success: true,
+      result,
+      query,
+      processedAt: new Date().toISOString(),
+    })
+  } catch (error: any) {
+    console.error('[BusinessBrain] 오케스트레이션 오류:', error)
+    res.status(500).json({
+      success: false,
+      error: error.message || '질문 처리 중 오류가 발생했습니다.',
     })
   }
 })

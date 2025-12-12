@@ -71,6 +71,56 @@ export interface InsightAction {
   dataKey?: string
 }
 
+// ==================== 향상된 브리핑 입력 (v4.2) ====================
+export interface SeasonalPattern {
+  month: number
+  avgChange: number
+  historicalData: number[]
+}
+
+export interface StatisticalTestResult {
+  metric: string
+  isSignificant: boolean
+  pValue: number
+  effectSize: number
+  interpretation: 'large' | 'medium' | 'small' | 'negligible'
+}
+
+export interface DataQualityScore {
+  overall: number
+  sampleSize: number
+  missingRate: number
+  completeness: number
+  accuracy: number
+  freshness: number
+}
+
+export interface EnhancedBriefingInput extends BriefingInput {
+  // 비즈니스 컨텍스트
+  businessContext: {
+    businessAge: number // 비즈니스 운영 기간 (년)
+    marketFocus: string[] // 주요 시장 (['JP', 'US', ...])
+    serviceLaunch: Record<string, string> // 서비스 런칭 일자 { 'JP': '2025-03-01' }
+    businessGoals: string[] // 현재 비즈니스 목표
+  }
+  // 역사적 컨텍스트
+  historicalContext?: {
+    previousPeriod?: BriefingInput // 전기 데이터
+    yearOverYear?: BriefingInput // 전년 동기 데이터
+    seasonalPatterns?: SeasonalPattern[] // 계절성 패턴
+  }
+  // 통계적 컨텍스트
+  statisticalContext?: {
+    significanceTests?: StatisticalTestResult[]
+    confidenceIntervals?: Array<{
+      metric: string
+      interval: [number, number]
+      level: number
+    }>
+    dataQuality?: DataQualityScore
+  }
+}
+
 export interface AffectedEntities {
   type: 'customer' | 'artist' | 'product' | 'country'
   ids: string[]

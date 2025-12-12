@@ -903,6 +903,18 @@ function OverviewTab({
                 </FadeIn>
               )}
             </div>
+            
+            {/* v4.2: 상세 성과 확인 버튼 */}
+            <div className="mt-6 pt-6 border-t border-slate-200 dark:border-slate-700">
+              <button
+                onClick={() => router.push('/analytics?tab=daily')}
+                className="w-full px-4 py-3 bg-gradient-to-r from-indigo-600 to-purple-600 text-white rounded-lg font-medium hover:from-indigo-700 hover:to-purple-700 transition-all duration-200 shadow-sm hover:shadow-md flex items-center justify-center gap-2"
+              >
+                <span>📊</span>
+                <span>상세 성과 확인하기</span>
+                <span>→</span>
+              </button>
+            </div>
           </Card>
         </FadeIn>
       )}
