@@ -1,7 +1,7 @@
 'use client'
 
 import { useQuery } from '@tanstack/react-query'
-import { analyticsApi, customersApi, logisticsPerformanceApi, comparisonApi } from '@/lib/api'
+import { analyticsApi, customersApi, logisticsPerformanceApi, comparisonApi, dashboardApi } from '@/lib/api'
 import { useState } from 'react'
 import { useRouter } from 'next/navigation'
 import CustomerDetailModal from '@/components/CustomerDetailModal'
