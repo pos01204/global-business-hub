@@ -1352,6 +1352,13 @@ export default function AnalyticsPage() {
     setActiveTab(newTab)
     router.push(`/analytics?tab=${newTab}`, { scroll: false })
   }
+
+  // Business Brain으로 네비게이션하는 함수
+  const onNavigateToBusinessBrain = (params: Record<string, string>) => {
+    const queryParams = new URLSearchParams(params)
+    router.push(`/business-brain?${queryParams.toString()}`)
+  }
+
   const [selectedCustomerId, setSelectedCustomerId] = useState<string | null>(null)
   const [isOrderDetailModalOpen, setIsOrderDetailModalOpen] = useState(false)
   const [selectedOrderCode, setSelectedOrderCode] = useState<string | null>(null)
@@ -1598,6 +1605,10 @@ export default function AnalyticsPage() {
       </div>
 
       {/* 탭별 콘텐츠 */}
+      {activeTab === 'daily' && (
+        <DailyOperationsTab onNavigateToBusinessBrain={onNavigateToBusinessBrain} />
+      )}
+
       {activeTab === 'overview' && data && (
         <div className="space-y-6">
           {/* 매출 성과 KPI */}

@@ -1316,6 +1316,77 @@ export const businessBrainApi = {
     document.body.removeChild(link)
   },
 
+  // ==================== v4.3: What-if 시뮬레이션 API ====================
+
+  // What-if 시뮬레이션 실행
+  simulateWhatIf: async (
+    scenario: {
+      id: string
+      name: string
+      description: string
+      variables: Array<{
+        metric: string
+        currentValue: number
+        changeType: 'absolute' | 'percentage' | 'multiplier'
+        changeValue: number
+        description: string
+      }>
+      assumptions: string[]
+      timeline: string
+    },
+    period: '7d' | '30d' | '90d' | '180d' | '365d' = '90d'
+  ) => {
+    const response = await api.post('/api/business-brain/what-if/simulate', {
+      scenario,
+      period,
+    })
+    return response.data
+  },
+
+  // 여러 시나리오 비교
+  compareWhatIfScenarios: async (
+    scenarios: Array<{
+      id: string
+      name: string
+      description: string
+      variables: Array<{
+        metric: string
+        currentValue: number
+        changeType: 'absolute' | 'percentage' | 'multiplier'
+        changeValue: number
+        description: string
+      }>
+      assumptions: string[]
+      timeline: string
+    }>,
+    period: '7d' | '30d' | '90d' | '180d' | '365d' = '90d'
+  ) => {
+    const response = await api.post('/api/business-brain/what-if/compare', {
+      scenarios,
+      period,
+    })
+    return response.data
+  },
+
+  // 시나리오 템플릿 조회
+  getWhatIfTemplates: async () => {
+    const response = await api.get('/api/business-brain/what-if/templates')
+    return response.data
+  },
+
+  // ==================== v4.3: 리포트 생성 API ====================
+
+  // 리포트 생성
+  generateReport: async (options: {
+    period: '7d' | '30d' | '90d' | '180d' | '365d'
+    sections: Array<'overview' | 'health-score' | 'insights' | 'trends' | 'rfm' | 'churn' | 'artist-health' | 'recommendations'>
+    includeCharts?: boolean
+    format?: 'pdf' | 'html'
+  }) => {
+    const response = await api.post('/api/business-brain/report/generate', options)
+    return response.data
+  },
+
   // ==================== v4.0: 고객 이탈 예측 API ====================
 
   // 이탈 예측 목록

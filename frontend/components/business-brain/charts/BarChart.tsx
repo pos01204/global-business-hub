@@ -42,6 +42,8 @@ interface BarChartProps {
   showLegend?: boolean
   yAxisLabel?: string
   xAxisLabel?: string
+  onDataPointClick?: (point: { label: string; value: number; dataset: string; index: number }) => void
+  onDrillDown?: (filter: { label: string; value: number }) => void
 }
 
 export function BarChart({ 
@@ -51,7 +53,9 @@ export function BarChart({
   stacked = false,
   showLegend = true,
   yAxisLabel,
-  xAxisLabel
+  xAxisLabel,
+  onDataPointClick,
+  onDrillDown
 }: BarChartProps) {
   const chartData = {
     labels: data.labels,

@@ -63,6 +63,21 @@ export type {
   DataQualityMetrics
 } from './ConfidenceCalculator'
 
+// v4.3: What-if 시뮬레이션
+export { WhatIfSimulator } from './WhatIfSimulator'
+export type {
+  SimulationScenario,
+  SimulationVariable,
+  SimulationResult
+} from './WhatIfSimulator'
+
+// v4.3: 리포트 생성
+export { ReportGenerator } from './ReportGenerator'
+export type {
+  ReportOptions,
+  ReportData
+} from './ReportGenerator'
+
 // Types
 export * from './types'
 export * from './DataProcessor'

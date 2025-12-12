@@ -47,6 +47,8 @@ interface LineChartProps {
   showGrid?: boolean
   yAxisLabel?: string
   xAxisLabel?: string
+  onDataPointClick?: (point: { label: string; value: number; dataset: string; index: number }) => void
+  onDrillDown?: (filter: { label: string; value: number }) => void
 }
 
 export function LineChart({ 
@@ -55,7 +57,9 @@ export function LineChart({
   showLegend = true, 
   showGrid = true,
   yAxisLabel,
-  xAxisLabel
+  xAxisLabel,
+  onDataPointClick,
+  onDrillDown
 }: LineChartProps) {
   const chartData = {
     labels: data.labels,
@@ -100,6 +104,28 @@ export function LineChart({
         cornerRadius: 8,
         displayColors: true,
       },
+    },
+    onClick: (event: any, elements: any[]) => {
+      if (elements.length > 0 && onDataPointClick) {
+        const element = elements[0]
+        const datasetIndex = element.datasetIndex
+        const index = element.index
+        const dataset = data.datasets[datasetIndex]
+        const label = data.labels[index]
+        const value = dataset.data[index]
+        
+        onDataPointClick({
+          label,
+          value,
+          dataset: dataset.label,
+          index,
+        })
+      }
+    },
+    onHover: (event: any, elements: any[]) => {
+      if (event.native) {
+        event.native.target.style.cursor = elements.length > 0 ? 'pointer' : 'default'
+      }
     },
     scales: {
       y: {

@@ -15,6 +15,10 @@ import { DataQualityIndicator } from '@/components/business-brain/DataQualityInd
 import { AnalysisDetailDrawer } from '@/components/business-brain/AnalysisDetailDrawer'
 // v4.3: 차트 컴포넌트
 import { LineChart, BarChart, DoughnutChart, RadarChart, HeatmapChart } from '@/components/business-brain/charts'
+// v4.3: What-if 시뮬레이션 탭
+import { WhatIfSimulationTab } from './components/WhatIfSimulationTab'
+// v4.3: 리포트 생성 컴포넌트
+import { ReportGenerator } from './components/ReportGenerator'
 
 // 기간 프리셋 타입
 type PeriodPreset = '7d' | '30d' | '90d' | '180d' | '365d'
@@ -365,7 +369,10 @@ export default function BusinessBrainPage() {
     queryKey: ['business-brain-trends', selectedPeriod],
     queryFn: () => businessBrainApi.getTrends(selectedPeriod),
     staleTime: 5 * 60 * 1000,
+    gcTime: 10 * 60 * 1000,
     enabled: activeTab === 'trends',
+    retry: 2,
+    retryDelay: (attemptIndex) => Math.min(1000 * 2 ** attemptIndex, 30000),
   })
 
   const { data: checksData, isLoading: checksLoading } = useQuery({
@@ -387,6 +394,13 @@ export default function BusinessBrainPage() {
     queryFn: () => businessBrainApi.getActionProposals(selectedPeriod),
     staleTime: 5 * 60 * 1000,
     enabled: activeTab === 'action-proposals',
+  })
+
+  // What-if 시뮬레이션 템플릿
+  const { data: whatIfTemplatesData } = useQuery({
+    queryKey: ['business-brain-what-if-templates'],
+    queryFn: () => businessBrainApi.getWhatIfTemplates(),
+    staleTime: 30 * 60 * 1000, // 30분
   })
 
   const { data: recommendationsData, isLoading: recommendationsLoading } = useQuery({
@@ -560,20 +574,25 @@ export default function BusinessBrainPage() {
         { id: 'multiperiod', label: '기간별 추이', icon: '📅', description: '다중 기간 비교 분석' },
       ]
     },
-    {
-      name: '액션',
-      description: '우선순위별 실행 계획',
-      tabs: [
+        {
+          name: '액션',
+          description: '우선순위별 실행 계획',
+          tabs: [
         { id: 'action-proposals', label: '액션 제안', icon: '📋', description: '우선순위별 액션 및 실행 계획' },
+        { id: 'what-if', label: 'What-if 시뮬레이션', icon: '🔮', description: '시나리오 기반 예측 및 비교' },
+        { id: 'report', label: '리포트 생성', icon: '📄', description: '분석 결과 리포트 생성' },
       ]
     },
-  ]
+  ], [])
 
-  // 평면화된 탭 목록 (Tabs 컴포넌트용)
-  const tabItems = tabGroups.flatMap(g => g.tabs.map(t => ({ id: t.id, label: `${t.icon} ${t.label}` })))
+  // 평면화된 탭 목록 (Tabs 컴포넌트용) - useMemo로 최적화
+  const tabItems = useMemo(() => 
+    tabGroups.flatMap(g => g.tabs.map(t => ({ id: t.id, label: `${t.icon} ${t.label}` }))),
+    [tabGroups]
+  )
 
   // 기간 선택이 필요한 탭들
-  const periodEnabledTabs = ['overview', 'rfm', 'pareto', 'cohort', 'anomaly', 'forecast', 'trends', 'churn', 'artist-health', 'new-users', 'repurchase', 'strategy-analysis', 'action-proposals']
+  const periodEnabledTabs = ['overview', 'rfm', 'pareto', 'cohort', 'anomaly', 'forecast', 'trends', 'churn', 'artist-health', 'new-users', 'repurchase', 'strategy-analysis', 'action-proposals', 'what-if']
 
   return (
     <div className="p-6 space-y-6 min-h-screen">
@@ -735,6 +754,19 @@ export default function BusinessBrainPage() {
           {/* 액션 제안 탭 (v4.2 Phase 3) */}
           {activeTab === 'action-proposals' && (
             <ActionProposalsTab data={actionProposalsData} isLoading={actionProposalsLoading} period={selectedPeriod} />
+          )}
+
+          {/* What-if 시뮬레이션 탭 (v4.3) */}
+          {activeTab === 'what-if' && (
+            <WhatIfSimulationTab 
+              period={selectedPeriod}
+              templates={whatIfTemplatesData?.templates || []}
+            />
+          )}
+
+          {/* 리포트 생성 탭 (v4.3) */}
+          {activeTab === 'report' && (
+            <ReportGenerator period={selectedPeriod} />
           )}
 
           {/* 전략 제안 탭 */}
@@ -1227,6 +1259,10 @@ function TrendsTab({ trends, trendsData, isLoading, period }: { trends: any[]; t
               height={320}
               yAxisLabel="값"
               xAxisLabel="기간"
+              onDataPointClick={(point) => {
+                // 드릴다운 모달 표시 (향후 구현)
+                console.log('차트 데이터 포인트 클릭:', point)
+              }}
             />
           </Card>
         </FadeIn>
@@ -1595,6 +1631,10 @@ function InsightCard({ insight, colorScheme = 'slate', period = '30d' }: {
 
 // 인사이트 탭
 function InsightsTab({ insights, isLoading, period = '30d' }: { insights: any[]; isLoading: boolean; period?: string }) {
+  const [sortBy, setSortBy] = useState<'priority' | 'score' | 'confidence' | 'impact'>('score')
+  const [filterType, setFilterType] = useState<'all' | 'critical' | 'warning' | 'opportunity' | 'info'>('all')
+  const [showScoringDetails, setShowScoringDetails] = useState<Record<string, boolean>>({})
+
   if (isLoading) {
     return (
       <FadeIn>
@@ -1613,23 +1653,87 @@ function InsightsTab({ insights, isLoading, period = '30d' }: { insights: any[];
     )
   }
 
-  const criticals = insights.filter(i => i.type === 'critical')
-  const warnings = insights.filter(i => i.type === 'warning')
-  const opportunities = insights.filter(i => i.type === 'opportunity')
-  const infos = insights.filter(i => i.type === 'info')
+  // 필터링 및 정렬
+  let filteredInsights = insights
+  if (filterType !== 'all') {
+    filteredInsights = filteredInsights.filter(i => i.type === filterType)
+  }
 
-  if (insights.length === 0) {
+  // 정렬
+  filteredInsights = [...filteredInsights].sort((a, b) => {
+    switch (sortBy) {
+      case 'score':
+        return (b.totalScore || 0) - (a.totalScore || 0)
+      case 'priority':
+        const priorityOrder = { critical: 0, warning: 1, opportunity: 2, info: 3 }
+        return (priorityOrder[a.type as keyof typeof priorityOrder] || 99) - (priorityOrder[b.type as keyof typeof priorityOrder] || 99)
+      case 'confidence':
+        return (b.scores?.confidence || 0) - (a.scores?.confidence || 0)
+      case 'impact':
+        return (b.scores?.businessImpact || 0) - (a.scores?.businessImpact || 0)
+      default:
+        return 0
+    }
+  })
+
+  const criticals = filteredInsights.filter(i => i.type === 'critical')
+  const warnings = filteredInsights.filter(i => i.type === 'warning')
+  const opportunities = filteredInsights.filter(i => i.type === 'opportunity')
+  const infos = filteredInsights.filter(i => i.type === 'info')
+
+  if (filteredInsights.length === 0) {
     return (
       <EmptyState 
         icon="💡" 
         title="발견된 인사이트가 없습니다" 
-        description="현재 데이터에서 특별한 인사이트가 발견되지 않았습니다. 데이터가 축적되면 더 많은 인사이트를 제공할 수 있습니다."
+        description="현재 기간에 대한 인사이트가 없거나 필터 조건에 맞는 인사이트가 없습니다."
       />
     )
   }
 
   return (
     <div className="space-y-6">
+      {/* 필터 및 정렬 컨트롤 */}
+      <FadeIn>
+        <Card className="p-4">
+          <div className="flex items-center gap-4 flex-wrap">
+            <div className="flex items-center gap-2">
+              <span className="text-sm font-medium text-slate-600 dark:text-slate-400">정렬:</span>
+              <select
+                value={sortBy}
+                onChange={(e) => setSortBy(e.target.value as any)}
+                className="px-3 py-1.5 text-sm border border-slate-200 dark:border-slate-700 rounded-lg bg-white dark:bg-slate-800 text-slate-700 dark:text-slate-300"
+              >
+                <option value="score">점수순</option>
+                <option value="priority">우선순위순</option>
+                <option value="confidence">신뢰도순</option>
+                <option value="impact">영향도순</option>
+              </select>
+            </div>
+            <div className="flex items-center gap-2">
+              <span className="text-sm font-medium text-slate-600 dark:text-slate-400">필터:</span>
+              <div className="flex gap-2">
+                {(['all', 'critical', 'warning', 'opportunity', 'info'] as const).map((type) => (
+                  <button
+                    key={type}
+                    onClick={() => setFilterType(type)}
+                    className={`px-3 py-1.5 text-sm rounded-lg transition-colors ${
+                      filterType === type
+                        ? 'bg-indigo-600 text-white'
+                        : 'bg-slate-100 dark:bg-slate-700 text-slate-600 dark:text-slate-300 hover:bg-slate-200 dark:hover:bg-slate-600'
+                    }`}
+                  >
+                    {type === 'all' ? '전체' : type === 'critical' ? '긴급' : type === 'warning' ? '경고' : type === 'opportunity' ? '기회' : '정보'}
+                  </button>
+                ))}
+              </div>
+            </div>
+            <div className="ml-auto text-sm text-slate-500 dark:text-slate-400">
+              총 {filteredInsights.length}개 인사이트
+            </div>
+          </div>
+        </Card>
+      </FadeIn>
       {/* 긴급 (Critical) */}
       {criticals.length > 0 && (
         <FadeIn>
@@ -2723,6 +2827,7 @@ function StrategyAnalysisTab({
   )
 }
 
+
 // 액션 제안 탭 (v4.2 Phase 3)
 function ActionProposalsTab({ 
   data, 
@@ -2751,7 +2856,7 @@ function ActionProposalsTab({
     )
   }
 
-  if (!data || !data.actions || data.actions.length === 0) {
+  if (!data || (!data.actions && !data.prioritizedActions) || (data.actions?.length === 0 && data.prioritizedActions?.length === 0)) {
     return (
       <EmptyState 
         icon="📋" 
@@ -2761,7 +2866,8 @@ function ActionProposalsTab({
     )
   }
 
-  const actions = data.actions || []
+  // 백엔드에서 prioritizedActions로 반환하므로 이를 사용
+  const actions = data.prioritizedActions || data.actions || []
   const prioritizedActions = actions.sort((a: any, b: any) => {
     const priorityOrder: Record<string, number> = { 'P0': 0, 'P1': 1, 'P2': 2, 'P3': 3 }
     return (priorityOrder[a.priority] || 99) - (priorityOrder[b.priority] || 99)
@@ -2843,20 +2949,32 @@ function ActionProposalsTab({
                     <span className="text-emerald-600 dark:text-emerald-400">💡</span>
                     <span className="text-sm font-semibold text-emerald-700 dark:text-emerald-300">예상 효과</span>
                   </div>
-                  <p className="text-sm text-emerald-600 dark:text-emerald-400">
-                    {action.expectedImpact}
-                  </p>
+                  {typeof action.expectedImpact === 'string' ? (
+                    <p className="text-sm text-emerald-600 dark:text-emerald-400">
+                      {action.expectedImpact}
+                    </p>
+                  ) : (
+                    <div className="space-y-2">
+                      <p className="text-sm text-emerald-600 dark:text-emerald-400">
+                        <strong>{action.expectedImpact.metric}:</strong> {action.expectedImpact.currentValue.toLocaleString()} → {action.expectedImpact.projectedValue.toLocaleString()} 
+                        <span className="ml-2 font-semibold">(+{action.expectedImpact.improvement}%)</span>
+                      </p>
+                      <p className="text-xs text-emerald-500 dark:text-emerald-400">
+                        신뢰도: {action.expectedImpact.confidence}%
+                      </p>
+                    </div>
+                  )}
                 </div>
               )}
 
-              {/* 실행 계획 */}
-              {action.executionPlan && action.executionPlan.length > 0 && (
+              {/* 실행 계획 (recommendedActions 또는 executionPlan 사용) */}
+              {(action.recommendedActions || action.executionPlan) && (action.recommendedActions?.length > 0 || action.executionPlan?.length > 0) && (
                 <div className="mb-4">
                   <h4 className="text-sm font-semibold text-slate-700 dark:text-slate-300 mb-2">
                     실행 계획:
                   </h4>
                   <ul className="space-y-2">
-                    {action.executionPlan.map((step: string, stepIdx: number) => (
+                    {(action.executionPlan || action.recommendedActions || []).map((step: string, stepIdx: number) => (
                       <li key={stepIdx} className="text-sm text-slate-600 dark:text-slate-400 flex items-start gap-2">
                         <span className="text-indigo-500 mt-0.5">{stepIdx + 1}.</span>
                         <span>{step}</span>

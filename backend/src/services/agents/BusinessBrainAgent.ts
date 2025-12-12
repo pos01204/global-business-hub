@@ -2223,17 +2223,19 @@ export class BusinessBrainAgent extends BaseAgent {
             priority: 'P0',
             urgency: risk.severity === 'critical' ? 'critical' : 'high',
             expectedImpact: {
-              metric: risk.metrics.current > 0 ? '위험 완화율' : '고객 유지율',
-              currentValue: typeof risk.metrics.current === 'number' ? risk.metrics.current : 0,
-              projectedValue: typeof risk.metrics.current === 'number' ? risk.metrics.current * 0.7 : 0,
+              metric: risk.metrics?.current > 0 ? '위험 완화율' : '고객 유지율',
+              currentValue: typeof risk.metrics?.current === 'number' ? risk.metrics.current : 0,
+              projectedValue: typeof risk.metrics?.current === 'number' ? risk.metrics.current * 0.7 : 0,
               improvement: 30,
-              confidence: risk.confidence,
+              confidence: risk.confidence || 70,
             },
             effort: risk.severity === 'critical' ? 'high' : 'medium',
             timeline: risk.severity === 'critical' ? '1-2주' : '2-4주',
             dependencies: [],
             status: 'pending',
             relatedInsights: [risk.title],
+            // 실행 계획 추가
+            recommendedActions: risk.mitigationActions || [`${risk.title} 대응 계획 수립`, '모니터링 체계 구축', '대응 프로세스 실행'],
           })
         })
 
@@ -2250,16 +2252,18 @@ export class BusinessBrainAgent extends BaseAgent {
             urgency: opp.potentialImpact === 'high' ? 'high' : 'medium',
             expectedImpact: {
               metric: 'GMV',
-              currentValue: opp.metrics.current,
-              projectedValue: opp.metrics.potential,
-              improvement: opp.metrics.growth,
-              confidence: opp.confidence,
+              currentValue: opp.metrics?.current || 0,
+              projectedValue: opp.metrics?.potential || 0,
+              improvement: opp.metrics?.growth || 0,
+              confidence: opp.confidence || 70,
             },
             effort: opp.potentialImpact === 'high' ? 'medium' : 'low',
             timeline: '4-8주',
             dependencies: [],
             status: 'pending',
             relatedInsights: [opp.title],
+            // 실행 계획 추가
+            recommendedActions: opp.recommendedActions || [opp.title, '실행 계획 수립', '성과 모니터링'],
           })
         })
 
@@ -2284,6 +2288,12 @@ export class BusinessBrainAgent extends BaseAgent {
           dependencies: [],
           status: 'pending',
           relatedInsights: insights.filter((i: BusinessInsight) => i.category === 'revenue').slice(0, 3).map((i: BusinessInsight) => i.title),
+          recommendedActions: [
+            '매출 드라이버 분석 수행',
+            '주요 매출 원천 식별',
+            '개선 전략 수립 및 실행',
+            '주간 모니터링 체계 구축'
+          ],
         })
       }
 
@@ -2307,6 +2317,12 @@ export class BusinessBrainAgent extends BaseAgent {
           dependencies: [],
           status: 'pending',
           relatedInsights: insights.filter((i: BusinessInsight) => i.category === 'customer').slice(0, 3).map((i: BusinessInsight) => i.title),
+          recommendedActions: [
+            '고객 리텐션 전략 수립',
+            '신규 고객 유치 캠페인 기획',
+            '고객 세그먼트별 맞춤 전략 개발',
+            '고객 만족도 개선 프로그램 실행'
+          ],
         })
       }
 
@@ -2343,7 +2359,13 @@ export class BusinessBrainAgent extends BaseAgent {
         ],
       }
 
+      // 요약 생성
+      const summary = prioritizedActions.length > 0
+        ? `총 ${prioritizedActions.length}개의 우선순위별 액션이 제안되었습니다. P0 긴급 액션 ${prioritizedActions.filter(a => a.priority === 'P0').length}개, P1 중요 액션 ${prioritizedActions.filter(a => a.priority === 'P1').length}개가 포함되어 있습니다.`
+        : '현재 기간에 대한 액션 제안이 없습니다.'
+
       const result = {
+        summary,
         prioritizedActions,
         impactSimulation,
       }

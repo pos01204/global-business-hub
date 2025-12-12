@@ -13,6 +13,9 @@ import { ArtistHealthCalculator } from '../services/analytics/ArtistHealthCalcul
 import { NewUserAcquisitionAnalyzer } from '../services/analytics/NewUserAcquisitionAnalyzer'
 import { RepurchaseAnalyzer } from '../services/analytics/RepurchaseAnalyzer'
 import { enhancedAgentOrchestrator } from '../services/agents/EnhancedAgentOrchestrator'
+import { WhatIfSimulator, SimulationScenario } from '../services/analytics/WhatIfSimulator'
+import { DataProcessor } from '../services/analytics/DataProcessor'
+import { ReportGenerator, ReportOptions } from '../services/analytics/ReportGenerator'
 
 const router = Router()
 
@@ -1074,6 +1077,133 @@ router.post('/orchestrate', async (req, res) => {
     res.status(500).json({
       success: false,
       error: error.message || '질문 처리 중 오류가 발생했습니다.',
+    })
+  }
+})
+
+/**
+ * POST /api/business-brain/what-if/simulate
+ * What-if 시뮬레이션 실행 (v4.3)
+ */
+router.post('/what-if/simulate', async (req, res) => {
+  try {
+    const { scenario, period } = req.body
+    
+    if (!scenario || !period) {
+      return res.status(400).json({
+        success: false,
+        error: 'scenario와 period 파라미터가 필요합니다.'
+      })
+    }
+
+    console.log(`[BusinessBrain] What-if 시뮬레이션 요청: ${scenario.name}`)
+    
+    const simulator = new WhatIfSimulator()
+    const dateRange = DataProcessor.getDateRangeFromPreset(period as any)
+    const result = await simulator.simulate(scenario as SimulationScenario, dateRange)
+    
+    res.json({
+      success: true,
+      result,
+      generatedAt: new Date().toISOString(),
+    })
+  } catch (error: any) {
+    console.error('[BusinessBrain] What-if 시뮬레이션 오류:', error)
+    res.status(500).json({
+      success: false,
+      error: error.message || '시뮬레이션 실행 중 오류가 발생했습니다.',
+    })
+  }
+})
+
+/**
+ * POST /api/business-brain/what-if/compare
+ * 여러 시나리오 비교 (v4.3)
+ */
+router.post('/what-if/compare', async (req, res) => {
+  try {
+    const { scenarios, period } = req.body
+    
+    if (!scenarios || !Array.isArray(scenarios) || scenarios.length === 0 || !period) {
+      return res.status(400).json({
+        success: false,
+        error: 'scenarios 배열과 period 파라미터가 필요합니다.'
+      })
+    }
+
+    console.log(`[BusinessBrain] What-if 시나리오 비교 요청: ${scenarios.length}개 시나리오`)
+    
+    const simulator = new WhatIfSimulator()
+    const dateRange = DataProcessor.getDateRangeFromPreset(period as any)
+    const results = await simulator.compareScenarios(scenarios as SimulationScenario[], dateRange)
+    
+    res.json({
+      success: true,
+      results,
+      count: results.length,
+      generatedAt: new Date().toISOString(),
+    })
+  } catch (error: any) {
+    console.error('[BusinessBrain] What-if 비교 오류:', error)
+    res.status(500).json({
+      success: false,
+      error: error.message || '시나리오 비교 중 오류가 발생했습니다.',
+    })
+  }
+})
+
+/**
+ * GET /api/business-brain/what-if/templates
+ * 사전 정의된 시나리오 템플릿 조회 (v4.3)
+ */
+router.get('/what-if/templates', async (req, res) => {
+  try {
+    const templates = WhatIfSimulator.getTemplateScenarios()
+    
+    res.json({
+      success: true,
+      templates,
+      count: templates.length,
+    })
+  } catch (error: any) {
+    console.error('[BusinessBrain] 템플릿 조회 오류:', error)
+    res.status(500).json({
+      success: false,
+      error: error.message || '템플릿 조회 중 오류가 발생했습니다.',
+    })
+  }
+})
+
+/**
+ * POST /api/business-brain/report/generate
+ * 리포트 생성 (v4.3)
+ */
+router.post('/report/generate', async (req, res) => {
+  try {
+    const options: ReportOptions = req.body
+    
+    if (!options.period || !options.sections || options.sections.length === 0) {
+      return res.status(400).json({
+        success: false,
+        error: 'period와 sections 파라미터가 필요합니다.'
+      })
+    }
+
+    console.log(`[BusinessBrain] 리포트 생성 요청: ${options.period}, ${options.sections.length}개 섹션`)
+    
+    const generator = new ReportGenerator()
+    const html = await generator.generateHTMLReport(options)
+    
+    res.json({
+      success: true,
+      html,
+      generatedAt: new Date().toISOString(),
+    })
+  } catch (error: any) {
+    console.error('[BusinessBrain] 리포트 생성 오류:', error)
+    res.status(500).json({
+      success: false,
+      error: error.message || '리포트 생성 중 오류가 발생했습니다.',
     })
   }
 })
