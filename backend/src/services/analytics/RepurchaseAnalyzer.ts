@@ -83,16 +83,13 @@ export interface RepurchaseAnalysisResult {
 // ==================== 분석 로직 ====================
 
 /**
- * 1회 구매 고객 분석
+ * 1회 구매 고객 분석 (고객 분석 페이지와 동일한 기준: 전체 데이터 기준)
  */
 function analyzeOneTimeBuyers(
   logisticsData: any[],
   periodDays: number
 ): OneTimeBuyers {
-  const startDate = new Date()
-  startDate.setDate(startDate.getDate() - periodDays)
-  
-  // 고객별 주문 정보 추적
+  // 고객별 주문 정보 추적 (전체 데이터 기준, 고객 분석 페이지와 동일)
   const customerOrders = new Map<string, {
     firstOrderDate: Date
     firstOrderAmount: number
@@ -132,19 +129,13 @@ function analyzeOneTimeBuyers(
     }
   }
   
-  // 1회 구매 고객 필터링 (기간 내 첫 구매)
+  // 1회 구매 고객 필터링 (전체 데이터 기준, 고객 분석 페이지와 동일)
   const oneTimeBuyers = Array.from(customerOrders.entries())
-    .filter(([_, data]) => 
-      data.orderCount === 1 && 
-      data.firstOrderDate >= startDate
-    )
+    .filter(([_, data]) => data.orderCount === 1)
   
-  // 재구매 고객 (2회 이상 구매)
+  // 재구매 고객 (2회 이상 구매, 전체 데이터 기준)
   const repurchasedBuyers = Array.from(customerOrders.entries())
-    .filter(([_, data]) => 
-      data.orderCount >= 2 && 
-      data.firstOrderDate >= startDate
-    )
+    .filter(([_, data]) => data.orderCount >= 2)
   
   // 평균 첫 구매액
   const firstPurchaseAmounts = oneTimeBuyers.map(([_, data]) => data.firstOrderAmount)
@@ -210,20 +201,18 @@ function analyzeOneTimeBuyers(
 }
 
 /**
- * 재구매 전환율 분석
+ * 재구매 전환율 분석 (고객 분석 페이지와 동일한 기준: 전체 데이터 기준)
  */
 function analyzeRepurchaseConversion(
   logisticsData: any[],
   periodDays: number
 ): RepurchaseConversion[] {
-  const startDate = new Date()
-  startDate.setDate(startDate.getDate() - periodDays)
-  
-  // 고객별 주문 정보 추적
+  // 고객별 주문 정보 추적 (전체 데이터 기준, 고객 분석 페이지와 동일)
   const customerOrders = new Map<string, {
     firstOrderDate: Date
     secondOrderDate?: Date
     orderCount: number
+    allOrderDates: Date[]  // 모든 주문일 추적
   }>()
   
   for (const row of logisticsData) {
@@ -237,22 +226,34 @@ function analyzeRepurchaseConversion(
     if (!customerOrders.has(customerId)) {
       customerOrders.set(customerId, {
         firstOrderDate: orderDate,
-        orderCount: 1
+        orderCount: 1,
+        allOrderDates: [orderDate]
       })
     } else {
       const customer = customerOrders.get(customerId)!
       customer.orderCount++
-      if (!customer.secondOrderDate && customer.orderCount >= 2) {
-        customer.secondOrderDate = orderDate
+      customer.allOrderDates.push(orderDate)
+      
+      // 첫 구매일 업데이트 (가장 이른 날짜)
+      if (orderDate < customer.firstOrderDate) {
+        customer.firstOrderDate = orderDate
+      }
+      
+      // 두 번째 구매일 기록 (첫 구매일이 아닌 가장 이른 날짜)
+      if (customer.orderCount >= 2 && !customer.secondOrderDate) {
+        const sortedDates = [...customer.allOrderDates].sort((a, b) => a.getTime() - b.getTime())
+        if (sortedDates.length >= 2) {
+          customer.secondOrderDate = sortedDates[1]
+        }
       }
     }
   }
   
-  // 기간 내 첫 구매 고객
-  const firstPurchaseInPeriod = Array.from(customerOrders.entries())
-    .filter(([_, data]) => data.firstOrderDate >= startDate)
+  // 전체 첫 구매 고객 (기간 필터링 없음, 고객 분석 페이지와 동일)
+  const allFirstPurchaseCustomers = Array.from(customerOrders.entries())
   
   // 재구매 전환율 계산 (30일, 60일, 90일)
+  // 각 기간별로 첫 구매 후 해당 기간 내에 재구매한 고객을 계산
   const periods = [
     { label: '30일', days: 30 },
     { label: '60일', days: 60 },
@@ -260,16 +261,23 @@ function analyzeRepurchaseConversion(
   ]
   
   const conversions: RepurchaseConversion[] = []
+  const now = new Date()
   
   for (const period of periods) {
-    const repurchased = firstPurchaseInPeriod.filter(([_, data]) => {
+    // 각 기간별로 첫 구매 후 해당 기간 내에 재구매한 고객 계산
+    // 예: 30일 재구매율 = 첫 구매 후 30일 이내에 재구매한 고객 / 전체 첫 구매 고객
+    const repurchased = allFirstPurchaseCustomers.filter(([_, data]) => {
       if (!data.secondOrderDate) return false
       const daysToRepurchase = (data.secondOrderDate.getTime() - data.firstOrderDate.getTime()) / (1000 * 60 * 60 * 24)
-      return daysToRepurchase <= period.days
+      // 첫 구매 후 해당 기간 내에 재구매한 경우
+      return daysToRepurchase <= period.days && daysToRepurchase > 0
     })
     
-    const conversionRate = firstPurchaseInPeriod.length > 0
-      ? repurchased.length / firstPurchaseInPeriod.length
+    // 전체 첫 구매 고객 중에서 해당 기간 내에 재구매 기회가 있었던 고객만 계산
+    // (첫 구매일이 너무 최근이면 아직 재구매 기회가 없을 수 있음)
+    // 하지만 고객 분석 페이지와 일관성을 위해 전체 첫 구매 고객을 기준으로 계산
+    const conversionRate = allFirstPurchaseCustomers.length > 0
+      ? repurchased.length / allFirstPurchaseCustomers.length
       : 0
     
     // 재구매까지 일수 계산
@@ -315,7 +323,7 @@ function analyzeRepurchaseConversion(
     // 신뢰도 계산
     const conversionRateConfidence = calculateProportionConfidence(
       repurchased.length,
-      firstPurchaseInPeriod.length,
+      allFirstPurchaseCustomers.length,
       'actual',
       dataQuality
     )
@@ -339,16 +347,13 @@ function analyzeRepurchaseConversion(
 }
 
 /**
- * 재구매 예측
+ * 재구매 예측 (고객 분석 페이지와 동일한 기준: 전체 데이터 기준)
  */
 function predictRepurchase(
   logisticsData: any[],
   periodDays: number
 ): RepurchasePrediction[] {
-  const startDate = new Date()
-  startDate.setDate(startDate.getDate() - periodDays)
-  
-  // 고객별 주문 정보 추적
+  // 고객별 주문 정보 추적 (전체 데이터 기준, 고객 분석 페이지와 동일)
   const customerOrders = new Map<string, {
     firstOrderDate: Date
     firstOrderAmount: number
@@ -376,18 +381,22 @@ function predictRepurchase(
     } else {
       const customer = customerOrders.get(customerId)!
       customer.orderCount++
+      customer.daysSinceFirstPurchase = (new Date().getTime() - customer.firstOrderDate.getTime()) / (1000 * 60 * 60 * 24)
       if (!customer.secondOrderDate && customer.orderCount >= 2) {
         customer.secondOrderDate = orderDate
+      }
+      // 첫 구매일 업데이트 (가장 이른 날짜)
+      if (orderDate < customer.firstOrderDate) {
+        customer.firstOrderDate = orderDate
+        customer.firstOrderAmount = amount
+        customer.daysSinceFirstPurchase = (new Date().getTime() - orderDate.getTime()) / (1000 * 60 * 60 * 24)
       }
     }
   }
   
-  // 1회 구매 고객만 필터링 (기간 내 첫 구매)
+  // 1회 구매 고객만 필터링 (전체 데이터 기준, 고객 분석 페이지와 동일)
   const oneTimeBuyers = Array.from(customerOrders.entries())
-    .filter(([_, data]) => 
-      data.orderCount === 1 && 
-      data.firstOrderDate >= startDate
-    )
+    .filter(([_, data]) => data.orderCount === 1)
   
   // 재구매 확률 계산
   const predictions: RepurchasePrediction[] = []

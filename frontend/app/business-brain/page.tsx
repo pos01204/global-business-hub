@@ -13,6 +13,8 @@ import { ConfidenceBadge } from '@/components/business-brain/ConfidenceBadge'
 import { ConfidenceInterval } from '@/components/business-brain/ConfidenceInterval'
 import { DataQualityIndicator } from '@/components/business-brain/DataQualityIndicator'
 import { AnalysisDetailDrawer } from '@/components/business-brain/AnalysisDetailDrawer'
+// v4.3: 차트 컴포넌트
+import { LineChart, BarChart, DoughnutChart, RadarChart, HeatmapChart } from '@/components/business-brain/charts'
 
 // 기간 프리셋 타입
 type PeriodPreset = '7d' | '30d' | '90d' | '180d' | '365d'
@@ -913,6 +915,26 @@ function OverviewTab({
               <span className="text-2xl">📊</span>
               종합 현황 평가
             </h2>
+            
+            {/* 레이더 차트 */}
+            {healthScore.dimensions && (
+              <div className="mb-6">
+                <RadarChart
+                  data={{
+                    labels: Object.keys(healthScore.dimensions).map(key => getDimensionLabel(key)),
+                    datasets: [{
+                      label: '건강도 점수',
+                      data: Object.values(healthScore.dimensions).map((dim: any) => dim.score),
+                      color: '#8B5CF6', // purple-500
+                      fillColor: 'rgba(139, 92, 246, 0.2)',
+                    }],
+                    max: 100,
+                  }}
+                  height={350}
+                />
+              </div>
+            )}
+            
             <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
               {Object.entries(healthScore.dimensions).map(([key, dim]: [string, any], idx) => (
                 <FadeIn key={key} delay={350 + idx * 50}>
@@ -1028,8 +1050,35 @@ function TrendsTab({ trends, isLoading, period }: { trends: any[]; isLoading: bo
     )
   }
 
+  // 트렌드 데이터를 차트 형식으로 변환
+  const trendChartData = trends.length > 0 ? {
+    labels: trends.map((t: any) => t.period || t.date || `트렌드 ${t.metric || ''}`),
+    datasets: [
+      {
+        label: '매출 (GMV)',
+        data: trends.map((t: any) => t.gmv || t.revenue || 0),
+        color: '#10B981', // emerald-500
+        fill: true,
+      },
+      {
+        label: '주문 수',
+        data: trends.map((t: any) => t.orders || 0),
+        color: '#3B82F6', // blue-500
+        fill: false,
+      },
+      {
+        label: '고객 수',
+        data: trends.map((t: any) => t.customers || 0),
+        color: '#8B5CF6', // purple-500
+        fill: false,
+      },
+    ],
+  } : null
+
   return (
-    <div className="space-y-4">
+    <div className="space-y-6">
+      {/* 트렌드 차트 */}
+      {trendChartData && (
       <FadeIn>
         <Card className="p-6">
           <div className="flex items-center gap-3 mb-6">
@@ -1043,9 +1092,31 @@ function TrendsTab({ trends, isLoading, period }: { trends: any[]; isLoading: bo
               <p className="text-xs text-slate-500">{getPeriodLabel(period)} 기준</p>
             </div>
           </div>
-          {trends.length === 0 ? (
-            <p className="text-slate-500 dark:text-slate-400">트렌드 데이터가 없습니다.</p>
-          ) : (
+            <LineChart 
+              data={trendChartData} 
+              height={320}
+              yAxisLabel="값"
+              xAxisLabel="기간"
+            />
+          </Card>
+        </FadeIn>
+      )}
+      
+      {/* 트렌드 상세 */}
+      {trends.length > 0 && (
+        <FadeIn delay={100}>
+          <Card className="p-6">
+            <div className="flex items-center gap-3 mb-6">
+              <div className="w-10 h-10 bg-gradient-to-br from-green-500 to-emerald-600 rounded-xl flex items-center justify-center">
+                <span className="text-xl">📊</span>
+              </div>
+              <div>
+                <h2 className="text-lg font-semibold text-slate-800 dark:text-slate-100">
+                  트렌드 상세
+                </h2>
+                <p className="text-xs text-slate-500">{getPeriodLabel(period)} 기준</p>
+              </div>
+            </div>
           <div className="space-y-4">
             {trends.map((trend, idx) => (
               <FadeIn key={idx} delay={idx * 50}>
@@ -2323,7 +2394,45 @@ function RFMTab({ data, isLoading }: { data: any; isLoading: boolean }) {
           />
         </div>
         
-        <div className="grid grid-cols-2 md:grid-cols-4 lg:grid-cols-7 gap-4">
+        {/* 도넛 차트 데이터 준비 */}
+        {(() => {
+          const doughnutData = segments.length > 0 ? {
+            labels: segments.map((seg: any) => segmentLabels[seg.segment] || seg.segment),
+            values: segments.map((seg: any) => seg.count),
+            colors: segments.map((seg: any) => {
+              const colorMap: Record<string, string> = {
+                VIP: '#8B5CF6', // purple-500
+                Loyal: '#3B82F6', // blue-500
+                Potential: '#10B981', // emerald-500
+                New: '#06B6D4', // cyan-500
+                AtRisk: '#F59E0B', // amber-500
+                Dormant: '#F97316', // orange-500
+                Lost: '#EF4444', // red-500
+              }
+              return colorMap[seg.segment] || '#6B7280'
+            }),
+          } : null
+          const totalCustomers = segments.reduce((sum: number, seg: any) => sum + seg.count, 0)
+          
+          return (
+            <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+              {/* 도넛 차트 */}
+              {doughnutData && (
+                <div>
+                  <h3 className="text-sm font-medium text-slate-700 dark:text-slate-300 mb-3">
+                    세그먼트 분포
+                  </h3>
+                  <DoughnutChart 
+                    data={doughnutData}
+                    height={280}
+                    showCenterText={true}
+                    centerText={totalCustomers.toLocaleString()}
+                  />
+                </div>
+              )}
+              
+              {/* 세그먼트 카드 그리드 */}
+              <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-2 gap-4">
           {segments.map((seg: any) => (
             <div key={seg.segment} className="p-4 bg-slate-50 dark:bg-slate-800 rounded-lg text-center">
               <div className={`w-4 h-4 ${segmentColors[seg.segment] || 'bg-gray-500'} rounded-full mx-auto mb-2`} />
@@ -2339,6 +2448,9 @@ function RFMTab({ data, isLoading }: { data: any; isLoading: boolean }) {
             </div>
           ))}
         </div>
+            </div>
+          )
+        })()}
       </Card>
 
       {/* 세그먼트 상세 */}
@@ -2461,6 +2573,27 @@ function ParetoTab({ data, isLoading }: { data: any; isLoading: boolean }) {
               {/* v4.0: 다운로드 버튼 */}
               <ExportButton type="pareto-artists" label="작가 데이터" />
             </div>
+          
+          {/* 파레토 차트 */}
+          {artistConcentration.topArtists && artistConcentration.topArtists.length > 0 && (
+            <div className="mb-6">
+              <h3 className="text-sm font-medium text-slate-700 dark:text-slate-300 mb-3">
+                상위 작가 매출 분포 (파레토 차트)
+              </h3>
+              <BarChart
+                data={{
+                  labels: artistConcentration.topArtists.slice(0, 10).map((a: any) => a.name || a.artist || ''),
+                  datasets: [{
+                    label: '매출 ($)',
+                    data: artistConcentration.topArtists.slice(0, 10).map((a: any) => a.revenue || a.totalRevenue || 0),
+                    color: '#8B5CF6', // purple-500
+                  }],
+                }}
+                height={300}
+                horizontal={false}
+              />
+            </div>
+          )}
           
           <div className="grid md:grid-cols-3 gap-6 mb-6">
             <div className="p-4 bg-purple-50 dark:bg-purple-900/20 rounded-lg text-center">
@@ -2674,6 +2807,29 @@ function CohortTab({ data, isLoading }: { data: any; isLoading: boolean }) {
         </Card>
       </FadeIn>
 
+      {/* 코호트 히트맵 */}
+      {cohorts.length > 0 && (
+        <FadeIn delay={200}>
+          <Card className="p-6">
+            <h3 className="text-md font-semibold text-slate-800 dark:text-slate-100 mb-4">
+              📊 코호트 리텐션 히트맵
+            </h3>
+            <HeatmapChart
+              data={{
+                labels: cohorts.slice(0, 12).map((c: any) => c.cohortMonth),
+                data: cohorts.slice(0, 12).map((c: any) => 
+                  c.retentionByMonth.slice(0, 12).map((r: number) => r || 0)
+                ),
+                minValue: 0,
+                maxValue: 1,
+              }}
+              height={400}
+              colorScale="blue"
+            />
+          </Card>
+        </FadeIn>
+      )}
+
       {/* 코호트별 상세 */}
       <Card className="p-6">
         <h3 className="text-md font-semibold text-slate-800 dark:text-slate-100 mb-4">
@@ -2805,6 +2961,62 @@ function AnomalyTab({ data, isLoading }: { data: any; isLoading: boolean }) {
             {/* v4.0: 다운로드 버튼 */}
             <ExportButton type="anomaly-detection" label="이상 탐지 데이터" />
           </div>
+
+          {/* 이상 탐지 차트 */}
+          {anomalies.length > 0 && (() => {
+            // 이상치를 날짜별로 그룹화
+            const anomalyByDate = new Map<string, number[]>()
+            anomalies.forEach((a: any) => {
+              const date = a.date || ''
+              if (!anomalyByDate.has(date)) {
+                anomalyByDate.set(date, [])
+              }
+              anomalyByDate.get(date)!.push(a.actualValue || 0)
+            })
+            
+            const dates = Array.from(anomalyByDate.keys()).sort()
+            const values = dates.map(d => {
+              const vals = anomalyByDate.get(d) || []
+              return vals.reduce((sum, v) => sum + v, 0) / vals.length
+            })
+            
+            if (dates.length > 0) {
+              return (
+                <div className="mb-6">
+                  <h3 className="text-sm font-medium text-slate-700 dark:text-slate-300 mb-3">
+                    이상치 추이 (이상 마커 표시)
+                  </h3>
+                  <LineChart
+                    data={{
+                      labels: dates,
+                      datasets: [
+                        {
+                          label: '실제 값',
+                          data: values,
+                          color: '#3B82F6', // blue-500
+                          fill: false,
+                        },
+                        {
+                          label: '이상 마커',
+                          data: dates.map((d, idx) => {
+                            const anomaly = anomalies.find((a: any) => a.date === d)
+                            return anomaly ? values[idx] : null
+                          }).filter((v): v is number => v !== null),
+                          color: '#EF4444', // red-500
+                          fill: false,
+                          borderDash: [5, 5],
+                        },
+                      ],
+                    }}
+                    height={250}
+                    yAxisLabel="값"
+                    xAxisLabel="날짜"
+                  />
+                </div>
+              )
+            }
+            return null
+          })()}
 
           {anomalies.length === 0 ? (
             <div className="p-12 text-center">
@@ -3982,6 +4194,28 @@ function RepurchaseAnalysisTab({ data, isLoading, period }: { data: any; isLoadi
           {data?.repurchaseConversion && data.repurchaseConversion.length > 0 && (
             <div className="mb-6">
               <h3 className="text-sm font-semibold text-slate-700 dark:text-slate-300 mb-3">기간별 재구매 전환율</h3>
+              {/* 그룹 바 차트 */}
+              <div className="mb-4">
+                <BarChart
+                  data={{
+                    labels: data.repurchaseConversion.map((c: any) => `${c.period}일`),
+                    datasets: [
+                      {
+                        label: '재구매 고객',
+                        data: data.repurchaseConversion.map((c: any) => c.repurchased || 0),
+                        color: '#10B981', // emerald-500
+                      },
+                      {
+                        label: '미재구매 고객',
+                        data: data.repurchaseConversion.map((c: any) => (c.total || 0) - (c.repurchased || 0)),
+                        color: '#6B7280', // gray-500
+                      },
+                    ],
+                  }}
+                  height={250}
+                  stacked={true}
+                />
+              </div>
               <div className="space-y-3">
                 {data.repurchaseConversion.map((conv: any, idx: number) => (
                   <FadeIn key={conv.period} delay={idx * 50}>

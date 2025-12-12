@@ -93,6 +93,7 @@ export interface ParetoAnalysis {
     top20Percent: { count: number; revenueShare: number }
     bottom50Percent: { count: number; revenueShare: number }
     giniCoefficient: number
+    topArtists?: Array<{ name: string; revenue: number; percentage: number }> // v4.3: 차트용 상위 작가 데이터
   }
   productConcentration: {
     top10Products: { products: string[]; revenueShare: number }
@@ -687,6 +688,13 @@ export class DataProcessor {
     const top20ArtistRevenue = sortedArtists.slice(0, top20ArtistCount).reduce((sum, [, rev]) => sum + rev, 0)
     const bottom50ArtistRevenue = sortedArtists.slice(-bottom50ArtistCount).reduce((sum, [, rev]) => sum + rev, 0)
 
+    // v4.3: 상위 작가 데이터 (차트용)
+    const topArtists = sortedArtists.slice(0, 10).map(([name, revenue]) => ({
+      name,
+      revenue,
+      percentage: totalRevenue > 0 ? (revenue / totalRevenue) * 100 : 0,
+    }))
+
     const artistConcentration = {
       top10Percent: {
         count: top10ArtistCount,
@@ -702,6 +710,7 @@ export class DataProcessor {
         revenueShare: totalRevenue > 0 ? bottom50ArtistRevenue / totalRevenue : 0,
       },
       giniCoefficient: this.calculateGiniCoefficient(sortedArtists.map(([, rev]) => rev)),
+      topArtists, // v4.3: 차트용 상위 작가 데이터
     }
 
     // 국가 집중도
