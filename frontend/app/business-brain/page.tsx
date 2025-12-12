@@ -560,6 +560,13 @@ export default function BusinessBrainPage() {
         { id: 'multiperiod', label: '기간별 추이', icon: '📅', description: '다중 기간 비교 분석' },
       ]
     },
+    {
+      name: '액션',
+      description: '우선순위별 실행 계획',
+      tabs: [
+        { id: 'action-proposals', label: '액션 제안', icon: '📋', description: '우선순위별 액션 및 실행 계획' },
+      ]
+    },
   ]
 
   // 평면화된 탭 목록 (Tabs 컴포넌트용)
@@ -847,6 +854,93 @@ function OverviewTab({
             <p className="text-slate-600 dark:text-slate-400 leading-relaxed text-base">
               {briefing.summary}
             </p>
+
+            {/* v4.2: 브리핑 품질 검증 결과 표시 */}
+            {briefing.quality && (
+              <div className="mt-4 p-4 bg-slate-50 dark:bg-slate-800 rounded-lg border border-slate-200 dark:border-slate-700">
+                <div className="flex items-center justify-between mb-3">
+                  <div className="flex items-center gap-2">
+                    <span className="text-sm font-medium text-slate-700 dark:text-slate-300">브리핑 품질</span>
+                    <span className={`text-sm font-bold ${
+                      briefing.quality.overall >= 80 ? 'text-emerald-600 dark:text-emerald-400' :
+                      briefing.quality.overall >= 60 ? 'text-amber-600 dark:text-amber-400' :
+                      'text-red-600 dark:text-red-400'
+                    }`}>
+                      {briefing.quality.overall}/100
+                    </span>
+                  </div>
+                  {briefing.usedLLM && (
+                    <span className="text-xs text-slate-500 dark:text-slate-400">AI 생성</span>
+                  )}
+                </div>
+                <div className="grid grid-cols-3 gap-3">
+                  <div>
+                    <div className="text-xs text-slate-500 dark:text-slate-400 mb-1">구체성</div>
+                    <div className="flex items-center gap-2">
+                      <div className="flex-1 bg-slate-200 dark:bg-slate-700 rounded-full h-2">
+                        <div 
+                          className={`h-2 rounded-full ${
+                            briefing.quality.specificity >= 70 ? 'bg-emerald-500' :
+                            briefing.quality.specificity >= 50 ? 'bg-amber-500' : 'bg-red-500'
+                          }`}
+                          style={{ width: `${briefing.quality.specificity}%` }}
+                        />
+                      </div>
+                      <span className="text-xs font-medium text-slate-700 dark:text-slate-300 w-8 text-right">
+                        {briefing.quality.specificity}
+                      </span>
+                    </div>
+                  </div>
+                  <div>
+                    <div className="text-xs text-slate-500 dark:text-slate-400 mb-1">실행 가능성</div>
+                    <div className="flex items-center gap-2">
+                      <div className="flex-1 bg-slate-200 dark:bg-slate-700 rounded-full h-2">
+                        <div 
+                          className={`h-2 rounded-full ${
+                            briefing.quality.actionability >= 70 ? 'bg-emerald-500' :
+                            briefing.quality.actionability >= 50 ? 'bg-amber-500' : 'bg-red-500'
+                          }`}
+                          style={{ width: `${briefing.quality.actionability}%` }}
+                        />
+                      </div>
+                      <span className="text-xs font-medium text-slate-700 dark:text-slate-300 w-8 text-right">
+                        {briefing.quality.actionability}
+                      </span>
+                    </div>
+                  </div>
+                  <div>
+                    <div className="text-xs text-slate-500 dark:text-slate-400 mb-1">데이터 근거</div>
+                    <div className="flex items-center gap-2">
+                      <div className="flex-1 bg-slate-200 dark:bg-slate-700 rounded-full h-2">
+                        <div 
+                          className={`h-2 rounded-full ${
+                            briefing.quality.dataBacking >= 70 ? 'bg-emerald-500' :
+                            briefing.quality.dataBacking >= 50 ? 'bg-amber-500' : 'bg-red-500'
+                          }`}
+                          style={{ width: `${briefing.quality.dataBacking}%` }}
+                        />
+                      </div>
+                      <span className="text-xs font-medium text-slate-700 dark:text-slate-300 w-8 text-right">
+                        {briefing.quality.dataBacking}
+                      </span>
+                    </div>
+                  </div>
+                </div>
+                {briefing.quality.issues && briefing.quality.issues.length > 0 && (
+                  <div className="mt-3 pt-3 border-t border-slate-200 dark:border-slate-700">
+                    <div className="text-xs font-medium text-slate-600 dark:text-slate-400 mb-1">개선 사항:</div>
+                    <ul className="space-y-1">
+                      {briefing.quality.issues.slice(0, 2).map((issue: string, idx: number) => (
+                        <li key={idx} className="text-xs text-slate-500 dark:text-slate-500 flex items-start gap-2">
+                          <span className="text-amber-500 mt-0.5">•</span>
+                          <span>{issue}</span>
+                        </li>
+                      ))}
+                    </ul>
+                  </div>
+                )}
+              </div>
+            )}
             
             <div className="grid md:grid-cols-2 gap-4 mt-6">
               {/* 즉시 조치 사항 */}
@@ -1412,6 +1506,66 @@ function InsightCard({ insight, colorScheme = 'slate', period = '30d' }: {
           <p className={`text-sm ${colors.desc} mt-1`}>
             {insight.description}
           </p>
+
+          {/* v4.2: 통계적 유의성 및 신뢰도 표시 */}
+          {insight.scores && (
+            <div className="mt-3 flex items-center gap-4 flex-wrap">
+              {insight.scores.statisticalSignificance !== undefined && (
+                <div className="flex items-center gap-2">
+                  <span className="text-xs text-slate-500 dark:text-slate-400">통계적 유의성:</span>
+                  <div className="flex items-center gap-1">
+                    <div className="w-16 bg-slate-200 dark:bg-slate-700 rounded-full h-1.5">
+                      <div 
+                        className={`h-1.5 rounded-full ${
+                          insight.scores.statisticalSignificance >= 70 ? 'bg-emerald-500' :
+                          insight.scores.statisticalSignificance >= 50 ? 'bg-amber-500' : 'bg-red-500'
+                        }`}
+                        style={{ width: `${insight.scores.statisticalSignificance}%` }}
+                      />
+                    </div>
+                    <span className={`text-xs font-medium ${
+                      insight.scores.statisticalSignificance >= 70 ? 'text-emerald-600 dark:text-emerald-400' :
+                      insight.scores.statisticalSignificance >= 50 ? 'text-amber-600 dark:text-amber-400' : 'text-red-600 dark:text-red-400'
+                    }`}>
+                      {insight.scores.statisticalSignificance}
+                    </span>
+                  </div>
+                </div>
+              )}
+              {insight.scores.confidence !== undefined && (
+                <div className="flex items-center gap-2">
+                  <span className="text-xs text-slate-500 dark:text-slate-400">신뢰도:</span>
+                  <span className={`text-xs font-medium ${
+                    insight.scores.confidence >= 80 ? 'text-emerald-600 dark:text-emerald-400' :
+                    insight.scores.confidence >= 60 ? 'text-amber-600 dark:text-amber-400' : 'text-red-600 dark:text-red-400'
+                  }`}>
+                    {insight.scores.confidence}%
+                  </span>
+                </div>
+              )}
+            </div>
+          )}
+
+          {/* v4.2: 인과관계 분석 결과 표시 */}
+          {insight.causalAnalysis && (
+            <div className="mt-3 p-3 bg-indigo-50 dark:bg-indigo-900/20 rounded-lg border border-indigo-200 dark:border-indigo-800">
+              <div className="flex items-center gap-2 mb-2">
+                <span className="text-indigo-600 dark:text-indigo-400">🔗</span>
+                <span className="text-xs font-medium text-indigo-700 dark:text-indigo-300">인과관계 분석</span>
+              </div>
+              {insight.causalAnalysis.rootCause && (
+                <div className="text-xs text-indigo-600 dark:text-indigo-400 mb-1">
+                  <strong>근본 원인:</strong> {insight.causalAnalysis.rootCause}
+                </div>
+              )}
+              {insight.causalAnalysis.confidence && (
+                <div className="text-xs text-indigo-600 dark:text-indigo-400">
+                  <strong>신뢰도:</strong> {insight.causalAnalysis.confidence === 'high' ? '높음' : insight.causalAnalysis.confidence === 'medium' ? '중간' : '낮음'}
+                </div>
+              )}
+            </div>
+          )}
+
           {insight.recommendation && (
             <p className={`text-sm ${colors.rec} mt-2 font-medium`}>
               → {insight.recommendation}

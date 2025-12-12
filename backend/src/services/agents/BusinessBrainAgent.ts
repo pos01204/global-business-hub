@@ -238,6 +238,22 @@ export class BusinessBrainAgent extends BaseAgent {
       // AI 브리핑 생성 시도 (EnhancedBriefingInput 사용)
       const aiBriefing = await aiBriefingGenerator.generateExecutiveBriefing(enhancedBriefingInput)
 
+      // v4.2: 브리핑 품질 검증
+      let qualityScore: {
+        specificity: number
+        actionability: number
+        dataBacking: number
+        overall: number
+        issues: string[]
+      } | undefined
+      
+      try {
+        qualityScore = await aiBriefingGenerator.validateBriefingQuality(aiBriefing)
+        console.log(`[BusinessBrain] 브리핑 품질 검증 완료: ${qualityScore.overall}/100`)
+      } catch (error: any) {
+        console.warn('[BusinessBrain] 브리핑 품질 검증 실패:', error.message)
+      }
+
       // 브리핑 생성
       const briefing: ExecutiveBriefing = {
         generatedAt: now,
@@ -257,9 +273,13 @@ export class BusinessBrainAgent extends BaseAgent {
         opportunities: aiBriefing.opportunities.length > 0 
           ? aiBriefing.opportunities 
           : this.extractOpportunities(insights),
+        // v4.2: 품질 검증 결과 추가
+        quality: qualityScore,
+        confidence: aiBriefing.confidence,
+        usedLLM: aiBriefing.usedLLM,
       }
 
-      console.log(`[BusinessBrain] 브리핑 생성 완료 (LLM 사용: ${aiBriefing.usedLLM}, 신뢰도: ${aiBriefing.confidence}%)`)
+      console.log(`[BusinessBrain] 브리핑 생성 완료 (LLM 사용: ${aiBriefing.usedLLM}, 신뢰도: ${aiBriefing.confidence}%, 품질: ${qualityScore?.overall || 'N/A'}/100)`)
 
       businessBrainCache.set(cacheKey, briefing, CACHE_TTL.briefing)
       return briefing

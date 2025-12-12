@@ -265,6 +265,16 @@ export interface ExecutiveBriefing {
   weeklyFocus: string[]
   risks: string[]
   opportunities: string[]
+  // v4.2: 브리핑 품질 검증 결과
+  quality?: {
+    specificity: number
+    actionability: number
+    dataBacking: number
+    overall: number
+    issues: string[]
+  }
+  confidence?: number
+  usedLLM?: boolean
 }
 
 // ==================== 컨텍스트 ====================

@@ -1525,81 +1525,75 @@ export default function AnalyticsPage() {
         </div>
       </div>
 
-      {/* 탭 */}
-      <div className="border-b mb-6">
-        <div className="flex gap-4">
-          <button
-            onClick={() => handleTabChange('daily')}
-            className={`pb-2 px-4 font-medium ${
-              activeTab === 'daily'
-                ? 'border-b-2 border-primary text-primary'
-                : 'text-muted-color hover:text-primary'
-            }`}
-          >
-            📊 일일 운영
-          </button>
-          <button
-            onClick={() => handleTabChange('overview')}
-            className={`pb-2 px-4 font-medium ${
-              activeTab === 'overview'
-                ? 'border-b-2 border-primary text-primary'
-                : 'text-muted-color hover:text-primary'
-            }`}
-          >
-            종합 성과
-          </button>
-          <button
-            onClick={() => handleTabChange('customer')}
-            className={`pb-2 px-4 font-medium ${
-              activeTab === 'customer'
-                ? 'border-b-2 border-primary text-primary'
-                : 'text-muted-color hover:text-primary'
-            }`}
-          >
-            고객 확보
-          </button>
-          <button
-            onClick={() => handleTabChange('channel')}
-            className={`pb-2 px-4 font-medium ${
-              activeTab === 'channel'
-                ? 'border-b-2 border-primary text-primary'
-                : 'text-muted-color hover:text-primary'
-            }`}
-          >
-            채널 분석
-          </button>
-          {countryFilter === 'all' && (
-            <button
-              onClick={() => handleTabChange('regional')}
-              className={`pb-2 px-4 font-medium ${
-                activeTab === 'regional'
-                  ? 'border-b-2 border-primary text-primary'
-                  : 'text-muted-color hover:text-primary'
-              }`}
-            >
-              지역 분석
-            </button>
-          )}
-          <button
-            onClick={() => handleTabChange('logistics-performance')}
-            className={`pb-2 px-4 font-medium ${
-              activeTab === 'logistics-performance'
-                ? 'border-b-2 border-primary text-primary'
-                : 'text-muted-color hover:text-primary'
-            }`}
-          >
-            물류 처리 시간
-          </button>
-          <button
-            onClick={() => handleTabChange('comparison')}
-            className={`pb-2 px-4 font-medium ${
-              activeTab === 'comparison'
-                ? 'border-b-2 border-primary text-primary'
-                : 'text-muted-color hover:text-primary'
-            }`}
-          >
-            비교 분석
-          </button>
+      {/* 탭 - P2: 카테고리별 그룹화 */}
+      <div className="mb-6">
+        {/* 탭 그룹 */}
+        <div className="bg-white dark:bg-slate-900 rounded-xl shadow-sm border border-slate-200 dark:border-slate-700 p-4 lg:p-6">
+          <div className="space-y-4">
+            {[
+              {
+                name: '일일 운영',
+                description: '오늘의 핵심 지표 및 긴급 이슈',
+                tabs: [
+                  { id: 'daily', label: '일일 운영', icon: '📊' },
+                ]
+              },
+              {
+                name: '성과 분석',
+                description: '매출, 고객, 작가 성과 분석',
+                tabs: [
+                  { id: 'overview', label: '종합 성과', icon: '📈' },
+                  { id: 'customer', label: '고객 확보', icon: '👥' },
+                  { id: 'channel', label: '채널 분석', icon: '📱' },
+                  ...(countryFilter === 'all' ? [{ id: 'regional', label: '지역 분석', icon: '🌍' }] : []),
+                ]
+              },
+              {
+                name: '물류 운영',
+                description: '물류 처리 시간 및 파이프라인',
+                tabs: [
+                  { id: 'logistics-performance', label: '물류 처리 시간', icon: '📦' },
+                ]
+              },
+              {
+                name: '비교 분석',
+                description: '기간, 작가, 국가 비교',
+                tabs: [
+                  { id: 'comparison', label: '비교 분석', icon: '⚖️' },
+                ]
+              },
+            ].map((group, groupIdx) => (
+              <div key={group.name}>
+                <div className="flex items-center gap-2 mb-2">
+                  <h3 className="text-sm font-semibold text-slate-700 dark:text-slate-300">
+                    {group.name}
+                  </h3>
+                  <span className="text-xs text-slate-400 dark:text-slate-500">
+                    {group.description}
+                  </span>
+                </div>
+                <div className="flex flex-wrap gap-2">
+                  {group.tabs.map((tab) => (
+                    <button
+                      key={tab.id}
+                      onClick={() => handleTabChange(tab.id)}
+                      className={`group relative px-4 py-2.5 rounded-lg text-sm font-medium transition-all duration-200 flex items-center gap-2 ${
+                        activeTab === tab.id
+                          ? 'bg-gradient-to-r from-[#F78C3A] to-[#E67729] text-white shadow-md shadow-orange-500/25 scale-105'
+                          : 'bg-slate-100 dark:bg-slate-800 text-slate-600 dark:text-slate-400 hover:bg-slate-200 dark:hover:bg-slate-700 hover:scale-102'
+                      }`}
+                    >
+                      <span className="text-base">{tab.icon}</span>
+                      <span>{tab.label}</span>
+                      {activeTab === tab.id && (
+                        <span className="absolute -top-1 -right-1 w-2 h-2 bg-white rounded-full"></span>
+                      )}
+                    </button>
+                  ))}
+                </div>
+              </div>
+            ))}
+          </div>
         </div>
       </div>
 
@@ -1607,7 +1601,18 @@ export default function AnalyticsPage() {
       {activeTab === 'overview' && data && (
         <div className="space-y-6">
           {/* 매출 성과 KPI */}
-          <h2 className="text-xl font-semibold mb-4">📈 매출 성과</h2>
+          <div className="flex items-center justify-between mb-4">
+            <h2 className="text-xl font-semibold">📈 매출 성과</h2>
+            {/* P2: Business Brain 연계 버튼 */}
+            <button
+              onClick={() => router.push('/business-brain?tab=trends&period=30d')}
+              className="px-4 py-2 bg-gradient-to-r from-indigo-600 to-purple-600 text-white rounded-lg font-medium hover:from-indigo-700 hover:to-purple-700 transition-all duration-200 shadow-sm hover:shadow-md flex items-center gap-2 text-sm"
+            >
+              <span>📊</span>
+              <span>이 성과의 원인 분석하기</span>
+              <span>→</span>
+            </button>
+          </div>
           <div className="grid grid-cols-1 md:grid-cols-3 gap-6 mb-8">
             <div className="card">
               <h3 className="text-sm font-medium text-muted-color mb-2">Total GMV</h3>
@@ -1724,7 +1729,18 @@ export default function AnalyticsPage() {
 
           {/* Top 작가 */}
           <div className="card">
-            <h2 className="text-xl font-semibold mb-4">Top 10 작가 (매출 기준)</h2>
+            <div className="flex items-center justify-between mb-4">
+              <h2 className="text-xl font-semibold">Top 10 작가 (매출 기준)</h2>
+              {/* P2: Business Brain 연계 버튼 */}
+              <button
+                onClick={() => router.push('/business-brain?tab=artist-health&period=30d')}
+                className="px-4 py-2 bg-gradient-to-r from-indigo-600 to-purple-600 text-white rounded-lg font-medium hover:from-indigo-700 hover:to-purple-700 transition-all duration-200 shadow-sm hover:shadow-md flex items-center gap-2 text-sm"
+              >
+                <span>🎨</span>
+                <span>작가 성과 분석</span>
+                <span>→</span>
+              </button>
+            </div>
             <div className="overflow-x-auto">
               <table className="w-full">
                 <thead>
