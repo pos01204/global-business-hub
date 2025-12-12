@@ -1117,34 +1117,34 @@ function TrendsTab({ trends, isLoading, period }: { trends: any[]; isLoading: bo
                 <p className="text-xs text-slate-500">{getPeriodLabel(period)} 기준</p>
               </div>
             </div>
-          <div className="space-y-4">
-            {trends.map((trend, idx) => (
-              <FadeIn key={idx} delay={idx * 50}>
-                <div className="p-5 bg-gradient-to-br from-slate-50 to-white dark:from-slate-800 dark:to-slate-900 rounded-xl border border-slate-100 dark:border-slate-700 hover:shadow-md transition-all duration-300">
-                  <div className="flex items-center justify-between mb-3">
-                    <h3 className="font-semibold text-slate-800 dark:text-slate-100">
-                      {trend.metric}
-                    </h3>
-                    <div className="flex items-center gap-3">
-                      <Badge variant={getSignificanceVariant(trend.significance)}>
-                        {trend.significance === 'high' ? '높음' : trend.significance === 'medium' ? '중간' : '낮음'}
-                      </Badge>
-                      <span className={`text-xl font-bold ${getTrendColor(trend.direction)} flex items-center gap-1`}>
-                        <span className="text-2xl">{trend.direction === 'up' ? '📈' : trend.direction === 'down' ? '📉' : '➡️'}</span>
-                        {trend.magnitude.toFixed(1)}%
-                      </span>
+            <div className="space-y-4">
+              {trends.map((trend, idx) => (
+                <FadeIn key={idx} delay={idx * 50}>
+                  <div className="p-5 bg-gradient-to-br from-slate-50 to-white dark:from-slate-800 dark:to-slate-900 rounded-xl border border-slate-100 dark:border-slate-700 hover:shadow-md transition-all duration-300">
+                    <div className="flex items-center justify-between mb-3">
+                      <h3 className="font-semibold text-slate-800 dark:text-slate-100">
+                        {trend.metric}
+                      </h3>
+                      <div className="flex items-center gap-3">
+                        <Badge variant={getSignificanceVariant(trend.significance)}>
+                          {trend.significance === 'high' ? '높음' : trend.significance === 'medium' ? '중간' : '낮음'}
+                        </Badge>
+                        <span className={`text-xl font-bold ${getTrendColor(trend.direction)} flex items-center gap-1`}>
+                          <span className="text-2xl">{trend.direction === 'up' ? '📈' : trend.direction === 'down' ? '📉' : '➡️'}</span>
+                          {trend.magnitude.toFixed(1)}%
+                        </span>
+                      </div>
                     </div>
+                    <p className="text-sm text-slate-600 dark:text-slate-400 leading-relaxed">
+                      {trend.implication}
+                    </p>
                   </div>
-                  <p className="text-sm text-slate-600 dark:text-slate-400 leading-relaxed">
-                    {trend.implication}
-                  </p>
-                </div>
-              </FadeIn>
-            ))}
-          </div>
-        )}
-        </Card>
-      </FadeIn>
+                </FadeIn>
+              ))}
+            </div>
+          </Card>
+        </FadeIn>
+      )}
     </div>
   )
 }
