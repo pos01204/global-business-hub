@@ -791,6 +791,7 @@ function OverviewTab({
   comprehensiveLoading?: boolean
   period: string 
 }) {
+  const router = useRouter()
   if (!briefing && !healthScore) {
     return (
       <EmptyState 
