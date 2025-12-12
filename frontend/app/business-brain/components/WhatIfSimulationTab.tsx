@@ -1,12 +1,20 @@
 'use client'
 
-import { useState } from 'react'
+import React, { useState } from 'react'
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
 import { businessBrainApi } from '@/lib/api'
 import { Card } from '@/components/ui/Card'
 import { Badge } from '@/components/ui/Badge'
-import { FadeIn } from '@/components/ui/FadeIn'
 import { EmptyState } from '@/components/ui/EmptyState'
+
+// FadeIn 컴포넌트는 page.tsx에 정의되어 있으므로 인라인으로 정의
+function FadeIn({ children, delay = 0, className = '' }: { children: React.ReactNode; delay?: number; className?: string }) {
+  return (
+    <div className={`animate-fade-in ${className}`} style={{ animationDelay: `${delay}ms` }}>
+      {children}
+    </div>
+  )
+}
 
 interface SimulationScenario {
   id: string

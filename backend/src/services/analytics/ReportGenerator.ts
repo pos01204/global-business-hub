@@ -135,16 +135,18 @@ export class ReportGenerator {
 
     // 요약 생성
     const comprehensive = await this.agent.runComprehensiveAnalysis(options.period)
+    const healthScore = await this.agent.calculateHealthScore(options.period)
+    const insights = await this.agent.discoverInsights()
     const summary = {
-      totalGmv: comprehensive.metrics?.totalGmv || 0,
-      totalOrders: comprehensive.metrics?.orderCount || 0,
-      totalCustomers: comprehensive.metrics?.customerCount || 0,
-      healthScore: comprehensive.healthScore?.overall || 0,
-      topInsights: (comprehensive.insights || [])
+      totalGmv: comprehensive.summary?.gmv || 0,
+      totalOrders: comprehensive.summary?.orders || 0,
+      totalCustomers: comprehensive.summary?.customers || 0,
+      healthScore: healthScore.overall || 0,
+      topInsights: insights
         .slice(0, 5)
         .map((i: any) => ({
           title: i.title,
-          priority: i.priority || 'medium',
+          priority: i.type || 'medium',
           impact: i.description || '',
         })),
     }

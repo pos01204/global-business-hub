@@ -2197,6 +2197,7 @@ export class BusinessBrainAgent extends BaseAgent {
         category: 'revenue' | 'customer' | 'artist' | 'operations' | 'market'
         priority: 'P0' | 'P1' | 'P2'
         urgency: 'critical' | 'high' | 'medium' | 'low'
+        recommendedActions?: string[]
         expectedImpact: {
           metric: string
           currentValue: number
@@ -2210,6 +2211,7 @@ export class BusinessBrainAgent extends BaseAgent {
         owner?: string
         status: 'pending' | 'in_progress' | 'completed'
         relatedInsights: string[]
+        recommendedActions?: string[]
       }> = []
 
       // 위험 요소 기반 P0 액션
