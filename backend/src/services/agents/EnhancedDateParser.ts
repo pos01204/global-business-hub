@@ -9,6 +9,13 @@ export interface DateRange {
   type: 'absolute' | 'relative'
 }
 
+export interface ComparisonDateRanges {
+  period1: DateRange
+  period2: DateRange
+  period1Label: string
+  period2Label: string
+}
+
 export interface DateRangeValidation {
   valid: boolean
   warnings: string[]
@@ -104,8 +111,10 @@ export class EnhancedDateParser {
       }
     }
 
-    // 6. "지난 달", "지난달" 처리
-    if (lowerQuery.includes('지난 달') || lowerQuery.includes('지난달') || lowerQuery.includes('last month')) {
+    // 6. "지난 달", "지난달", "전월" 처리
+    if (lowerQuery.includes('지난 달') || lowerQuery.includes('지난달') || 
+        lowerQuery.includes('전월') || lowerQuery.includes('last month') ||
+        lowerQuery.includes('previous month')) {
       const lastMonth = new Date(today.getFullYear(), today.getMonth() - 1, 1)
       lastMonth.setHours(0, 0, 0, 0)
       const lastMonthEnd = new Date(today.getFullYear(), today.getMonth(), 0)
@@ -262,6 +271,148 @@ export class EnhancedDateParser {
     const month = today.getMonth() + 1
     const date = today.getDate()
     return `${year}년 ${month}월 ${date}일`
+  }
+
+  /**
+   * 비교 분석을 위한 두 기간 추출
+   * 예: "전월 대비", "이번 달 vs 지난 달", "11월 vs 12월"
+   */
+  parseComparisonDateRange(query: string): ComparisonDateRanges | undefined {
+    const lowerQuery = query.toLowerCase()
+    const today = this.currentDate
+    const currentYear = today.getFullYear()
+    const currentMonth = today.getMonth() + 1 // 1-12
+
+    // 1. "전월 대비", "전월 비교", "지난 달 대비" 처리
+    if (lowerQuery.includes('전월 대비') || lowerQuery.includes('전월 비교') ||
+        lowerQuery.includes('지난 달 대비') || lowerQuery.includes('지난달 대비') ||
+        lowerQuery.includes('previous month comparison') || lowerQuery.includes('last month vs')) {
+      
+      // 전월 (period1)
+      const lastMonth = new Date(currentYear, today.getMonth() - 1, 1)
+      lastMonth.setHours(0, 0, 0, 0)
+      const lastMonthEnd = new Date(currentYear, today.getMonth(), 0)
+      lastMonthEnd.setHours(23, 59, 59, 999)
+
+      // 현재 월 (period2) - 오늘까지
+      const currentMonthStart = new Date(currentYear, today.getMonth(), 1)
+      currentMonthStart.setHours(0, 0, 0, 0)
+      const currentMonthEnd = new Date(today)
+      currentMonthEnd.setHours(23, 59, 59, 999)
+
+      return {
+        period1: {
+          start: lastMonth.toISOString().split('T')[0],
+          end: lastMonthEnd.toISOString().split('T')[0],
+          type: 'relative'
+        },
+        period2: {
+          start: currentMonthStart.toISOString().split('T')[0],
+          end: currentMonthEnd.toISOString().split('T')[0],
+          type: 'relative'
+        },
+        period1Label: `${lastMonth.getFullYear()}년 ${lastMonth.getMonth() + 1}월`,
+        period2Label: `${currentYear}년 ${currentMonth}월`
+      }
+    }
+
+    // 2. "이번 달 vs 지난 달" 처리
+    if (lowerQuery.includes('이번 달') && (lowerQuery.includes('vs') || lowerQuery.includes('대비') || lowerQuery.includes('비교'))) {
+      const lastMonth = new Date(currentYear, today.getMonth() - 1, 1)
+      lastMonth.setHours(0, 0, 0, 0)
+      const lastMonthEnd = new Date(currentYear, today.getMonth(), 0)
+      lastMonthEnd.setHours(23, 59, 59, 999)
+
+      const currentMonthStart = new Date(currentYear, today.getMonth(), 1)
+      currentMonthStart.setHours(0, 0, 0, 0)
+      const currentMonthEnd = new Date(today)
+      currentMonthEnd.setHours(23, 59, 59, 999)
+
+      return {
+        period1: {
+          start: lastMonth.toISOString().split('T')[0],
+          end: lastMonthEnd.toISOString().split('T')[0],
+          type: 'relative'
+        },
+        period2: {
+          start: currentMonthStart.toISOString().split('T')[0],
+          end: currentMonthEnd.toISOString().split('T')[0],
+          type: 'relative'
+        },
+        period1Label: '지난 달',
+        period2Label: '이번 달'
+      }
+    }
+
+    // 3. 구체적인 월 비교 (예: "11월 vs 12월", "2024년 11월 vs 2024년 12월")
+    const monthComparisonMatch = query.match(/(\d{4})\s*년\s*(\d{1,2})\s*월\s*(?:vs|대비|비교)\s*(\d{4})\s*년\s*(\d{1,2})\s*월/i)
+    if (monthComparisonMatch) {
+      const year1 = parseInt(monthComparisonMatch[1])
+      const month1 = parseInt(monthComparisonMatch[2])
+      const year2 = parseInt(monthComparisonMatch[3])
+      const month2 = parseInt(monthComparisonMatch[4])
+
+      const period1Start = new Date(year1, month1 - 1, 1)
+      period1Start.setHours(0, 0, 0, 0)
+      const period1End = new Date(year1, month1, 0)
+      period1End.setHours(23, 59, 59, 999)
+
+      const period2Start = new Date(year2, month2 - 1, 1)
+      period2Start.setHours(0, 0, 0, 0)
+      const period2End = new Date(year2, month2, 0)
+      period2End.setHours(23, 59, 59, 999)
+
+      return {
+        period1: {
+          start: period1Start.toISOString().split('T')[0],
+          end: period1End.toISOString().split('T')[0],
+          type: 'absolute'
+        },
+        period2: {
+          start: period2Start.toISOString().split('T')[0],
+          end: period2End.toISOString().split('T')[0],
+          type: 'absolute'
+        },
+        period1Label: `${year1}년 ${month1}월`,
+        period2Label: `${year2}년 ${month2}월`
+      }
+    }
+
+    // 4. 현재 연도 기준 월 비교 (예: "11월 vs 12월")
+    const simpleMonthMatch = query.match(/(\d{1,2})\s*월\s*(?:vs|대비|비교)\s*(\d{1,2})\s*월/i)
+    if (simpleMonthMatch && !monthComparisonMatch) {
+      const month1 = parseInt(simpleMonthMatch[1])
+      const month2 = parseInt(simpleMonthMatch[2])
+      
+      // 두 월이 모두 현재 연도 기준으로 처리
+      const year = currentYear
+      const period1Start = new Date(year, month1 - 1, 1)
+      period1Start.setHours(0, 0, 0, 0)
+      const period1End = new Date(year, month1, 0)
+      period1End.setHours(23, 59, 59, 999)
+
+      const period2Start = new Date(year, month2 - 1, 1)
+      period2Start.setHours(0, 0, 0, 0)
+      const period2End = new Date(year, month2, 0)
+      period2End.setHours(23, 59, 59, 999)
+
+      return {
+        period1: {
+          start: period1Start.toISOString().split('T')[0],
+          end: period1End.toISOString().split('T')[0],
+          type: 'absolute'
+        },
+        period2: {
+          start: period2Start.toISOString().split('T')[0],
+          end: period2End.toISOString().split('T')[0],
+          type: 'absolute'
+        },
+        period1Label: `${year}년 ${month1}월`,
+        period2Label: `${year}년 ${month2}월`
+      }
+    }
+
+    return undefined
   }
 }
 

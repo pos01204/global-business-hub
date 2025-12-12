@@ -7,6 +7,7 @@ import { openaiRetryHandler } from './RetryHandler'
 import { dataAnalystValidator } from './ResponseValidator'
 import { correlationAnalyzer } from './CorrelationAnalyzer'
 import { metricsCollector } from './MetricsCollector'
+import { enhancedDateParser, ComparisonDateRanges } from './EnhancedDateParser'
 
 export class DataAnalystAgent extends BaseAgent {
   private getSystemPrompt(): string {
@@ -81,6 +82,22 @@ ${getSchemaSummaryForPrompt()}
         }
       }
 
+      // 비교 분석 의도 감지 및 두 기간 추출
+      let comparisonRanges: ComparisonDateRanges | undefined
+      if (extractedIntent.intent === 'comparison') {
+        comparisonRanges = enhancedDateParser.parseComparisonDateRange(query)
+        if (comparisonRanges) {
+          console.log('[DataAnalystAgent] 비교 분석 감지:', {
+            period1: comparisonRanges.period1,
+            period2: comparisonRanges.period2,
+            labels: {
+              period1: comparisonRanges.period1Label,
+              period2: comparisonRanges.period2Label
+            }
+          })
+        }
+      }
+
       // 쿼리 최적화
       const optimizedQuery = queryOptimizer.optimize(extractedIntent)
 
@@ -93,8 +110,19 @@ ${getSchemaSummaryForPrompt()}
         }
       }
 
-      // 최적화된 쿼리 실행
-      const results = await this.executeOptimizedQuery(optimizedQuery, extractedIntent.intent)
+      // 비교 분석인 경우 두 기간 데이터 조회
+      let results: {
+        data: any
+        charts?: any[]
+        actions?: Array<{ label: string; action: string; data?: any }>
+      }
+      
+      if (comparisonRanges && extractedIntent.intent === 'comparison') {
+        results = await this.executeComparisonQuery(optimizedQuery, comparisonRanges, query)
+      } else {
+        // 최적화된 쿼리 실행
+        results = await this.executeOptimizedQuery(optimizedQuery, extractedIntent.intent)
+      }
 
       // 데이터가 없는 경우 친화적 메시지
       if (!results.data || (Array.isArray(results.data) && results.data.length === 0)) {
@@ -328,6 +356,204 @@ ${getSchemaSummaryForPrompt()}
         filters: Object.keys(filters).length > 0 ? filters : undefined,
       },
     }
+  }
+
+  /**
+   * 비교 분석 쿼리 실행 (두 기간)
+   */
+  private async executeComparisonQuery(
+    optimizedQuery: OptimizedQuery,
+    comparisonRanges: ComparisonDateRanges,
+    originalQuery: string
+  ): Promise<{
+    data: any
+    charts?: any[]
+    actions?: Array<{ label: string; action: string; data?: any }>
+  }> {
+    const results: any[] = []
+
+    // 각 시트에서 두 기간 데이터 조회
+    for (const sheet of optimizedQuery.sheets) {
+      // 기간 1 데이터
+      const result1 = await this.getData({
+        sheet: sheet as any,
+        dateRange: comparisonRanges.period1,
+        filters: optimizedQuery.filters.length > 0 ? optimizedQuery.filters : undefined,
+        limit: optimizedQuery.limit,
+      })
+
+      // 기간 2 데이터
+      const result2 = await this.getData({
+        sheet: sheet as any,
+        dateRange: comparisonRanges.period2,
+        filters: optimizedQuery.filters.length > 0 ? optimizedQuery.filters : undefined,
+        limit: optimizedQuery.limit,
+      })
+
+      if (result1.success && result1.data) {
+        results.push(...result1.data.map((row: any) => ({
+          ...row,
+          _period: 'period1',
+          _periodLabel: comparisonRanges.period1Label
+        })))
+      }
+
+      if (result2.success && result2.data) {
+        results.push(...result2.data.map((row: any) => ({
+          ...row,
+          _period: 'period2',
+          _periodLabel: comparisonRanges.period2Label
+        })))
+      }
+    }
+
+    // 비교 분석 수행
+    const comparisonData = this.performPeriodComparison(
+      results,
+      comparisonRanges.period1Label,
+      comparisonRanges.period2Label
+    )
+
+    // 비교 차트 생성
+    const charts = await this.createComparisonChart(comparisonData)
+
+    return {
+      data: comparisonData,
+      charts,
+      actions: []
+    }
+  }
+
+  /**
+   * 기간별 비교 분석 수행
+   */
+  private performPeriodComparison(
+    data: any[],
+    period1Label: string,
+    period2Label: string
+  ): any {
+    const period1Data = data.filter((row: any) => row._period === 'period1')
+    const period2Data = data.filter((row: any) => row._period === 'period2')
+
+    // GMV 계산 (Total GMV 컬럼 확인)
+    const calculateGMV = (rows: any[]): number => {
+      return rows.reduce((sum, row) => {
+        const gmv = row['Total GMV'] || row['total_gmv'] || row['gmv'] || row['GMV'] || 0
+        return sum + (typeof gmv === 'number' ? gmv : parseFloat(String(gmv).replace(/,/g, '')) || 0)
+      }, 0)
+    }
+
+    const period1GMV = calculateGMV(period1Data)
+    const period2GMV = calculateGMV(period2Data)
+    const period1OrderCount = new Set(period1Data.map((r: any) => r.order_code).filter(Boolean)).size
+    const period2OrderCount = new Set(period2Data.map((r: any) => r.order_code).filter(Boolean)).size
+
+    // 변화율 계산
+    const gmvChange = period2GMV - period1GMV
+    const gmvChangePercent = period1GMV > 0 ? ((period2GMV - period1GMV) / period1GMV) * 100 : (period2GMV > 0 ? null : 0)
+    const orderChange = period2OrderCount - period1OrderCount
+    const orderChangePercent = period1OrderCount > 0 ? ((period2OrderCount - period1OrderCount) / period1OrderCount) * 100 : (period2OrderCount > 0 ? null : 0)
+
+    // 국가별 비교
+    const countryComparison = this.compareByCountry(period1Data, period2Data, period1Label, period2Label)
+
+    return {
+      summary: {
+        period1: {
+          label: period1Label,
+          gmv: period1GMV,
+          orderCount: period1OrderCount,
+          avgOrderValue: period1OrderCount > 0 ? period1GMV / period1OrderCount : 0
+        },
+        period2: {
+          label: period2Label,
+          gmv: period2GMV,
+          orderCount: period2OrderCount,
+          avgOrderValue: period2OrderCount > 0 ? period2GMV / period2OrderCount : 0
+        },
+        changes: {
+          gmv: {
+            absolute: gmvChange,
+            percent: gmvChangePercent,
+            direction: gmvChange > 0 ? 'increase' : gmvChange < 0 ? 'decrease' : 'stable'
+          },
+          orders: {
+            absolute: orderChange,
+            percent: orderChangePercent,
+            direction: orderChange > 0 ? 'increase' : orderChange < 0 ? 'decrease' : 'stable'
+          }
+        }
+      },
+      countryComparison,
+      rawData: {
+        period1: period1Data,
+        period2: period2Data
+      }
+    }
+  }
+
+  /**
+   * 국가별 비교 분석
+   */
+  private compareByCountry(
+    period1Data: any[],
+    period2Data: any[],
+    period1Label: string,
+    period2Label: string
+  ): any[] {
+    const countryMap = new Map<string, { period1: any[]; period2: any[] }>()
+
+    // 기간 1 국가별 그룹화
+    period1Data.forEach((row: any) => {
+      const country = row.country || row['country_code'] || 'Unknown'
+      if (!countryMap.has(country)) {
+        countryMap.set(country, { period1: [], period2: [] })
+      }
+      countryMap.get(country)!.period1.push(row)
+    })
+
+    // 기간 2 국가별 그룹화
+    period2Data.forEach((row: any) => {
+      const country = row.country || row['country_code'] || 'Unknown'
+      if (!countryMap.has(country)) {
+        countryMap.set(country, { period1: [], period2: [] })
+      }
+      countryMap.get(country)!.period2.push(row)
+    })
+
+    const calculateGMV = (rows: any[]): number => {
+      return rows.reduce((sum, row) => {
+        const gmv = row['Total GMV'] || row['total_gmv'] || row['gmv'] || row['GMV'] || 0
+        return sum + (typeof gmv === 'number' ? gmv : parseFloat(String(gmv).replace(/,/g, '')) || 0)
+      }, 0)
+    }
+
+    return Array.from(countryMap.entries()).map(([country, data]) => {
+      const period1GMV = calculateGMV(data.period1)
+      const period2GMV = calculateGMV(data.period2)
+      const period1Orders = new Set(data.period1.map((r: any) => r.order_code).filter(Boolean)).size
+      const period2Orders = new Set(data.period2.map((r: any) => r.order_code).filter(Boolean)).size
+
+      const gmvChange = period2GMV - period1GMV
+      const gmvChangePercent = period1GMV > 0 ? ((period2GMV - period1GMV) / period1GMV) * 100 : (period2GMV > 0 ? null : 0)
+
+      return {
+        country,
+        period1: {
+          gmv: period1GMV,
+          orderCount: period1Orders
+        },
+        period2: {
+          gmv: period2GMV,
+          orderCount: period2Orders
+        },
+        change: {
+          gmv: gmvChange,
+          gmvPercent: gmvChangePercent,
+          orders: period2Orders - period1Orders
+        }
+      }
+    }).sort((a, b) => b.period2.gmv - a.period2.gmv)
   }
 
   /**
@@ -695,8 +921,36 @@ ${getSchemaSummaryForPrompt()}
   /**
    * 비교 차트 생성
    */
-  private async createComparisonChart(data: any[]): Promise<any[]> {
-    if (data.length === 0) return []
+  private async createComparisonChart(data: any): Promise<any[]> {
+    // 비교 분석 결과가 객체인 경우 (기간 비교)
+    if (data && typeof data === 'object' && !Array.isArray(data) && data.summary) {
+      const summary = data.summary
+      const chartData = [
+        {
+          period: summary.period1.label,
+          gmv: summary.period1.gmv,
+          orderCount: summary.period1.orderCount
+        },
+        {
+          period: summary.period2.label,
+          gmv: summary.period2.gmv,
+          orderCount: summary.period2.orderCount
+        }
+      ]
+
+      const chart = await this.visualizeData({
+        data: chartData,
+        chartType: 'bar',
+        xAxis: 'period',
+        yAxis: 'gmv',
+        title: '기간별 비교 분석',
+      })
+
+      return chart.success ? [chart.data] : []
+    }
+
+    // 배열인 경우 (기존 로직)
+    if (Array.isArray(data) && data.length === 0) return []
 
     const chartData = await this.visualizeData({
       data,
@@ -854,6 +1108,54 @@ ${dataSummary}${correlationInsight}
    * 상세 데이터 요약 생성
    */
   private generateDetailedSummary(data: any, intent: string): string {
+    // 비교 분석 결과가 객체인 경우 (기간 비교)
+    if (intent === 'comparison' && data && typeof data === 'object' && !Array.isArray(data) && data.summary) {
+      const summary = data.summary
+      const changes = summary.changes
+      const lines: string[] = []
+      
+      lines.push(`기간별 비교 분석 결과:`)
+      lines.push('')
+      lines.push(`기간 1 (${summary.period1.label}):`)
+      lines.push(`- 총 매출(GMV): ${this.formatNumber(summary.period1.gmv)} USD`)
+      lines.push(`- 주문 수: ${summary.period1.orderCount}건`)
+      lines.push(`- 평균 주문 금액: ${this.formatNumber(summary.period1.avgOrderValue)} USD`)
+      lines.push('')
+      lines.push(`기간 2 (${summary.period2.label}):`)
+      lines.push(`- 총 매출(GMV): ${this.formatNumber(summary.period2.gmv)} USD`)
+      lines.push(`- 주문 수: ${summary.period2.orderCount}건`)
+      lines.push(`- 평균 주문 금액: ${this.formatNumber(summary.period2.avgOrderValue)} USD`)
+      lines.push('')
+      lines.push(`변화 분석:`)
+      lines.push(`- 매출: ${changes.gmv.direction === 'increase' ? '증가' : changes.gmv.direction === 'decrease' ? '감소' : '유지'} `)
+      if (changes.gmv.absolute !== 0) {
+        lines.push(`  절대 변화: ${changes.gmv.absolute > 0 ? '+' : ''}${this.formatNumber(changes.gmv.absolute)} USD`)
+      }
+      if (changes.gmv.percent !== null && changes.gmv.percent !== undefined) {
+        lines.push(`  변화율: ${changes.gmv.percent > 0 ? '+' : ''}${changes.gmv.percent.toFixed(1)}%`)
+      }
+      lines.push(`- 주문 수: ${changes.orders.direction === 'increase' ? '증가' : changes.orders.direction === 'decrease' ? '감소' : '유지'} `)
+      if (changes.orders.absolute !== 0) {
+        lines.push(`  절대 변화: ${changes.orders.absolute > 0 ? '+' : ''}${changes.orders.absolute}건`)
+      }
+      if (changes.orders.percent !== null && changes.orders.percent !== undefined) {
+        lines.push(`  변화율: ${changes.orders.percent > 0 ? '+' : ''}${changes.orders.percent.toFixed(1)}%`)
+      }
+      
+      if (data.countryComparison && data.countryComparison.length > 0) {
+        lines.push('')
+        lines.push('국가별 비교 (상위 5개):')
+        data.countryComparison.slice(0, 5).forEach((c: any) => {
+          const changeText = c.change.gmvPercent !== null && c.change.gmvPercent !== undefined
+            ? `(${c.change.gmvPercent > 0 ? '+' : ''}${c.change.gmvPercent.toFixed(1)}%)`
+            : ''
+          lines.push(`- ${c.country}: ${this.formatNumber(c.period1.gmv)} USD → ${this.formatNumber(c.period2.gmv)} USD ${changeText}`)
+        })
+      }
+      
+      return lines.join('\n')
+    }
+
     if (!Array.isArray(data) || data.length === 0) {
       return '데이터 없음'
     }
@@ -889,7 +1191,7 @@ ${dataSummary}${correlationInsight}
     } else if (intent === 'comparison') {
       lines.push('\n비교 항목:')
       data.forEach((d: any) => {
-        const category = d.category || d.country || d.platform || '기타'
+        const category = d.category || d.country || d.platform || d.period || '기타'
         const gmv = d.gmv || d.totalGmv || 0
         const count = d.count || d.orderCount || 0
         lines.push(`- ${category}: ${this.formatNumber(gmv)} USD (${count}건)`)
