@@ -6,8 +6,6 @@ import { useRouter } from 'next/navigation'
 import { chatApi } from '@/lib/api'
 import { StaggeredFadeText } from '@/components/chat/StaggeredFadeText'
 import { AnimatedMessage } from '@/components/chat/AnimatedMessage'
-import { FloatingComposer } from '@/components/chat/FloatingComposer'
-import { useMessageBlankSize } from '@/hooks/useMessageBlankSize'
 import { Button, Spinner, Badge } from '@/components/ui'
 import { Bar, Line, Pie } from 'react-chartjs-2'
 import {
@@ -191,13 +189,13 @@ export default function ChatPage() {
   const [isStreaming, setIsStreaming] = useState(false)
   const [sidebarOpen, setSidebarOpen] = useState(true)
   const [expandedCategory, setExpandedCategory] = useState<string | null>('📊 매출 분석')
-  const [composerHeight, setComposerHeight] = useState(80)
-  const [keyboardHeight, setKeyboardHeight] = useState(0)
   const streamingContentRef = useRef('')
   const messagesEndRef = useRef<HTMLDivElement>(null)
+  const messagesContainerRef = useRef<HTMLDivElement>(null)
   const inputRef = useRef<HTMLTextAreaElement>(null)
-  const { blankSize, lastMessageRef, updateBlankSize } = useMessageBlankSize()
   const [newMessageIndices, setNewMessageIndices] = useState<Set<number>>(new Set())
+  const [shouldAutoScroll, setShouldAutoScroll] = useState(true)
+  const lastScrollTop = useRef(0)
 
   // 챗봇 상태 확인
   const { data: healthData } = useQuery({
@@ -477,34 +475,25 @@ export default function ChatPage() {
     }
   }
 
-  // 키보드 높이 감지
+  // 스크롤 위치 감지 (사용자가 스크롤을 올렸는지 확인)
   useEffect(() => {
-    const handleResize = () => {
-      if (typeof window === 'undefined' || !window.visualViewport) {
-        setKeyboardHeight(0)
-        return
-      }
+    const container = messagesContainerRef.current
+    if (!container) return
 
-      const viewportHeight = window.visualViewport.height
-      const windowHeight = window.innerHeight
-      const keyboard = Math.max(0, windowHeight - viewportHeight)
-      setKeyboardHeight(keyboard)
+    const handleScroll = () => {
+      const { scrollTop, scrollHeight, clientHeight } = container
+      const isNearBottom = scrollHeight - scrollTop - clientHeight < 100 // 하단 100px 이내
+      
+      // 사용자가 하단 근처에 있으면 자동 스크롤 활성화
+      setShouldAutoScroll(isNearBottom)
+      lastScrollTop.current = scrollTop
     }
 
-    if (window.visualViewport) {
-      window.visualViewport.addEventListener('resize', handleResize)
-    }
-    window.addEventListener('resize', handleResize)
-
-    return () => {
-      if (window.visualViewport) {
-        window.visualViewport.removeEventListener('resize', handleResize)
-      }
-      window.removeEventListener('resize', handleResize)
-    }
+    container.addEventListener('scroll', handleScroll, { passive: true })
+    return () => container.removeEventListener('scroll', handleScroll)
   }, [])
 
-  // 메시지가 추가될 때마다 스크롤 및 Blank Size 업데이트
+  // 메시지가 추가될 때마다 스크롤 처리
   useEffect(() => {
     // 새 메시지 인덱스 추적
     if (messages.length > 0) {
@@ -521,13 +510,27 @@ export default function ChatPage() {
       }, 1000)
     }
 
-    // Blank Size 업데이트
-    requestAnimationFrame(() => {
-      updateBlankSize()
-      // 스크롤 조정
-      messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' })
-    })
-  }, [messages, updateBlankSize])
+    // 자동 스크롤이 활성화되어 있고, 새 메시지가 추가된 경우에만 스크롤
+    if (shouldAutoScroll && messagesEndRef.current) {
+      // 약간의 지연을 두어 DOM 업데이트 후 스크롤
+      setTimeout(() => {
+        messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' })
+      }, 100)
+    }
+  }, [messages, shouldAutoScroll])
+
+  // 스트리밍 중일 때도 자동 스크롤 (조건부)
+  useEffect(() => {
+    if (isStreaming && shouldAutoScroll && messagesEndRef.current) {
+      const timer = setInterval(() => {
+        if (shouldAutoScroll && messagesEndRef.current) {
+          messagesEndRef.current.scrollIntoView({ behavior: 'smooth' })
+        }
+      }, 1000) // 1초마다 스크롤 업데이트
+
+      return () => clearInterval(timer)
+    }
+  }, [isStreaming, shouldAutoScroll, streamingContent])
 
   // 초기 환영 메시지는 빈 상태 UI로 대체됨 (messages.length === 0 && isConnected 조건에서 렌더링)
 
@@ -794,12 +797,10 @@ export default function ChatPage() {
 
         {/* 메시지 영역 */}
         <div 
+          ref={messagesContainerRef}
           className="flex-1 overflow-y-auto px-4 lg:px-6 py-4 lg:py-6"
-          style={{
-            paddingBottom: `${blankSize + composerHeight + keyboardHeight}px`
-          }}
         >
-          <div className="max-w-3xl mx-auto space-y-4">
+          <div className="max-w-3xl mx-auto space-y-4 pb-4">
             {messages.length === 0 && !isConnected && (
               <div className="text-center py-16">
                 <div className="text-7xl mb-4">🤖</div>
@@ -889,7 +890,6 @@ export default function ChatPage() {
                 isNewMessage={isNewMessage}
               >
                 <div
-                  ref={isLastMessage ? lastMessageRef : undefined}
                   className={`max-w-[85%] rounded-2xl px-4 py-3 shadow-sm transition-all hover:shadow-md ${
                     message.role === 'user'
                       ? 'bg-gradient-to-br from-primary to-primary/90 text-white'
@@ -1048,22 +1048,64 @@ export default function ChatPage() {
         </div>
       </div>
 
-        {/* 플로팅 컴포저 */}
-        <FloatingComposer
-          value={input}
-          onChange={setInput}
-          onSend={handleSend}
-          disabled={sendMessageMutation.isPending || isStreaming}
-          isConnected={isConnected}
-          placeholder={
-            isConnected
-              ? '메시지를 입력하세요...'
-              : 'AI 어시스턴트가 연결되지 않았습니다.'
-          }
-        />
-        
-        {/* 하단 여백 (플로팅 컴포저 공간 확보) */}
-        <div className="h-24 lg:h-20" />
+        {/* 입력 영역 - 웹 최적화 */}
+        <div className="bg-white border-t border-slate-200 px-4 lg:px-6 py-4">
+          <div className="max-w-3xl mx-auto">
+            <div className="flex items-end gap-3">
+              <div className="flex-1 relative">
+                <textarea
+                  ref={inputRef}
+                  value={input}
+                  onChange={(e) => setInput(e.target.value)}
+                  onKeyDown={handleKeyDown}
+                  placeholder={
+                    isConnected
+                      ? '메시지를 입력하세요...'
+                      : 'AI 어시스턴트가 연결되지 않았습니다.'
+                  }
+                  disabled={!isConnected || sendMessageMutation.isPending || isStreaming}
+                  rows={1}
+                  className="w-full resize-none border border-slate-300 rounded-xl px-4 py-3 text-base focus:outline-none focus:ring-2 focus:ring-primary focus:border-transparent disabled:bg-slate-100 disabled:cursor-not-allowed transition-all bg-white text-slate-900 placeholder:text-slate-400"
+                  style={{
+                    minHeight: '48px',
+                    maxHeight: '120px',
+                  }}
+                  onInput={(e) => {
+                    const target = e.target as HTMLTextAreaElement
+                    target.style.height = 'auto'
+                    target.style.height = `${Math.min(target.scrollHeight, 120)}px`
+                  }}
+                />
+              </div>
+              <button
+                onClick={handleSend}
+                disabled={!input.trim() || !isConnected || sendMessageMutation.isPending || isStreaming}
+                className="px-5 py-3 bg-gradient-to-r from-primary to-primary/90 text-white rounded-xl hover:shadow-lg hover:scale-[1.02] active:scale-[0.98] transition-all disabled:from-slate-300 disabled:to-slate-300 disabled:cursor-not-allowed disabled:hover:scale-100 font-medium flex items-center justify-center min-h-[48px] min-w-[80px]"
+              >
+                전송 →
+              </button>
+            </div>
+            <div className="flex items-center justify-between mt-2 text-xs text-slate-500">
+              <span>
+                {isConnected && (
+                  <>
+                    <span className="inline-flex items-center gap-1">
+                      {AGENT_META[selectedAgent]?.icon}
+                      <span>{agentsData?.data?.find((a: any) => a.type === selectedAgent)?.name || '자동 선택'}</span>
+                    </span>
+                    <span className="mx-2">•</span>
+                    <span>Enter로 전송</span>
+                  </>
+                )}
+              </span>
+              {messages.length > 0 && (
+                <span className="text-slate-400">
+                  {messages.filter(m => m.role === 'user').length}개 질문
+                </span>
+              )}
+            </div>
+          </div>
+        </div>
       </div>
     </div>
   )
