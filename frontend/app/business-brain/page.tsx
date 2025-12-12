@@ -2723,6 +2723,174 @@ function StrategyAnalysisTab({
   )
 }
 
+// 액션 제안 탭 (v4.2 Phase 3)
+function ActionProposalsTab({ 
+  data, 
+  isLoading, 
+  period 
+}: { 
+  data: any; 
+  isLoading: boolean; 
+  period: string 
+}) {
+  if (isLoading) {
+    return (
+      <FadeIn>
+        <div className="flex flex-col items-center justify-center h-64 gap-4">
+          <div className="relative">
+            <div className="w-16 h-16 border-4 border-indigo-200 dark:border-indigo-800 rounded-full animate-spin border-t-indigo-600" />
+            <div className="absolute inset-0 flex items-center justify-center">
+              <span className="text-2xl">📋</span>
+            </div>
+          </div>
+          <p className="text-sm text-slate-500 dark:text-slate-400 animate-pulse">
+            액션 제안을 생성하고 있습니다...
+          </p>
+        </div>
+      </FadeIn>
+    )
+  }
+
+  if (!data || !data.actions || data.actions.length === 0) {
+    return (
+      <EmptyState 
+        icon="📋" 
+        title="액션 제안을 불러올 수 없습니다" 
+        description="선택한 기간에 대한 액션 제안이 없거나 분석 중 오류가 발생했습니다."
+      />
+    )
+  }
+
+  const actions = data.actions || []
+  const prioritizedActions = actions.sort((a: any, b: any) => {
+    const priorityOrder: Record<string, number> = { 'P0': 0, 'P1': 1, 'P2': 2, 'P3': 3 }
+    return (priorityOrder[a.priority] || 99) - (priorityOrder[b.priority] || 99)
+  })
+
+  const getPriorityColor = (priority: string) => {
+    switch (priority) {
+      case 'P0': return 'from-red-500 to-orange-500'
+      case 'P1': return 'from-amber-500 to-yellow-500'
+      case 'P2': return 'from-blue-500 to-indigo-500'
+      case 'P3': return 'from-slate-400 to-slate-500'
+      default: return 'from-slate-400 to-slate-500'
+    }
+  }
+
+  const getPriorityLabel = (priority: string) => {
+    switch (priority) {
+      case 'P0': return '긴급'
+      case 'P1': return '높음'
+      case 'P2': return '중간'
+      case 'P3': return '낮음'
+      default: return priority
+    }
+  }
+
+  return (
+    <div className="space-y-6">
+      {/* 요약 */}
+      {data.summary && (
+        <FadeIn>
+          <Card className="p-6 bg-gradient-to-br from-indigo-50 to-purple-50 dark:from-indigo-900/20 dark:to-purple-900/20">
+            <h2 className="text-lg font-semibold text-slate-800 dark:text-slate-100 mb-3">
+              📋 액션 제안 요약
+            </h2>
+            <p className="text-slate-600 dark:text-slate-400 leading-relaxed">
+              {data.summary}
+            </p>
+          </Card>
+        </FadeIn>
+      )}
+
+      {/* 우선순위별 액션 */}
+      <div className="space-y-4">
+        {prioritizedActions.map((action: any, idx: number) => (
+          <FadeIn key={idx} delay={idx * 50}>
+            <Card className={`p-6 border-l-4 ${
+              action.priority === 'P0' ? 'border-l-red-500' :
+              action.priority === 'P1' ? 'border-l-amber-500' :
+              action.priority === 'P2' ? 'border-l-blue-500' :
+              'border-l-slate-400'
+            }`}>
+              <div className="flex items-start justify-between gap-4 mb-4">
+                <div className="flex-1">
+                  <div className="flex items-center gap-3 mb-2">
+                    <span className={`px-3 py-1 rounded-lg text-xs font-bold text-white bg-gradient-to-r ${getPriorityColor(action.priority)}`}>
+                      {action.priority} - {getPriorityLabel(action.priority)}
+                    </span>
+                    {action.category && (
+                      <span className="px-2 py-1 bg-slate-100 dark:bg-slate-800 text-slate-600 dark:text-slate-400 rounded text-xs">
+                        {action.category}
+                      </span>
+                    )}
+                  </div>
+                  <h3 className="text-lg font-semibold text-slate-800 dark:text-slate-100 mb-2">
+                    {action.title}
+                  </h3>
+                  {action.description && (
+                    <p className="text-slate-600 dark:text-slate-400 mb-3">
+                      {action.description}
+                    </p>
+                  )}
+                </div>
+              </div>
+
+              {/* 예상 효과 */}
+              {action.expectedImpact && (
+                <div className="mb-4 p-4 bg-emerald-50 dark:bg-emerald-900/20 rounded-lg border border-emerald-200 dark:border-emerald-800/30">
+                  <div className="flex items-center gap-2 mb-2">
+                    <span className="text-emerald-600 dark:text-emerald-400">💡</span>
+                    <span className="text-sm font-semibold text-emerald-700 dark:text-emerald-300">예상 효과</span>
+                  </div>
+                  <p className="text-sm text-emerald-600 dark:text-emerald-400">
+                    {action.expectedImpact}
+                  </p>
+                </div>
+              )}
+
+              {/* 실행 계획 */}
+              {action.executionPlan && action.executionPlan.length > 0 && (
+                <div className="mb-4">
+                  <h4 className="text-sm font-semibold text-slate-700 dark:text-slate-300 mb-2">
+                    실행 계획:
+                  </h4>
+                  <ul className="space-y-2">
+                    {action.executionPlan.map((step: string, stepIdx: number) => (
+                      <li key={stepIdx} className="text-sm text-slate-600 dark:text-slate-400 flex items-start gap-2">
+                        <span className="text-indigo-500 mt-0.5">{stepIdx + 1}.</span>
+                        <span>{step}</span>
+                      </li>
+                    ))}
+                  </ul>
+                </div>
+              )}
+
+              {/* 담당자 및 기간 */}
+              {(action.owner || action.timeline) && (
+                <div className="flex items-center gap-4 text-xs text-slate-500 dark:text-slate-400 pt-3 border-t border-slate-200 dark:border-slate-700">
+                  {action.owner && (
+                    <div className="flex items-center gap-1">
+                      <span>👤</span>
+                      <span>담당자: {action.owner}</span>
+                    </div>
+                  )}
+                  {action.timeline && (
+                    <div className="flex items-center gap-1">
+                      <span>📅</span>
+                      <span>기간: {action.timeline}</span>
+                    </div>
+                  )}
+                </div>
+              )}
+            </Card>
+          </FadeIn>
+        ))}
+      </div>
+    </div>
+  )
+}
+
 // 전략 제안 탭
 function StrategyTab({ recommendations, isLoading }: { recommendations: any; isLoading: boolean }) {
   if (isLoading) {
