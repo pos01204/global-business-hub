@@ -2,7 +2,7 @@
 
 import { useQuery } from '@tanstack/react-query'
 import { analyticsApi, customersApi, logisticsPerformanceApi, comparisonApi, dashboardApi } from '@/lib/api'
-import { useState } from 'react'
+import { useState, useEffect } from 'react'
 import { useRouter, useSearchParams } from 'next/navigation'
 import CustomerDetailModal from '@/components/CustomerDetailModal'
 import OrderDetailModal from '@/components/OrderDetailModal'
