@@ -89,14 +89,27 @@ export interface NewUserAcquisitionResult {
 // ==================== 분석 로직 ====================
 
 /**
- * 채널별 성과 분석
+ * 채널별 성과 분석 (users 시트와 연동하여 정확한 가입자 수 사용)
  */
 function analyzeChannelPerformance(
   logisticsData: any[],
-  periodDays: number
+  usersData: any[],
+  periodDays: number,
+  startDate: Date,
+  endDate: Date
 ): ChannelPerformance[] {
-  const startDate = new Date()
-  startDate.setDate(startDate.getDate() - periodDays)
+  // users 시트에서 가입자 정보 로드
+  const userCreatedMap = new Map<string, Date>()
+  
+  usersData.forEach((user: any) => {
+    const userId = String(user.ID || '')
+    if (!userId) return
+    
+    const createdAt = new Date(user.CREATED_AT)
+    if (!isNaN(createdAt.getTime())) {
+      userCreatedMap.set(userId, createdAt)
+    }
+  })
   
   // 고객별 첫 구매일 추적
   const customerFirstPurchase = new Map<string, { date: Date; amount: number; channel?: string }>()
@@ -126,9 +139,16 @@ function analyzeChannelPerformance(
     customerOrderCount.set(customerId, (customerOrderCount.get(customerId) || 0) + 1)
   }
   
-  // 기간 내 신규 유저 필터링
+  // 기간 내 신규 유저 필터링 (가입일이 기간 내이고 첫 구매도 기간 내인 고객)
   const newUsersInPeriod = Array.from(customerFirstPurchase.entries())
-    .filter(([_, data]) => data.date >= startDate)
+    .filter(([customerId, data]) => {
+      const userCreatedAt = userCreatedMap.get(customerId)
+      return userCreatedAt && 
+             userCreatedAt >= startDate && 
+             userCreatedAt <= endDate &&
+             data.date >= startDate &&
+             data.date <= endDate
+    })
   
   // 채널별 집계
   const channelMap = new Map<string, {
@@ -175,9 +195,26 @@ function analyzeChannelPerformance(
     const avgLTV = data.totalSpent / data.newUsers
     const avgFirstPurchase = data.firstPurchaseAmounts.reduce((a, b) => a + b, 0) / data.firstPurchaseAmounts.length
     
-    // 전환율 계산 (현재는 데이터 부족으로 추정값 사용)
-    const conversionRate = 0.3 + (Math.random() * 0.2) // 30-50% 추정
-    const firstPurchaseRate = data.newUsers > 0 ? Math.min(1, data.totalOrders / data.newUsers) : 0
+    // 채널별 가입자 수 계산 (users 시트 기반)
+    // 해당 채널로 첫 구매한 고객 중, 가입일이 기간 내인 고객 수
+    const channelSignups = Array.from(newUsersInPeriod)
+      .filter(([customerId, firstPurchase]) => {
+        const userCreatedAt = userCreatedMap.get(customerId)
+        return firstPurchase.channel === channel &&
+               userCreatedAt && 
+               userCreatedAt >= startDate && 
+               userCreatedAt <= endDate
+      }).length
+    
+    // 전환율 계산
+    // 방문 → 가입 전환율: 실제 방문 데이터가 없으므로 추정치
+    // 가입 전환율을 약 40%로 가정하면 방문 수 = 가입자 / 0.4
+    const estimatedVisits = channelSignups > 0 ? Math.round(channelSignups / 0.4) : 0
+    const conversionRate = estimatedVisits > 0 ? channelSignups / estimatedVisits : 0.4 // 기본값 40%
+    
+    // 가입 → 첫 구매 전환율: 실제 데이터 기반
+    // 채널별 첫 구매 고객 수 / 채널별 가입자 수
+    const firstPurchaseRate = channelSignups > 0 ? data.newUsers / channelSignups : 0
     
     // CAC는 현재 데이터가 없으므로 0으로 설정 (추후 마케팅 데이터 연동 시 업데이트)
     const cac = 0
@@ -242,16 +279,36 @@ function analyzeChannelPerformance(
 }
 
 /**
- * 전환율 분석
+ * 전환율 분석 (고객 분석 페이지와 동일한 데이터 소스 사용)
  */
 function analyzeConversionFunnel(
   logisticsData: any[],
-  periodDays: number
+  usersData: any[],
+  periodDays: number,
+  startDate: Date,
+  endDate: Date
 ): ConversionFunnel[] {
-  const startDate = new Date()
-  startDate.setDate(startDate.getDate() - periodDays)
+  // users 시트에서 전체 가입자 수 계산 (고객 분석 페이지와 동일한 로직)
+  const userCreatedMap = new Map<string, Date>()
   
-  // 고객별 첫 구매일 추적
+  usersData.forEach((user: any) => {
+    const userId = String(user.ID || '')
+    if (!userId) return
+    
+    const createdAt = new Date(user.CREATED_AT)
+    if (!isNaN(createdAt.getTime())) {
+      userCreatedMap.set(userId, createdAt)
+    }
+  })
+  
+  // 전체 가입자 수 (고객 분석 페이지와 동일: 기간 필터링 없음)
+  const totalSignups = userCreatedMap.size
+  
+  // 기간 내 가입자 수 (Business Brain 분석용)
+  const signupsInPeriod = Array.from(userCreatedMap.entries())
+    .filter(([_, createdAt]) => createdAt >= startDate && createdAt <= endDate)
+  
+  // logistics 시트에서 전체 첫 구매 고객 추적 (고객 분석 페이지와 동일)
   const customerFirstPurchase = new Map<string, Date>()
   const customerTotalOrders = new Map<string, number>()
   
@@ -270,14 +327,32 @@ function analyzeConversionFunnel(
     customerTotalOrders.set(customerId, (customerTotalOrders.get(customerId) || 0) + 1)
   }
   
-  // 기간 내 신규 유저
-  const newUsersInPeriod = Array.from(customerFirstPurchase.entries())
-    .filter(([_, date]) => date >= startDate)
+  // 전체 첫 구매 고객 수 (고객 분석 페이지와 동일: 기간 필터링 없음)
+  const totalFirstPurchases = Array.from(customerFirstPurchase.keys())
+    .filter(customerId => userCreatedMap.has(customerId)).length
   
-  // 방문 수는 추정 (실제 방문 데이터가 없으므로 첫 구매 고객 수의 3배로 추정)
-  const estimatedVisits = newUsersInPeriod.length * 3
-  const signups = Math.round(estimatedVisits * 0.4) // 40% 가입율 추정
-  const firstPurchases = newUsersInPeriod.length
+  // 기간 내 첫 구매 고객 (가입일이 기간 내인 고객 중 첫 구매한 고객)
+  const firstPurchasesInPeriod = Array.from(customerFirstPurchase.entries())
+    .filter(([customerId, firstPurchaseDate]) => {
+      const userCreatedAt = userCreatedMap.get(customerId)
+      // 가입일이 기간 내이고, 첫 구매일도 기간 내인 경우
+      return userCreatedAt && 
+             userCreatedAt >= startDate && 
+             userCreatedAt <= endDate &&
+             firstPurchaseDate >= startDate &&
+             firstPurchaseDate <= endDate
+    })
+  
+  // Business Brain에서는 기간 내 데이터를 사용하되, 전체 데이터도 참고
+  const signups = signupsInPeriod.length
+  const firstPurchases = firstPurchasesInPeriod.length
+  
+  // 방문 수는 실제 데이터가 없으므로 추정치로 계산
+  // 고객 분석 페이지 기준: 전체 가입자 73,170명, 전체 첫 구매 1,371명
+  // 전환율 = 1,371 / 73,170 = 약 1.9%
+  // 가입 전환율을 약 40%로 가정하면 방문 수 = 가입자 / 0.4
+  // 하지만 Business Brain은 기간 내 데이터를 사용하므로, 기간 내 가입자 기준으로 계산
+  const estimatedVisits = signups > 0 ? Math.round(signups / 0.4) : 0
   
   // 데이터 품질 평가
   const dataQuality: DataQualityMetrics = {
@@ -287,38 +362,51 @@ function analyzeConversionFunnel(
     missingData: 0
   }
   
+  // 데이터 품질 평가
+  const dataQuality: DataQualityMetrics = {
+    completeness: 0.98,
+    accuracy: 0.95,
+    freshness: 2,
+    missingData: 0
+  }
+  
+  // 방문 → 가입 전환율 계산
+  const visitToSignupRate = estimatedVisits > 0 ? signups / estimatedVisits : 0
+  // 가입 → 첫 구매 전환율 계산
+  const signupToPurchaseRate = signups > 0 ? firstPurchases / signups : 0
+  
   const funnel: ConversionFunnel[] = [
     {
       stage: '방문',
       count: estimatedVisits,
-      conversionRate: 100,
+      conversionRate: 1.0, // 100% (시작점)
       dropoffRate: 0,
       avgTimeToConvert: 0,
       // v4.2: 신뢰도 정보
       countConfidence: calculateCountConfidence(estimatedVisits, 'estimated', dataQuality),
       conversionRateConfidence: calculateProportionConfidence(estimatedVisits, estimatedVisits, 'estimated', dataQuality),
-      dataSource: 'estimated' // 방문 데이터는 추정치
+      dataSource: 'estimated' // 방문 데이터는 추정치 (실제 방문 데이터 없음)
     },
     {
       stage: '가입',
       count: signups,
-      conversionRate: Math.round((signups / estimatedVisits) * 100) / 100,
-      dropoffRate: Math.round(((estimatedVisits - signups) / estimatedVisits) * 100) / 100,
-      avgTimeToConvert: 0.5, // 평균 0.5일
+      conversionRate: visitToSignupRate,
+      dropoffRate: 1 - visitToSignupRate,
+      avgTimeToConvert: 0, // 즉시 가입
       // v4.2: 신뢰도 정보
-      countConfidence: calculateCountConfidence(signups, 'actual', dataQuality),
-      conversionRateConfidence: calculateProportionConfidence(signups, estimatedVisits, 'estimated', dataQuality), // 분모가 추정치
-      dataSource: 'actual'
+      countConfidence: calculateCountConfidence(signups, 'actual', dataQuality), // users 시트에서 실제 데이터
+      conversionRateConfidence: calculateProportionConfidence(signups, estimatedVisits, 'estimated', dataQuality), // 분모(방문)가 추정치
+      dataSource: 'actual' // users 시트에서 실제 데이터
     },
     {
       stage: '첫 구매',
       count: firstPurchases,
-      conversionRate: Math.round((firstPurchases / signups) * 100) / 100,
-      dropoffRate: Math.round(((signups - firstPurchases) / signups) * 100) / 100,
+      conversionRate: signupToPurchaseRate,
+      dropoffRate: 1 - signupToPurchaseRate,
       avgTimeToConvert: 2, // 평균 2일
       // v4.2: 신뢰도 정보
       countConfidence: calculateCountConfidence(firstPurchases, 'actual', dataQuality),
-      conversionRateConfidence: calculateProportionConfidence(firstPurchases, signups, 'actual', dataQuality),
+      conversionRateConfidence: calculateProportionConfidence(firstPurchases, signups, 'actual', dataQuality), // 모두 실제 데이터
       dataSource: 'actual'
     }
   ]
@@ -508,6 +596,14 @@ export class NewUserAcquisitionAnalyzer {
     try {
       const logisticsData = await this.sheetsService.getSheetDataAsJson(SHEET_NAMES.LOGISTICS, true)
       
+      // users 시트 로드 (고객 분석 페이지와 동일한 데이터 소스 사용)
+      let usersData: any[] = []
+      try {
+        usersData = await this.sheetsService.getSheetDataAsJson(SHEET_NAMES.USERS, false)
+      } catch (e) {
+        console.warn('[NewUserAcquisitionAnalyzer] Users data not available:', e)
+      }
+      
       if (!logisticsData || logisticsData.length === 0) {
         return {
           channels: [],
@@ -537,11 +633,11 @@ export class NewUserAcquisitionAnalyzer {
       const lastUpdateTime = new Date() // 실제로는 데이터 소스에서 가져와야 함
       const overallDataQuality = evaluateDataQuality(totalRecords, missingRecords, lastUpdateTime)
       
-      // 채널별 성과 분석
-      const channels = analyzeChannelPerformance(logisticsData, periodDays)
+      // 채널별 성과 분석 (users 시트 데이터 포함)
+      const channels = analyzeChannelPerformance(logisticsData, usersData, periodDays, startDate, endDate)
       
-      // 전환율 분석
-      const conversionFunnel = analyzeConversionFunnel(logisticsData, periodDays)
+      // 전환율 분석 (users 시트 데이터 포함)
+      const conversionFunnel = analyzeConversionFunnel(logisticsData, usersData, periodDays, startDate, endDate)
       
       // 신규 유저 품질 분석
       const newUserQuality = analyzeNewUserQuality(logisticsData, periodDays)
