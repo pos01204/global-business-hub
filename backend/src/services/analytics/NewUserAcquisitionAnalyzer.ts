@@ -362,14 +362,6 @@ function analyzeConversionFunnel(
     missingData: 0
   }
   
-  // 데이터 품질 평가
-  const dataQuality: DataQualityMetrics = {
-    completeness: 0.98,
-    accuracy: 0.95,
-    freshness: 2,
-    missingData: 0
-  }
-  
   // 방문 → 가입 전환율 계산
   const visitToSignupRate = estimatedVisits > 0 ? signups / estimatedVisits : 0
   // 가입 → 첫 구매 전환율 계산
