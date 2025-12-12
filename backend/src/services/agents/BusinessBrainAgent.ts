@@ -1810,6 +1810,533 @@ export class BusinessBrainAgent extends BaseAgent {
   }
 
   /**
+   * 전략 분석 (v4.2 Phase 3)
+   * 시장 분석, 성장 기회, 위험 요소 분석
+   */
+  async analyzeStrategy(
+    period: PeriodPreset = '90d'
+  ): Promise<{
+    marketAnalysis: {
+      topMarkets: Array<{ country: string; gmv: number; growth: number; share: number }>
+      emergingMarkets: Array<{ country: string; gmv: number; growth: number; potential: 'high' | 'medium' | 'low' }>
+      marketConcentration: { giniCoefficient: number; top3Share: number }
+    }
+    growthOpportunities: Array<{
+      type: 'market' | 'artist' | 'customer' | 'product'
+      title: string
+      description: string
+      potentialImpact: 'high' | 'medium' | 'low'
+      confidence: number
+      metrics: { current: number; potential: number; growth: number }
+      recommendedActions: string[]
+    }>
+    riskFactors: Array<{
+      type: 'market' | 'artist' | 'customer' | 'operations'
+      title: string
+      description: string
+      severity: 'critical' | 'high' | 'medium' | 'low'
+      confidence: number
+      metrics: { current: number; trend: 'up' | 'down' | 'stable'; change: number }
+      mitigationActions: string[]
+    }>
+    scenarioSimulation?: {
+      scenarios: Array<{
+        name: string
+        description: string
+        assumptions: string[]
+        projectedImpact: { gmv: number; customers: number; timeline: string }
+      }>
+    }
+  }> {
+    const dateRange = DataProcessor.getDateRangeFromPreset(period)
+    const cacheKey = `strategy-${period}-${dateRange.start}-${dateRange.end}`
+    
+    const cached = businessBrainCache.get<any>(cacheKey)
+    if (cached) return cached
+
+    try {
+      // 현재 기간 및 비교 기간 데이터 조회
+      const comparisonRange = DataProcessor.getComparisonPeriod(dateRange)
+      
+      const [currentResult, previousResult] = await Promise.all([
+        this.getData({
+          sheet: 'logistics',
+          dateRange: {
+            start: dateRange.start,
+            end: dateRange.end,
+          },
+        }),
+        this.getData({
+          sheet: 'logistics',
+          dateRange: {
+            start: comparisonRange.start,
+            end: comparisonRange.end,
+          },
+        }),
+      ])
+
+      const currentData = currentResult.success ? currentResult.data : []
+      const previousData = previousResult.success ? previousResult.data : []
+
+      // 시장 분석
+      const marketGmv = new Map<string, number>()
+      const previousMarketGmv = new Map<string, number>()
+      
+      currentData.forEach((row: any) => {
+        const country = row.country || 'Unknown'
+        const gmv = Number(row['Total GMV']) || 0
+        marketGmv.set(country, (marketGmv.get(country) || 0) + gmv)
+      })
+      
+      previousData.forEach((row: any) => {
+        const country = row.country || 'Unknown'
+        const gmv = Number(row['Total GMV']) || 0
+        previousMarketGmv.set(country, (previousMarketGmv.get(country) || 0) + gmv)
+      })
+
+      const totalGmv = Array.from(marketGmv.values()).reduce((a, b) => a + b, 0)
+      const topMarkets = Array.from(marketGmv.entries())
+        .map(([country, gmv]) => {
+          const previousGmv = previousMarketGmv.get(country) || 0
+          const growth = previousGmv > 0 ? ((gmv - previousGmv) / previousGmv) * 100 : 0
+          return {
+            country,
+            gmv,
+            growth,
+            share: totalGmv > 0 ? (gmv / totalGmv) * 100 : 0,
+          }
+        })
+        .sort((a, b) => b.gmv - a.gmv)
+        .slice(0, 10)
+
+      // 신흥 시장 (성장률 높은 시장)
+      const emergingMarkets = Array.from(marketGmv.entries())
+        .filter(([country]) => country !== 'Unknown')
+        .map(([country, gmv]) => {
+          const previousGmv = previousMarketGmv.get(country) || 0
+          const growth = previousGmv > 0 ? ((gmv - previousGmv) / previousGmv) * 100 : (gmv > 0 ? 100 : 0)
+          return {
+            country,
+            gmv,
+            growth,
+            potential: growth > 50 ? 'high' : growth > 20 ? 'medium' : 'low' as 'high' | 'medium' | 'low',
+          }
+        })
+        .filter(m => m.growth > 10)
+        .sort((a, b) => b.growth - a.growth)
+        .slice(0, 5)
+
+      // 시장 집중도 (Gini 계수)
+      const marketShares = topMarkets.map(m => m.share / 100)
+      const marketConcentration = this.calculateGiniCoefficient(marketShares)
+      const top3Share = topMarkets.slice(0, 3).reduce((sum, m) => sum + m.share, 0)
+
+      // 성장 기회 분석
+      const growthOpportunities: Array<{
+        type: 'market' | 'artist' | 'customer' | 'product'
+        title: string
+        description: string
+        potentialImpact: 'high' | 'medium' | 'low'
+        confidence: number
+        metrics: { current: number; potential: number; growth: number }
+        recommendedActions: string[]
+      }> = []
+
+      // 시장 기회
+      emergingMarkets.forEach(market => {
+        if (market.potential === 'high') {
+          growthOpportunities.push({
+            type: 'market',
+            title: `${market.country} 시장 성장 기회`,
+            description: `${market.country} 시장이 ${market.growth.toFixed(1)}% 성장했습니다. 추가 투자로 시장 점유율 확대 가능합니다.`,
+            potentialImpact: 'high',
+            confidence: 75,
+            metrics: {
+              current: market.gmv,
+              potential: market.gmv * 1.5,
+              growth: market.growth,
+            },
+            recommendedActions: [
+              `${market.country} 시장 타겟 마케팅 캠페인 실행`,
+              '현지화 콘텐츠 및 프로모션 강화',
+              '신규 작가 진출 지원',
+            ],
+          })
+        }
+      })
+
+      // 작가 기회 (파레토 분석 기반)
+      const pareto = await this.dataProcessor.runParetoAnalysis(currentData, 'artist_name (kr)', 'Total GMV')
+      if (pareto.artistConcentration.top10Percent.names.length > 0) {
+        const topArtists = pareto.artistConcentration.top10Percent.names.slice(0, 3)
+        topArtists.forEach(artist => {
+          const artistGmv = currentData
+            .filter((row: any) => row['artist_name (kr)'] === artist)
+            .reduce((sum: number, row: any) => sum + (Number(row['Total GMV']) || 0), 0)
+          
+          growthOpportunities.push({
+            type: 'artist',
+            title: `${artist} 작가 성장 기회`,
+            description: `${artist} 작가가 상위 10% 작가에 포함되어 있습니다. 추가 작품 출시 및 마케팅 지원으로 매출 확대 가능합니다.`,
+            potentialImpact: 'medium',
+            confidence: 70,
+            metrics: {
+              current: artistGmv,
+              potential: artistGmv * 1.3,
+              growth: 30,
+            },
+            recommendedActions: [
+              `${artist} 작가 신작 출시 지원`,
+              '작가별 맞춤 마케팅 전략 수립',
+              'VIP 고객 대상 작가 작품 추천',
+            ],
+          })
+        })
+      }
+
+      // 위험 요소 분석
+      const riskFactors: Array<{
+        type: 'market' | 'artist' | 'customer' | 'operations'
+        title: string
+        description: string
+        severity: 'critical' | 'high' | 'medium' | 'low'
+        confidence: number
+        metrics: { current: number; trend: 'up' | 'down' | 'stable'; change: number }
+        mitigationActions: string[]
+      }> = []
+
+      // 시장 위험 (하락 시장)
+      topMarkets.forEach(market => {
+        if (market.growth < -20) {
+          riskFactors.push({
+            type: 'market',
+            title: `${market.country} 시장 매출 급감`,
+            description: `${market.country} 시장 매출이 ${Math.abs(market.growth).toFixed(1)}% 감소했습니다. 원인 분석 및 대응 전략 수립이 필요합니다.`,
+            severity: market.growth < -30 ? 'critical' : 'high',
+            confidence: 80,
+            metrics: {
+              current: market.gmv,
+              trend: 'down',
+              change: market.growth,
+            },
+            mitigationActions: [
+              `${market.country} 시장 원인 분석 (작가, 제품, 경쟁사 등)`,
+              '타겟 고객 재분석 및 마케팅 전략 재수립',
+              '긴급 프로모션 캠페인 실행',
+            ],
+          })
+        }
+      })
+
+      // 작가 집중도 위험
+      if (marketConcentration > 0.6) {
+        riskFactors.push({
+          type: 'artist',
+          title: '작가 포트폴리오 집중도 위험',
+          description: `상위 작가에 대한 의존도가 높습니다 (Gini 계수: ${marketConcentration.toFixed(2)}). 작가 다각화가 필요합니다.`,
+          severity: 'high',
+          confidence: 85,
+          metrics: {
+            current: marketConcentration,
+            trend: 'stable',
+            change: 0,
+          },
+          mitigationActions: [
+            '신규 작가 발굴 및 진출 지원',
+            '중소 작가 성장 지원 프로그램',
+            '작가별 리스크 모니터링 강화',
+          ],
+        })
+      }
+
+      // 고객 이탈 위험 (RFM 기반)
+      const rfm = await this.dataProcessor.runRFMSegmentation(currentData, { analysisDate: new Date(dateRange.end) })
+      if (rfm.atRiskVIPs.length > 0) {
+        riskFactors.push({
+          type: 'customer',
+          title: 'VIP 고객 이탈 위험',
+          description: `${rfm.atRiskVIPs.length}명의 VIP 고객이 이탈 위험 상태입니다. 즉시 리텐션 조치가 필요합니다.`,
+          severity: 'critical',
+          confidence: 90,
+          metrics: {
+            current: rfm.atRiskVIPs.length,
+            trend: 'up',
+            change: rfm.atRiskVIPs.length,
+          },
+          mitigationActions: [
+            '이탈 위험 VIP 고객 대상 맞춤 프로모션',
+            '고객 만족도 조사 및 피드백 수집',
+            '리텐션 캠페인 실행',
+          ],
+        })
+      }
+
+      const result = {
+        marketAnalysis: {
+          topMarkets,
+          emergingMarkets,
+          marketConcentration: {
+            giniCoefficient: marketConcentration,
+            top3Share,
+          },
+        },
+        growthOpportunities,
+        riskFactors,
+      }
+
+      businessBrainCache.set(cacheKey, result, CACHE_TTL.insights)
+      return result
+    } catch (error: any) {
+      console.error('[BusinessBrainAgent] 전략 분석 오류:', error)
+      throw error
+    }
+  }
+
+  /**
+   * Gini 계수 계산 (시장 집중도 측정)
+   */
+  private calculateGiniCoefficient(values: number[]): number {
+    if (values.length === 0) return 0
+    
+    const sorted = [...values].sort((a, b) => a - b)
+    const n = sorted.length
+    const mean = sorted.reduce((a, b) => a + b, 0) / n
+    
+    if (mean === 0) return 0
+    
+    let numerator = 0
+    for (let i = 0; i < n; i++) {
+      for (let j = 0; j < n; j++) {
+        numerator += Math.abs(sorted[i] - sorted[j])
+      }
+    }
+    
+    return numerator / (2 * n * n * mean)
+  }
+
+  /**
+   * 액션 제안 생성 (v4.2 Phase 3)
+   * 우선순위별 액션, 예상 효과, 실행 계획
+   */
+  async generateActionProposals(
+    period: PeriodPreset = '90d'
+  ): Promise<{
+    prioritizedActions: Array<{
+      id: string
+      title: string
+      description: string
+      category: 'revenue' | 'customer' | 'artist' | 'operations' | 'market'
+      priority: 'P0' | 'P1' | 'P2'
+      urgency: 'critical' | 'high' | 'medium' | 'low'
+      expectedImpact: {
+        metric: string
+        currentValue: number
+        projectedValue: number
+        improvement: number // %
+        confidence: number // %
+      }
+      effort: 'low' | 'medium' | 'high'
+      timeline: string
+      dependencies: string[]
+      owner?: string
+      status: 'pending' | 'in_progress' | 'completed'
+      relatedInsights: string[]
+    }>
+    impactSimulation?: {
+      scenarios: Array<{
+        name: string
+        actions: string[]
+        projectedGmv: number
+        projectedCustomers: number
+        projectedGrowth: number
+        timeline: string
+      }>
+    }
+  }> {
+    const dateRange = DataProcessor.getDateRangeFromPreset(period)
+    const cacheKey = `action-proposals-${period}-${dateRange.start}-${dateRange.end}`
+    
+    const cached = businessBrainCache.get<any>(cacheKey)
+    if (cached) return cached
+
+    try {
+      // 전략 분석 결과 가져오기
+      const strategyAnalysis = await this.analyzeStrategy(period)
+      
+      // 건강도 점수 가져오기
+      const healthScore = await this.calculateHealthScore(period)
+      
+      // 인사이트 가져오기
+      const insights = await this.discoverInsights()
+
+      const prioritizedActions: Array<{
+        id: string
+        title: string
+        description: string
+        category: 'revenue' | 'customer' | 'artist' | 'operations' | 'market'
+        priority: 'P0' | 'P1' | 'P2'
+        urgency: 'critical' | 'high' | 'medium' | 'low'
+        expectedImpact: {
+          metric: string
+          currentValue: number
+          projectedValue: number
+          improvement: number
+          confidence: number
+        }
+        effort: 'low' | 'medium' | 'high'
+        timeline: string
+        dependencies: string[]
+        owner?: string
+        status: 'pending' | 'in_progress' | 'completed'
+        relatedInsights: string[]
+      }> = []
+
+      // 위험 요소 기반 P0 액션
+      strategyAnalysis.riskFactors
+        .filter((risk: any) => risk.severity === 'critical' || risk.severity === 'high')
+        .forEach((risk: any, idx: number) => {
+          prioritizedActions.push({
+            id: `action-risk-${idx}`,
+            title: risk.mitigationActions?.[0] || `${risk.title} 대응`,
+            description: risk.description,
+            category: risk.type === 'market' ? 'market' : risk.type === 'customer' ? 'customer' : risk.type === 'artist' ? 'artist' : 'operations',
+            priority: 'P0',
+            urgency: risk.severity === 'critical' ? 'critical' : 'high',
+            expectedImpact: {
+              metric: risk.metrics.current > 0 ? '위험 완화율' : '고객 유지율',
+              currentValue: typeof risk.metrics.current === 'number' ? risk.metrics.current : 0,
+              projectedValue: typeof risk.metrics.current === 'number' ? risk.metrics.current * 0.7 : 0,
+              improvement: 30,
+              confidence: risk.confidence,
+            },
+            effort: risk.severity === 'critical' ? 'high' : 'medium',
+            timeline: risk.severity === 'critical' ? '1-2주' : '2-4주',
+            dependencies: [],
+            status: 'pending',
+            relatedInsights: [risk.title],
+          })
+        })
+
+      // 성장 기회 기반 P1 액션
+      strategyAnalysis.growthOpportunities
+        .filter((opp: any) => opp.potentialImpact === 'high' || opp.potentialImpact === 'medium')
+        .forEach((opp: any, idx: number) => {
+          prioritizedActions.push({
+            id: `action-growth-${idx}`,
+            title: opp.recommendedActions?.[0] || opp.title,
+            description: opp.description,
+            category: opp.type === 'market' ? 'market' : opp.type === 'artist' ? 'artist' : opp.type === 'customer' ? 'customer' : 'revenue',
+            priority: 'P1',
+            urgency: opp.potentialImpact === 'high' ? 'high' : 'medium',
+            expectedImpact: {
+              metric: 'GMV',
+              currentValue: opp.metrics.current,
+              projectedValue: opp.metrics.potential,
+              improvement: opp.metrics.growth,
+              confidence: opp.confidence,
+            },
+            effort: opp.potentialImpact === 'high' ? 'medium' : 'low',
+            timeline: '4-8주',
+            dependencies: [],
+            status: 'pending',
+            relatedInsights: [opp.title],
+          })
+        })
+
+      // 건강도 점수 기반 액션
+      if (healthScore.dimensions.revenue.score < 60) {
+        prioritizedActions.push({
+          id: 'action-revenue-health',
+          title: '매출 건강도 개선 전략',
+          description: '매출 건강도가 낮습니다. 매출 드라이버 분석 및 개선 전략 수립이 필요합니다.',
+          category: 'revenue',
+          priority: 'P1',
+          urgency: 'high',
+          expectedImpact: {
+            metric: '매출 건강도',
+            currentValue: healthScore.dimensions.revenue.score,
+            projectedValue: 70,
+            improvement: 10,
+            confidence: 75,
+          },
+          effort: 'high',
+          timeline: '8-12주',
+          dependencies: [],
+          status: 'pending',
+          relatedInsights: insights.filter((i: BusinessInsight) => i.category === 'revenue').slice(0, 3).map((i: BusinessInsight) => i.title),
+        })
+      }
+
+      if (healthScore.dimensions.customer.score < 60) {
+        prioritizedActions.push({
+          id: 'action-customer-health',
+          title: '고객 건강도 개선 전략',
+          description: '고객 건강도가 낮습니다. 리텐션 전략 및 신규 고객 유치 전략이 필요합니다.',
+          category: 'customer',
+          priority: 'P1',
+          urgency: 'high',
+          expectedImpact: {
+            metric: '고객 건강도',
+            currentValue: healthScore.dimensions.customer.score,
+            projectedValue: 70,
+            improvement: 10,
+            confidence: 75,
+          },
+          effort: 'high',
+          timeline: '8-12주',
+          dependencies: [],
+          status: 'pending',
+          relatedInsights: insights.filter((i: BusinessInsight) => i.category === 'customer').slice(0, 3).map((i: BusinessInsight) => i.title),
+        })
+      }
+
+      // 우선순위별 정렬 (P0 > P1 > P2, urgency 순)
+      prioritizedActions.sort((a, b) => {
+        const priorityOrder = { P0: 0, P1: 1, P2: 2 }
+        const urgencyOrder = { critical: 0, high: 1, medium: 2, low: 3 }
+        
+        if (priorityOrder[a.priority] !== priorityOrder[b.priority]) {
+          return priorityOrder[a.priority] - priorityOrder[b.priority]
+        }
+        return urgencyOrder[a.urgency] - urgencyOrder[b.urgency]
+      })
+
+      // 시나리오 시뮬레이션
+      const impactSimulation = {
+        scenarios: [
+          {
+            name: '긴급 위험 대응 시나리오',
+            actions: prioritizedActions.filter(a => a.priority === 'P0').slice(0, 3).map(a => a.id),
+            projectedGmv: 0, // 계산 필요
+            projectedCustomers: 0, // 계산 필요
+            projectedGrowth: 5,
+            timeline: '2-4주',
+          },
+          {
+            name: '성장 기회 활용 시나리오',
+            actions: prioritizedActions.filter(a => a.priority === 'P1' && a.category === 'market').slice(0, 3).map(a => a.id),
+            projectedGmv: 0, // 계산 필요
+            projectedCustomers: 0, // 계산 필요
+            projectedGrowth: 15,
+            timeline: '8-12주',
+          },
+        ],
+      }
+
+      const result = {
+        prioritizedActions,
+        impactSimulation,
+      }
+
+      businessBrainCache.set(cacheKey, result, CACHE_TTL.insights)
+      return result
+    } catch (error: any) {
+      console.error('[BusinessBrainAgent] 액션 제안 생성 오류:', error)
+      throw error
+    }
+  }
+
+  /**
    * 시계열 분해 분석 (v4.1)
    * STL 분해: 계절성 + 추세 + 잔차
    */

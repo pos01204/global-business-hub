@@ -1,7 +1,7 @@
 'use client'
 
 import { useQuery } from '@tanstack/react-query'
-import { dashboardApi, controlTowerApi, artistAnalyticsApi, businessBrainApi } from '@/lib/api'
+import { dashboardApi, controlTowerApi, artistAnalyticsApi, businessBrainApi, analyticsApi } from '@/lib/api'
 import Link from 'next/link'
 import { useState, useEffect } from 'react'
 import { format } from 'date-fns'
@@ -86,6 +86,26 @@ export default function DashboardPage() {
   const { data: brainBriefingData } = useQuery({
     queryKey: ['business-brain-briefing-dashboard'],
     queryFn: () => businessBrainApi.getBriefing('30d'),
+    staleTime: 5 * 60 * 1000,
+  })
+
+  // 통합 대시보드 뷰: 성과 분석 요약
+  const { data: analyticsSummaryData } = useQuery({
+    queryKey: ['analytics-summary-dashboard'],
+    queryFn: () => analyticsApi.getData('1d', 'all'),
+    staleTime: 2 * 60 * 1000,
+  })
+
+  // 통합 대시보드 뷰: Business Brain 인사이트 및 액션
+  const { data: brainInsightsData } = useQuery({
+    queryKey: ['business-brain-insights-dashboard'],
+    queryFn: () => businessBrainApi.getInsights({ limit: 5 }),
+    staleTime: 5 * 60 * 1000,
+  })
+
+  const { data: brainActionsData } = useQuery({
+    queryKey: ['business-brain-actions-dashboard'],
+    queryFn: () => businessBrainApi.getActionProposals('30d'),
     staleTime: 5 * 60 * 1000,
   })
 
@@ -209,8 +229,92 @@ export default function DashboardPage() {
         </div>
       </div>
 
-      {/* Business Brain 위젯 */}
-      {(brainHealthData || brainBriefingData) && (
+      {/* 통합 대시보드 뷰 (v4.2 Phase 3) */}
+      <div className="grid lg:grid-cols-2 gap-6">
+        {/* 성과 분석 요약 (왼쪽) */}
+        <div className="bg-gradient-to-br from-blue-50 to-cyan-50 dark:from-blue-900/20 dark:to-cyan-900/20 rounded-xl border border-blue-200 dark:border-blue-800 p-4 lg:p-6">
+          <div className="flex items-center justify-between mb-4">
+            <div className="flex items-center gap-3">
+              <div className="w-10 h-10 bg-gradient-to-br from-blue-500 to-cyan-600 rounded-xl flex items-center justify-center">
+                <span className="text-white text-lg">📊</span>
+              </div>
+              <div>
+                <h3 className="font-bold text-slate-800 dark:text-slate-100">성과 분석 요약</h3>
+                <p className="text-xs text-slate-500 dark:text-slate-400">일일 운영 현황</p>
+              </div>
+            </div>
+            <Link 
+              href="/analytics"
+              className="text-xs text-blue-600 hover:text-blue-700 dark:text-blue-400 dark:hover:text-blue-300 font-medium transition-colors"
+            >
+              상세 보기 →
+            </Link>
+          </div>
+
+          {/* 오늘의 핵심 지표 */}
+          {analyticsSummaryData && (
+            <div className="space-y-3">
+              <div className="grid grid-cols-2 gap-3">
+                <div className="bg-white/60 dark:bg-slate-800/60 rounded-lg p-3 backdrop-blur-sm">
+                  <div className="text-xs text-slate-500 dark:text-slate-400 mb-1">오늘 GMV</div>
+                  <div className="text-lg font-bold text-slate-800 dark:text-slate-200">
+                    {formatCurrency(analyticsSummaryData.summary?.gmv || 0)}
+                  </div>
+                </div>
+                <div className="bg-white/60 dark:bg-slate-800/60 rounded-lg p-3 backdrop-blur-sm">
+                  <div className="text-xs text-slate-500 dark:text-slate-400 mb-1">오늘 주문</div>
+                  <div className="text-lg font-bold text-slate-800 dark:text-slate-200">
+                    {analyticsSummaryData.summary?.orders || 0}건
+                  </div>
+                </div>
+              </div>
+
+              {/* 긴급 이슈 */}
+              {tasksData && tasksData.urgent && tasksData.urgent.length > 0 && (
+                <div className="bg-red-50 dark:bg-red-900/20 rounded-lg p-3 border border-red-200 dark:border-red-800">
+                  <div className="flex items-center gap-2 mb-2">
+                    <span className="text-red-600 dark:text-red-400">🚨</span>
+                    <span className="text-sm font-semibold text-red-800 dark:text-red-200">긴급 이슈</span>
+                  </div>
+                  <div className="space-y-1">
+                    {tasksData.urgent.slice(0, 2).map((task: any, idx: number) => (
+                      <div key={idx} className="text-xs text-red-700 dark:text-red-300">
+                        • {task.title || task.description || '긴급 작업'}
+                      </div>
+                    ))}
+                  </div>
+                </div>
+              )}
+
+              {/* 주요 성과 변화 */}
+              {data && (
+                <div className="bg-white/60 dark:bg-slate-800/60 rounded-lg p-3 backdrop-blur-sm">
+                  <div className="text-xs text-slate-500 dark:text-slate-400 mb-2">주요 성과 변화</div>
+                  <div className="space-y-1.5">
+                    <div className="flex items-center justify-between text-xs">
+                      <span className="text-slate-600 dark:text-slate-400">GMV</span>
+                      <span className={`font-semibold ${
+                        (data.kpis.gmv.change || 0) >= 0 ? 'text-emerald-600' : 'text-red-600'
+                      }`}>
+                        {formatChange(data.kpis.gmv.change || 0)}
+                      </span>
+                    </div>
+                    <div className="flex items-center justify-between text-xs">
+                      <span className="text-slate-600 dark:text-slate-400">주문 수</span>
+                      <span className={`font-semibold ${
+                        (data.kpis.orderCount.change || 0) >= 0 ? 'text-emerald-600' : 'text-red-600'
+                      }`}>
+                        {formatChange(data.kpis.orderCount.change || 0)}
+                      </span>
+                    </div>
+                  </div>
+                </div>
+              )}
+            </div>
+          )}
+        </div>
+
+        {/* Business Brain 요약 (오른쪽) */}
         <div className="bg-gradient-to-br from-purple-50 to-indigo-50 dark:from-purple-900/20 dark:to-indigo-900/20 rounded-xl border border-purple-200 dark:border-purple-800 p-4 lg:p-6">
           <div className="flex items-center justify-between mb-4">
             <div className="flex items-center gap-3">
@@ -218,7 +322,7 @@ export default function DashboardPage() {
                 <span className="text-white text-lg">🧠</span>
               </div>
               <div>
-                <h3 className="font-bold text-slate-800 dark:text-slate-100">Business Brain</h3>
+                <h3 className="font-bold text-slate-800 dark:text-slate-100">Business Brain 요약</h3>
                 <p className="text-xs text-slate-500 dark:text-slate-400">AI 경영 인사이트</p>
               </div>
             </div>
@@ -230,7 +334,7 @@ export default function DashboardPage() {
             </Link>
           </div>
 
-          <div className="grid md:grid-cols-2 gap-4">
+          <div className="space-y-4">
             {/* 건강도 점수 */}
             {brainHealthData?.score && (
               <div className="bg-white/60 dark:bg-slate-800/60 rounded-xl p-4 backdrop-blur-sm">
@@ -273,24 +377,107 @@ export default function DashboardPage() {
               </div>
             )}
 
-            {/* AI 브리핑 */}
-            {brainBriefingData?.briefing && (
+            {/* 주요 인사이트 */}
+            {brainInsightsData?.insights && brainInsightsData.insights.length > 0 && (
               <div className="bg-white/60 dark:bg-slate-800/60 rounded-xl p-4 backdrop-blur-sm">
-                <div className="flex items-center gap-2 mb-2">
-                  <span>💬</span>
-                  <span className="text-sm font-medium text-slate-700 dark:text-slate-300">AI 브리핑</span>
+                <div className="flex items-center gap-2 mb-3">
+                  <span>💡</span>
+                  <span className="text-sm font-medium text-slate-700 dark:text-slate-300">주요 인사이트</span>
                 </div>
-                <p className="text-sm text-slate-600 dark:text-slate-400 leading-relaxed line-clamp-3">
-                  {brainBriefingData.briefing.summary}
-                </p>
-                {brainBriefingData.briefing.immediateActions?.length > 0 && (
-                  <div className="mt-2 flex items-center gap-2 text-xs text-red-600 dark:text-red-400">
-                    <span>🚨</span>
-                    <span>{brainBriefingData.briefing.immediateActions.length}개 즉시 조치 필요</span>
-                  </div>
-                )}
+                <div className="space-y-2">
+                  {brainInsightsData.insights.slice(0, 2).map((insight: any, idx: number) => (
+                    <div key={idx} className="text-xs text-slate-600 dark:text-slate-400 line-clamp-2">
+                      • {insight.title || insight.description || '인사이트'}
+                    </div>
+                  ))}
+                </div>
               </div>
             )}
+
+            {/* 권장 액션 */}
+            {brainActionsData?.prioritizedActions && brainActionsData.prioritizedActions.length > 0 && (
+              <div className="bg-white/60 dark:bg-slate-800/60 rounded-xl p-4 backdrop-blur-sm">
+                <div className="flex items-center gap-2 mb-3">
+                  <span>⚡</span>
+                  <span className="text-sm font-medium text-slate-700 dark:text-slate-300">권장 액션</span>
+                </div>
+                <div className="space-y-2">
+                  {brainActionsData.prioritizedActions
+                    .filter((a: any) => a.priority === 'P0')
+                    .slice(0, 2)
+                    .map((action: any, idx: number) => (
+                      <div key={idx} className="flex items-start gap-2">
+                        <span className="text-red-500 text-xs mt-0.5">🔴</span>
+                        <div className="flex-1">
+                          <div className="text-xs font-medium text-slate-800 dark:text-slate-200">
+                            {action.title}
+                          </div>
+                          <div className="text-xs text-slate-500 dark:text-slate-400 mt-0.5">
+                            {action.timeline}
+                          </div>
+                        </div>
+                      </div>
+                    ))}
+                </div>
+              </div>
+            )}
+          </div>
+        </div>
+      </div>
+
+      {/* 연계 정보 (v4.2 Phase 3) */}
+      {(analyticsSummaryData || brainInsightsData || brainActionsData) && (
+        <div className="bg-gradient-to-r from-slate-50 to-slate-100 dark:from-slate-800 dark:to-slate-900 rounded-xl border border-slate-200 dark:border-slate-700 p-4 lg:p-6">
+          <div className="flex items-center gap-3 mb-4">
+            <span className="text-2xl">🔗</span>
+            <div>
+              <h3 className="font-bold text-slate-800 dark:text-slate-100">연계 정보</h3>
+              <p className="text-xs text-slate-500 dark:text-slate-400">성과 분석 ↔ Business Brain 연결</p>
+            </div>
+          </div>
+
+          <div className="grid md:grid-cols-3 gap-4">
+            {/* 성과 변화 → 인사이트 연결 */}
+            <Link
+              href="/business-brain?tab=insights"
+              className="bg-white dark:bg-slate-800 rounded-lg p-4 border border-slate-200 dark:border-slate-700 hover:border-blue-300 dark:hover:border-blue-700 hover:shadow-md transition-all"
+            >
+              <div className="flex items-center gap-2 mb-2">
+                <span className="text-blue-500">📊</span>
+                <span className="text-sm font-medium text-slate-700 dark:text-slate-300">성과 변화 분석</span>
+              </div>
+              <p className="text-xs text-slate-500 dark:text-slate-400">
+                성과 변화를 인사이트로 연결하여 원인 분석
+              </p>
+            </Link>
+
+            {/* 인사이트 → 액션 연결 */}
+            <Link
+              href="/business-brain?tab=action-proposals"
+              className="bg-white dark:bg-slate-800 rounded-lg p-4 border border-slate-200 dark:border-slate-700 hover:border-purple-300 dark:hover:border-purple-700 hover:shadow-md transition-all"
+            >
+              <div className="flex items-center gap-2 mb-2">
+                <span className="text-purple-500">💡</span>
+                <span className="text-sm font-medium text-slate-700 dark:text-slate-300">인사이트 → 액션</span>
+              </div>
+              <p className="text-xs text-slate-500 dark:text-slate-400">
+                발견된 인사이트를 실행 가능한 액션으로 전환
+              </p>
+            </Link>
+
+            {/* 액션 → 성과 추적 연결 */}
+            <Link
+              href="/analytics?tab=daily"
+              className="bg-white dark:bg-slate-800 rounded-lg p-4 border border-slate-200 dark:border-slate-700 hover:border-emerald-300 dark:hover:border-emerald-700 hover:shadow-md transition-all"
+            >
+              <div className="flex items-center gap-2 mb-2">
+                <span className="text-emerald-500">⚡</span>
+                <span className="text-sm font-medium text-slate-700 dark:text-slate-300">액션 추적</span>
+              </div>
+              <p className="text-xs text-slate-500 dark:text-slate-400">
+                실행한 액션의 성과를 일일 운영 대시보드에서 추적
+              </p>
+            </Link>
           </div>
         </div>
       )}

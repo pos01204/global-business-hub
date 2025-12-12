@@ -1137,6 +1137,22 @@ export const businessBrainApi = {
     return response.data
   },
 
+  // 전략 분석 (v4.2 Phase 3)
+  getStrategyAnalysis: async (period: '7d' | '30d' | '90d' | '180d' | '365d' = '90d') => {
+    const response = await api.get('/api/business-brain/strategy-analysis', {
+      params: { period },
+    })
+    return response.data
+  },
+
+  // 액션 제안 (v4.2 Phase 3)
+  getActionProposals: async (period: '7d' | '30d' | '90d' | '180d' | '365d' = '90d') => {
+    const response = await api.get('/api/business-brain/action-proposals', {
+      params: { period },
+    })
+    return response.data
+  },
+
   // 캐시 통계 (개발용)
   getCacheStats: async () => {
     const response = await api.get('/api/business-brain/cache/stats')

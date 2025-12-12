@@ -375,6 +375,20 @@ export default function BusinessBrainPage() {
     enabled: activeTab === 'risks',
   })
 
+  const { data: strategyAnalysisData, isLoading: strategyAnalysisLoading } = useQuery({
+    queryKey: ['business-brain-strategy-analysis', selectedPeriod],
+    queryFn: () => businessBrainApi.getStrategyAnalysis(selectedPeriod),
+    staleTime: 5 * 60 * 1000,
+    enabled: activeTab === 'strategy-analysis',
+  })
+
+  const { data: actionProposalsData, isLoading: actionProposalsLoading } = useQuery({
+    queryKey: ['business-brain-action-proposals', selectedPeriod],
+    queryFn: () => businessBrainApi.getActionProposals(selectedPeriod),
+    staleTime: 5 * 60 * 1000,
+    enabled: activeTab === 'action-proposals',
+  })
+
   const { data: recommendationsData, isLoading: recommendationsLoading } = useQuery({
     queryKey: ['business-brain-recommendations'],
     queryFn: businessBrainApi.getRecommendations,
@@ -534,7 +548,8 @@ export default function BusinessBrainPage() {
       tabs: [
         { id: 'insights', label: '기회 발견', icon: '💡', description: '자동 발견된 기회' },
         { id: 'risks', label: '리스크', icon: '⚠️', description: '리스크 감지 및 대응' },
-        { id: 'strategy', label: '전략 제안', icon: '🎯', description: 'AI 전략 제안' },
+        { id: 'strategy-analysis', label: '전략 분석', icon: '🎯', description: '시장 분석 및 성장 기회' },
+        { id: 'strategy', label: '전략 제안', icon: '📋', description: 'AI 전략 제안' },
       ]
     },
     {
@@ -551,7 +566,7 @@ export default function BusinessBrainPage() {
   const tabItems = tabGroups.flatMap(g => g.tabs.map(t => ({ id: t.id, label: `${t.icon} ${t.label}` })))
 
   // 기간 선택이 필요한 탭들
-  const periodEnabledTabs = ['overview', 'rfm', 'pareto', 'cohort', 'anomaly', 'forecast', 'trends', 'churn', 'artist-health', 'new-users', 'repurchase']
+  const periodEnabledTabs = ['overview', 'rfm', 'pareto', 'cohort', 'anomaly', 'forecast', 'trends', 'churn', 'artist-health', 'new-users', 'repurchase', 'strategy-analysis', 'action-proposals']
 
   return (
     <div className="p-6 space-y-6 min-h-screen">
@@ -703,6 +718,16 @@ export default function BusinessBrainPage() {
           {/* 기회 발견 탭 */}
           {activeTab === 'insights' && (
             <InsightsTab insights={insights} isLoading={insightsLoading} period={selectedPeriod} />
+          )}
+
+          {/* 전략 분석 탭 (v4.2 Phase 3) */}
+          {activeTab === 'strategy-analysis' && (
+            <StrategyAnalysisTab data={strategyAnalysisData} isLoading={strategyAnalysisLoading} period={selectedPeriod} />
+          )}
+
+          {/* 액션 제안 탭 (v4.2 Phase 3) */}
+          {activeTab === 'action-proposals' && (
+            <ActionProposalsTab data={actionProposalsData} isLoading={actionProposalsLoading} period={selectedPeriod} />
           )}
 
           {/* 전략 제안 탭 */}
@@ -2170,6 +2195,376 @@ function ArtistHealthTab({ data, isLoading }: { data: any; isLoading: boolean })
           </div>
         </Card>
       </FadeIn>
+    </div>
+  )
+}
+
+// 전략 분석 탭 (v4.2 Phase 3)
+function StrategyAnalysisTab({ 
+  data, 
+  isLoading, 
+  period 
+}: { 
+  data: any; 
+  isLoading: boolean; 
+  period: string 
+}) {
+  if (isLoading) {
+    return (
+      <FadeIn>
+        <div className="flex flex-col items-center justify-center h-64 gap-4">
+          <div className="relative">
+            <div className="w-16 h-16 border-4 border-indigo-200 dark:border-indigo-800 rounded-full animate-spin border-t-indigo-600" />
+            <div className="absolute inset-0 flex items-center justify-center">
+              <span className="text-2xl">🎯</span>
+            </div>
+          </div>
+          <p className="text-sm text-slate-500 dark:text-slate-400 animate-pulse">
+            전략 분석을 수행하고 있습니다...
+          </p>
+        </div>
+      </FadeIn>
+    )
+  }
+
+  if (!data || !data.success) {
+    return (
+      <EmptyState 
+        icon="🎯" 
+        title="전략 분석 데이터를 불러올 수 없습니다" 
+        description="데이터를 분석하여 전략적 인사이트를 제공합니다."
+      />
+    )
+  }
+
+  const { marketAnalysis, growthOpportunities, riskFactors } = data
+
+  const formatCurrency = (value: number) => {
+    if (value >= 10000) return `₩${(value / 10000).toFixed(0)}만`
+    return `₩${value.toLocaleString()}`
+  }
+
+  return (
+    <div className="space-y-6">
+      {/* 시장 분석 */}
+      <FadeIn>
+        <Card className="p-6">
+          <div className="flex items-center gap-3 mb-6">
+            <span className="text-3xl">🌍</span>
+            <div>
+              <h2 className="text-xl font-semibold text-slate-800 dark:text-slate-100">시장 분석</h2>
+              <p className="text-sm text-slate-500 dark:text-slate-400">주요 시장 및 성장 시장 분석</p>
+            </div>
+          </div>
+
+          {/* 상위 시장 */}
+          <div className="mb-6">
+            <h3 className="text-sm font-semibold text-slate-700 dark:text-slate-300 mb-3">상위 시장</h3>
+            <div className="space-y-2">
+              {marketAnalysis?.topMarkets?.slice(0, 5).map((market: any, idx: number) => (
+                <div
+                  key={idx}
+                  className="flex items-center justify-between p-3 bg-slate-50 dark:bg-slate-800 rounded-lg"
+                >
+                  <div className="flex items-center gap-3">
+                    <span className="text-lg font-semibold text-slate-400">#{idx + 1}</span>
+                    <div>
+                      <p className="font-medium text-slate-800 dark:text-slate-200">{market.country}</p>
+                      <p className="text-xs text-slate-500 dark:text-slate-400">
+                        시장 점유율: {market.share.toFixed(1)}%
+                      </p>
+                    </div>
+                  </div>
+                  <div className="text-right">
+                    <p className="font-semibold text-slate-800 dark:text-slate-200">
+                      {formatCurrency(market.gmv)}
+                    </p>
+                    <p
+                      className={`text-xs ${
+                        market.growth >= 0
+                          ? 'text-green-600 dark:text-green-400'
+                          : 'text-red-600 dark:text-red-400'
+                      }`}
+                    >
+                      {market.growth >= 0 ? '+' : ''}
+                      {market.growth.toFixed(1)}%
+                    </p>
+                  </div>
+                </div>
+              ))}
+            </div>
+          </div>
+
+          {/* 신흥 시장 */}
+          {marketAnalysis?.emergingMarkets && marketAnalysis.emergingMarkets.length > 0 && (
+            <div>
+              <h3 className="text-sm font-semibold text-slate-700 dark:text-slate-300 mb-3">신흥 시장</h3>
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
+                {marketAnalysis.emergingMarkets.map((market: any, idx: number) => (
+                  <div
+                    key={idx}
+                    className={`p-4 rounded-lg border-2 ${
+                      market.potential === 'high'
+                        ? 'bg-emerald-50 dark:bg-emerald-900/20 border-emerald-200 dark:border-emerald-800'
+                        : market.potential === 'medium'
+                        ? 'bg-blue-50 dark:bg-blue-900/20 border-blue-200 dark:border-blue-800'
+                        : 'bg-amber-50 dark:bg-amber-900/20 border-amber-200 dark:border-amber-800'
+                    }`}
+                  >
+                    <div className="flex items-center justify-between mb-2">
+                      <p className="font-semibold text-slate-800 dark:text-slate-200">{market.country}</p>
+                      <Badge
+                        variant={
+                          market.potential === 'high'
+                            ? 'success'
+                            : market.potential === 'medium'
+                            ? 'info'
+                            : 'warning'
+                        }
+                      >
+                        {market.potential === 'high' ? '높음' : market.potential === 'medium' ? '중간' : '낮음'}
+                      </Badge>
+                    </div>
+                    <p className="text-sm text-slate-600 dark:text-slate-400 mb-2">
+                      성장률: <span className="font-semibold text-green-600">+{market.growth.toFixed(1)}%</span>
+                    </p>
+                    <p className="text-xs text-slate-500 dark:text-slate-500">
+                      매출: {formatCurrency(market.gmv)}
+                    </p>
+                  </div>
+                ))}
+              </div>
+            </div>
+          )}
+
+          {/* 시장 집중도 */}
+          {marketAnalysis?.marketConcentration && (
+            <div className="mt-6 p-4 bg-slate-50 dark:bg-slate-800 rounded-lg">
+              <div className="flex items-center justify-between">
+                <div>
+                  <p className="text-sm font-medium text-slate-700 dark:text-slate-300">시장 집중도</p>
+                  <p className="text-xs text-slate-500 dark:text-slate-400">
+                    Gini 계수: {marketAnalysis.marketConcentration.giniCoefficient.toFixed(2)}
+                  </p>
+                </div>
+                <div className="text-right">
+                  <p className="text-sm font-medium text-slate-700 dark:text-slate-300">상위 3개 시장</p>
+                  <p className="text-lg font-bold text-slate-800 dark:text-slate-200">
+                    {marketAnalysis.marketConcentration.top3Share.toFixed(1)}%
+                  </p>
+                </div>
+              </div>
+            </div>
+          )}
+        </Card>
+      </FadeIn>
+
+      {/* 성장 기회 */}
+      {growthOpportunities && growthOpportunities.length > 0 && (
+        <FadeIn delay={100}>
+          <Card className="p-6">
+            <div className="flex items-center gap-3 mb-6">
+              <span className="text-3xl">💡</span>
+              <div>
+                <h2 className="text-xl font-semibold text-slate-800 dark:text-slate-100">성장 기회</h2>
+                <p className="text-sm text-slate-500 dark:text-slate-400">발굴된 성장 기회 및 추천 액션</p>
+              </div>
+            </div>
+
+            <div className="space-y-4">
+              {growthOpportunities.map((opportunity: any, idx: number) => (
+                <div
+                  key={idx}
+                  className={`p-5 rounded-lg border-l-4 ${
+                    opportunity.potentialImpact === 'high'
+                      ? 'bg-emerald-50 dark:bg-emerald-900/20 border-emerald-500'
+                      : opportunity.potentialImpact === 'medium'
+                      ? 'bg-blue-50 dark:bg-blue-900/20 border-blue-500'
+                      : 'bg-amber-50 dark:bg-amber-900/20 border-amber-500'
+                  }`}
+                >
+                  <div className="flex items-start justify-between mb-3">
+                    <div className="flex-1">
+                      <div className="flex items-center gap-2 mb-2">
+                        <h3 className="font-semibold text-slate-800 dark:text-slate-200">
+                          {opportunity.title}
+                        </h3>
+                        <Badge
+                          variant={
+                            opportunity.potentialImpact === 'high'
+                              ? 'success'
+                              : opportunity.potentialImpact === 'medium'
+                              ? 'info'
+                              : 'warning'
+                          }
+                        >
+                          {opportunity.potentialImpact === 'high'
+                            ? '높은 영향'
+                            : opportunity.potentialImpact === 'medium'
+                            ? '중간 영향'
+                            : '낮은 영향'}
+                        </Badge>
+                        <span className="text-xs text-slate-500 dark:text-slate-400">
+                          신뢰도: {opportunity.confidence}%
+                        </span>
+                      </div>
+                      <p className="text-sm text-slate-600 dark:text-slate-400 mb-3">
+                        {opportunity.description}
+                      </p>
+                    </div>
+                  </div>
+
+                  {/* 메트릭 */}
+                  <div className="grid grid-cols-3 gap-3 mb-3">
+                    <div className="p-2 bg-white/50 dark:bg-slate-700/50 rounded">
+                      <p className="text-xs text-slate-500 dark:text-slate-400 mb-1">현재</p>
+                      <p className="font-semibold text-slate-800 dark:text-slate-200">
+                        {formatCurrency(opportunity.metrics.current)}
+                      </p>
+                    </div>
+                    <div className="p-2 bg-white/50 dark:bg-slate-700/50 rounded">
+                      <p className="text-xs text-slate-500 dark:text-slate-400 mb-1">잠재</p>
+                      <p className="font-semibold text-emerald-600 dark:text-emerald-400">
+                        {formatCurrency(opportunity.metrics.potential)}
+                      </p>
+                    </div>
+                    <div className="p-2 bg-white/50 dark:bg-slate-700/50 rounded">
+                      <p className="text-xs text-slate-500 dark:text-slate-400 mb-1">성장</p>
+                      <p className="font-semibold text-blue-600 dark:text-blue-400">
+                        +{opportunity.metrics.growth.toFixed(0)}%
+                      </p>
+                    </div>
+                  </div>
+
+                  {/* 추천 액션 */}
+                  {opportunity.recommendedActions && opportunity.recommendedActions.length > 0 && (
+                    <div className="mt-3 pt-3 border-t border-slate-200 dark:border-slate-700">
+                      <p className="text-xs font-medium text-slate-600 dark:text-slate-400 mb-2">
+                        추천 액션:
+                      </p>
+                      <ul className="space-y-1">
+                        {opportunity.recommendedActions.map((action: string, aIdx: number) => (
+                          <li key={aIdx} className="text-xs text-slate-600 dark:text-slate-400 flex items-start gap-2">
+                            <span className="text-emerald-500 mt-0.5">•</span>
+                            <span>{action}</span>
+                          </li>
+                        ))}
+                      </ul>
+                    </div>
+                  )}
+                </div>
+              ))}
+            </div>
+          </Card>
+        </FadeIn>
+      )}
+
+      {/* 위험 요소 */}
+      {riskFactors && riskFactors.length > 0 && (
+        <FadeIn delay={200}>
+          <Card className="p-6">
+            <div className="flex items-center gap-3 mb-6">
+              <span className="text-3xl">⚠️</span>
+              <div>
+                <h2 className="text-xl font-semibold text-slate-800 dark:text-slate-100">위험 요소</h2>
+                <p className="text-sm text-slate-500 dark:text-slate-400">식별된 위험 요소 및 완화 방안</p>
+              </div>
+            </div>
+
+            <div className="space-y-4">
+              {riskFactors.map((risk: any, idx: number) => (
+                <div
+                  key={idx}
+                  className={`p-5 rounded-lg border-l-4 ${
+                    risk.severity === 'critical'
+                      ? 'bg-red-50 dark:bg-red-900/20 border-red-500'
+                      : risk.severity === 'high'
+                      ? 'bg-orange-50 dark:bg-orange-900/20 border-orange-500'
+                      : risk.severity === 'medium'
+                      ? 'bg-amber-50 dark:bg-amber-900/20 border-amber-500'
+                      : 'bg-slate-50 dark:bg-slate-800 border-slate-400'
+                  }`}
+                >
+                  <div className="flex items-start justify-between mb-3">
+                    <div className="flex-1">
+                      <div className="flex items-center gap-2 mb-2">
+                        <h3 className="font-semibold text-slate-800 dark:text-slate-200">{risk.title}</h3>
+                        <Badge
+                          variant={
+                            risk.severity === 'critical'
+                              ? 'danger'
+                              : risk.severity === 'high'
+                              ? 'warning'
+                              : 'default'
+                          }
+                        >
+                          {risk.severity === 'critical'
+                            ? '긴급'
+                            : risk.severity === 'high'
+                            ? '높음'
+                            : risk.severity === 'medium'
+                            ? '중간'
+                            : '낮음'}
+                        </Badge>
+                        <span className="text-xs text-slate-500 dark:text-slate-400">
+                          신뢰도: {risk.confidence}%
+                        </span>
+                      </div>
+                      <p className="text-sm text-slate-600 dark:text-slate-400 mb-3">{risk.description}</p>
+                    </div>
+                  </div>
+
+                  {/* 메트릭 */}
+                  <div className="grid grid-cols-2 gap-3 mb-3">
+                    <div className="p-2 bg-white/50 dark:bg-slate-700/50 rounded">
+                      <p className="text-xs text-slate-500 dark:text-slate-400 mb-1">현재 값</p>
+                      <p className="font-semibold text-slate-800 dark:text-slate-200">
+                        {typeof risk.metrics.current === 'number'
+                          ? risk.metrics.current.toLocaleString()
+                          : risk.metrics.current}
+                      </p>
+                    </div>
+                    <div className="p-2 bg-white/50 dark:bg-slate-700/50 rounded">
+                      <p className="text-xs text-slate-500 dark:text-slate-400 mb-1">변화</p>
+                      <p
+                        className={`font-semibold ${
+                          risk.metrics.trend === 'down'
+                            ? 'text-red-600 dark:text-red-400'
+                            : risk.metrics.trend === 'up'
+                            ? 'text-green-600 dark:text-green-400'
+                            : 'text-slate-600 dark:text-slate-400'
+                        }`}
+                      >
+                        {risk.metrics.trend === 'down' ? '↓' : risk.metrics.trend === 'up' ? '↑' : '→'}{' '}
+                        {risk.metrics.change !== 0
+                          ? `${risk.metrics.change >= 0 ? '+' : ''}${risk.metrics.change.toFixed(1)}%`
+                          : '변화 없음'}
+                      </p>
+                    </div>
+                  </div>
+
+                  {/* 완화 액션 */}
+                  {risk.mitigationActions && risk.mitigationActions.length > 0 && (
+                    <div className="mt-3 pt-3 border-t border-slate-200 dark:border-slate-700">
+                      <p className="text-xs font-medium text-slate-600 dark:text-slate-400 mb-2">
+                        완화 방안:
+                      </p>
+                      <ul className="space-y-1">
+                        {risk.mitigationActions.map((action: string, aIdx: number) => (
+                          <li key={aIdx} className="text-xs text-slate-600 dark:text-slate-400 flex items-start gap-2">
+                            <span className="text-red-500 mt-0.5">•</span>
+                            <span>{action}</span>
+                          </li>
+                        ))}
+                      </ul>
+                    </div>
+                  )}
+                </div>
+              ))}
+            </div>
+          </Card>
+        </FadeIn>
+      )}
     </div>
   )
 }

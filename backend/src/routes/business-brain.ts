@@ -701,6 +701,64 @@ router.get('/comprehensive', async (req, res) => {
   }
 })
 
+/**
+ * GET /api/business-brain/strategy-analysis
+ * 전략 분석 조회 (v4.2 Phase 3)
+ * 시장 분석, 성장 기회, 위험 요소 분석
+ * Query: period (7d, 30d, 90d, 180d, 365d)
+ */
+router.get('/strategy-analysis', async (req, res) => {
+  try {
+    const { period = '90d' } = req.query
+    console.log(`[BusinessBrain] 전략 분석 요청 (${period})`)
+    
+    const agent = new BusinessBrainAgent()
+    const result = await agent.analyzeStrategy(period as any)
+    
+    res.json({
+      success: true,
+      ...result,
+      period,
+      generatedAt: new Date().toISOString(),
+    })
+  } catch (error: any) {
+    console.error('[BusinessBrain] 전략 분석 오류:', error)
+    res.status(500).json({ 
+      success: false,
+      error: error.message || '전략 분석 중 오류가 발생했습니다.',
+    })
+  }
+})
+
+/**
+ * GET /api/business-brain/action-proposals
+ * 액션 제안 조회 (v4.2 Phase 3)
+ * 우선순위별 액션, 예상 효과, 실행 계획
+ * Query: period (7d, 30d, 90d, 180d, 365d)
+ */
+router.get('/action-proposals', async (req, res) => {
+  try {
+    const { period = '90d' } = req.query
+    console.log(`[BusinessBrain] 액션 제안 요청 (${period})`)
+    
+    const agent = new BusinessBrainAgent()
+    const result = await agent.generateActionProposals(period as any)
+    
+    res.json({
+      success: true,
+      ...result,
+      period,
+      generatedAt: new Date().toISOString(),
+    })
+  } catch (error: any) {
+    console.error('[BusinessBrain] 액션 제안 오류:', error)
+    res.status(500).json({ 
+      success: false,
+      error: error.message || '액션 제안 생성 중 오류가 발생했습니다.',
+    })
+  }
+})
+
 // ==================== v4.0: 데이터 내보내기 API ====================
 
 /**
