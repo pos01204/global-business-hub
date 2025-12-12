@@ -5,7 +5,6 @@
 
 'use client'
 
-import { XMarkIcon } from '@heroicons/react/24/outline'
 import { ConfidenceBadge, Reliability } from './ConfidenceBadge'
 import { ConfidenceInterval } from './ConfidenceInterval'
 import { DataQualityIndicator } from './DataQualityIndicator'
@@ -66,7 +65,7 @@ export function AnalysisDetailDrawer({ isOpen, onClose, analysis }: AnalysisDeta
             onClick={onClose}
             className="p-2 hover:bg-slate-100 dark:hover:bg-slate-800 rounded-lg transition-colors"
           >
-            <XMarkIcon className="w-5 h-5 text-slate-600 dark:text-slate-400" />
+            <span className="text-slate-600 dark:text-slate-400 text-xl">×</span>
           </button>
         </div>
         

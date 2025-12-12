@@ -48,7 +48,6 @@ export type {
 
 // v4.2: 데이터 신뢰도 개선
 export {
-  ConfidenceCalculator,
   calculateProportionConfidence,
   calculateMeanConfidence,
   calculateCountConfidence,

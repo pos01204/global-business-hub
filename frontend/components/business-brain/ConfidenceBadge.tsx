@@ -3,8 +3,6 @@
  * v4.2: 데이터 신뢰도 개선 계획
  */
 
-import { InformationCircleIcon } from '@heroicons/react/24/outline'
-
 export type Reliability = 'high' | 'medium' | 'low'
 
 interface ConfidenceBadgeProps {
@@ -54,7 +52,7 @@ export function ConfidenceBadge({
       )}
       {tooltip && (
         <div className="group relative">
-          <InformationCircleIcon className="w-3 h-3 cursor-help" />
+          <span className="cursor-help">ℹ️</span>
           <div className="absolute bottom-full left-1/2 -translate-x-1/2 mb-2 hidden group-hover:block z-50">
             <div className="bg-slate-900 text-white text-xs rounded py-1 px-2 whitespace-nowrap shadow-lg">
               {tooltip}
