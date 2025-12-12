@@ -240,19 +240,32 @@ export class WhatIfSimulator {
           break
         case 'orders':
           projectedOrders = newValue
-          if (baseline.orders > 0) {
+          if (projectedOrders > 0 && baseline.orders > 0) {
+            // 주문 수 변화에 따라 GMV도 비례 조정
+            const orderRatio = projectedOrders / baseline.orders
+            projectedGmv = baseline.gmv * orderRatio
             projectedAov = projectedGmv / projectedOrders
           }
           break
         case 'customers':
           projectedCustomers = newValue
+          // 고객 수 변화에 따라 주문 수와 GMV도 비례 조정 (고객당 주문 빈도 가정)
+          if (baseline.customers > 0) {
+            const customerRatio = projectedCustomers / baseline.customers
+            projectedOrders = baseline.orders * customerRatio
+            projectedGmv = baseline.gmv * customerRatio
+            if (projectedOrders > 0) {
+              projectedAov = projectedGmv / projectedOrders
+            }
+          }
           break
         case 'aov':
           projectedAov = newValue
+          // AOV 변화에 따라 GMV만 조정 (주문 수는 동일 가정)
           projectedGmv = projectedOrders * projectedAov
           break
         case 'conversion_rate':
-          // 전환율 변화 → 주문 수 변화
+          // 전환율 변화 → 주문 수 변화 (방문자 수는 동일 가정)
           const conversionImpact = changeValue / 100
           projectedOrders = baseline.orders * (1 + conversionImpact)
           projectedGmv = projectedOrders * projectedAov
@@ -261,6 +274,15 @@ export class WhatIfSimulator {
           // 리텐션율 변화 → 고객 수 변화
           const retentionImpact = changeValue / 100
           projectedCustomers = baseline.customers * (1 + retentionImpact)
+          // 고객 수 변화에 따라 주문 수와 GMV도 비례 조정
+          if (baseline.customers > 0) {
+            const customerRatio = projectedCustomers / baseline.customers
+            projectedOrders = baseline.orders * customerRatio
+            projectedGmv = baseline.gmv * customerRatio
+            if (projectedOrders > 0) {
+              projectedAov = projectedGmv / projectedOrders
+            }
+          }
           break
       }
     }

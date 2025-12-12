@@ -1158,7 +1158,37 @@ router.post('/what-if/compare', async (req, res) => {
  */
 router.get('/what-if/templates', async (req, res) => {
   try {
-    const templates = WhatIfSimulator.getTemplateScenarios()
+    const period = (req.query.period as string) || '30d'
+    const dateRange = DataProcessor.getDateRangeFromPreset(period as any)
+    
+    // 현재 기간의 실제 메트릭 가져오기
+    const agent = new BusinessBrainAgent()
+    const logisticsResult = await agent.getData({
+      sheet: 'logistics',
+      dateRange: {
+        start: dateRange.start,
+        end: dateRange.end,
+      },
+    })
+    
+    const orderData = logisticsResult.success ? logisticsResult.data : []
+    const currentGmv = orderData.reduce((sum: number, row: any) => sum + (Number(row['Total GMV']) || 0), 0)
+    const currentOrders = orderData.length
+    const currentCustomers = new Set(orderData.map((row: any) => row.user_id).filter(Boolean)).size
+    const currentAov = currentOrders > 0 ? currentGmv / currentOrders : 0
+    
+    // 템플릿에 실제 값 적용
+    const templates = WhatIfSimulator.getTemplateScenarios().map(template => ({
+      ...template,
+      variables: template.variables.map(v => ({
+        ...v,
+        currentValue: v.metric === 'gmv' ? currentGmv :
+                      v.metric === 'orders' ? currentOrders :
+                      v.metric === 'customers' ? currentCustomers :
+                      v.metric === 'aov' ? currentAov :
+                      v.currentValue,
+      })),
+    }))
     
     res.json({
       success: true,
