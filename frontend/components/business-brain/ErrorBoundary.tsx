@@ -2,7 +2,15 @@
 
 import { Component, ReactNode } from 'react'
 import { Card } from '@/components/ui/Card'
-import { FadeIn } from '@/components/ui/FadeIn'
+
+// FadeIn 컴포넌트는 page.tsx에 정의되어 있으므로 인라인으로 정의
+function FadeIn({ children, delay = 0, className = '' }: { children: ReactNode; delay?: number; className?: string }) {
+  return (
+    <div className={`animate-fade-in ${className}`} style={{ animationDelay: `${delay}ms` }}>
+      {children}
+    </div>
+  )
+}
 
 interface Props {
   children: ReactNode
