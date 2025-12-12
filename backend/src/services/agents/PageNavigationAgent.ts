@@ -10,6 +10,7 @@ export interface NavigationIntent {
   path: string
   params: Record<string, any>
   confidence: number
+  isPrimaryAction?: boolean // true: 즉시 이동 제안, false: 보조 액션
 }
 
 export interface PageRoute {
@@ -120,7 +121,9 @@ export class PageNavigationAgent {
     const prompt = `
 사용자 질문: "${query}"
 
-이 질문이 페이지 이동 요청인지 판단하고, 이동할 페이지와 필요한 파라미터를 추출하세요.
+이 질문에서 관련 페이지가 있는지 판단하고, 관련 페이지와 필요한 파라미터를 추출하세요.
+
+**중요**: 페이지 이동은 보조 도구입니다. 질문에 대한 답변을 먼저 제공해야 합니다.
 
 사용 가능한 페이지:
 ${availablePages}
@@ -128,6 +131,11 @@ ${availablePages}
 페이지 이동 관련 키워드:
 - "이동", "보여줘", "보기", "열기", "가기", "페이지", "화면"
 - "대시보드", "성과 분석", "비즈니스 브레인", "작가 분석" 등
+
+**판단 기준**:
+1. 질문이 "대시보드로 이동해줘"처럼 명확한 이동 요청인 경우: confidence > 0.95
+2. 질문이 "매출 분석"처럼 관련 페이지가 있는 경우: confidence 0.7-0.95
+3. 질문과 관련 페이지가 없는 경우: confidence < 0.7
 
 응답 형식 (JSON):
 {
@@ -138,7 +146,8 @@ ${availablePages}
     "tab": "overview",
     "metric": "gmv"
   },
-  "confidence": 0.95
+  "confidence": 0.95,
+  "isPrimaryAction": false  // true: 즉시 이동, false: 보조 액션
 }
 
 페이지 이동이 아닌 경우:
@@ -174,7 +183,8 @@ ${availablePages}
           targetPage: result.targetPage,
           path: result.path,
           params: result.params || {},
-          confidence: result.confidence || 0.8
+          confidence: result.confidence || 0.8,
+          isPrimaryAction: result.isPrimaryAction === true // 명확한 이동 요청인 경우만 true
         }
       }
 
@@ -211,11 +221,13 @@ ${availablePages}
       if (lowerQuery.includes(keyword) && (lowerQuery.includes('이동') || lowerQuery.includes('보여줘') || lowerQuery.includes('보기'))) {
         const route = this.pageRoutes.get(pageName)
         if (route) {
+          // 키워드 기반은 보조 액션으로만 사용
           return {
             targetPage: pageName,
             path: route.path,
             params: {},
-            confidence: 0.7
+            confidence: 0.7,
+            isPrimaryAction: false
           }
         }
       }
@@ -225,18 +237,23 @@ ${availablePages}
   }
 
   /**
-   * 액션 응답에 페이지 이동 추가
+   * 액션 응답에 페이지 이동 추가 (보조 도구로만 사용)
    */
   enhanceResponseWithNavigation(
     response: any,
     navigationIntent: NavigationIntent
   ): any {
+    // 응답이 비어있으면 페이지 이동만 제공하지 않음
+    if (!response.response || response.response.trim().length === 0) {
+      return response
+    }
+
     return {
       ...response,
       actions: [
         ...(response.actions || []),
         {
-          label: `${navigationIntent.targetPage}로 이동`,
+          label: `🔗 ${navigationIntent.targetPage}에서 상세 확인`,
           action: 'navigate',
           data: {
             path: navigationIntent.path,
@@ -249,6 +266,7 @@ ${availablePages}
 
   /**
    * 카테고리별 관련 페이지 제안
+   * 보조 도구로만 사용되며, 사용자가 필요할 때만 제안
    */
   getSuggestedPages(category: string): Array<{ label: string; path: string; params: any }> {
     const suggestions: Array<{ label: string; path: string; params: any }> = []
@@ -256,7 +274,7 @@ ${availablePages}
     switch (category) {
       case 'data_query':
         suggestions.push({
-          label: '성과 분석 페이지에서 상세 확인',
+          label: '📊 성과 분석에서 상세 확인',
           path: '/analytics',
           params: { tab: 'overview' }
         })
@@ -264,7 +282,7 @@ ${availablePages}
 
       case 'analysis_request':
         suggestions.push({
-          label: 'Business Brain에서 인사이트 확인',
+          label: '💡 Business Brain에서 인사이트 확인',
           path: '/business-brain',
           params: { tab: 'insights' }
         })
@@ -272,7 +290,7 @@ ${availablePages}
 
       case 'strategy_suggestion':
         suggestions.push({
-          label: 'Business Brain에서 전략 분석 확인',
+          label: '📈 Business Brain에서 전략 분석 확인',
           path: '/business-brain',
           params: { tab: 'strategy' }
         })
@@ -280,7 +298,21 @@ ${availablePages}
 
       case 'insight_request':
         suggestions.push({
-          label: 'Business Brain에서 상세 인사이트 확인',
+          label: '💡 Business Brain에서 상세 인사이트 확인',
+          path: '/business-brain',
+          params: { tab: 'insights' }
+        })
+        break
+
+      case 'complex_query':
+        // 복합 질문의 경우 여러 페이지 제안 가능
+        suggestions.push({
+          label: '📊 성과 분석에서 데이터 확인',
+          path: '/analytics',
+          params: { tab: 'overview' }
+        })
+        suggestions.push({
+          label: '💡 Business Brain에서 인사이트 확인',
           path: '/business-brain',
           params: { tab: 'insights' }
         })

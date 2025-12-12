@@ -1519,7 +1519,12 @@ export class IntentClassifier {
 
 ### 9.3 페이지 연동 기능 구현
 
-#### 9.3.1 페이지 네비게이션 액션
+#### 9.3.1 페이지 네비게이션 액션 (보조 도구로 사용)
+
+**중요 원칙:**
+- 페이지 네비게이션은 **보조 도구**로만 사용
+- 질문에 대한 **실제 답변을 먼저 제공**하고, 페이지 이동은 액션으로만 제안
+- 매우 명확한 페이지 이동 요청(confidence > 0.95 && isPrimaryAction)인 경우에만 즉시 이동 제안하되, 답변도 함께 제공
 
 ```typescript
 // backend/src/services/agents/PageNavigationAgent.ts
@@ -1562,6 +1567,7 @@ export class PageNavigationAgent {
 
   /**
    * 자연어에서 페이지 이동 의도 추출
+   * 페이지 이동은 보조 도구로만 사용되며, 질문에 대한 답변을 먼저 제공해야 함
    */
   async extractNavigationIntent(
     query: string
@@ -1575,12 +1581,19 @@ export class PageNavigationAgent {
     const prompt = `
 사용자 질문: "${query}"
 
-이 질문이 페이지 이동 요청인지 판단하고, 이동할 페이지와 필요한 파라미터를 추출하세요.
+이 질문에서 관련 페이지가 있는지 판단하고, 관련 페이지와 필요한 파라미터를 추출하세요.
+
+**중요**: 페이지 이동은 보조 도구입니다. 질문에 대한 답변을 먼저 제공해야 합니다.
 
 사용 가능한 페이지:
 ${Array.from(this.pageRoutes.entries()).map(([name, route]) => 
   `- ${name}: ${route.path} (${route.description})`
 ).join('\n')}
+
+**판단 기준**:
+1. 질문이 "대시보드로 이동해줘"처럼 명확한 이동 요청인 경우: confidence > 0.95, isPrimaryAction: true
+2. 질문이 "매출 분석"처럼 관련 페이지가 있는 경우: confidence 0.7-0.95, isPrimaryAction: false
+3. 질문과 관련 페이지가 없는 경우: confidence < 0.7
 
 응답 형식 (JSON):
 {
@@ -1591,7 +1604,8 @@ ${Array.from(this.pageRoutes.entries()).map(([name, route]) =>
     "tab": "overview",
     "metric": "gmv"
   },
-  "confidence": 0.95
+  "confidence": 0.95,
+  "isPrimaryAction": false  // true: 즉시 이동, false: 보조 액션
 }
 `
 

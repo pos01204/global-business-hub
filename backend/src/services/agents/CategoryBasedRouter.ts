@@ -208,33 +208,63 @@ export class CategoryBasedRouter {
     flow: CategoryFlow
     response: AgentResponse
   }> {
-    // 1. 페이지 네비게이션 의도 확인
+    // 1. 페이지 네비게이션 의도 확인 (보조 정보로만 사용)
     const navIntent = await this.pageNavigationAgent.extractNavigationIntent(query)
-    if (navIntent && navIntent.confidence > 0.8) {
+    
+    // 2. 일반 카테고리 분류 및 Flow 실행 (항상 먼저 실행)
+    const category = await this.classifyCategory(query, context)
+    const flow = this.categoryFlows.get(category) || this.categoryFlows.get(QuestionCategory.DATA_QUERY)!
+    const response = await this.executeFlow(flow, query, context)
+
+    // 3. 페이지 네비게이션 의도가 매우 명확한 경우(confidence > 0.95 && isPrimaryAction)에만 즉시 이동 제안
+    // 하지만 답변은 항상 먼저 제공
+    if (navIntent && navIntent.confidence > 0.95 && navIntent.isPrimaryAction) {
+      // 매우 명확한 페이지 이동 요청인 경우, 답변과 함께 즉시 이동 제안
+      // 예: "대시보드로 이동해줘" 같은 명확한 이동 요청
       return {
-        category: QuestionCategory.PAGE_NAVIGATION,
-        flow: this.getNavigationFlow(),
+        category,
+        flow,
         response: {
-          response: `${navIntent.targetPage}로 이동합니다.`,
-          actions: [{
-            label: `${navIntent.targetPage}로 이동`,
+          ...response,
+          actions: [
+            {
+              label: `${navIntent.targetPage}로 이동`,
+              action: 'navigate',
+              data: {
+                path: navIntent.path,
+                params: navIntent.params
+              }
+            },
+            ...(response.actions || [])
+          ]
+        }
+      }
+    }
+
+    // 4. 일반적인 경우: 답변을 먼저 제공하고, 관련 페이지 제안을 보조 액션으로 추가
+    const enhancedResponse = await this.addPageSuggestions(response, category, query)
+    
+    // 5. 페이지 네비게이션 의도가 있는 경우(confidence > 0.7) 보조 액션으로 추가
+    if (navIntent && navIntent.confidence > 0.7 && !navIntent.isPrimaryAction) {
+      // 기존 액션 중 동일한 페이지로의 네비게이션이 있는지 확인
+      const hasExistingNav = enhancedResponse.actions?.some(
+        action => action.action === 'navigate' && action.data?.path === navIntent.path
+      )
+      
+      if (!hasExistingNav) {
+        enhancedResponse.actions = [
+          ...(enhancedResponse.actions || []),
+          {
+            label: `${navIntent.targetPage}에서 상세 확인`,
             action: 'navigate',
             data: {
               path: navIntent.path,
               params: navIntent.params
             }
-          }]
-        }
+          }
+        ]
       }
     }
-
-    // 2. 일반 카테고리 분류 및 Flow 실행
-    const category = await this.classifyCategory(query, context)
-    const flow = this.categoryFlows.get(category) || this.categoryFlows.get(QuestionCategory.DATA_QUERY)!
-    const response = await this.executeFlow(flow, query, context)
-
-    // 3. 응답에 관련 페이지 제안 추가
-    const enhancedResponse = await this.addPageSuggestions(response, category, query)
 
     return {
       category,
@@ -467,26 +497,45 @@ export class CategoryBasedRouter {
 
   /**
    * 응답에 관련 페이지 제안 추가
+   * 페이지 제안은 보조 도구로만 사용되며, 응답의 품질을 해치지 않도록 주의
    */
   private async addPageSuggestions(
     response: AgentResponse,
     category: QuestionCategory,
     query: string
   ): Promise<AgentResponse> {
+    // 응답이 비어있거나 에러인 경우 페이지 제안하지 않음
+    if (!response.response || response.response.includes('오류') || response.response.includes('에러')) {
+      return response
+    }
+
     const suggestions = this.pageNavigationAgent.getSuggestedPages(category)
+
+    // 기존 액션과 중복되지 않는 제안만 추가
+    const existingPaths = (response.actions || [])
+      .filter(a => a.action === 'navigate')
+      .map(a => a.data?.path)
+      .filter(Boolean)
+
+    const newSuggestions = suggestions
+      .filter(s => !existingPaths.includes(s.path))
+      .map(s => ({
+        label: s.label,
+        action: 'navigate' as const,
+        data: {
+          path: s.path,
+          params: s.params
+        }
+      }))
+
+    // 제안이 3개 이상이면 가장 관련성 높은 것만 선택
+    const finalSuggestions = newSuggestions.slice(0, 2)
 
     return {
       ...response,
       actions: [
         ...(response.actions || []),
-        ...suggestions.map(s => ({
-          label: s.label,
-          action: 'navigate',
-          data: {
-            path: s.path,
-            params: s.params
-          }
-        }))
+        ...finalSuggestions
       ]
     }
   }
