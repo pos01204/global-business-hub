@@ -8,6 +8,11 @@ import { Card } from '@/components/ui/Card'
 import { Spinner } from '@/components/ui/Spinner'
 import { Tabs } from '@/components/ui/Tabs'
 import { Badge } from '@/components/ui/Badge'
+// v4.2: 신뢰도 컴포넌트
+import { ConfidenceBadge } from '@/components/business-brain/ConfidenceBadge'
+import { ConfidenceInterval } from '@/components/business-brain/ConfidenceInterval'
+import { DataQualityIndicator } from '@/components/business-brain/DataQualityIndicator'
+import { AnalysisDetailDrawer } from '@/components/business-brain/AnalysisDetailDrawer'
 
 // 기간 프리셋 타입
 type PeriodPreset = '7d' | '30d' | '90d' | '180d' | '365d'
@@ -955,8 +960,8 @@ function OverviewTab({
               </h2>
             </div>
             
-            {/* 요약 */}
-            {comprehensiveData.summary && (
+            {/* 요약 - summary가 객체인 경우 표시하지 않음 (이미 위의 metricCards에서 표시됨) */}
+            {comprehensiveData.summary && typeof comprehensiveData.summary === 'string' && (
               <div className="mb-6 p-4 bg-gradient-to-br from-indigo-50 to-purple-50 dark:from-indigo-900/20 dark:to-purple-900/20 rounded-xl border border-indigo-100 dark:border-indigo-800/30">
                 <p className="text-slate-700 dark:text-slate-300 leading-relaxed">
                   {comprehensiveData.summary}
@@ -3519,6 +3524,9 @@ function ForecastTab({ data, isLoading }: { data: any; isLoading: boolean }) {
 // ==================== v4.1: 신규 유저 유치 탭 ====================
 
 function NewUserAcquisitionTab({ data, isLoading, period }: { data: any; isLoading: boolean; period: string }) {
+  const [detailDrawerOpen, setDetailDrawerOpen] = useState(false)
+  const [selectedMetric, setSelectedMetric] = useState<any>(null)
+  
   if (isLoading) {
     return (
       <FadeIn>
@@ -3565,12 +3573,29 @@ function NewUserAcquisitionTab({ data, isLoading, period }: { data: any; isLoadi
             </div>
           </div>
 
+          {/* 데이터 품질 표시 */}
+          {data?.metadata?.overallDataQuality && (
+            <div className="mb-6">
+              <DataQualityIndicator quality={data.metadata.overallDataQuality} />
+            </div>
+          )}
+
           <div className="grid md:grid-cols-3 gap-4 mb-6">
-            <div className="p-4 bg-blue-50 dark:bg-blue-900/20 rounded-xl text-center">
+            <div className="p-4 bg-blue-50 dark:bg-blue-900/20 rounded-xl text-center relative">
               <div className="text-2xl font-bold text-blue-600 dark:text-blue-400">
                 {data?.channels?.reduce((sum: number, c: any) => sum + (c.newUsers || 0), 0) || 0}
               </div>
               <div className="text-xs text-blue-600 dark:text-blue-400 mt-1">신규 유저</div>
+              {/* v4.2: 신뢰도 정보 */}
+              {data?.channels?.[0]?.newUsersConfidence && (
+                <div className="mt-2 flex justify-center">
+                  <ConfidenceBadge 
+                    reliability={data.channels[0].newUsersConfidence.reliability}
+                    sampleSize={data.channels[0].newUsersConfidence.sampleSize}
+                    dataSource={data.channels[0].newUsersConfidence.dataSource}
+                  />
+                </div>
+              )}
             </div>
             <div className="p-4 bg-green-50 dark:bg-green-900/20 rounded-xl text-center">
               <div className="text-2xl font-bold text-green-600 dark:text-green-400">
@@ -3579,12 +3604,34 @@ function NewUserAcquisitionTab({ data, isLoading, period }: { data: any; isLoadi
                   : 0}%
               </div>
               <div className="text-xs text-green-600 dark:text-green-400 mt-1">가입→첫 구매 전환율</div>
+              {/* v4.2: 신뢰도 정보 */}
+              {data?.conversionFunnel?.[data.conversionFunnel.length - 1]?.conversionRateConfidence && (
+                <div className="mt-2">
+                  <ConfidenceInterval
+                    value={data.conversionFunnel[data.conversionFunnel.length - 1].conversionRate}
+                    interval={data.conversionFunnel[data.conversionFunnel.length - 1].conversionRateConfidence.confidenceInterval}
+                    confidenceLevel={0.95}
+                    format="percentage"
+                  />
+                </div>
+              )}
             </div>
             <div className="p-4 bg-purple-50 dark:bg-purple-900/20 rounded-xl text-center">
               <div className="text-2xl font-bold text-purple-600 dark:text-purple-400">
                 ${data?.newUserQuality?.avgFirstPurchaseValue?.toFixed(0) || 0}
               </div>
               <div className="text-xs text-purple-600 dark:text-purple-400 mt-1">평균 첫 구매액</div>
+              {/* v4.2: 신뢰도 정보 */}
+              {data?.newUserQuality?.avgFirstPurchaseValueConfidence && (
+                <div className="mt-2">
+                  <ConfidenceInterval
+                    value={data.newUserQuality.avgFirstPurchaseValue}
+                    interval={data.newUserQuality.avgFirstPurchaseValueConfidence.confidenceInterval}
+                    confidenceLevel={0.95}
+                    format="currency"
+                  />
+                </div>
+              )}
             </div>
           </div>
 
@@ -3600,9 +3647,19 @@ function NewUserAcquisitionTab({ data, isLoading, period }: { data: any; isLoadi
                         <span className="font-medium text-slate-800 dark:text-slate-100">
                           {channel.channel}
                         </span>
-                        <Badge variant="default">
-                          {channel.newUsers}명
-                        </Badge>
+                        <div className="flex items-center gap-2">
+                          <Badge variant="default">
+                            {channel.newUsers}명
+                          </Badge>
+                          {/* v4.2: 신뢰도 배지 */}
+                          {channel.newUsersConfidence && (
+                            <ConfidenceBadge 
+                              reliability={channel.newUsersConfidence.reliability}
+                              sampleSize={channel.newUsersConfidence.sampleSize}
+                              dataSource={channel.newUsersConfidence.dataSource}
+                            />
+                          )}
+                        </div>
                       </div>
                       <div className="grid grid-cols-3 gap-4 text-sm">
                         <div>
@@ -3610,18 +3667,44 @@ function NewUserAcquisitionTab({ data, isLoading, period }: { data: any; isLoadi
                           <div className="font-semibold text-slate-700 dark:text-slate-300">
                             {Math.round(channel.firstPurchaseRate * 100)}%
                           </div>
+                          {/* v4.2: 신뢰 구간 */}
+                          {channel.firstPurchaseRateConfidence && (
+                            <ConfidenceInterval
+                              value={channel.firstPurchaseRate}
+                              interval={channel.firstPurchaseRateConfidence.confidenceInterval}
+                              confidenceLevel={0.95}
+                              format="percentage"
+                              className="mt-1"
+                            />
+                          )}
                         </div>
                         <div>
                           <span className="text-slate-500 dark:text-slate-400">평균 LTV</span>
                           <div className="font-semibold text-slate-700 dark:text-slate-300">
                             ${channel.ltv.toFixed(0)}
                           </div>
+                          {/* v4.2: 신뢰 구간 */}
+                          {channel.ltvConfidence && (
+                            <ConfidenceInterval
+                              value={channel.ltv}
+                              interval={channel.ltvConfidence.confidenceInterval}
+                              confidenceLevel={0.95}
+                              format="currency"
+                              className="mt-1"
+                            />
+                          )}
                         </div>
                         <div>
                           <span className="text-slate-500 dark:text-slate-400">ROI</span>
                           <div className="font-semibold text-slate-700 dark:text-slate-300">
                             {channel.roi === 999 ? 'N/A' : `${channel.roi.toFixed(1)}x`}
                           </div>
+                          {/* v4.2: ROI 신뢰도 정보 */}
+                          {channel.roiConfidence && (
+                            <div className="text-xs text-slate-500 dark:text-slate-400 mt-1">
+                              {channel.roiConfidence.reason || (channel.roiConfidence.dataAvailability ? '데이터 있음' : '데이터 없음')}
+                            </div>
+                          )}
                         </div>
                       </div>
                     </div>
@@ -3642,10 +3725,24 @@ function NewUserAcquisitionTab({ data, isLoading, period }: { data: any; isLoadi
                       <div className="flex items-center justify-between mb-2">
                         <span className="font-medium text-slate-800 dark:text-slate-100">
                           {stage.stage}
+                          {/* v4.2: 추정치 표시 */}
+                          {stage.dataSource === 'estimated' && (
+                            <span className="ml-2 text-xs text-orange-600 dark:text-orange-400">⚠️ 추정치</span>
+                          )}
                         </span>
-                        <span className="text-sm text-slate-600 dark:text-slate-400">
-                          {stage.count.toLocaleString()}명
-                        </span>
+                        <div className="flex items-center gap-2">
+                          <span className="text-sm text-slate-600 dark:text-slate-400">
+                            {stage.count.toLocaleString()}명
+                          </span>
+                          {/* v4.2: 신뢰도 배지 */}
+                          {stage.countConfidence && (
+                            <ConfidenceBadge 
+                              reliability={stage.countConfidence.reliability}
+                              sampleSize={stage.countConfidence.sampleSize}
+                              dataSource={stage.dataSource}
+                            />
+                          )}
+                        </div>
                       </div>
                       <div className="flex items-center gap-2">
                         <div className="flex-1 h-2 bg-slate-200 dark:bg-slate-700 rounded-full overflow-hidden">
@@ -3740,6 +3837,9 @@ function NewUserAcquisitionTab({ data, isLoading, period }: { data: any; isLoadi
 // ==================== v4.1: 재구매율 향상 탭 ====================
 
 function RepurchaseAnalysisTab({ data, isLoading, period }: { data: any; isLoading: boolean; period: string }) {
+  const [detailDrawerOpen, setDetailDrawerOpen] = useState(false)
+  const [selectedMetric, setSelectedMetric] = useState<any>(null)
+  
   if (isLoading) {
     return (
       <FadeIn>
@@ -3786,12 +3886,29 @@ function RepurchaseAnalysisTab({ data, isLoading, period }: { data: any; isLoadi
             </div>
           </div>
 
+          {/* 데이터 품질 표시 */}
+          {data?.metadata?.overallDataQuality && (
+            <div className="mb-6">
+              <DataQualityIndicator quality={data.metadata.overallDataQuality} />
+            </div>
+          )}
+
           <div className="grid md:grid-cols-3 gap-4 mb-6">
             <div className="p-4 bg-green-50 dark:bg-green-900/20 rounded-xl text-center">
               <div className="text-2xl font-bold text-green-600 dark:text-green-400">
                 {data?.oneTimeBuyers?.total || 0}
               </div>
               <div className="text-xs text-green-600 dark:text-green-400 mt-1">1회 구매 고객</div>
+              {/* v4.2: 신뢰도 정보 */}
+              {data?.oneTimeBuyers?.totalConfidence && (
+                <div className="mt-2 flex justify-center">
+                  <ConfidenceBadge 
+                    reliability={data.oneTimeBuyers.totalConfidence.reliability}
+                    sampleSize={data.oneTimeBuyers.totalConfidence.sampleSize}
+                    dataSource={data.oneTimeBuyers.totalConfidence.dataSource}
+                  />
+                </div>
+              )}
             </div>
             <div className="p-4 bg-blue-50 dark:bg-blue-900/20 rounded-xl text-center">
               <div className="text-2xl font-bold text-blue-600 dark:text-blue-400">
@@ -3800,6 +3917,17 @@ function RepurchaseAnalysisTab({ data, isLoading, period }: { data: any; isLoadi
                   : 0}%
               </div>
               <div className="text-xs text-blue-600 dark:text-blue-400 mt-1">90일 내 재구매율</div>
+              {/* v4.2: 신뢰도 정보 */}
+              {data?.repurchaseConversion?.[data.repurchaseConversion.length - 1]?.conversionRateConfidence && (
+                <div className="mt-2">
+                  <ConfidenceInterval
+                    value={data.repurchaseConversion[data.repurchaseConversion.length - 1].conversionRate}
+                    interval={data.repurchaseConversion[data.repurchaseConversion.length - 1].conversionRateConfidence.confidenceInterval}
+                    confidenceLevel={0.95}
+                    format="percentage"
+                  />
+                </div>
+              )}
             </div>
             <div className="p-4 bg-purple-50 dark:bg-purple-900/20 rounded-xl text-center">
               <div className="text-2xl font-bold text-purple-600 dark:text-purple-400">
@@ -3808,6 +3936,18 @@ function RepurchaseAnalysisTab({ data, isLoading, period }: { data: any; isLoadi
                   : 0}일
               </div>
               <div className="text-xs text-purple-600 dark:text-purple-400 mt-1">평균 재구매 일수</div>
+              {/* v4.2: 신뢰도 정보 */}
+              {data?.repurchaseConversion?.[data.repurchaseConversion.length - 1]?.avgDaysToRepurchaseConfidence && (
+                <div className="mt-2">
+                  <ConfidenceInterval
+                    value={data.repurchaseConversion[data.repurchaseConversion.length - 1].avgDaysToRepurchase}
+                    interval={data.repurchaseConversion[data.repurchaseConversion.length - 1].avgDaysToRepurchaseConfidence.confidenceInterval}
+                    confidenceLevel={0.95}
+                    format="number"
+                    unit="일"
+                  />
+                </div>
+              )}
             </div>
           </div>
 
@@ -3850,10 +3990,31 @@ function RepurchaseAnalysisTab({ data, isLoading, period }: { data: any; isLoadi
                         <span className="font-medium text-slate-800 dark:text-slate-100">
                           {conv.period} 내 재구매율
                         </span>
-                        <span className="text-lg font-bold text-slate-700 dark:text-slate-300">
-                          {Math.round(conv.conversionRate * 100)}%
-                        </span>
+                        <div className="flex items-center gap-2">
+                          <span className="text-lg font-bold text-slate-700 dark:text-slate-300">
+                            {Math.round(conv.conversionRate * 100)}%
+                          </span>
+                          {/* v4.2: 신뢰도 배지 */}
+                          {conv.conversionRateConfidence && (
+                            <ConfidenceBadge 
+                              reliability={conv.conversionRateConfidence.reliability}
+                              sampleSize={conv.conversionRateConfidence.sampleSize}
+                              dataSource={conv.conversionRateConfidence.dataSource}
+                            />
+                          )}
+                        </div>
                       </div>
+                      {/* v4.2: 신뢰 구간 */}
+                      {conv.conversionRateConfidence && (
+                        <div className="mb-2">
+                          <ConfidenceInterval
+                            value={conv.conversionRate}
+                            interval={conv.conversionRateConfidence.confidenceInterval}
+                            confidenceLevel={0.95}
+                            format="percentage"
+                          />
+                        </div>
+                      )}
                       <div className="flex items-center gap-2">
                         <div className="flex-1 h-2 bg-slate-200 dark:bg-slate-700 rounded-full overflow-hidden">
                           <div 

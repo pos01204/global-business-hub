@@ -46,6 +46,23 @@ export type {
   PotentialCause
 } from './CausalInferenceEngine'
 
+// v4.2: 데이터 신뢰도 개선
+export {
+  ConfidenceCalculator,
+  calculateProportionConfidence,
+  calculateMeanConfidence,
+  calculateCountConfidence,
+  evaluateDataQuality,
+  getReliabilityBySampleSize,
+  getReliabilityByDataQuality,
+  getOverallReliability
+} from './ConfidenceCalculator'
+export type {
+  ConfidenceInfo,
+  Reliability,
+  DataQualityMetrics
+} from './ConfidenceCalculator'
+
 // Types
 export * from './types'
 export * from './DataProcessor'

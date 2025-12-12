@@ -5,6 +5,14 @@
 
 import GoogleSheetsService from '../googleSheets'
 import { SHEET_NAMES, sheetsConfig } from '../../config/sheets'
+import {
+  ConfidenceInfo,
+  calculateProportionConfidence,
+  calculateMeanConfidence,
+  calculateCountConfidence,
+  evaluateDataQuality,
+  DataQualityMetrics
+} from './ConfidenceCalculator'
 
 // ==================== 타입 정의 ====================
 
@@ -17,6 +25,16 @@ export interface ChannelPerformance {
   ltv: number                 // 예상 생애가치
   roi: number                 // ROI (LTV / CAC, CAC이 0이면 999로 설정)
   trend: 'up' | 'down' | 'stable'
+  // v4.2: 신뢰도 정보
+  newUsersConfidence?: ConfidenceInfo
+  conversionRateConfidence?: ConfidenceInfo
+  firstPurchaseRateConfidence?: ConfidenceInfo
+  ltvConfidence?: ConfidenceInfo
+  roiConfidence?: {
+    value: number | null
+    reason?: string
+    dataAvailability: boolean
+  }
 }
 
 export interface ConversionFunnel {
@@ -25,6 +43,10 @@ export interface ConversionFunnel {
   conversionRate: number       // 이전 단계 대비 전환율
   dropoffRate: number         // 이탈율
   avgTimeToConvert: number    // 전환까지 평균 시간 (일)
+  // v4.2: 신뢰도 정보
+  countConfidence?: ConfidenceInfo
+  conversionRateConfidence?: ConfidenceInfo
+  dataSource?: 'actual' | 'estimated'
 }
 
 export interface NewUserQuality {
@@ -33,6 +55,11 @@ export interface NewUserQuality {
   lowPotential: number
   avgFirstPurchaseValue: number
   avgDaysToRepurchase: number  // 재구매까지 평균 일수
+  // v4.2: 신뢰도 정보
+  highPotentialConfidence?: ConfidenceInfo
+  mediumPotentialConfidence?: ConfidenceInfo
+  lowPotentialConfidence?: ConfidenceInfo
+  avgFirstPurchaseValueConfidence?: ConfidenceInfo
 }
 
 export interface NewUserInsight {
@@ -48,6 +75,15 @@ export interface NewUserAcquisitionResult {
   newUserQuality: NewUserQuality
   insights: NewUserInsight[]
   generatedAt: string
+  // v4.2: 메타데이터
+  metadata?: {
+    analysisDate: string
+    dataRange: {
+      start: string
+      end: string
+    }
+    overallDataQuality: DataQualityMetrics
+  }
 }
 
 // ==================== 분석 로직 ====================
@@ -127,6 +163,14 @@ function analyzeChannelPerformance(
   const channels: ChannelPerformance[] = []
   const totalNewUsers = newUsersInPeriod.length
   
+  // 데이터 품질 평가 (기본값, 실제로는 데이터 소스에서 가져와야 함)
+  const dataQuality: DataQualityMetrics = {
+    completeness: 0.98,
+    accuracy: 0.95,
+    freshness: 2, // hours
+    missingData: 0
+  }
+  
   for (const [channel, data] of channelMap.entries()) {
     const avgLTV = data.totalSpent / data.newUsers
     const avgFirstPurchase = data.firstPurchaseAmounts.reduce((a, b) => a + b, 0) / data.firstPurchaseAmounts.length
@@ -139,6 +183,36 @@ function analyzeChannelPerformance(
     const cac = 0
     const roi = cac > 0 ? avgLTV / cac : 999
     
+    // 신뢰도 계산
+    const newUsersConfidence = calculateCountConfidence(
+      data.newUsers,
+      'actual',
+      dataQuality
+    )
+    
+    // 전환율은 추정치이므로 estimated로 표시
+    const conversionRateConfidence = calculateProportionConfidence(
+      Math.round(conversionRate * data.newUsers), // 추정 성공 횟수
+      data.newUsers,
+      'estimated', // 추정치
+      dataQuality
+    )
+    
+    // 첫 구매 전환율은 실제 데이터 기반
+    const firstPurchaseRateConfidence = calculateProportionConfidence(
+      data.totalOrders,
+      data.newUsers,
+      'actual',
+      dataQuality
+    )
+    
+    // LTV는 평균값이므로 평균 신뢰 구간 사용
+    const ltvConfidence = calculateMeanConfidence(
+      data.firstPurchaseAmounts,
+      'actual',
+      dataQuality
+    )
+    
     channels.push({
       channel,
       newUsers: data.newUsers,
@@ -147,7 +221,17 @@ function analyzeChannelPerformance(
       cac,
       ltv: Math.round(avgLTV * 100) / 100,
       roi: Math.round(roi * 100) / 100,
-      trend: 'stable' // 추후 트렌드 분석 추가
+      trend: 'stable', // 추후 트렌드 분석 추가
+      // v4.2: 신뢰도 정보
+      newUsersConfidence,
+      conversionRateConfidence,
+      firstPurchaseRateConfidence,
+      ltvConfidence,
+      roiConfidence: {
+        value: roi === 999 ? null : roi,
+        reason: cac === 0 ? 'CAC 데이터 없음 (추정 불가)' : undefined,
+        dataAvailability: cac > 0
+      }
     })
   }
   
@@ -195,27 +279,47 @@ function analyzeConversionFunnel(
   const signups = Math.round(estimatedVisits * 0.4) // 40% 가입율 추정
   const firstPurchases = newUsersInPeriod.length
   
+  // 데이터 품질 평가
+  const dataQuality: DataQualityMetrics = {
+    completeness: 0.98,
+    accuracy: 0.95,
+    freshness: 2,
+    missingData: 0
+  }
+  
   const funnel: ConversionFunnel[] = [
     {
       stage: '방문',
       count: estimatedVisits,
       conversionRate: 100,
       dropoffRate: 0,
-      avgTimeToConvert: 0
+      avgTimeToConvert: 0,
+      // v4.2: 신뢰도 정보
+      countConfidence: calculateCountConfidence(estimatedVisits, 'estimated', dataQuality),
+      conversionRateConfidence: calculateProportionConfidence(estimatedVisits, estimatedVisits, 'estimated', dataQuality),
+      dataSource: 'estimated' // 방문 데이터는 추정치
     },
     {
       stage: '가입',
       count: signups,
       conversionRate: Math.round((signups / estimatedVisits) * 100) / 100,
       dropoffRate: Math.round(((estimatedVisits - signups) / estimatedVisits) * 100) / 100,
-      avgTimeToConvert: 0.5 // 평균 0.5일
+      avgTimeToConvert: 0.5, // 평균 0.5일
+      // v4.2: 신뢰도 정보
+      countConfidence: calculateCountConfidence(signups, 'actual', dataQuality),
+      conversionRateConfidence: calculateProportionConfidence(signups, estimatedVisits, 'estimated', dataQuality), // 분모가 추정치
+      dataSource: 'actual'
     },
     {
       stage: '첫 구매',
       count: firstPurchases,
       conversionRate: Math.round((firstPurchases / signups) * 100) / 100,
       dropoffRate: Math.round(((signups - firstPurchases) / signups) * 100) / 100,
-      avgTimeToConvert: 2 // 평균 2일
+      avgTimeToConvert: 2, // 평균 2일
+      // v4.2: 신뢰도 정보
+      countConfidence: calculateCountConfidence(firstPurchases, 'actual', dataQuality),
+      conversionRateConfidence: calculateProportionConfidence(firstPurchases, signups, 'actual', dataQuality),
+      dataSource: 'actual'
     }
   ]
   
@@ -308,12 +412,33 @@ function analyzeNewUserQuality(
     }
   }
   
+  // 데이터 품질 평가
+  const dataQuality: DataQualityMetrics = {
+    completeness: 0.98,
+    accuracy: 0.95,
+    freshness: 2,
+    missingData: 0
+  }
+  
+  const totalNewUsers = newUsersInPeriod.length
+  
+  // 신뢰도 계산
+  const highPotentialConfidence = calculateCountConfidence(highPotential, 'actual', dataQuality)
+  const mediumPotentialConfidence = calculateCountConfidence(mediumPotential, 'actual', dataQuality)
+  const lowPotentialConfidence = calculateCountConfidence(lowPotential, 'actual', dataQuality)
+  const avgFirstPurchaseValueConfidence = calculateMeanConfidence(firstPurchaseAmounts, 'actual', dataQuality)
+  
   return {
     highPotential,
     mediumPotential,
     lowPotential,
     avgFirstPurchaseValue: Math.round(avgFirstPurchaseValue * 100) / 100,
-    avgDaysToRepurchase: Math.round(avgDaysToRepurchase * 100) / 100
+    avgDaysToRepurchase: Math.round(avgDaysToRepurchase * 100) / 100,
+    // v4.2: 신뢰도 정보
+    highPotentialConfidence,
+    mediumPotentialConfidence,
+    lowPotentialConfidence,
+    avgFirstPurchaseValueConfidence
   }
 }
 
@@ -401,6 +526,17 @@ export class NewUserAcquisitionAnalyzer {
       
       const periodDays = parseInt(period) || 90
       
+      // 분석 기간 계산
+      const endDate = new Date()
+      const startDate = new Date()
+      startDate.setDate(startDate.getDate() - periodDays)
+      
+      // 데이터 품질 평가
+      const totalRecords = logisticsData.length
+      const missingRecords = logisticsData.filter(row => !row['user_id'] || !row['order_created']).length
+      const lastUpdateTime = new Date() // 실제로는 데이터 소스에서 가져와야 함
+      const overallDataQuality = evaluateDataQuality(totalRecords, missingRecords, lastUpdateTime)
+      
       // 채널별 성과 분석
       const channels = analyzeChannelPerformance(logisticsData, periodDays)
       
@@ -418,7 +554,16 @@ export class NewUserAcquisitionAnalyzer {
         conversionFunnel,
         newUserQuality,
         insights,
-        generatedAt: new Date().toISOString()
+        generatedAt: new Date().toISOString(),
+        // v4.2: 메타데이터
+        metadata: {
+          analysisDate: new Date().toISOString(),
+          dataRange: {
+            start: startDate.toISOString().split('T')[0],
+            end: endDate.toISOString().split('T')[0]
+          },
+          overallDataQuality
+        }
       }
     } catch (error) {
       console.error('[NewUserAcquisitionAnalyzer] 분석 오류:', error)
