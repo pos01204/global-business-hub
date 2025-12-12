@@ -1888,7 +1888,7 @@ export class BusinessBrainAgent extends BaseAgent {
         periodType
       )
 
-      businessBrainCache.set(cacheKey, decomposition, CACHE_TTL.analysis)
+      businessBrainCache.set(cacheKey, decomposition, CACHE_TTL.decomposition)
       return decomposition
     } catch (error: any) {
       console.error('[BusinessBrainAgent] 시계열 분해 오류:', error)
