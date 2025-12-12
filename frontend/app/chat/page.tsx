@@ -2,6 +2,7 @@
 
 import React, { useState, useRef, useEffect } from 'react'
 import { useMutation, useQuery } from '@tanstack/react-query'
+import { useRouter } from 'next/navigation'
 import { chatApi } from '@/lib/api'
 import { Button, Spinner, Badge } from '@/components/ui'
 import { Bar, Line, Pie } from 'react-chartjs-2'
@@ -175,6 +176,7 @@ const QUICK_QUESTIONS = [
 ]
 
 export default function ChatPage() {
+  const router = useRouter()
   const [messages, setMessages] = useState<Message[]>([])
   const [input, setInput] = useState('')
   const [isConnected, setIsConnected] = useState(false)
@@ -341,6 +343,27 @@ export default function ChatPage() {
   // 액션 버튼 클릭 핸들러
   const handleActionClick = (action: { label: string; action: string; data?: any }) => {
     switch (action.action) {
+      case 'navigate':
+        // 페이지 네비게이션
+        if (action.data?.path) {
+          const path = action.data.path
+          const params = action.data.params || {}
+          
+          // 쿼리 파라미터 생성
+          const queryParams = new URLSearchParams()
+          Object.entries(params).forEach(([key, value]) => {
+            if (value !== undefined && value !== null) {
+              queryParams.append(key, String(value))
+            }
+          })
+          
+          const fullPath = queryParams.toString() 
+            ? `${path}?${queryParams.toString()}`
+            : path
+          
+          router.push(fullPath)
+        }
+        break
       case 'query':
         // 새로운 질문 전송
         if (action.data?.query) {
@@ -793,10 +816,11 @@ export default function ChatPage() {
               key={index}
               className={`flex ${
                 message.role === 'user' ? 'justify-end' : 'justify-start'
-              }`}
+              } animate-in fade-in slide-in-from-bottom-2 duration-300`}
+              style={{ animationDelay: `${index * 50}ms` }}
             >
               <div
-                className={`max-w-[85%] rounded-2xl px-4 py-3 shadow-sm ${
+                className={`max-w-[85%] rounded-2xl px-4 py-3 shadow-sm transition-all hover:shadow-md ${
                   message.role === 'user'
                     ? 'bg-gradient-to-br from-primary to-primary/90 text-white'
                     : 'bg-white border border-slate-200 text-slate-900'
@@ -866,8 +890,13 @@ export default function ChatPage() {
                         key={actionIndex}
                         onClick={() => handleActionClick(action)}
                         disabled={sendMessageMutation.isPending || isStreaming}
-                        className="px-3 py-1.5 bg-slate-100 hover:bg-slate-200 rounded-lg text-sm font-medium transition-all hover:shadow-sm disabled:opacity-50 disabled:cursor-not-allowed border border-slate-200"
+                        className={`px-3 py-1.5 rounded-lg text-sm font-medium transition-all hover:shadow-sm disabled:opacity-50 disabled:cursor-not-allowed border ${
+                          action.action === 'navigate'
+                            ? 'bg-primary/10 hover:bg-primary/20 text-primary border-primary/30 hover:border-primary/50'
+                            : 'bg-slate-100 hover:bg-slate-200 border-slate-200 text-slate-700'
+                        }`}
                       >
+                        {action.action === 'navigate' && '🔗 '}
                         {action.label}
                       </button>
                     ))}
@@ -892,17 +921,24 @@ export default function ChatPage() {
             </div>
           ))}
 
-          {/* 스트리밍 중인 메시지 표시 */}
+          {/* 스트리밍 중인 메시지 표시 - 타이핑 효과 */}
           {isStreaming && streamingContent && (
             <div className="flex justify-start">
-              <div className="max-w-[85%] rounded-2xl px-4 py-3 bg-white border border-slate-200 text-slate-900 shadow-sm">
+              <div className="max-w-[85%] rounded-2xl px-4 py-3 bg-white border border-slate-200 text-slate-900 shadow-sm animate-in fade-in slide-in-from-bottom-2 duration-300">
                 <div className="flex items-center gap-1.5 text-xs font-semibold text-slate-500 mb-2">
                   <span>{AGENT_META[selectedAgent]?.icon || '🤖'}</span>
-                  <span>응답 중...</span>
+                  <span className="flex items-center gap-1">
+                    <span className="animate-pulse">응답 중</span>
+                    <span className="flex gap-0.5">
+                      <span className="w-1 h-1 bg-slate-400 rounded-full animate-bounce" style={{ animationDelay: '0ms' }} />
+                      <span className="w-1 h-1 bg-slate-400 rounded-full animate-bounce" style={{ animationDelay: '150ms' }} />
+                      <span className="w-1 h-1 bg-slate-400 rounded-full animate-bounce" style={{ animationDelay: '300ms' }} />
+                    </span>
+                  </span>
                 </div>
                 <div className="whitespace-pre-wrap break-words leading-relaxed">
                   {streamingContent}
-                  <span className="inline-block w-2 h-4 bg-primary animate-pulse ml-1 rounded" />
+                  <span className="inline-block w-2 h-4 bg-primary animate-pulse ml-1 rounded" style={{ animation: 'blink 1s infinite' }} />
                 </div>
               </div>
             </div>
@@ -946,7 +982,7 @@ export default function ChatPage() {
                   }
                   disabled={!isConnected || sendMessageMutation.isPending || isStreaming}
                   rows={1}
-                  className="w-full resize-none border border-slate-300 dark:border-slate-600 rounded-xl px-4 py-3 text-base focus:outline-none focus:ring-2 focus:ring-primary focus:border-transparent disabled:bg-slate-100 dark:disabled:bg-slate-800 disabled:cursor-not-allowed transition-all bg-white dark:bg-slate-800 text-slate-900 dark:text-slate-100"
+                  className="w-full resize-none border border-slate-300 dark:border-slate-600 rounded-xl px-4 py-3 text-base focus:outline-none focus:ring-2 focus:ring-primary focus:border-transparent disabled:bg-slate-100 dark:disabled:bg-slate-800 disabled:cursor-not-allowed transition-all bg-white dark:bg-slate-800 text-slate-900 dark:text-slate-100 placeholder:text-slate-400"
                   style={{
                     minHeight: '48px',
                     maxHeight: '120px',
@@ -961,11 +997,14 @@ export default function ChatPage() {
               <button
                 onClick={handleSend}
                 disabled={!input.trim() || !isConnected || sendMessageMutation.isPending || isStreaming}
-                className="px-4 lg:px-5 py-3 bg-gradient-to-r from-primary to-primary/90 text-white rounded-xl hover:shadow-lg hover:scale-[1.02] transition-all disabled:from-slate-300 disabled:to-slate-300 disabled:cursor-not-allowed font-medium flex items-center justify-center min-h-[48px] min-w-[48px] lg:min-w-[80px]"
+                className="px-4 lg:px-5 py-3 bg-gradient-to-r from-primary to-primary/90 text-white rounded-xl hover:shadow-lg hover:scale-[1.02] active:scale-[0.98] transition-all disabled:from-slate-300 disabled:to-slate-300 disabled:cursor-not-allowed disabled:hover:scale-100 font-medium flex items-center justify-center min-h-[48px] min-w-[48px] lg:min-w-[80px] relative overflow-hidden group"
               >
-                <span className="hidden lg:inline">전송</span>
-                <span className="lg:hidden">→</span>
-                <span className="hidden lg:inline ml-1">→</span>
+                <span className="hidden lg:inline relative z-10">전송</span>
+                <span className="lg:hidden relative z-10">→</span>
+                <span className="hidden lg:inline ml-1 relative z-10">→</span>
+                {!input.trim() || !isConnected || sendMessageMutation.isPending || isStreaming ? null : (
+                  <span className="absolute inset-0 bg-gradient-to-r from-transparent via-white/20 to-transparent translate-x-[-100%] group-hover:translate-x-[100%] transition-transform duration-700" />
+                )}
               </button>
             </div>
             <div className="hidden lg:flex items-center justify-between mt-2 text-xs text-slate-500 dark:text-slate-400">

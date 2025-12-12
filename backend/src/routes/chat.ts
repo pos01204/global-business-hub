@@ -1,6 +1,7 @@
 import express from 'express'
 import { openaiService } from '../services/openaiService'
 import { AgentRouter, AgentType } from '../services/agents/AgentRouter'
+import { CategoryBasedRouter } from '../services/agents/CategoryBasedRouter'
 import { metricsCollector } from '../services/agents/MetricsCollector'
 import { rateLimiter } from '../services/RateLimiter'
 import { responseCache } from '../services/cache/ResponseCache'
@@ -81,8 +82,8 @@ router.post('/message', async (req, res) => {
     const referenceKeywords = ['이전', '아까', '그것', '그거', '위', '방금', '다시', '더']
     const hasReference = referenceKeywords.some(kw => message.includes(kw))
     
-    // Agent Router 초기화
-    const agentRouter = new AgentRouter({
+    // CategoryBasedRouter 사용 (고도화된 라우팅)
+    const categoryRouter = new CategoryBasedRouter({
       sessionId: effectiveSessionId,
       history: enhancedHistory,
       previousQuery: sessionContext.lastQuery,
@@ -90,14 +91,44 @@ router.post('/message', async (req, res) => {
       previousData: hasReference ? sessionContext.lastData : undefined,
     })
 
-    // Agent를 통한 처리
-    const result = await agentRouter.route(message, agentType as AgentType, {
-      sessionId: effectiveSessionId,
-      history: enhancedHistory,
-      previousQuery: sessionContext.lastQuery,
-      previousIntent: sessionContext.lastIntent,
-      previousData: hasReference ? sessionContext.lastData : undefined,
-    })
+    // 카테고리 기반 라우팅 시도
+    let result: any
+    try {
+      const categoryResult = await categoryRouter.routeByCategory(message, {
+        sessionId: effectiveSessionId,
+        history: enhancedHistory,
+        previousQuery: sessionContext.lastQuery,
+        previousIntent: sessionContext.lastIntent,
+        previousData: hasReference ? sessionContext.lastData : undefined,
+      })
+
+      result = {
+        agent: categoryResult.category,
+        response: categoryResult.response.response,
+        data: categoryResult.response.data,
+        charts: categoryResult.response.charts,
+        actions: categoryResult.response.actions,
+      }
+    } catch (error: any) {
+      console.warn('[Chat] CategoryBasedRouter 실패, 기존 AgentRouter 사용:', error.message)
+      
+      // 폴백: 기존 AgentRouter 사용
+      const agentRouter = new AgentRouter({
+        sessionId: effectiveSessionId,
+        history: enhancedHistory,
+        previousQuery: sessionContext.lastQuery,
+        previousIntent: sessionContext.lastIntent,
+        previousData: hasReference ? sessionContext.lastData : undefined,
+      })
+
+      result = await agentRouter.route(message, agentType as AgentType, {
+        sessionId: effectiveSessionId,
+        history: enhancedHistory,
+        previousQuery: sessionContext.lastQuery,
+        previousIntent: sessionContext.lastIntent,
+        previousData: hasReference ? sessionContext.lastData : undefined,
+      })
+    }
 
     // 세션 컨텍스트 업데이트
     sessionContext.lastQuery = message
@@ -222,8 +253,8 @@ router.post('/message/stream', async (req, res) => {
     // 시작 이벤트
     res.write(`data: ${JSON.stringify({ type: 'start', sessionId: effectiveSessionId })}\n\n`)
 
-    // Agent Router 초기화
-    const agentRouter = new AgentRouter({
+    // CategoryBasedRouter 사용 (고도화된 라우팅)
+    const categoryRouter = new CategoryBasedRouter({
       sessionId: effectiveSessionId,
       history: enhancedHistory,
       previousQuery: sessionContext.lastQuery,
@@ -231,14 +262,44 @@ router.post('/message/stream', async (req, res) => {
       previousData: sessionContext.lastData,
     })
 
-    // Agent를 통한 처리 (스트리밍 모드)
-    const result = await agentRouter.route(message, agentType as AgentType, {
-      sessionId: effectiveSessionId,
-      history: enhancedHistory,
-      previousQuery: sessionContext.lastQuery,
-      previousIntent: sessionContext.lastIntent,
-      previousData: sessionContext.lastData,
-    })
+    // 카테고리 기반 라우팅 시도
+    let result: any
+    try {
+      const categoryResult = await categoryRouter.routeByCategory(message, {
+        sessionId: effectiveSessionId,
+        history: enhancedHistory,
+        previousQuery: sessionContext.lastQuery,
+        previousIntent: sessionContext.lastIntent,
+        previousData: sessionContext.lastData,
+      })
+
+      result = {
+        agent: categoryResult.category,
+        response: categoryResult.response.response,
+        data: categoryResult.response.data,
+        charts: categoryResult.response.charts,
+        actions: categoryResult.response.actions,
+      }
+    } catch (error: any) {
+      console.warn('[Chat] CategoryBasedRouter 실패, 기존 AgentRouter 사용:', error.message)
+      
+      // 폴백: 기존 AgentRouter 사용
+      const agentRouter = new AgentRouter({
+        sessionId: effectiveSessionId,
+        history: enhancedHistory,
+        previousQuery: sessionContext.lastQuery,
+        previousIntent: sessionContext.lastIntent,
+        previousData: sessionContext.lastData,
+      })
+
+      result = await agentRouter.route(message, agentType as AgentType, {
+        sessionId: effectiveSessionId,
+        history: enhancedHistory,
+        previousQuery: sessionContext.lastQuery,
+        previousIntent: sessionContext.lastIntent,
+        previousData: sessionContext.lastData,
+      })
+    }
 
     // 응답 스트리밍 (청크 단위로 전송)
     const responseText = result.response

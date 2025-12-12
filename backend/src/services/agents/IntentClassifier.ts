@@ -1,5 +1,6 @@
 import { openaiService } from '../openaiService'
 import { AI_ACCESSIBLE_SHEETS, getSchemaSummaryForPrompt } from '../../config/sheetsSchema'
+import { enhancedDateParser, EnhancedDateParser } from './EnhancedDateParser'
 
 export interface ExtractedIntent {
   intent: string
@@ -118,7 +119,17 @@ const INTENT_CLASSIFICATION_FUNCTION = {
 }
 
 export class IntentClassifier {
+  private dateParser: EnhancedDateParser
+
+  constructor() {
+    this.dateParser = enhancedDateParser
+  }
+
   private getSystemPrompt(): string {
+    const today = new Date()
+    const todayStr = today.toISOString().split('T')[0]
+    const dateInfo = this.dateParser.getCurrentDateInfo()
+    
     return `당신은 데이터 분석 쿼리 의도 분류 전문가입니다.
 사용자의 자연어 질문을 분석하여 구조화된 의도와 엔티티를 추출합니다.
 
@@ -143,7 +154,18 @@ ${getSchemaSummaryForPrompt()}
 
 국가 코드: JP(일본), US(미국), KR(한국), CN(중국), TW(대만), HK(홍콩)
 
-오늘 날짜: ${new Date().toISOString().split('T')[0]}`
+**중요: 현재 날짜는 ${todayStr} (${dateInfo})입니다.**
+
+날짜 파싱 시 다음 규칙을 엄격히 준수하세요:
+1. "금일", "오늘", "오늘 기준" → ${todayStr}
+2. "어제" → ${new Date(today.getTime() - 24 * 60 * 60 * 1000).toISOString().split('T')[0]}
+3. "이번 주" → 이번 주 월요일부터 ${todayStr}까지
+4. "지난 주" → 지난 주 월요일부터 일요일까지
+5. "이번 달" → 이번 달 1일부터 ${todayStr}까지
+6. "지난 달" → 지난 달 1일부터 마지막 날까지
+7. "최근 N일" → ${todayStr} 기준 N일 전부터 ${todayStr}까지
+
+절대 과거의 날짜를 현재 날짜로 잘못 인식하지 마세요.`
   }
 
   async classify(query: string, history?: Array<{ role: string; content: string }>): Promise<ExtractedIntent> {
@@ -255,17 +277,38 @@ ${getSchemaSummaryForPrompt()}
   }
 
   /**
-   * 날짜 범위 정규화
+   * 날짜 범위 정규화 (EnhancedDateParser 사용)
    */
   private normalizeDateRange(
     dateRange: any,
     query: string
   ): { start: string; end: string; type: 'absolute' | 'relative' | 'month' | 'year' | 'quarter' } {
-    const today = new Date()
-    const endDate = new Date(today)
-    endDate.setHours(23, 59, 59, 999)
+    // EnhancedDateParser 사용
+    const parsed = this.dateParser.parseDateRange(query)
+    if (parsed) {
+      // 검증
+      const validation = this.dateParser.validateDateRange(parsed)
+      if (!validation.valid) {
+        console.warn('[IntentClassifier] 날짜 범위 검증 실패:', validation.warnings)
+      }
+      if (validation.warnings.length > 0) {
+        console.warn('[IntentClassifier] 날짜 범위 경고:', validation.warnings)
+      }
 
-    // 이미 정규화된 경우
+      // 타입 매핑
+      const typeMap: Record<string, 'absolute' | 'relative' | 'month' | 'year' | 'quarter'> = {
+        'absolute': 'absolute',
+        'relative': 'relative'
+      }
+
+      return {
+        start: parsed.start,
+        end: parsed.end,
+        type: typeMap[parsed.type] || 'relative'
+      }
+    }
+
+    // 이미 정규화된 경우 (LLM이 직접 날짜를 제공한 경우)
     if (dateRange.start && dateRange.end && dateRange.start.match(/^\d{4}-\d{2}-\d{2}$/)) {
       // 타입이 이미 올바른 경우 그대로 반환, 아니면 기본값 설정
       if (dateRange.type && ['absolute', 'relative', 'month', 'year', 'quarter'].includes(dateRange.type)) {
@@ -279,41 +322,10 @@ ${getSchemaSummaryForPrompt()}
       }
     }
 
-    // 상대적 날짜 파싱
-    const lowerQuery = query.toLowerCase()
-
-    if (lowerQuery.includes('최근') || lowerQuery.includes('recent')) {
-      const daysMatch = query.match(/(\d+)\s*(일|days?)/i)
-      const days = daysMatch ? parseInt(daysMatch[1]) : 30
-      const startDate = new Date(today)
-      startDate.setDate(startDate.getDate() - days)
-      startDate.setHours(0, 0, 0, 0)
-
-      return {
-        start: startDate.toISOString().split('T')[0],
-        end: endDate.toISOString().split('T')[0],
-        type: 'relative' as const,
-      }
-    }
-
-    // 월 파싱
-    const monthMatch = query.match(/(\d{4})\s*년\s*(\d{1,2})\s*월|(\d{4})\/(\d{1,2})/i)
-    if (monthMatch) {
-      const year = parseInt(monthMatch[1] || monthMatch[3])
-      const month = parseInt(monthMatch[2] || monthMatch[4]) - 1
-      const startDate = new Date(year, month, 1)
-      startDate.setHours(0, 0, 0, 0)
-      const endDateForMonth = new Date(year, month + 1, 0)
-      endDateForMonth.setHours(23, 59, 59, 999)
-
-      return {
-        start: startDate.toISOString().split('T')[0],
-        end: endDateForMonth.toISOString().split('T')[0],
-        type: 'month' as const,
-      }
-    }
-
     // 기본값: 최근 30일
+    const today = new Date()
+    const endDate = new Date(today)
+    endDate.setHours(23, 59, 59, 999)
     const startDate = new Date(today)
     startDate.setDate(startDate.getDate() - 30)
     startDate.setHours(0, 0, 0, 0)
