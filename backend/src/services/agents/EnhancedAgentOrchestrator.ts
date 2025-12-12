@@ -61,6 +61,7 @@ export interface OrchestratedResult {
   agentsUsed: string[]
   analysisInsights?: any[]
   executionTime?: number
+  confidence?: number
 }
 
 // ==================== Enhanced Agent Orchestrator ====================

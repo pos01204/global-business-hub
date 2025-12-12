@@ -9,6 +9,8 @@ import OpenAI from 'openai'
 import { BusinessHealthScore, BusinessInsight, EnhancedBriefingInput, BriefingInput } from './types'
 import { CausalInferenceEngine, CausalAnalysis } from './CausalInferenceEngine'
 
+// BriefingInput은 types.ts로 이동했으므로 여기서는 export 제거
+
 // OpenAI 클라이언트 (환경변수에서 API 키 로드)
 let openaiClient: OpenAI | null = null
 
@@ -38,26 +40,7 @@ export interface AIBriefing {
   usedLLM: boolean
 }
 
-// 브리핑 생성을 위한 입력 데이터
-export interface BriefingInput {
-  period: { start: string; end: string }
-  metrics: {
-    totalGmv: number
-    gmvChange: number
-    orderCount: number
-    orderChange: number
-    aov: number
-    aovChange: number
-    newCustomers: number
-    repeatRate: number
-  }
-  healthScore: BusinessHealthScore
-  insights: BusinessInsight[]
-  anomalies: Array<{ metric: string; description: string }>
-  trends: Array<{ metric: string; direction: string; magnitude: number }>
-  topCountry?: { name: string; share: number }
-  topArtist?: { name: string; revenue: number }
-}
+// BriefingInput은 types.ts로 이동됨
 
 /**
  * AI 브리핑 생성기 클래스
@@ -277,10 +260,10 @@ ${Object.keys(businessContext.serviceLaunch).length > 0 ? `- 서비스 런칭: $
       statisticalContext
     } = input
 
-    const criticalInsights = insights.filter(i => i.type === 'critical')
-    const warningInsights = insights.filter(i => i.type === 'warning')
-    const opportunityInsights = insights.filter(i => i.type === 'opportunity')
-    const significantInsights = insights.filter(i => 
+    const criticalInsights = insights.filter((i: BusinessInsight) => i.type === 'critical')
+    const warningInsights = insights.filter((i: BusinessInsight) => i.type === 'warning')
+    const opportunityInsights = insights.filter((i: BusinessInsight) => i.type === 'opportunity')
+    const significantInsights = insights.filter((i: BusinessInsight) => 
       i.scores?.statisticalSignificance && i.scores.statisticalSignificance >= 70
     )
 
@@ -422,9 +405,9 @@ ${topArtist ? `- 최고 매출 작가: ${topArtist.name}` : ''}
 - 기회 요인: ${opportunityInsights.length}개
 - 통계적으로 유의한 인사이트: ${significantInsights.length}개
 
-${anomalies.length > 0 ? `## 이상 징후\n${anomalies.slice(0, 3).map(a => `- ${a.metric}: ${a.description}`).join('\n')}` : ''}
+${anomalies.length > 0 ? `## 이상 징후\n${anomalies.slice(0, 3).map((a: { metric: string; description: string }) => `- ${a.metric}: ${a.description}`).join('\n')}` : ''}
 
-${trends.length > 0 ? `## 주요 트렌드\n${trends.slice(0, 3).map(t => `- ${t.metric}: ${t.direction} (${t.magnitude > 0 ? '+' : ''}${t.magnitude.toFixed(1)}%)`).join('\n')}` : ''}
+${trends.length > 0 ? `## 주요 트렌드\n${trends.slice(0, 3).map((t: { metric: string; direction: string; magnitude: number }) => `- ${t.metric}: ${t.direction} (${t.magnitude > 0 ? '+' : ''}${t.magnitude.toFixed(1)}%)`).join('\n')}` : ''}
 
 ${enhancedGuidelines}
 
@@ -459,12 +442,12 @@ ${this.getFewShotExamples()}
   private buildExecutiveSummaryPrompt(input: BriefingInput): string {
     const { period, metrics, healthScore, insights, anomalies, trends, topCountry, topArtist } = input
 
-    const criticalInsights = insights.filter(i => i.type === 'critical')
-    const warningInsights = insights.filter(i => i.type === 'warning')
-    const opportunityInsights = insights.filter(i => i.type === 'opportunity')
+    const criticalInsights = insights.filter((i: BusinessInsight) => i.type === 'critical')
+    const warningInsights = insights.filter((i: BusinessInsight) => i.type === 'warning')
+    const opportunityInsights = insights.filter((i: BusinessInsight) => i.type === 'opportunity')
 
     // v4.1: 통계적 유의성 정보 포함
-    const significantInsights = insights.filter(i => 
+    const significantInsights = insights.filter((i: BusinessInsight) => 
       i.scores?.statisticalSignificance && i.scores.statisticalSignificance >= 70
     )
 
@@ -489,14 +472,14 @@ ${topArtist ? `- 최고 매출 작가: ${topArtist.name}` : ''}
 - 운영: ${healthScore.dimensions.operations.score}/100 (${healthScore.dimensions.operations.trend})
 
 ## 발견된 이슈 (통계적 검증 포함)
-- 긴급 이슈: ${criticalInsights.length}개 (통계적으로 유의한 항목: ${criticalInsights.filter(i => i.scores?.statisticalSignificance && i.scores.statisticalSignificance >= 70).length}개)
+- 긴급 이슈: ${criticalInsights.length}개 (통계적으로 유의한 항목: ${criticalInsights.filter((i: BusinessInsight) => i.scores?.statisticalSignificance && i.scores.statisticalSignificance >= 70).length}개)
 - 주의 사항: ${warningInsights.length}개
 - 기회 요인: ${opportunityInsights.length}개
 - 통계적으로 유의한 인사이트: ${significantInsights.length}개
 
-${anomalies.length > 0 ? `## 이상 징후\n${anomalies.slice(0, 3).map(a => `- ${a.metric}: ${a.description}`).join('\n')}` : ''}
+${anomalies.length > 0 ? `## 이상 징후\n${anomalies.slice(0, 3).map((a: { metric: string; description: string }) => `- ${a.metric}: ${a.description}`).join('\n')}` : ''}
 
-${trends.length > 0 ? `## 주요 트렌드\n${trends.slice(0, 3).map(t => `- ${t.metric}: ${t.direction} (${t.magnitude > 0 ? '+' : ''}${t.magnitude.toFixed(1)}%)`).join('\n')}` : ''}
+${trends.length > 0 ? `## 주요 트렌드\n${trends.slice(0, 3).map((t: { metric: string; direction: string; magnitude: number }) => `- ${t.metric}: ${t.direction} (${t.magnitude > 0 ? '+' : ''}${t.magnitude.toFixed(1)}%)`).join('\n')}` : ''}
 
 ## 작성 지침
 1. 첫 문장에서 전체 비즈니스 상태를 한 줄로 요약
@@ -683,13 +666,13 @@ ${insight.description}
 
     // 즉시 조치 항목
     const immediateActions: string[] = []
-    const criticalInsights = insights.filter(i => i.type === 'critical')
-    const warningInsights = insights.filter(i => i.type === 'warning')
+    const criticalInsights = insights.filter((i: BusinessInsight) => i.type === 'critical')
+    const warningInsights = insights.filter((i: BusinessInsight) => i.type === 'warning')
 
-    criticalInsights.slice(0, 2).forEach(i => {
+    criticalInsights.slice(0, 2).forEach((i: BusinessInsight) => {
       immediateActions.push(`🚨 ${i.title}: ${i.recommendation || i.description}`)
     })
-    warningInsights.slice(0, 2).forEach(i => {
+    warningInsights.slice(0, 2).forEach((i: BusinessInsight) => {
       immediateActions.push(`⚠️ ${i.title}`)
     })
 
@@ -699,9 +682,9 @@ ${insight.description}
 
     // 기회 항목
     const opportunities: string[] = []
-    const opportunityInsights = insights.filter(i => i.type === 'opportunity')
+    const opportunityInsights = insights.filter((i: BusinessInsight) => i.type === 'opportunity')
     
-    opportunityInsights.slice(0, 3).forEach(i => {
+    opportunityInsights.slice(0, 3).forEach((i: BusinessInsight) => {
       opportunities.push(`💡 ${i.title}`)
     })
 
@@ -726,7 +709,7 @@ ${insight.description}
       risks.push('작가 포트폴리오 리스크 - 다각화 전략 필요')
     }
 
-    criticalInsights.forEach(i => {
+    criticalInsights.forEach((i: BusinessInsight) => {
       risks.push(i.description)
     })
 

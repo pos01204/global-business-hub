@@ -196,7 +196,7 @@ export class BusinessBrainAgent extends BaseAgent {
       const previousAov = previousOrders > 0 ? previousGmv / previousOrders : 0
 
       // 고객 분석
-      const currentCustomers = new Set(orderData.map((row: any) => row.user_id).filter(Boolean))
+      const currentCustomers = new Set<string>(orderData.map((row: any) => String(row.user_id)).filter(Boolean))
       const previousCustomers = new Set(previousData.map((row: any) => row.user_id).filter(Boolean))
       const repeatCustomers = [...currentCustomers].filter(c => previousCustomers.has(c))
       const repeatRate = currentCustomers.size > 0 ? (repeatCustomers.length / currentCustomers.size) * 100 : 0

@@ -71,6 +71,27 @@ export interface InsightAction {
   dataKey?: string
 }
 
+// ==================== 브리핑 입력 ====================
+export interface BriefingInput {
+  period: { start: string; end: string }
+  metrics: {
+    totalGmv: number
+    gmvChange: number
+    orderCount: number
+    orderChange: number
+    aov: number
+    aovChange: number
+    newCustomers: number
+    repeatRate: number
+  }
+  healthScore: BusinessHealthScore
+  insights: BusinessInsight[]
+  anomalies: Array<{ metric: string; description: string }>
+  trends: Array<{ metric: string; direction: string; magnitude: number }>
+  topCountry?: { name: string; share: number }
+  topArtist?: { name: string; revenue: number }
+}
+
 // ==================== 향상된 브리핑 입력 (v4.2) ====================
 export interface SeasonalPattern {
   month: number
