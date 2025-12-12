@@ -4,7 +4,7 @@
  */
 
 import { DataProcessor } from './DataProcessor'
-import { GoogleSheetsService } from '../googleSheetsService'
+import GoogleSheetsService from '../googleSheets'
 import { sheetsConfig } from '../../config/sheets'
 
 export interface SimulationScenario {

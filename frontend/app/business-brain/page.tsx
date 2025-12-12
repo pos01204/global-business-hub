@@ -520,8 +520,8 @@ export default function BusinessBrainPage() {
 
   const isLoading = briefingLoading || healthLoading
 
-  // 탭을 카테고리별로 그룹화 (v4.1 재구성)
-  const tabGroups = [
+  // 탭을 카테고리별로 그룹화 (v4.1 재구성) - useMemo로 최적화
+  const tabGroups = useMemo(() => [
     {
       name: '개요',
       description: '비즈니스 현황 한눈에 보기',
@@ -574,10 +574,10 @@ export default function BusinessBrainPage() {
         { id: 'multiperiod', label: '기간별 추이', icon: '📅', description: '다중 기간 비교 분석' },
       ]
     },
-        {
-          name: '액션',
-          description: '우선순위별 실행 계획',
-          tabs: [
+    {
+      name: '액션',
+      description: '우선순위별 실행 계획',
+      tabs: [
         { id: 'action-proposals', label: '액션 제안', icon: '📋', description: '우선순위별 액션 및 실행 계획' },
         { id: 'what-if', label: 'What-if 시뮬레이션', icon: '🔮', description: '시나리오 기반 예측 및 비교' },
         { id: 'report', label: '리포트 생성', icon: '📄', description: '분석 결과 리포트 생성' },

@@ -2161,6 +2161,7 @@ export class BusinessBrainAgent extends BaseAgent {
       owner?: string
       status: 'pending' | 'in_progress' | 'completed'
       relatedInsights: string[]
+      recommendedActions?: string[]
     }>
     impactSimulation?: {
       scenarios: Array<{

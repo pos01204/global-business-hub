@@ -67,7 +67,7 @@ export class ReportGenerator {
       const briefing = await this.agent.generateExecutiveBriefing(options.period)
       sections.push({
         title: '경영 브리핑',
-        content: briefing.summary || briefing.executiveSummary || '',
+        content: briefing.summary || '',
       })
     }
 
@@ -134,7 +134,7 @@ export class ReportGenerator {
     }
 
     // 요약 생성
-    const comprehensive = await this.agent.getComprehensiveAnalysis(options.period)
+    const comprehensive = await this.agent.runComprehensiveAnalysis(options.period)
     const summary = {
       totalGmv: comprehensive.metrics?.totalGmv || 0,
       totalOrders: comprehensive.metrics?.orderCount || 0,
