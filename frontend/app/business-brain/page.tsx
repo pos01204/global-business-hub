@@ -412,12 +412,28 @@ export default function BusinessBrainPage() {
     enabled: activeTab === 'forecast',
   })
 
-  // 종합 인사이트
+  // 종합 인사이트 (overview 탭에 통합)
   const { data: comprehensiveData, isLoading: comprehensiveLoading } = useQuery({
     queryKey: ['business-brain-comprehensive', selectedPeriod],
     queryFn: () => businessBrainApi.getComprehensiveAnalysis(selectedPeriod),
     staleTime: 5 * 60 * 1000,
-    enabled: activeTab === 'comprehensive',
+    enabled: activeTab === 'overview',
+  })
+
+  // v4.1: 신규 유저 유치 분석
+  const { data: newUserData, isLoading: newUserLoading } = useQuery({
+    queryKey: ['business-brain-new-users', selectedPeriod],
+    queryFn: () => businessBrainApi.getNewUserAcquisition?.(selectedPeriod === '7d' ? '90d' : selectedPeriod as any) || Promise.resolve(null),
+    staleTime: 5 * 60 * 1000,
+    enabled: activeTab === 'new-users',
+  })
+
+  // v4.1: 재구매율 향상 분석
+  const { data: repurchaseData, isLoading: repurchaseLoading } = useQuery({
+    queryKey: ['business-brain-repurchase', selectedPeriod],
+    queryFn: () => businessBrainApi.getRepurchaseAnalysis?.(selectedPeriod === '7d' ? '90d' : selectedPeriod as any) || Promise.resolve(null),
+    staleTime: 5 * 60 * 1000,
+    enabled: activeTab === 'repurchase',
   })
 
   // 다중 기간 트렌드
@@ -453,35 +469,57 @@ export default function BusinessBrainPage() {
 
   const isLoading = briefingLoading || healthLoading
 
-  // 탭을 카테고리별로 그룹화
+  // 탭을 카테고리별로 그룹화 (v4.1 재구성)
   const tabGroups = [
     {
-      name: '핵심 분석',
+      name: '개요',
+      description: '비즈니스 현황 한눈에 보기',
       tabs: [
-        { id: 'overview', label: '현황 평가', icon: '📊' },
-        { id: 'comprehensive', label: '종합 인사이트', icon: '🎯' },
-        { id: 'forecast', label: '매출 예측', icon: '🔮' },
+        { id: 'overview', label: '대시보드', icon: '📊', description: '현황 평가 + 종합 인사이트' },
       ]
     },
     {
-      name: '심층 분석',
+      name: '고객 분석',
+      description: '고객 세분화 및 이탈 예측',
       tabs: [
-        { id: 'trends', label: '트렌드', icon: '📈' },
-        { id: 'multiperiod', label: '기간별 추이', icon: '📅' },
-        { id: 'risks', label: '리스크', icon: '⚠️' },
-        { id: 'insights', label: '기회 발견', icon: '💡' },
+        { id: 'rfm', label: 'RFM 세분화', icon: '👥', description: '고객 세그먼트 분석' },
+        { id: 'churn', label: '이탈 예측', icon: '🔮', description: '이탈 위험 고객 분석' },
+        { id: 'new-users', label: '신규 유저 유치', icon: '🆕', description: '신규 유저 획득 분석' },
+        { id: 'repurchase', label: '재구매율 향상', icon: '🔄', description: '재구매 전환 분석' },
+      ]
+    },
+    {
+      name: '작가 분석',
+      description: '작가 성과 및 건강도',
+      tabs: [
+        { id: 'artist-health', label: '작가 건강도', icon: '🎨', description: '작가별 건강도 점수' },
+        { id: 'pareto', label: '파레토 분석', icon: '📊', description: '작가 집중도 분석' },
+      ]
+    },
+    {
+      name: '매출 분석',
+      description: '매출 트렌드 및 예측',
+      tabs: [
+        { id: 'trends', label: '트렌드', icon: '📈', description: '장기 트렌드 분석' },
+        { id: 'forecast', label: '매출 예측', icon: '🔮', description: '30일 매출 예측' },
+        { id: 'cohort', label: '코호트 분석', icon: '📈', description: '월별 코호트 및 LTV' },
+      ]
+    },
+    {
+      name: '인사이트',
+      description: 'AI 기반 인사이트 및 전략',
+      tabs: [
+        { id: 'insights', label: '기회 발견', icon: '💡', description: '자동 발견된 기회' },
+        { id: 'risks', label: '리스크', icon: '⚠️', description: '리스크 감지 및 대응' },
+        { id: 'strategy', label: '전략 제안', icon: '🎯', description: 'AI 전략 제안' },
       ]
     },
     {
       name: '고급 분석',
+      description: '심층 분석 도구',
       tabs: [
-        { id: 'rfm', label: 'RFM', icon: '👥' },
-        { id: 'churn', label: '이탈 예측', icon: '🔮' },
-        { id: 'artist-health', label: '작가 건강도', icon: '🎨' },
-        { id: 'pareto', label: '파레토', icon: '📊' },
-        { id: 'cohort', label: '코호트', icon: '📈' },
-        { id: 'anomaly', label: '이상 탐지', icon: '🔍' },
-        { id: 'strategy', label: '전략 제안', icon: '🎯' },
+        { id: 'anomaly', label: '이상 탐지', icon: '🔍', description: '이상치 자동 감지' },
+        { id: 'multiperiod', label: '기간별 추이', icon: '📅', description: '다중 기간 비교 분석' },
       ]
     },
   ]
@@ -490,7 +528,7 @@ export default function BusinessBrainPage() {
   const tabItems = tabGroups.flatMap(g => g.tabs.map(t => ({ id: t.id, label: `${t.icon} ${t.label}` })))
 
   // 기간 선택이 필요한 탭들
-  const periodEnabledTabs = ['overview', 'comprehensive', 'rfm', 'pareto', 'cohort', 'anomaly', 'forecast', 'trends', 'churn', 'artist-health']
+  const periodEnabledTabs = ['overview', 'rfm', 'pareto', 'cohort', 'anomaly', 'forecast', 'trends', 'churn', 'artist-health', 'new-users', 'repurchase']
 
   return (
     <div className="p-6 space-y-6 min-h-screen">
@@ -562,28 +600,37 @@ export default function BusinessBrainPage() {
         </FadeIn>
       )}
 
-      {/* 탭 그룹 네비게이션 */}
+      {/* 탭 그룹 네비게이션 (v4.1 개선) */}
       <FadeIn delay={150}>
-        <div className="bg-white dark:bg-slate-900 rounded-xl shadow-sm border border-slate-200 dark:border-slate-700 p-4">
-          <div className="flex flex-wrap gap-6">
+        <div className="bg-white dark:bg-slate-900 rounded-xl shadow-sm border border-slate-200 dark:border-slate-700 p-6">
+          <div className="space-y-6">
             {tabGroups.map((group, groupIdx) => (
-              <div key={group.name} className="flex-1 min-w-[200px]">
-                <div className="text-xs font-medium text-slate-400 dark:text-slate-500 mb-2 uppercase tracking-wider">
-                  {group.name}
+              <div key={group.name}>
+                <div className="flex items-center gap-2 mb-3">
+                  <h3 className="text-sm font-semibold text-slate-700 dark:text-slate-300">
+                    {group.name}
+                  </h3>
+                  <span className="text-xs text-slate-400 dark:text-slate-500">
+                    {group.description}
+                  </span>
                 </div>
                 <div className="flex flex-wrap gap-2">
                   {group.tabs.map((tab) => (
                     <button
                       key={tab.id}
                       onClick={() => handleTabChange(tab.id)}
-                      className={`px-3 py-2 rounded-lg text-sm font-medium transition-all duration-200 flex items-center gap-1.5 ${
+                      className={`group relative px-4 py-2.5 rounded-lg text-sm font-medium transition-all duration-200 flex items-center gap-2 ${
                         activeTab === tab.id
-                          ? 'bg-gradient-to-r from-indigo-500 to-purple-500 text-white shadow-md shadow-indigo-500/25'
-                          : 'bg-slate-100 dark:bg-slate-800 text-slate-600 dark:text-slate-400 hover:bg-slate-200 dark:hover:bg-slate-700'
+                          ? 'bg-gradient-to-r from-indigo-500 to-purple-500 text-white shadow-md shadow-indigo-500/25 scale-105'
+                          : 'bg-slate-100 dark:bg-slate-800 text-slate-600 dark:text-slate-400 hover:bg-slate-200 dark:hover:bg-slate-700 hover:scale-102'
                       }`}
+                      title={tab.description}
                     >
-                      <span>{tab.icon}</span>
+                      <span className="text-base">{tab.icon}</span>
                       <span>{tab.label}</span>
+                      {activeTab === tab.id && (
+                        <span className="absolute -top-1 -right-1 w-2 h-2 bg-white rounded-full"></span>
+                      )}
                     </button>
                   ))}
                 </div>
@@ -609,9 +656,15 @@ export default function BusinessBrainPage() {
         </FadeIn>
       ) : (
         <>
-          {/* 현황 평가 탭 */}
+          {/* 대시보드 탭 (현황 평가 + 종합 인사이트 통합) */}
           {activeTab === 'overview' && (
-            <OverviewTab briefing={briefing} healthScore={healthScore} period={selectedPeriod} />
+            <OverviewTab 
+              briefing={briefing} 
+              healthScore={healthScore} 
+              comprehensiveData={comprehensiveData}
+              comprehensiveLoading={comprehensiveLoading}
+              period={selectedPeriod} 
+            />
           )}
 
           {/* 트렌드 분석 탭 */}
@@ -654,9 +707,14 @@ export default function BusinessBrainPage() {
             <AnomalyTab data={anomalyData} isLoading={anomalyLoading} />
           )}
 
-          {/* 종합 인사이트 탭 */}
-          {activeTab === 'comprehensive' && (
-            <ComprehensiveTab data={comprehensiveData} isLoading={comprehensiveLoading} period={selectedPeriod} />
+          {/* v4.1: 신규 유저 유치 탭 */}
+          {activeTab === 'new-users' && (
+            <NewUserAcquisitionTab data={newUserData} isLoading={newUserLoading} period={selectedPeriod} />
+          )}
+
+          {/* v4.1: 재구매율 향상 탭 */}
+          {activeTab === 'repurchase' && (
+            <RepurchaseAnalysisTab data={repurchaseData} isLoading={repurchaseLoading} period={selectedPeriod} />
           )}
 
           {/* 기간별 추이 탭 */}
@@ -697,7 +755,19 @@ function getPeriodLabel(period: string): string {
 }
 
 // 현황 평가 탭
-function OverviewTab({ briefing, healthScore, period }: { briefing: any; healthScore: any; period: string }) {
+function OverviewTab({ 
+  briefing, 
+  healthScore, 
+  comprehensiveData, 
+  comprehensiveLoading,
+  period 
+}: { 
+  briefing: any
+  healthScore: any
+  comprehensiveData?: any
+  comprehensiveLoading?: boolean
+  period: string 
+}) {
   if (!briefing && !healthScore) {
     return (
       <EmptyState 
@@ -854,6 +924,52 @@ function OverviewTab({ briefing, healthScore, period }: { briefing: any; healthS
                 </FadeIn>
               ))}
             </div>
+          </Card>
+        </FadeIn>
+      )}
+
+      {/* 종합 인사이트 (통합) */}
+      {comprehensiveData && !comprehensiveLoading && (
+        <FadeIn delay={400}>
+          <Card className="p-6">
+            <div className="flex items-center justify-between mb-6">
+              <h2 className="text-lg font-semibold text-slate-800 dark:text-slate-100 flex items-center gap-2">
+                <span className="text-2xl">🎯</span>
+                종합 인사이트
+              </h2>
+            </div>
+            
+            {/* 요약 */}
+            {comprehensiveData.summary && (
+              <div className="mb-6 p-4 bg-gradient-to-br from-indigo-50 to-purple-50 dark:from-indigo-900/20 dark:to-purple-900/20 rounded-xl border border-indigo-100 dark:border-indigo-800/30">
+                <p className="text-slate-700 dark:text-slate-300 leading-relaxed">
+                  {comprehensiveData.summary}
+                </p>
+              </div>
+            )}
+
+            {/* 주요 인사이트 */}
+            {comprehensiveData.topInsights && comprehensiveData.topInsights.length > 0 && (
+              <div className="grid md:grid-cols-2 gap-4">
+                {comprehensiveData.topInsights.slice(0, 4).map((insight: any, idx: number) => (
+                  <FadeIn key={idx} delay={450 + idx * 50}>
+                    <div className="p-4 bg-slate-50 dark:bg-slate-800 rounded-xl border border-slate-200 dark:border-slate-700">
+                      <div className="flex items-start gap-3">
+                        <span className="text-xl">{insight.icon || '💡'}</span>
+                        <div className="flex-1">
+                          <h3 className="font-medium text-slate-800 dark:text-slate-100 mb-1">
+                            {insight.title}
+                          </h3>
+                          <p className="text-sm text-slate-600 dark:text-slate-400">
+                            {insight.description}
+                          </p>
+                        </div>
+                      </div>
+                    </div>
+                  </FadeIn>
+                ))}
+              </div>
+            )}
           </Card>
         </FadeIn>
       )}
@@ -1387,6 +1503,11 @@ function ChurnPredictionTab({ data, isLoading, period }: { data: any; isLoading:
       bg: 'bg-green-50 dark:bg-green-900/20', 
       text: 'text-green-700 dark:text-green-300',
       border: 'border-l-green-500'
+    },
+    churned: {
+      bg: 'bg-slate-100 dark:bg-slate-800',
+      text: 'text-slate-600 dark:text-slate-400',
+      border: 'border-l-slate-400'
     }
   }
 
@@ -1394,8 +1515,13 @@ function ChurnPredictionTab({ data, isLoading, period }: { data: any; isLoading:
     critical: '🚨 위험',
     high: '⚠️ 높음',
     medium: '📊 중간',
-    low: '✅ 낮음'
+    low: '✅ 낮음',
+    churned: '💀 이탈 완료'
   }
+
+  // 이탈 위험 고객과 이탈 완료 고객 분리
+  const atRiskPredictions = predictions.filter((p: any) => p.churnStatus === 'at_risk')
+  const churnedPredictions = predictions.filter((p: any) => p.churnStatus === 'churned')
 
   return (
     <div className="space-y-6">
@@ -1418,7 +1544,7 @@ function ChurnPredictionTab({ data, isLoading, period }: { data: any; isLoading:
           </div>
 
           {/* 요약 통계 */}
-          <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
+          <div className="grid grid-cols-2 md:grid-cols-5 gap-4">
             <div className="p-4 bg-slate-50 dark:bg-slate-800 rounded-xl text-center">
               <div className="text-2xl font-bold text-slate-800 dark:text-slate-100">
                 {summary.totalCustomers.toLocaleString()}
@@ -1430,6 +1556,12 @@ function ChurnPredictionTab({ data, isLoading, period }: { data: any; isLoading:
                 {summary.atRiskCustomers.toLocaleString()}
               </div>
               <div className="text-xs text-red-600 dark:text-red-400 mt-1">이탈 위험 고객</div>
+            </div>
+            <div className="p-4 bg-slate-100 dark:bg-slate-700 rounded-xl text-center">
+              <div className="text-2xl font-bold text-slate-600 dark:text-slate-400">
+                {(summary.churnedCustomers || 0).toLocaleString()}
+              </div>
+              <div className="text-xs text-slate-600 dark:text-slate-400 mt-1">이탈 완료 고객</div>
             </div>
             <div className="p-4 bg-rose-50 dark:bg-rose-900/20 rounded-xl text-center">
               <div className="text-2xl font-bold text-rose-600 dark:text-rose-400">
@@ -1448,12 +1580,13 @@ function ChurnPredictionTab({ data, isLoading, period }: { data: any; isLoading:
           {/* 리스크 레벨별 분포 */}
           <div className="mt-6">
             <h3 className="text-sm font-medium text-slate-700 dark:text-slate-300 mb-3">리스크 레벨 분포</h3>
-            <div className="flex gap-2">
+            <div className="flex flex-wrap gap-2">
               {[
                 { level: 'critical', count: summary.criticalCount, color: 'bg-red-500' },
                 { level: 'high', count: summary.highCount, color: 'bg-orange-500' },
                 { level: 'medium', count: summary.mediumCount, color: 'bg-amber-500' },
-                { level: 'low', count: summary.lowCount, color: 'bg-green-500' }
+                { level: 'low', count: summary.lowCount, color: 'bg-green-500' },
+                ...(summary.churnedCount > 0 ? [{ level: 'churned', count: summary.churnedCount, color: 'bg-slate-500' }] : [])
               ].map(item => (
                 <div key={item.level} className="flex items-center gap-2 px-3 py-1.5 bg-slate-100 dark:bg-slate-700 rounded-lg">
                   <div className={`w-3 h-3 ${item.color} rounded-full`} />
@@ -1467,18 +1600,19 @@ function ChurnPredictionTab({ data, isLoading, period }: { data: any; isLoading:
         </Card>
       </FadeIn>
 
-      {/* 위험 고객 목록 */}
-      <FadeIn delay={100}>
-        <Card className="p-6">
-          <div className="flex items-center justify-between mb-4">
-            <h3 className="text-lg font-semibold text-slate-800 dark:text-slate-100">
-              🚨 이탈 위험 고객 (상위 {Math.min(predictions.length, 20)}명)
-            </h3>
-          </div>
+      {/* 이탈 위험 고객 목록 */}
+      {atRiskPredictions.length > 0 && (
+        <FadeIn delay={100}>
+          <Card className="p-6">
+            <div className="flex items-center justify-between mb-4">
+              <h3 className="text-lg font-semibold text-slate-800 dark:text-slate-100">
+                🚨 이탈 위험 고객 (상위 {Math.min(atRiskPredictions.length, 20)}명)
+              </h3>
+            </div>
 
-          <div className="space-y-3">
-            {predictions.slice(0, 20).map((prediction: any, idx: number) => {
-              const colors = riskLevelColors[prediction.riskLevel] || riskLevelColors.low
+            <div className="space-y-3">
+              {atRiskPredictions.slice(0, 20).map((prediction: any, idx: number) => {
+                const colors = riskLevelColors[prediction.riskLevel] || riskLevelColors.low
               
               return (
                 <FadeIn key={prediction.customerId} delay={idx * 30}>
@@ -1503,6 +1637,7 @@ function ChurnPredictionTab({ data, isLoading, period }: { data: any; isLoading:
                         <div className="flex flex-wrap gap-4 text-sm text-slate-600 dark:text-slate-400 mb-2">
                           <span>이탈 확률: <strong className={colors.text}>{prediction.churnProbability}%</strong></span>
                           <span>예상 이탈까지: <strong>{prediction.daysUntilChurn}일</strong></span>
+                          <span>미구매 경과: <strong>{prediction.daysSinceLastOrder || 0}일</strong></span>
                           <span>마지막 주문: {prediction.lastOrderDate}</span>
                           <span>총 주문: {prediction.totalOrders}건</span>
                           <span>총 구매: ${prediction.lifetimeValue?.historical?.toFixed(0) || 0}</span>
@@ -1585,6 +1720,71 @@ function ChurnPredictionTab({ data, isLoading, period }: { data: any; isLoading:
           </div>
         </Card>
       </FadeIn>
+      )}
+
+      {/* 이탈 완료 고객 목록 */}
+      {churnedPredictions.length > 0 && (
+        <FadeIn delay={200}>
+          <Card className="p-6">
+            <div className="flex items-center justify-between mb-4">
+              <h3 className="text-lg font-semibold text-slate-800 dark:text-slate-100">
+                💀 이탈 완료 고객 (6개월 이상 미구매, {Math.min(churnedPredictions.length, 20)}명)
+              </h3>
+              <span className="text-xs text-slate-500">
+                총 {summary.churnedCount || 0}명 / 손실 가치: ${(summary.totalValueChurned || 0).toLocaleString()}
+              </span>
+            </div>
+
+            <div className="space-y-3">
+              {churnedPredictions.slice(0, 20).map((prediction: any, idx: number) => {
+                const colors = riskLevelColors.churned
+                
+                return (
+                  <FadeIn key={prediction.customerId} delay={idx * 30}>
+                    <div className={`p-4 rounded-xl border-l-4 ${colors.bg} ${colors.border} opacity-75`}>
+                      <div className="flex items-start justify-between gap-4">
+                        <div className="flex-1 min-w-0">
+                          <div className="flex items-center gap-2 mb-2">
+                            <span className="font-medium text-slate-700 dark:text-slate-300">
+                              {prediction.customerName || `고객 #${prediction.customerId}`}
+                            </span>
+                            <Badge variant="default" className="bg-slate-500">
+                              {riskLevelLabels.churned}
+                            </Badge>
+                            <span className="text-sm text-slate-500">
+                              {prediction.currentSegment}
+                            </span>
+                          </div>
+                          
+                          <div className="flex flex-wrap gap-4 text-sm text-slate-600 dark:text-slate-400 mb-2">
+                            <span>미구매 경과: <strong>{prediction.daysSinceLastOrder || 0}일</strong></span>
+                            <span>마지막 주문: {prediction.lastOrderDate}</span>
+                            <span>총 주문: {prediction.totalOrders}건</span>
+                            <span>총 구매: ${prediction.lifetimeValue?.historical?.toFixed(0) || 0}</span>
+                          </div>
+                          
+                          {prediction.riskFactors && prediction.riskFactors.length > 0 && (
+                            <div className="flex flex-wrap gap-2">
+                              {prediction.riskFactors.map((factor: any, fIdx: number) => (
+                                <span 
+                                  key={fIdx}
+                                  className="text-xs px-2 py-1 bg-white/50 dark:bg-slate-700/50 rounded text-slate-600 dark:text-slate-400"
+                                >
+                                  {factor.factor}: {factor.currentValue}
+                                </span>
+                              ))}
+                            </div>
+                          )}
+                        </div>
+                      </div>
+                    </div>
+                  </FadeIn>
+                )
+              })}
+            </div>
+          </Card>
+        </FadeIn>
+      )}
     </div>
   )
 }
@@ -3296,6 +3496,164 @@ function ForecastTab({ data, isLoading }: { data: any; isLoading: boolean }) {
           </p>
         </Card>
       )}
+    </div>
+  )
+}
+
+// ==================== v4.1: 신규 유저 유치 탭 ====================
+
+function NewUserAcquisitionTab({ data, isLoading, period }: { data: any; isLoading: boolean; period: string }) {
+  if (isLoading) {
+    return (
+      <FadeIn>
+        <div className="flex flex-col items-center justify-center h-64 gap-4">
+          <div className="relative">
+            <div className="w-16 h-16 border-4 border-blue-200 dark:border-blue-800 rounded-full animate-spin border-t-blue-600" />
+            <div className="absolute inset-0 flex items-center justify-center">
+              <span className="text-2xl">🆕</span>
+            </div>
+          </div>
+          <p className="text-sm text-slate-500 dark:text-slate-400 animate-pulse">
+            신규 유저 유치 데이터를 분석하고 있습니다...
+          </p>
+        </div>
+      </FadeIn>
+    )
+  }
+
+  if (!data) {
+    return (
+      <EmptyState 
+        icon="🆕" 
+        title="신규 유저 유치 분석 준비 중" 
+        description="신규 유저 획득 채널 분석 및 전환율 최적화 기능이 곧 제공됩니다."
+      />
+    )
+  }
+
+  return (
+    <div className="space-y-6">
+      <FadeIn>
+        <Card className="p-6">
+          <div className="flex items-center justify-between mb-6">
+            <div className="flex items-center gap-3">
+              <div className="w-10 h-10 bg-gradient-to-br from-blue-500 to-cyan-600 rounded-xl flex items-center justify-center">
+                <span className="text-xl">🆕</span>
+              </div>
+              <div>
+                <h2 className="text-lg font-semibold text-slate-800 dark:text-slate-100">
+                  신규 유저 유치 분석
+                </h2>
+                <p className="text-xs text-slate-500">채널별 성과 및 전환율 분석</p>
+              </div>
+            </div>
+          </div>
+
+          <div className="grid md:grid-cols-3 gap-4 mb-6">
+            <div className="p-4 bg-blue-50 dark:bg-blue-900/20 rounded-xl text-center">
+              <div className="text-2xl font-bold text-blue-600 dark:text-blue-400">
+                {data?.channels?.reduce((sum: number, c: any) => sum + (c.newUsers || 0), 0) || 0}
+              </div>
+              <div className="text-xs text-blue-600 dark:text-blue-400 mt-1">신규 유저</div>
+            </div>
+            <div className="p-4 bg-green-50 dark:bg-green-900/20 rounded-xl text-center">
+              <div className="text-2xl font-bold text-green-600 dark:text-green-400">
+                {data?.conversionFunnel?.[0]?.conversionRate?.toFixed(1) || 0}%
+              </div>
+              <div className="text-xs text-green-600 dark:text-green-400 mt-1">전환율</div>
+            </div>
+            <div className="p-4 bg-purple-50 dark:bg-purple-900/20 rounded-xl text-center">
+              <div className="text-2xl font-bold text-purple-600 dark:text-purple-400">
+                ${data?.channels?.[0]?.cac?.toFixed(0) || 0}
+              </div>
+              <div className="text-xs text-purple-600 dark:text-purple-400 mt-1">평균 CAC</div>
+            </div>
+          </div>
+
+          <div className="text-center text-sm text-slate-500 dark:text-slate-400 py-8">
+            상세 분석 기능 구현 예정
+          </div>
+        </Card>
+      </FadeIn>
+    </div>
+  )
+}
+
+// ==================== v4.1: 재구매율 향상 탭 ====================
+
+function RepurchaseAnalysisTab({ data, isLoading, period }: { data: any; isLoading: boolean; period: string }) {
+  if (isLoading) {
+    return (
+      <FadeIn>
+        <div className="flex flex-col items-center justify-center h-64 gap-4">
+          <div className="relative">
+            <div className="w-16 h-16 border-4 border-green-200 dark:border-green-800 rounded-full animate-spin border-t-green-600" />
+            <div className="absolute inset-0 flex items-center justify-center">
+              <span className="text-2xl">🔄</span>
+            </div>
+          </div>
+          <p className="text-sm text-slate-500 dark:text-slate-400 animate-pulse">
+            재구매율 데이터를 분석하고 있습니다...
+          </p>
+        </div>
+      </FadeIn>
+    )
+  }
+
+  if (!data) {
+    return (
+      <EmptyState 
+        icon="🔄" 
+        title="재구매율 향상 분석 준비 중" 
+        description="1회 구매 고객의 재구매 전환율 분석 및 향상 전략 기능이 곧 제공됩니다."
+      />
+    )
+  }
+
+  return (
+    <div className="space-y-6">
+      <FadeIn>
+        <Card className="p-6">
+          <div className="flex items-center justify-between mb-6">
+            <div className="flex items-center gap-3">
+              <div className="w-10 h-10 bg-gradient-to-br from-green-500 to-emerald-600 rounded-xl flex items-center justify-center">
+                <span className="text-xl">🔄</span>
+              </div>
+              <div>
+                <h2 className="text-lg font-semibold text-slate-800 dark:text-slate-100">
+                  재구매율 향상 분석
+                </h2>
+                <p className="text-xs text-slate-500">1회 구매 고객 재구매 전환 분석</p>
+              </div>
+            </div>
+          </div>
+
+          <div className="grid md:grid-cols-3 gap-4 mb-6">
+            <div className="p-4 bg-green-50 dark:bg-green-900/20 rounded-xl text-center">
+              <div className="text-2xl font-bold text-green-600 dark:text-green-400">
+                {data?.oneTimeBuyers?.total || 0}
+              </div>
+              <div className="text-xs text-green-600 dark:text-green-400 mt-1">1회 구매 고객</div>
+            </div>
+            <div className="p-4 bg-blue-50 dark:bg-blue-900/20 rounded-xl text-center">
+              <div className="text-2xl font-bold text-blue-600 dark:text-blue-400">
+                {data?.repurchaseConversion?.[0]?.conversionRate?.toFixed(1) || 0}%
+              </div>
+              <div className="text-xs text-blue-600 dark:text-blue-400 mt-1">재구매 전환율</div>
+            </div>
+            <div className="p-4 bg-purple-50 dark:bg-purple-900/20 rounded-xl text-center">
+              <div className="text-2xl font-bold text-purple-600 dark:text-purple-400">
+                {data?.repurchaseConversion?.[0]?.avgDaysToRepurchase?.toFixed(0) || 0}일
+              </div>
+              <div className="text-xs text-purple-600 dark:text-purple-400 mt-1">평균 재구매 일수</div>
+            </div>
+          </div>
+
+          <div className="text-center text-sm text-slate-500 dark:text-slate-400 py-8">
+            상세 분석 기능 구현 예정
+          </div>
+        </Card>
+      </FadeIn>
     </div>
   )
 }

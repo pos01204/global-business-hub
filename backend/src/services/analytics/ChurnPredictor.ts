@@ -21,9 +21,11 @@ export interface ChurnPrediction {
   customerName: string
   currentSegment: string
   
-  churnProbability: number        // 0-100%
-  riskLevel: 'critical' | 'high' | 'medium' | 'low'
-  daysUntilChurn: number          // 예상 이탈까지 남은 일수
+  churnStatus: 'at_risk' | 'churned'  // 이탈 위험 vs 이미 이탈 완료
+  churnProbability: number        // 0-100% (churned인 경우 100)
+  riskLevel: 'critical' | 'high' | 'medium' | 'low' | 'churned'
+  daysSinceLastOrder: number      // 마지막 주문 경과일
+  daysUntilChurn: number          // 예상 이탈까지 남은 일수 (churned인 경우 0)
   
   riskFactors: ChurnRiskFactor[]
   
@@ -46,11 +48,14 @@ export interface ChurnPrediction {
 export interface ChurnPredictionSummary {
   totalCustomers: number
   atRiskCustomers: number
+  churnedCustomers: number        // 이미 이탈 완료 고객 수
   criticalCount: number
   highCount: number
   mediumCount: number
   lowCount: number
+  churnedCount: number            // 이탈 완료 고객 수
   totalValueAtRisk: number
+  totalValueChurned: number       // 이미 이탈한 고객의 LTV
   avgChurnProbability: number
 }
 
@@ -261,6 +266,46 @@ function analyzeRecency(customer: CustomerData): { score: number; factor: ChurnR
  * 이탈 확률 계산 및 예측 생성
  */
 function calculateChurnPrediction(customer: CustomerData): ChurnPrediction {
+  const daysSinceLastOrder = (new Date().getTime() - customer.lastOrderDate.getTime()) / (1000 * 60 * 60 * 24)
+  
+  // 6개월(180일) 이상 미구매 고객은 이미 이탈한 것으로 분류
+  // 새로운 비즈니스 특성상 고객 재구매 주기가 짧으며, 6개월 이상 미구매 시 재활성화 가능성 낮음
+  const CHURNED_THRESHOLD_DAYS = 180
+  
+  if (daysSinceLastOrder >= CHURNED_THRESHOLD_DAYS) {
+    // 이미 이탈 완료 고객
+    return {
+      customerId: customer.customerId,
+      customerName: customer.customerName,
+      currentSegment: determineSegment(customer),
+      churnStatus: 'churned',
+      churnProbability: 100,
+      riskLevel: 'churned',
+      daysSinceLastOrder: Math.round(daysSinceLastOrder),
+      daysUntilChurn: 0,
+      riskFactors: [{
+        factor: '장기 미구매 (이탈 완료)',
+        weight: 100,
+        currentValue: `${Math.round(daysSinceLastOrder)}일 경과`,
+        benchmark: '6개월 이상 미구매 시 이탈로 간주',
+        trend: 'worsening'
+      }],
+      lifetimeValue: {
+        historical: customer.totalSpent,
+        atRisk: customer.totalSpent
+      },
+      recommendedActions: [{
+        action: '이탈 고객 재활성화 캠페인',
+        expectedImpact: '응답률 모니터링 후 조정',
+        priority: 'low'
+      }],
+      lastOrderDate: customer.lastOrderDate.toISOString().split('T')[0],
+      totalOrders: customer.totalOrders,
+      avgOrderValue: customer.avgOrderValue
+    }
+  }
+  
+  // 이탈 위험 고객 분석
   const riskFactors: ChurnRiskFactor[] = []
   let totalScore = 0
   
@@ -298,7 +343,6 @@ function calculateChurnPrediction(customer: CustomerData): ChurnPrediction {
     ? (customer.lastOrderDate.getTime() - customer.firstOrderDate.getTime()) / 
       (customer.orderHistory.length - 1) / (1000 * 60 * 60 * 24)
     : 90
-  const daysSinceLastOrder = (new Date().getTime() - customer.lastOrderDate.getTime()) / (1000 * 60 * 60 * 24)
   const daysUntilChurn = Math.max(0, Math.round(avgInterval * 3 - daysSinceLastOrder))
   
   // 권장 조치 생성
@@ -311,8 +355,10 @@ function calculateChurnPrediction(customer: CustomerData): ChurnPrediction {
     customerId: customer.customerId,
     customerName: customer.customerName,
     currentSegment,
+    churnStatus: 'at_risk',
     churnProbability,
     riskLevel,
+    daysSinceLastOrder: Math.round(daysSinceLastOrder),
     daysUntilChurn,
     riskFactors,
     lifetimeValue: {
@@ -424,10 +470,12 @@ export class ChurnPredictor {
     options: {
       minOrders?: number
       riskLevelFilter?: string[]
+      includeChurned?: boolean  // 이탈 완료 고객 포함 여부 (기본값: false)
     } = {}
   ): Promise<ChurnPredictionResult> {
     const minOrders = options.minOrders || 2
     const riskLevelFilter = options.riskLevelFilter
+    const includeChurned = options.includeChurned ?? false  // 기본값: 이탈 완료 고객 제외
     
     try {
       // 물류 데이터에서 고객 정보 추출
@@ -498,26 +546,42 @@ export class ChurnPredictor {
         }
       })
       
-      // 이탈 확률 기준 정렬 (높은 순)
-      predictions.sort((a, b) => b.churnProbability - a.churnProbability)
+      // 이탈 확률 기준 정렬 (높은 순, 이탈 완료 고객은 별도로)
+      const churnedPredictions = predictions.filter(p => p.churnStatus === 'churned')
+      const atRiskPredictions = predictions.filter(p => p.churnStatus === 'at_risk')
+      
+      atRiskPredictions.sort((a, b) => b.churnProbability - a.churnProbability)
+      churnedPredictions.sort((a, b) => b.daysSinceLastOrder - a.daysSinceLastOrder)
+      
+      // 이탈 위험 고객과 이탈 완료 고객을 분리하여 반환
+      // includeChurned가 false면 이탈 완료 고객 제외
+      const sortedPredictions = includeChurned 
+        ? [...atRiskPredictions, ...churnedPredictions]
+        : atRiskPredictions
       
       // 요약 통계 계산
+      const churnedCustomers = churnedPredictions.length
+      const atRiskCustomers = atRiskPredictions.filter(p => p.riskLevel !== 'low').length
+      
       const summary: ChurnPredictionSummary = {
         totalCustomers: customerMap.size,
-        atRiskCustomers: predictions.filter(p => p.riskLevel !== 'low').length,
-        criticalCount: predictions.filter(p => p.riskLevel === 'critical').length,
-        highCount: predictions.filter(p => p.riskLevel === 'high').length,
-        mediumCount: predictions.filter(p => p.riskLevel === 'medium').length,
-        lowCount: predictions.filter(p => p.riskLevel === 'low').length,
-        totalValueAtRisk: predictions.reduce((sum, p) => sum + p.lifetimeValue.atRisk, 0),
-        avgChurnProbability: predictions.length > 0
-          ? predictions.reduce((sum, p) => sum + p.churnProbability, 0) / predictions.length
+        atRiskCustomers,
+        churnedCustomers,
+        criticalCount: atRiskPredictions.filter(p => p.riskLevel === 'critical').length,
+        highCount: atRiskPredictions.filter(p => p.riskLevel === 'high').length,
+        mediumCount: atRiskPredictions.filter(p => p.riskLevel === 'medium').length,
+        lowCount: atRiskPredictions.filter(p => p.riskLevel === 'low').length,
+        churnedCount: churnedCustomers,
+        totalValueAtRisk: atRiskPredictions.reduce((sum, p) => sum + p.lifetimeValue.atRisk, 0),
+        totalValueChurned: churnedPredictions.reduce((sum, p) => sum + p.lifetimeValue.historical, 0),
+        avgChurnProbability: atRiskPredictions.length > 0
+          ? atRiskPredictions.reduce((sum, p) => sum + p.churnProbability, 0) / atRiskPredictions.length
           : 0
       }
       
       return {
         summary,
-        predictions: predictions.slice(0, 100), // 상위 100명만 반환
+        predictions: sortedPredictions.slice(0, 100), // 상위 100명만 반환 (이탈 위험 우선)
         generatedAt: new Date().toISOString()
       }
       
