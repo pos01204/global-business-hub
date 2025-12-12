@@ -31,6 +31,8 @@ import {
   PeriodPreset,
   DateRange,
   BriefingInput,
+  TimeSeriesDecomposer,
+  TimeSeriesDecomposition,
 } from '../analytics'
 
 // 환율 상수 (USD → KRW)
@@ -42,6 +44,7 @@ export class BusinessBrainAgent extends BaseAgent {
   private insightScorer: InsightScorer
   private healthCalculator: HealthScoreCalculator
   private dataProcessor: DataProcessor
+  private timeSeriesDecomposer: TimeSeriesDecomposer
 
   constructor(context: AgentContext = {}) {
     super(context)
@@ -72,6 +75,7 @@ export class BusinessBrainAgent extends BaseAgent {
     this.insightScorer = new InsightScorer()
     this.healthCalculator = new HealthScoreCalculator()
     this.dataProcessor = new DataProcessor()
+    this.timeSeriesDecomposer = new TimeSeriesDecomposer()
   }
 
   /**
@@ -1808,6 +1812,86 @@ export class BusinessBrainAgent extends BaseAgent {
       return result
     } catch (error: any) {
       console.error('[BusinessBrainAgent] 종합 분석 오류:', error)
+      throw error
+    }
+  }
+
+  /**
+   * 시계열 분해 분석 (v4.1)
+   * STL 분해: 계절성 + 추세 + 잔차
+   */
+  async decomposeTimeSeries(
+    period: PeriodPreset = '90d',
+    metric: 'gmv' | 'orders' | 'aov' = 'gmv',
+    periodType?: number
+  ): Promise<TimeSeriesDecomposition> {
+    const cacheKey = `timeseries-decompose:${period}:${metric}:${periodType || 'auto'}`
+    
+    const cached = businessBrainCache.get<TimeSeriesDecomposition>(cacheKey)
+    if (cached) {
+      return cached
+    }
+
+    try {
+      // 데이터 로드
+      const result = await this.getData({
+        sheet: 'logistics',
+        skipCache: false
+      })
+      
+      if (!result.success || !result.data || result.data.length === 0) {
+        throw new Error('분석할 데이터가 없습니다.')
+      }
+
+      const logisticsData = result.data
+
+      // 기간 필터
+      const periodDays = period === '7d' ? 7 :
+                        period === '30d' ? 30 :
+                        period === '90d' ? 90 :
+                        period === '180d' ? 180 :
+                        period === '365d' ? 365 : 90
+      
+      const startDate = new Date()
+      startDate.setDate(startDate.getDate() - periodDays)
+      
+      const filteredData = logisticsData.filter((row: any) => {
+        const orderDate = new Date(row['order_created'])
+        return !isNaN(orderDate.getTime()) && orderDate >= startDate
+      })
+
+      if (filteredData.length === 0) {
+        throw new Error('선택한 기간에 데이터가 없습니다.')
+      }
+
+      // 일별 데이터 집계
+      const dailyData = this.timeSeriesDecomposer.aggregateToDaily(
+        filteredData.map((row: any) => ({
+          date: new Date(row['order_created']),
+          value: metric === 'gmv' 
+            ? parseFloat(row['Total GMV'] || row['total_gmv'] || '0') || 0
+            : metric === 'orders'
+            ? 1
+            : parseFloat(row['Total GMV'] || row['total_gmv'] || '0') || 0
+        })),
+        'date',
+        'value'
+      )
+
+      if (dailyData.length < 2) {
+        throw new Error('시계열 분해를 위한 최소 데이터 포인트가 부족합니다.')
+      }
+
+      // 시계열 분해 실행
+      const decomposition = this.timeSeriesDecomposer.decompose(
+        dailyData,
+        periodType
+      )
+
+      businessBrainCache.set(cacheKey, decomposition, CACHE_TTL.analysis)
+      return decomposition
+    } catch (error: any) {
+      console.error('[BusinessBrainAgent] 시계열 분해 오류:', error)
       throw error
     }
   }

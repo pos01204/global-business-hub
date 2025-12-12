@@ -1343,30 +1343,20 @@ export const businessBrainApi = {
   getNewUserAcquisition: async (
     period: '30d' | '90d' | '180d' | '365d' = '90d'
   ) => {
-    try {
-      const response = await api.get(`/api/business-brain/new-user-acquisition`, {
-        params: { period }
-      })
-      return response.data
-    } catch (error) {
-      console.warn('[API] 신규 유저 유치 분석 API가 아직 구현되지 않았습니다.')
-      return null
-    }
+    const response = await api.get(`/api/business-brain/new-user-acquisition`, {
+      params: { period }
+    })
+    return response.data
   },
 
   // v4.1: 재구매율 향상 분석
   getRepurchaseAnalysis: async (
     period: '30d' | '90d' | '180d' | '365d' = '90d'
   ) => {
-    try {
-      const response = await api.get(`/api/business-brain/repurchase-analysis`, {
-        params: { period }
-      })
-      return response.data
-    } catch (error) {
-      console.warn('[API] 재구매율 향상 분석 API가 아직 구현되지 않았습니다.')
-      return null
-    }
+    const response = await api.get(`/api/business-brain/repurchase-analysis`, {
+      params: { period }
+    })
+    return response.data
   },
 }
 

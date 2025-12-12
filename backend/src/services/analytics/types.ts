@@ -133,6 +133,7 @@ export interface CubeCell {
   deviationPercent: number
   isAnomaly: boolean
   anomalyType?: 'positive' | 'negative'
+  insights?: string[]  // v4.1: 인사이트 자동 생성
 }
 
 export interface CubeAnalysisResult {

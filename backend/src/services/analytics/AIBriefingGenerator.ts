@@ -89,8 +89,8 @@ export class AIBriefingGenerator {
             content: prompt
           }
         ],
-        temperature: 0.7,
-        max_tokens: 1000,
+        temperature: 0.5,  // v4.1: 더 일관된 결과를 위해 낮춤
+        max_tokens: 1500,  // v4.1: 더 상세한 브리핑을 위해 증가
       })
 
       const content = response.choices[0]?.message?.content || ''
@@ -141,7 +141,7 @@ export class AIBriefingGenerator {
   }
 
   /**
-   * Executive Summary 프롬프트 생성 (PRD 섹션 7.1)
+   * Executive Summary 프롬프트 생성 (PRD 섹션 7.1) - v4.1 고도화
    */
   private buildExecutiveSummaryPrompt(input: BriefingInput): string {
     const { period, metrics, healthScore, insights, anomalies, trends, topCountry, topArtist } = input
@@ -149,6 +149,11 @@ export class AIBriefingGenerator {
     const criticalInsights = insights.filter(i => i.type === 'critical')
     const warningInsights = insights.filter(i => i.type === 'warning')
     const opportunityInsights = insights.filter(i => i.type === 'opportunity')
+
+    // v4.1: 통계적 유의성 정보 포함
+    const significantInsights = insights.filter(i => 
+      i.scores?.statisticalSignificance && i.scores.statisticalSignificance >= 70
+    )
 
     return `
 ## 분석 기간
@@ -170,14 +175,15 @@ ${topArtist ? `- 최고 매출 작가: ${topArtist.name}` : ''}
 - 작가: ${healthScore.dimensions.artist.score}/100 (${healthScore.dimensions.artist.trend})
 - 운영: ${healthScore.dimensions.operations.score}/100 (${healthScore.dimensions.operations.trend})
 
-## 발견된 이슈
-- 긴급 이슈: ${criticalInsights.length}개
+## 발견된 이슈 (통계적 검증 포함)
+- 긴급 이슈: ${criticalInsights.length}개 (통계적으로 유의한 항목: ${criticalInsights.filter(i => i.scores?.statisticalSignificance && i.scores.statisticalSignificance >= 70).length}개)
 - 주의 사항: ${warningInsights.length}개
 - 기회 요인: ${opportunityInsights.length}개
+- 통계적으로 유의한 인사이트: ${significantInsights.length}개
 
 ${anomalies.length > 0 ? `## 이상 징후\n${anomalies.slice(0, 3).map(a => `- ${a.metric}: ${a.description}`).join('\n')}` : ''}
 
-${trends.length > 0 ? `## 주요 트렌드\n${trends.slice(0, 3).map(t => `- ${t.metric}: ${t.direction} (${t.magnitude.toFixed(1)}%)`).join('\n')}` : ''}
+${trends.length > 0 ? `## 주요 트렌드\n${trends.slice(0, 3).map(t => `- ${t.metric}: ${t.direction} (${t.magnitude > 0 ? '+' : ''}${t.magnitude.toFixed(1)}%)`).join('\n')}` : ''}
 
 ## 작성 지침
 1. 첫 문장에서 전체 비즈니스 상태를 한 줄로 요약
@@ -229,13 +235,13 @@ ${insight.description}
 - 유형: ${insight.type}
 - 카테고리: ${insight.category}
 
-## 해석 요청
-1. 이 패턴이 의미하는 바는 무엇인가?
-2. 발생 가능한 원인은 무엇인가?
-3. 비즈니스에 미치는 영향은?
-4. 권장하는 대응 방안은?
+## 해석 요청 (v4.1 개선)
+1. 이 패턴이 의미하는 바는 무엇인가? (통계적 유의성 고려)
+2. 발생 가능한 원인은 무엇인가? (인과관계 vs 상관관계 구분)
+3. 비즈니스에 미치는 영향은? (구체적인 수치와 예상 효과 포함)
+4. 권장하는 대응 방안은? (우선순위와 예상 효과 포함)
 
-간결하고 실행 가능한 형태로 3-4문장으로 답변하세요.
+간결하고 실행 가능한 형태로 3-4문장으로 답변하세요. 통계적으로 유의한 인사이트는 이를 명시하세요.
 `
   }
 

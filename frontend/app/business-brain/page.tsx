@@ -423,7 +423,15 @@ export default function BusinessBrainPage() {
   // v4.1: 신규 유저 유치 분석
   const { data: newUserData, isLoading: newUserLoading } = useQuery({
     queryKey: ['business-brain-new-users', selectedPeriod],
-    queryFn: () => businessBrainApi.getNewUserAcquisition?.(selectedPeriod === '7d' ? '90d' : selectedPeriod as any) || Promise.resolve(null),
+    queryFn: async () => {
+      try {
+        const response = await businessBrainApi.getNewUserAcquisition(selectedPeriod === '7d' ? '90d' : selectedPeriod as any)
+        return response?.success ? response : null
+      } catch (error) {
+        console.warn('[BusinessBrain] 신규 유저 유치 분석 API 오류:', error)
+        return null
+      }
+    },
     staleTime: 5 * 60 * 1000,
     enabled: activeTab === 'new-users',
   })
@@ -431,7 +439,15 @@ export default function BusinessBrainPage() {
   // v4.1: 재구매율 향상 분석
   const { data: repurchaseData, isLoading: repurchaseLoading } = useQuery({
     queryKey: ['business-brain-repurchase', selectedPeriod],
-    queryFn: () => businessBrainApi.getRepurchaseAnalysis?.(selectedPeriod === '7d' ? '90d' : selectedPeriod as any) || Promise.resolve(null),
+    queryFn: async () => {
+      try {
+        const response = await businessBrainApi.getRepurchaseAnalysis(selectedPeriod === '7d' ? '90d' : selectedPeriod as any)
+        return response?.success ? response : null
+      } catch (error) {
+        console.warn('[BusinessBrain] 재구매율 향상 분석 API 오류:', error)
+        return null
+      }
+    },
     staleTime: 5 * 60 * 1000,
     enabled: activeTab === 'repurchase',
   })
@@ -608,7 +624,7 @@ export default function BusinessBrainPage() {
               <div key={group.name}>
                 <div className="flex items-center gap-2 mb-3">
                   <h3 className="text-sm font-semibold text-slate-700 dark:text-slate-300">
-                    {group.name}
+                  {group.name}
                   </h3>
                   <span className="text-xs text-slate-400 dark:text-slate-500">
                     {group.description}
@@ -1405,14 +1421,14 @@ function InsightsTab({ insights, isLoading, period = '30d' }: { insights: any[];
                 <span className="text-xl">💡</span>
               </div>
               <div>
-                <h2 className="text-lg font-semibold text-slate-800 dark:text-slate-100">
+              <h2 className="text-lg font-semibold text-slate-800 dark:text-slate-100">
                   성장 기회
-                </h2>
+              </h2>
                 <p className="text-xs text-emerald-600 dark:text-emerald-400">{opportunities.length}건의 기회 발견</p>
-              </div>
+            </div>
             </div>
             <div className="space-y-3">
-              {opportunities.map((insight: any) => (
+            {opportunities.map((insight: any) => (
                 <InsightCard key={insight.id} insight={insight} colorScheme="emerald" period={period} />
               ))}
             </div>
@@ -1427,19 +1443,19 @@ function InsightsTab({ insights, isLoading, period = '30d' }: { insights: any[];
             <div className="flex items-center gap-3 mb-4">
               <div className="w-10 h-10 bg-gradient-to-br from-slate-500 to-slate-600 rounded-xl flex items-center justify-center">
                 <span className="text-xl">📊</span>
-              </div>
+                  </div>
               <div>
                 <h2 className="text-lg font-semibold text-slate-800 dark:text-slate-100">
                   참고 정보
                 </h2>
                 <p className="text-xs text-slate-500 dark:text-slate-400">{infos.length}건의 정보</p>
+                </div>
               </div>
-            </div>
             <div className="space-y-3">
               {infos.map((insight: any) => (
                 <InsightCard key={insight.id} insight={insight} colorScheme="slate" period={period} />
-              ))}
-            </div>
+            ))}
+          </div>
           </Card>
         </FadeIn>
       )}
@@ -1536,7 +1552,7 @@ function ChurnPredictionTab({ data, isLoading, period }: { data: any; isLoading:
               <div>
                 <h2 className="text-lg font-semibold text-slate-800 dark:text-slate-100">
                   고객 이탈 예측
-                </h2>
+          </h2>
                 <p className="text-xs text-slate-500">구매 패턴 기반 이탈 확률 분석</p>
               </div>
             </div>
@@ -1607,7 +1623,7 @@ function ChurnPredictionTab({ data, isLoading, period }: { data: any; isLoading:
             <div className="flex items-center justify-between mb-4">
               <h3 className="text-lg font-semibold text-slate-800 dark:text-slate-100">
                 🚨 이탈 위험 고객 (상위 {Math.min(atRiskPredictions.length, 20)}명)
-              </h3>
+                      </h3>
             </div>
 
             <div className="space-y-3">
@@ -1628,11 +1644,11 @@ function ChurnPredictionTab({ data, isLoading, period }: { data: any; isLoading:
                             prediction.riskLevel === 'high' ? 'warning' : 'default'
                           }>
                             {riskLevelLabels[prediction.riskLevel]}
-                          </Badge>
+                      </Badge>
                           <span className="text-sm text-slate-500">
                             {prediction.currentSegment}
                           </span>
-                        </div>
+                    </div>
                         
                         <div className="flex flex-wrap gap-4 text-sm text-slate-600 dark:text-slate-400 mb-2">
                           <span>이탈 확률: <strong className={colors.text}>{prediction.churnProbability}%</strong></span>
@@ -1641,7 +1657,7 @@ function ChurnPredictionTab({ data, isLoading, period }: { data: any; isLoading:
                           <span>마지막 주문: {prediction.lastOrderDate}</span>
                           <span>총 주문: {prediction.totalOrders}건</span>
                           <span>총 구매: ${prediction.lifetimeValue?.historical?.toFixed(0) || 0}</span>
-                        </div>
+                  </div>
                         
                         {/* 위험 요인 */}
                         {prediction.riskFactors && prediction.riskFactors.length > 0 && (
@@ -1654,7 +1670,7 @@ function ChurnPredictionTab({ data, isLoading, period }: { data: any; isLoading:
                                 {factor.factor}: {factor.currentValue}
                               </span>
                             ))}
-                          </div>
+                </div>
                         )}
                         
                         {/* 권장 조치 */}
@@ -1673,7 +1689,7 @@ function ChurnPredictionTab({ data, isLoading, period }: { data: any; isLoading:
                                 {action.action}
                               </button>
                             ))}
-                          </div>
+              </div>
                         )}
                       </div>
                       
@@ -1781,8 +1797,8 @@ function ChurnPredictionTab({ data, isLoading, period }: { data: any; isLoading:
                   </FadeIn>
                 )
               })}
-            </div>
-          </Card>
+          </div>
+        </Card>
         </FadeIn>
       )}
     </div>
@@ -2287,11 +2303,11 @@ function RFMTab({ data, isLoading }: { data: any; isLoading: boolean }) {
         <div className="flex items-center justify-between mb-4">
           <div>
             <h2 className="text-lg font-semibold text-slate-800 dark:text-slate-100">
-              👥 RFM 고객 세분화
-            </h2>
+          👥 RFM 고객 세분화
+        </h2>
             <p className="text-sm text-slate-500 dark:text-slate-400 mt-1">
-              최근 90일 구매 데이터 기반 고객 세그먼트 분석
-            </p>
+          최근 90일 구매 데이터 기반 고객 세그먼트 분석
+        </p>
           </div>
           {/* v4.0: 다운로드 버튼 */}
           <ExportDropdown 
@@ -2430,12 +2446,12 @@ function ParetoTab({ data, isLoading }: { data: any; isLoading: boolean }) {
           <Card className="p-6">
             <div className="flex items-center justify-between mb-6">
               <div className="flex items-center gap-3">
-                <div className="w-10 h-10 bg-gradient-to-br from-purple-500 to-pink-600 rounded-xl flex items-center justify-center">
-                  <span className="text-xl">🎨</span>
-                </div>
-                <h2 className="text-lg font-semibold text-slate-800 dark:text-slate-100">
-                  작가 매출 집중도
-                </h2>
+              <div className="w-10 h-10 bg-gradient-to-br from-purple-500 to-pink-600 rounded-xl flex items-center justify-center">
+                <span className="text-xl">🎨</span>
+              </div>
+              <h2 className="text-lg font-semibold text-slate-800 dark:text-slate-100">
+                작가 매출 집중도
+              </h2>
               </div>
               {/* v4.0: 다운로드 버튼 */}
               <ExportButton type="pareto-artists" label="작가 데이터" />
@@ -2612,15 +2628,15 @@ function CohortTab({ data, isLoading }: { data: any; isLoading: boolean }) {
         <Card className="p-6">
           <div className="flex items-center justify-between mb-4">
             <div className="flex items-center gap-3">
-              <div className="w-10 h-10 bg-gradient-to-br from-cyan-500 to-blue-600 rounded-xl flex items-center justify-center">
-                <span className="text-xl">📅</span>
-              </div>
-              <div>
-                <h2 className="text-lg font-semibold text-slate-800 dark:text-slate-100">
-                  코호트 리텐션 분석
-                </h2>
-                <p className="text-xs text-slate-500">첫 구매 월 기준 고객 리텐션 추이</p>
-              </div>
+            <div className="w-10 h-10 bg-gradient-to-br from-cyan-500 to-blue-600 rounded-xl flex items-center justify-center">
+              <span className="text-xl">📅</span>
+            </div>
+            <div>
+              <h2 className="text-lg font-semibold text-slate-800 dark:text-slate-100">
+                코호트 리텐션 분석
+              </h2>
+              <p className="text-xs text-slate-500">첫 구매 월 기준 고객 리텐션 추이</p>
+            </div>
             </div>
             {/* v4.0: 다운로드 버튼 */}
             <ExportButton type="cohort-analysis" label="코호트 데이터" />
@@ -2771,15 +2787,15 @@ function AnomalyTab({ data, isLoading }: { data: any; isLoading: boolean }) {
         <Card className="p-6">
           <div className="flex items-center justify-between mb-4">
             <div className="flex items-center gap-3">
-              <div className="w-10 h-10 bg-gradient-to-br from-amber-500 to-orange-600 rounded-xl flex items-center justify-center">
-                <span className="text-xl">🔍</span>
-              </div>
-              <div>
-                <h2 className="text-lg font-semibold text-slate-800 dark:text-slate-100">
-                  탐지된 이상치
-                </h2>
-                <p className="text-xs text-slate-500">통계적으로 유의미한 편차가 발견된 데이터 포인트</p>
-              </div>
+            <div className="w-10 h-10 bg-gradient-to-br from-amber-500 to-orange-600 rounded-xl flex items-center justify-center">
+              <span className="text-xl">🔍</span>
+            </div>
+            <div>
+              <h2 className="text-lg font-semibold text-slate-800 dark:text-slate-100">
+                탐지된 이상치
+              </h2>
+              <p className="text-xs text-slate-500">통계적으로 유의미한 편차가 발견된 데이터 포인트</p>
+            </div>
             </div>
             {/* v4.0: 다운로드 버튼 */}
             <ExportButton type="anomaly-detection" label="이상 탐지 데이터" />
@@ -3521,12 +3537,12 @@ function NewUserAcquisitionTab({ data, isLoading, period }: { data: any; isLoadi
     )
   }
 
-  if (!data) {
+  if (!data || !data.success) {
     return (
       <EmptyState 
         icon="🆕" 
-        title="신규 유저 유치 분석 준비 중" 
-        description="신규 유저 획득 채널 분석 및 전환율 최적화 기능이 곧 제공됩니다."
+        title="신규 유저 유치 분석 데이터 없음" 
+        description="선택한 기간에 신규 유저 데이터가 없거나 분석 중 오류가 발생했습니다."
       />
     )
   }
@@ -3558,21 +3574,163 @@ function NewUserAcquisitionTab({ data, isLoading, period }: { data: any; isLoadi
             </div>
             <div className="p-4 bg-green-50 dark:bg-green-900/20 rounded-xl text-center">
               <div className="text-2xl font-bold text-green-600 dark:text-green-400">
-                {data?.conversionFunnel?.[0]?.conversionRate?.toFixed(1) || 0}%
+                {data?.conversionFunnel && data.conversionFunnel.length > 0 && data.conversionFunnel[data.conversionFunnel.length - 1]?.conversionRate 
+                  ? Math.round(data.conversionFunnel[data.conversionFunnel.length - 1].conversionRate * 100) 
+                  : 0}%
               </div>
-              <div className="text-xs text-green-600 dark:text-green-400 mt-1">전환율</div>
+              <div className="text-xs text-green-600 dark:text-green-400 mt-1">가입→첫 구매 전환율</div>
             </div>
             <div className="p-4 bg-purple-50 dark:bg-purple-900/20 rounded-xl text-center">
               <div className="text-2xl font-bold text-purple-600 dark:text-purple-400">
-                ${data?.channels?.[0]?.cac?.toFixed(0) || 0}
+                ${data?.newUserQuality?.avgFirstPurchaseValue?.toFixed(0) || 0}
               </div>
-              <div className="text-xs text-purple-600 dark:text-purple-400 mt-1">평균 CAC</div>
+              <div className="text-xs text-purple-600 dark:text-purple-400 mt-1">평균 첫 구매액</div>
             </div>
           </div>
 
-          <div className="text-center text-sm text-slate-500 dark:text-slate-400 py-8">
-            상세 분석 기능 구현 예정
-          </div>
+          {/* 채널별 성과 */}
+          {data?.channels && data.channels.length > 0 && (
+            <div className="mb-6">
+              <h3 className="text-sm font-semibold text-slate-700 dark:text-slate-300 mb-3">채널별 성과</h3>
+              <div className="space-y-2">
+                {data.channels.slice(0, 5).map((channel: any, idx: number) => (
+                  <FadeIn key={channel.channel} delay={idx * 50}>
+                    <div className="p-4 bg-slate-50 dark:bg-slate-800 rounded-xl border border-slate-200 dark:border-slate-700">
+                      <div className="flex items-center justify-between mb-2">
+                        <span className="font-medium text-slate-800 dark:text-slate-100">
+                          {channel.channel}
+                        </span>
+                        <Badge variant="default">
+                          {channel.newUsers}명
+                        </Badge>
+                      </div>
+                      <div className="grid grid-cols-3 gap-4 text-sm">
+                        <div>
+                          <span className="text-slate-500 dark:text-slate-400">전환율</span>
+                          <div className="font-semibold text-slate-700 dark:text-slate-300">
+                            {Math.round(channel.firstPurchaseRate * 100)}%
+                          </div>
+                        </div>
+                        <div>
+                          <span className="text-slate-500 dark:text-slate-400">평균 LTV</span>
+                          <div className="font-semibold text-slate-700 dark:text-slate-300">
+                            ${channel.ltv.toFixed(0)}
+                          </div>
+                        </div>
+                        <div>
+                          <span className="text-slate-500 dark:text-slate-400">ROI</span>
+                          <div className="font-semibold text-slate-700 dark:text-slate-300">
+                            {channel.roi === 999 ? 'N/A' : `${channel.roi.toFixed(1)}x`}
+                          </div>
+                        </div>
+                      </div>
+                    </div>
+                  </FadeIn>
+                ))}
+              </div>
+            </div>
+          )}
+
+          {/* 전환율 퍼널 */}
+          {data?.conversionFunnel && data.conversionFunnel.length > 0 && (
+            <div className="mb-6">
+              <h3 className="text-sm font-semibold text-slate-700 dark:text-slate-300 mb-3">전환율 퍼널</h3>
+              <div className="space-y-3">
+                {data.conversionFunnel.map((stage: any, idx: number) => (
+                  <FadeIn key={stage.stage} delay={idx * 50}>
+                    <div className="p-4 bg-slate-50 dark:bg-slate-800 rounded-xl border border-slate-200 dark:border-slate-700">
+                      <div className="flex items-center justify-between mb-2">
+                        <span className="font-medium text-slate-800 dark:text-slate-100">
+                          {stage.stage}
+                        </span>
+                        <span className="text-sm text-slate-600 dark:text-slate-400">
+                          {stage.count.toLocaleString()}명
+                        </span>
+                      </div>
+                      <div className="flex items-center gap-2">
+                        <div className="flex-1 h-2 bg-slate-200 dark:bg-slate-700 rounded-full overflow-hidden">
+                          <div 
+                            className="h-full bg-gradient-to-r from-blue-500 to-cyan-500 rounded-full transition-all duration-500"
+                            style={{ width: `${stage.conversionRate * 100}%` }}
+                          />
+                        </div>
+                        <span className="text-sm font-semibold text-slate-700 dark:text-slate-300 w-16 text-right">
+                          {Math.round(stage.conversionRate * 100)}%
+                        </span>
+                      </div>
+                      {stage.dropoffRate > 0 && (
+                        <div className="text-xs text-slate-500 dark:text-slate-400 mt-1">
+                          이탈율: {Math.round(stage.dropoffRate * 100)}%
+                        </div>
+                      )}
+                    </div>
+                  </FadeIn>
+                ))}
+              </div>
+            </div>
+          )}
+
+          {/* 신규 유저 품질 */}
+          {data?.newUserQuality && (
+            <div className="mb-6">
+              <h3 className="text-sm font-semibold text-slate-700 dark:text-slate-300 mb-3">신규 유저 품질 분석</h3>
+              <div className="grid md:grid-cols-3 gap-4">
+                <div className="p-4 bg-emerald-50 dark:bg-emerald-900/20 rounded-xl text-center">
+                  <div className="text-xl font-bold text-emerald-600 dark:text-emerald-400">
+                    {data.newUserQuality.highPotential || 0}
+                  </div>
+                  <div className="text-xs text-emerald-600 dark:text-emerald-400 mt-1">고품질 유저</div>
+                </div>
+                <div className="p-4 bg-amber-50 dark:bg-amber-900/20 rounded-xl text-center">
+                  <div className="text-xl font-bold text-amber-600 dark:text-amber-400">
+                    {data.newUserQuality.mediumPotential || 0}
+                  </div>
+                  <div className="text-xs text-amber-600 dark:text-amber-400 mt-1">중품질 유저</div>
+                </div>
+                <div className="p-4 bg-slate-100 dark:bg-slate-700 rounded-xl text-center">
+                  <div className="text-xl font-bold text-slate-600 dark:text-slate-400">
+                    {data.newUserQuality.lowPotential || 0}
+                  </div>
+                  <div className="text-xs text-slate-600 dark:text-slate-400 mt-1">저품질 유저</div>
+                </div>
+              </div>
+            </div>
+          )}
+
+          {/* 인사이트 */}
+          {data?.insights && data.insights.length > 0 && (
+            <div>
+              <h3 className="text-sm font-semibold text-slate-700 dark:text-slate-300 mb-3">인사이트 및 권장 조치</h3>
+              <div className="space-y-3">
+                {data.insights.map((insight: any, idx: number) => (
+                  <FadeIn key={idx} delay={idx * 50}>
+                    <div className={`p-4 rounded-xl border-l-4 ${
+                      insight.priority === 'high' ? 'bg-red-50 dark:bg-red-900/20 border-red-500' :
+                      insight.priority === 'medium' ? 'bg-amber-50 dark:bg-amber-900/20 border-amber-500' :
+                      'bg-blue-50 dark:bg-blue-900/20 border-blue-500'
+                    }`}>
+                      <div className="flex items-start gap-3">
+                        <span className="text-xl">
+                          {insight.priority === 'high' ? '🔴' : insight.priority === 'medium' ? '🟡' : '🔵'}
+                        </span>
+                        <div className="flex-1">
+                          <p className="font-medium text-slate-800 dark:text-slate-100 mb-1">
+                            {insight.insight}
+                          </p>
+                          <p className="text-sm text-slate-600 dark:text-slate-400 mb-2">
+                            <strong>권장 조치:</strong> {insight.recommendedAction}
+                          </p>
+                          <p className="text-xs text-slate-500 dark:text-slate-500">
+                            <strong>예상 효과:</strong> {insight.expectedImpact}
+                          </p>
+                        </div>
+                      </div>
+                    </div>
+                  </FadeIn>
+                ))}
+              </div>
+            </div>
+          )}
         </Card>
       </FadeIn>
     </div>
@@ -3600,12 +3758,12 @@ function RepurchaseAnalysisTab({ data, isLoading, period }: { data: any; isLoadi
     )
   }
 
-  if (!data) {
+  if (!data || !data.success) {
     return (
       <EmptyState 
         icon="🔄" 
-        title="재구매율 향상 분석 준비 중" 
-        description="1회 구매 고객의 재구매 전환율 분석 및 향상 전략 기능이 곧 제공됩니다."
+        title="재구매율 향상 분석 데이터 없음" 
+        description="선택한 기간에 1회 구매 고객 데이터가 없거나 분석 중 오류가 발생했습니다."
       />
     )
   }
@@ -3637,21 +3795,153 @@ function RepurchaseAnalysisTab({ data, isLoading, period }: { data: any; isLoadi
             </div>
             <div className="p-4 bg-blue-50 dark:bg-blue-900/20 rounded-xl text-center">
               <div className="text-2xl font-bold text-blue-600 dark:text-blue-400">
-                {data?.repurchaseConversion?.[0]?.conversionRate?.toFixed(1) || 0}%
+                {data?.repurchaseConversion && data.repurchaseConversion.length > 0 
+                  ? Math.round((data.repurchaseConversion[data.repurchaseConversion.length - 1]?.conversionRate || 0) * 100)
+                  : 0}%
               </div>
-              <div className="text-xs text-blue-600 dark:text-blue-400 mt-1">재구매 전환율</div>
+              <div className="text-xs text-blue-600 dark:text-blue-400 mt-1">90일 내 재구매율</div>
             </div>
             <div className="p-4 bg-purple-50 dark:bg-purple-900/20 rounded-xl text-center">
               <div className="text-2xl font-bold text-purple-600 dark:text-purple-400">
-                {data?.repurchaseConversion?.[0]?.avgDaysToRepurchase?.toFixed(0) || 0}일
+                {data?.repurchaseConversion && data.repurchaseConversion.length > 0
+                  ? Math.round(data.repurchaseConversion[data.repurchaseConversion.length - 1]?.avgDaysToRepurchase || 0)
+                  : 0}일
               </div>
               <div className="text-xs text-purple-600 dark:text-purple-400 mt-1">평균 재구매 일수</div>
             </div>
           </div>
 
-          <div className="text-center text-sm text-slate-500 dark:text-slate-400 py-8">
-            상세 분석 기능 구현 예정
-          </div>
+          {/* 1회 구매 고객 세분화 */}
+          {data?.oneTimeBuyers && (
+            <div className="mb-6">
+              <h3 className="text-sm font-semibold text-slate-700 dark:text-slate-300 mb-3">1회 구매 고객 세분화</h3>
+              <div className="grid md:grid-cols-3 gap-4">
+                <div className="p-4 bg-emerald-50 dark:bg-emerald-900/20 rounded-xl text-center">
+                  <div className="text-xl font-bold text-emerald-600 dark:text-emerald-400">
+                    {data.oneTimeBuyers.highPotential || 0}
+                  </div>
+                  <div className="text-xs text-emerald-600 dark:text-emerald-400 mt-1">재구매 가능성 높음</div>
+                </div>
+                <div className="p-4 bg-amber-50 dark:bg-amber-900/20 rounded-xl text-center">
+                  <div className="text-xl font-bold text-amber-600 dark:text-amber-400">
+                    {data.oneTimeBuyers.atRisk || 0}
+                  </div>
+                  <div className="text-xs text-amber-600 dark:text-amber-400 mt-1">재구매 가능성 낮음</div>
+                </div>
+                <div className="p-4 bg-slate-100 dark:bg-slate-700 rounded-xl text-center">
+                  <div className="text-xl font-bold text-slate-600 dark:text-slate-400">
+                    ${data.oneTimeBuyers.avgFirstPurchaseValue?.toFixed(0) || 0}
+                  </div>
+                  <div className="text-xs text-slate-600 dark:text-slate-400 mt-1">평균 첫 구매액</div>
+                </div>
+              </div>
+            </div>
+          )}
+
+          {/* 재구매 전환율 (기간별) */}
+          {data?.repurchaseConversion && data.repurchaseConversion.length > 0 && (
+            <div className="mb-6">
+              <h3 className="text-sm font-semibold text-slate-700 dark:text-slate-300 mb-3">기간별 재구매 전환율</h3>
+              <div className="space-y-3">
+                {data.repurchaseConversion.map((conv: any, idx: number) => (
+                  <FadeIn key={conv.period} delay={idx * 50}>
+                    <div className="p-4 bg-slate-50 dark:bg-slate-800 rounded-xl border border-slate-200 dark:border-slate-700">
+                      <div className="flex items-center justify-between mb-2">
+                        <span className="font-medium text-slate-800 dark:text-slate-100">
+                          {conv.period} 내 재구매율
+                        </span>
+                        <span className="text-lg font-bold text-slate-700 dark:text-slate-300">
+                          {Math.round(conv.conversionRate * 100)}%
+                        </span>
+                      </div>
+                      <div className="flex items-center gap-2">
+                        <div className="flex-1 h-2 bg-slate-200 dark:bg-slate-700 rounded-full overflow-hidden">
+                          <div 
+                            className="h-full bg-gradient-to-r from-green-500 to-emerald-500 rounded-full transition-all duration-500"
+                            style={{ width: `${conv.conversionRate * 100}%` }}
+                          />
+                        </div>
+                        <span className="text-xs text-slate-500 dark:text-slate-400">
+                          평균 {conv.avgDaysToRepurchase.toFixed(0)}일
+                        </span>
+                      </div>
+                    </div>
+                  </FadeIn>
+                ))}
+              </div>
+            </div>
+          )}
+
+          {/* 재구매 예측 (상위 고객) */}
+          {data?.repurchasePrediction && data.repurchasePrediction.length > 0 && (
+            <div className="mb-6">
+              <h3 className="text-sm font-semibold text-slate-700 dark:text-slate-300 mb-3">
+                재구매 예측 (상위 {Math.min(data.repurchasePrediction.length, 10)}명)
+              </h3>
+              <div className="space-y-2">
+                {data.repurchasePrediction.slice(0, 10).map((pred: any, idx: number) => (
+                  <FadeIn key={pred.customerId} delay={idx * 30}>
+                    <div className="p-3 bg-slate-50 dark:bg-slate-800 rounded-lg border border-slate-200 dark:border-slate-700">
+                      <div className="flex items-center justify-between mb-2">
+                        <span className="text-sm font-medium text-slate-700 dark:text-slate-300">
+                          고객 #{pred.customerId}
+                        </span>
+                        <Badge variant={pred.repurchaseProbability >= 70 ? 'danger' : pred.repurchaseProbability >= 50 ? 'warning' : 'default'}>
+                          재구매 확률 {pred.repurchaseProbability}%
+                        </Badge>
+                      </div>
+                      <div className="flex items-center gap-4 text-xs text-slate-600 dark:text-slate-400">
+                        <span>예상 재구매: {pred.predictedDaysToRepurchase}일 후</span>
+                        {pred.recommendedActions && pred.recommendedActions.length > 0 && (
+                          <span className="text-indigo-600 dark:text-indigo-400">
+                            권장: {pred.recommendedActions[0].action}
+                          </span>
+                        )}
+                      </div>
+                    </div>
+                  </FadeIn>
+                ))}
+              </div>
+            </div>
+          )}
+
+          {/* 인사이트 */}
+          {data?.insights && data.insights.length > 0 && (
+            <div>
+              <h3 className="text-sm font-semibold text-slate-700 dark:text-slate-300 mb-3">인사이트 및 권장 조치</h3>
+              <div className="space-y-3">
+                {data.insights.map((insight: any, idx: number) => (
+                  <FadeIn key={idx} delay={idx * 50}>
+                    <div className={`p-4 rounded-xl border-l-4 ${
+                      insight.priority === 'high' ? 'bg-red-50 dark:bg-red-900/20 border-red-500' :
+                      insight.priority === 'medium' ? 'bg-amber-50 dark:bg-amber-900/20 border-amber-500' :
+                      'bg-blue-50 dark:bg-blue-900/20 border-blue-500'
+                    }`}>
+                      <div className="flex items-start gap-3">
+                        <span className="text-xl">
+                          {insight.priority === 'high' ? '🔴' : insight.priority === 'medium' ? '🟡' : '🔵'}
+                        </span>
+                        <div className="flex-1">
+                          <p className="font-medium text-slate-800 dark:text-slate-100 mb-1">
+                            {insight.insight}
+                          </p>
+                          <p className="text-xs text-slate-500 dark:text-slate-500 mb-1">
+                            <strong>타겟:</strong> {insight.targetSegment}
+                          </p>
+                          <p className="text-sm text-slate-600 dark:text-slate-400 mb-2">
+                            <strong>권장 조치:</strong> {insight.recommendedAction}
+                          </p>
+                          <p className="text-xs text-slate-500 dark:text-slate-500">
+                            <strong>예상 효과:</strong> {insight.expectedImpact}
+                          </p>
+                        </div>
+                      </div>
+                    </div>
+                  </FadeIn>
+                ))}
+              </div>
+            </div>
+          )}
         </Card>
       </FadeIn>
     </div>

@@ -17,6 +17,35 @@ export { exportData, getSupportedExportTypes } from './ExportService'
 export { ChurnPredictor } from './ChurnPredictor'
 export { ArtistHealthCalculator } from './ArtistHealthCalculator'
 
+// v4.1 추가 서비스
+export { NewUserAcquisitionAnalyzer, newUserAcquisitionAnalyzer } from './NewUserAcquisitionAnalyzer'
+export { RepurchaseAnalyzer, repurchaseAnalyzer } from './RepurchaseAnalyzer'
+export { TimeSeriesDecomposer, timeSeriesDecomposer } from './TimeSeriesDecomposer'
+export type { 
+  TimeSeriesDecomposition,
+  TimeSeriesPoint,
+  SeasonalPattern,
+  TrendAnalysis,
+  AnomalyPoint
+} from './TimeSeriesDecomposer'
+
+// v4.1 Phase 2: 통계적 유의성 검증
+export { StatisticalValidator, statisticalValidator, compareGroups, compareCategorical } from './StatisticalValidator'
+export type {
+  StatisticalInsight,
+  GroupStatistics,
+  StatisticalTest,
+  ConfidenceInterval
+} from './StatisticalValidator'
+
+// v4.1 Phase 2: 인과관계 추론
+export { CausalInferenceEngine, causalInferenceEngine } from './CausalInferenceEngine'
+export type {
+  CausalAnalysis,
+  Observation,
+  PotentialCause
+} from './CausalInferenceEngine'
+
 // Types
 export * from './types'
 export * from './DataProcessor'

@@ -9,6 +9,7 @@ import {
   BusinessContext,
   InsightCategory,
 } from './types'
+import { compareGroups, StatisticalInsight } from './StatisticalValidator'
 
 interface ScoringWeights {
   statisticalSignificance: number
@@ -137,42 +138,48 @@ export class InsightScorer {
   }
 
   /**
-   * 통계적 유의성 점수 (0-100)
+   * 통계적 유의성 점수 (0-100) - v4.1 고도화
+   * StatisticalValidator를 활용하여 더 정확한 점수 계산
    */
   private scoreStatisticalSignificance(raw: RawInsight): number {
     let score = 0
 
-    // 표본 크기 (최대 30점)
-    if (raw.sampleSize >= 100) score += 30
-    else if (raw.sampleSize >= 50) score += 25
-    else if (raw.sampleSize >= 30) score += 20
+    // 표본 크기 (최대 25점)
+    if (raw.sampleSize >= 100) score += 25
+    else if (raw.sampleSize >= 50) score += 20
+    else if (raw.sampleSize >= 30) score += 15
     else if (raw.sampleSize >= 10) score += 10
     else score += 5
 
-    // p-value 또는 Z-Score (최대 40점)
+    // p-value 또는 Z-Score (최대 40점) - v4.1: 더 정밀한 평가
     if (raw.pValue !== undefined) {
-      if (raw.pValue < 0.01) score += 40
+      if (raw.pValue < 0.001) score += 40  // 매우 높은 유의성
+      else if (raw.pValue < 0.01) score += 35
       else if (raw.pValue < 0.05) score += 30
       else if (raw.pValue < 0.1) score += 15
+      else if (raw.pValue < 0.2) score += 5
     } else if (raw.zScore !== undefined) {
       const absZ = Math.abs(raw.zScore)
-      if (absZ > 3) score += 40
-      else if (absZ > 2.5) score += 35
-      else if (absZ > 2) score += 30
-      else if (absZ > 1.5) score += 15
+      if (absZ > 3.5) score += 40  // 매우 높은 유의성
+      else if (absZ > 3) score += 35
+      else if (absZ > 2.5) score += 30
+      else if (absZ > 2) score += 20
+      else if (absZ > 1.5) score += 10
     } else {
-      // 편차 기반 추정
+      // 편차 기반 추정 (통계적 검증 없을 때)
       const absDeviation = Math.abs(raw.deviation / (raw.comparisonValue || 1))
-      if (absDeviation > 0.5) score += 30
-      else if (absDeviation > 0.3) score += 20
-      else if (absDeviation > 0.2) score += 10
+      if (absDeviation > 0.5) score += 25
+      else if (absDeviation > 0.3) score += 15
+      else if (absDeviation > 0.2) score += 8
     }
 
-    // 효과 크기 (최대 30점)
+    // 효과 크기 (최대 35점) - v4.1: Cohen's d 기준 강화
     if (raw.effectSize !== undefined) {
-      if (Math.abs(raw.effectSize) > 0.8) score += 30
-      else if (Math.abs(raw.effectSize) > 0.5) score += 20
-      else if (Math.abs(raw.effectSize) > 0.2) score += 10
+      const absEffect = Math.abs(raw.effectSize)
+      if (absEffect > 0.8) score += 35  // Large effect
+      else if (absEffect > 0.5) score += 25  // Medium effect
+      else if (absEffect > 0.2) score += 15  // Small effect
+      else if (absEffect > 0.1) score += 5
     }
 
     return Math.min(100, score)

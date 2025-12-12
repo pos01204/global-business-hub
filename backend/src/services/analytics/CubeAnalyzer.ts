@@ -184,6 +184,16 @@ export class CubeAnalyzer {
       // 이상치 판정
       const isAnomaly = Math.abs(deviationPercent) > this.config.deviationThreshold
 
+      // 인사이트 자동 생성
+      const insights = this.generateCellInsights(
+        combo,
+        metrics,
+        deviationPercent,
+        benchmarkValue,
+        cellValue,
+        filteredData.length
+      )
+      
       cells.push({
         dimensions: combo,
         metrics,
@@ -197,6 +207,7 @@ export class CubeAnalyzer {
         anomalyType: isAnomaly 
           ? (deviationPercent > 0 ? 'positive' : 'negative')
           : undefined,
+        insights, // v4.1: 인사이트 추가
       })
     }
 
@@ -266,6 +277,79 @@ export class CubeAnalyzer {
       topNegative: [],
       executionTime: Date.now() - startTime,
     }
+  }
+
+  /**
+   * 셀별 인사이트 자동 생성 (v4.1)
+   */
+  private generateCellInsights(
+    dimensions: Record<string, string>,
+    metrics: Record<string, number>,
+    deviationPercent: number,
+    benchmark: number,
+    cellValue: number,
+    sampleSize: number
+  ): string[] {
+    const insights: string[] = []
+    
+    // 차원 정보 수집
+    const dimEntries = Object.entries(dimensions)
+    const dimString = dimEntries.map(([key, val]) => `${key}: ${val}`).join(', ')
+    
+    // 주요 메트릭 이름
+    const primaryMetric = this.config.metrics[0]?.name || 'value'
+    
+    // 편차 기반 인사이트
+    if (Math.abs(deviationPercent) > 0.5) {
+      // 50% 이상 편차
+      if (deviationPercent > 0) {
+        insights.push(
+          `[${dimString}] ${primaryMetric}가 전체 평균 대비 ${Math.round(deviationPercent * 100)}% 높습니다. ` +
+          `(${cellValue.toFixed(0)} vs ${benchmark.toFixed(0)})`
+        )
+        
+        if (deviationPercent > 1.0) {
+          insights.push(
+            `이 조합은 상위 5% 성과를 보이고 있습니다. ` +
+            `다른 차원과의 교차 분석을 통해 성공 요인을 파악할 수 있습니다.`
+          )
+        }
+      } else {
+        insights.push(
+          `[${dimString}] ${primaryMetric}가 전체 평균 대비 ${Math.round(Math.abs(deviationPercent) * 100)}% 낮습니다. ` +
+          `(${cellValue.toFixed(0)} vs ${benchmark.toFixed(0)})`
+        )
+        
+        if (deviationPercent < -0.5) {
+          insights.push(
+            `이 조합의 성과 개선이 필요합니다. ` +
+            `다른 차원과의 비교를 통해 개선 포인트를 식별할 수 있습니다.`
+          )
+        }
+      }
+    }
+    
+    // 표본 크기 기반 인사이트
+    if (sampleSize < 10) {
+      insights.push(
+        `표본 크기가 작아(${sampleSize}건) 통계적 신뢰도가 낮을 수 있습니다. ` +
+        `더 많은 데이터 수집이 필요합니다.`
+      )
+    } else if (sampleSize > 100) {
+      insights.push(
+        `충분한 표본 크기(${sampleSize}건)로 신뢰할 수 있는 분석 결과입니다.`
+      )
+    }
+    
+    // 다차원 교차 분석 제안
+    if (dimEntries.length >= 2) {
+      insights.push(
+        `다차원 교차 분석: ${dimEntries.length}개 차원이 교차되어 있습니다. ` +
+        `각 차원의 개별 기여도를 분석하면 더 깊은 인사이트를 얻을 수 있습니다.`
+      )
+    }
+    
+    return insights
   }
 
   /**

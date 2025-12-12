@@ -10,6 +10,8 @@ import { mapActionsToInsights } from '../services/analytics/InsightActionMapper'
 import { exportData, getSupportedExportTypes, ExportType } from '../services/analytics/ExportService'
 import { ChurnPredictor } from '../services/analytics/ChurnPredictor'
 import { ArtistHealthCalculator } from '../services/analytics/ArtistHealthCalculator'
+import { NewUserAcquisitionAnalyzer } from '../services/analytics/NewUserAcquisitionAnalyzer'
+import { RepurchaseAnalyzer } from '../services/analytics/RepurchaseAnalyzer'
 
 const router = Router()
 
@@ -885,6 +887,97 @@ router.get('/artist-health/:artistId', async (req, res) => {
     res.status(500).json({ 
       success: false,
       error: error.message || '작가 건강도 조회 중 오류가 발생했습니다.',
+    })
+  }
+})
+
+// ==================== v4.1: 신규 유저 유치 분석 API ====================
+
+/**
+ * GET /api/business-brain/new-user-acquisition
+ * 신규 유저 유치 분석
+ * Query: period (30d, 90d, 180d, 365d)
+ */
+router.get('/new-user-acquisition', async (req, res) => {
+  try {
+    const { period = '90d' } = req.query
+
+    console.log(`[BusinessBrain] 신규 유저 유치 분석 요청 (${period})`)
+    
+    const analyzer = new NewUserAcquisitionAnalyzer()
+    const result = await analyzer.analyze(period as any)
+    
+    res.json({
+      success: true,
+      ...result,
+    })
+  } catch (error: any) {
+    console.error('[BusinessBrain] 신규 유저 유치 분석 오류:', error)
+    res.status(500).json({ 
+      success: false,
+      error: error.message || '신규 유저 유치 분석 중 오류가 발생했습니다.',
+    })
+  }
+})
+
+// ==================== v4.1: 재구매율 향상 분석 API ====================
+
+/**
+ * GET /api/business-brain/repurchase-analysis
+ * 재구매율 향상 분석
+ * Query: period (30d, 90d, 180d, 365d)
+ */
+router.get('/repurchase-analysis', async (req, res) => {
+  try {
+    const { period = '90d' } = req.query
+
+    console.log(`[BusinessBrain] 재구매율 향상 분석 요청 (${period})`)
+    
+    const analyzer = new RepurchaseAnalyzer()
+    const result = await analyzer.analyze(period as any)
+    
+    res.json({
+      success: true,
+      ...result,
+    })
+  } catch (error: any) {
+    console.error('[BusinessBrain] 재구매율 향상 분석 오류:', error)
+    res.status(500).json({ 
+      success: false,
+      error: error.message || '재구매율 향상 분석 중 오류가 발생했습니다.',
+    })
+  }
+})
+
+// ==================== v4.1: 시계열 분해 분석 API ====================
+
+/**
+ * GET /api/business-brain/time-series-decompose
+ * 시계열 분해 분석 (STL 분해: 계절성 + 추세 + 잔차)
+ * Query: period (30d, 90d, 180d, 365d), metric (gmv, orders, aov), periodType (optional)
+ */
+router.get('/time-series-decompose', async (req, res) => {
+  try {
+    const { period = '90d', metric = 'gmv', periodType } = req.query
+
+    console.log(`[BusinessBrain] 시계열 분해 분석 요청 (${period}, ${metric})`)
+    
+    const agent = new BusinessBrainAgent()
+    const result = await agent.decomposeTimeSeries(
+      period as any,
+      metric as 'gmv' | 'orders' | 'aov',
+      periodType ? parseInt(periodType as string) : undefined
+    )
+    
+    res.json({
+      success: true,
+      ...result,
+    })
+  } catch (error: any) {
+    console.error('[BusinessBrain] 시계열 분해 분석 오류:', error)
+    res.status(500).json({ 
+      success: false,
+      error: error.message || '시계열 분해 분석 중 오류가 발생했습니다.',
     })
   }
 })
