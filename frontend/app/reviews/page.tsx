@@ -4,6 +4,7 @@ import { useState, useEffect, useRef } from 'react'
 import { useQuery } from '@tanstack/react-query'
 import { reviewsApi } from '@/lib/api'
 import { Icon } from '@/components/ui/Icon'
+import { EnhancedLoadingPage } from '@/components/ui'
 import { Palette } from 'lucide-react'
 
 // 국가별 테마 컬러 (그라데이션 제거)
@@ -304,9 +305,7 @@ export default function ReviewsPage() {
       {/* Gallery Grid - Masonry Style */}
       <div className="max-w-7xl mx-auto px-6 py-12">
         {isLoading ? (
-          <div className="flex justify-center py-20">
-            <div className="w-12 h-12 border-4 border-stone-200 border-t-stone-600 rounded-full animate-spin" />
-          </div>
+          <EnhancedLoadingPage message="고객 리뷰를 불러오는 중..." variant="default" size="md" />
         ) : galleryData?.data?.reviews?.length > 0 ? (
           <>
             {/* Masonry Grid */}

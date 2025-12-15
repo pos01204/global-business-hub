@@ -130,7 +130,7 @@ export default function ControlTowerPage() {
   }
 
   if (isLoading) {
-    return <EnhancedLoadingPage message="물류 관제센터 데이터를 불러오는 중..." variant="fullscreen" size="lg" />
+    return <EnhancedLoadingPage message="물류 관제센터 데이터를 불러오는 중..." variant="default" size="lg" />
   }
 
   if (error) {

@@ -2,6 +2,7 @@
 
 import { useQuery } from '@tanstack/react-query'
 import { artistAnalyticsApi } from '@/lib/api'
+import { EnhancedLoadingPage } from '@/components/ui'
 
 export default function HealthTab() {
   const { data, isLoading, error } = useQuery({
@@ -10,11 +11,7 @@ export default function HealthTab() {
   })
 
   if (isLoading) {
-    return (
-      <div className="flex items-center justify-center py-12">
-        <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-violet-600"></div>
-      </div>
-    )
+    return <EnhancedLoadingPage message="작가 건강도 데이터를 불러오는 중..." variant="default" size="md" />
   }
 
   if (error || !data?.success) {

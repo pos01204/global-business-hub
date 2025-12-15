@@ -7,6 +7,7 @@ import { useSearchParams, useRouter } from 'next/navigation'
 import OrderDetailModal from '@/components/OrderDetailModal'
 import CustomerDetailModal from '@/components/CustomerDetailModal'
 import { Icon } from '@/components/ui/Icon'
+import { EnhancedLoadingPage } from '@/components/ui'
 import { Search } from 'lucide-react'
 
 export default function LookupPage() {
@@ -158,10 +159,7 @@ export default function LookupPage() {
 
         {/* 검색 결과 */}
         {isLoading && (
-          <div className="text-center py-8">
-            <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-primary mx-auto mb-4"></div>
-            <p>검색 중...</p>
-          </div>
+          <EnhancedLoadingPage message="검색 중..." variant="default" size="md" />
         )}
 
         {error && (

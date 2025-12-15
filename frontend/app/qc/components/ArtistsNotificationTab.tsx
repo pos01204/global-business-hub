@@ -4,6 +4,7 @@
 import { useState } from 'react'
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
 import { qcApi } from '@/lib/api'
+import { EnhancedLoadingPage } from '@/components/ui'
 
 export default function ArtistsNotificationTab() {
   const [notificationHistory, setNotificationHistory] = useState<Array<{
@@ -72,14 +73,7 @@ export default function ArtistsNotificationTab() {
   }
 
   if (isLoading) {
-    return (
-      <div className="flex items-center justify-center py-12">
-        <div className="text-center">
-          <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-primary mx-auto mb-4"></div>
-          <p>데이터를 불러오는 중...</p>
-        </div>
-      </div>
-    )
+    return <EnhancedLoadingPage message="작가 알람 명단을 불러오는 중..." variant="default" size="md" />
   }
 
   if (error) {

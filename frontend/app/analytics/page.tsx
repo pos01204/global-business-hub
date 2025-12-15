@@ -9,6 +9,7 @@ import OrderDetailModal from '@/components/OrderDetailModal'
 import ArtistOrdersModal from '@/components/ArtistOrdersModal'
 import { Tooltip } from '@/components/ui/Tooltip'
 import { Icon } from '@/components/ui/Icon'
+import { EnhancedLoadingPage } from '@/components/ui'
 import { EnhancedBarChart } from '@/components/charts'
 import { Bar, Doughnut, Chart, Pie } from 'react-chartjs-2'
 import {
@@ -52,14 +53,7 @@ function LogisticsPerformanceTab({
   })
 
   if (isLoading) {
-    return (
-      <div className="flex items-center justify-center py-12">
-        <div className="text-center">
-          <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-primary mx-auto mb-4"></div>
-          <p>데이터를 불러오는 중...</p>
-        </div>
-      </div>
-    )
+    return <EnhancedLoadingPage message="물류 처리 시간 데이터를 불러오는 중..." variant="default" size="md" />
   }
 
   if (error) {
@@ -1130,14 +1124,7 @@ export default function AnalyticsPage() {
   }
 
   if (isLoading) {
-    return (
-      <div className="min-h-screen flex items-center justify-center">
-        <div className="text-center">
-          <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-primary mx-auto mb-4"></div>
-          <p>데이터를 불러오는 중...</p>
-        </div>
-      </div>
-    )
+    return <EnhancedLoadingPage message="성과 분석 데이터를 불러오는 중..." variant="default" size="lg" />
   }
 
   if (error) {

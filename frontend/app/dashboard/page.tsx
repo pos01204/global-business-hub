@@ -110,7 +110,7 @@ export default function DashboardPage() {
   }
 
   if (isLoading) {
-    return <EnhancedLoadingPage message="대시보드 데이터를 불러오는 중..." variant="fullscreen" size="lg" />
+    return <EnhancedLoadingPage message="대시보드 데이터를 불러오는 중..." variant="default" size="lg" />
   }
 
   if (error) {

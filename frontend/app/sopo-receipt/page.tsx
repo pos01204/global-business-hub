@@ -4,6 +4,7 @@ import { useState, useCallback } from 'react'
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
 import { sopoReceiptApi } from '@/lib/api'
 import { Icon } from '@/components/ui/Icon'
+import { EnhancedLoadingPage } from '@/components/ui'
 import { Package, Upload, Users, FileText, BarChart3, CheckCircle, Clock, RefreshCw, AlertTriangle, Mail, Download, X, Calendar } from 'lucide-react'
 
 // 탭 타입
@@ -623,10 +624,7 @@ export default function SopoReceiptPage() {
             </div>
 
             {trackingLoading ? (
-              <div className="text-center py-12">
-                <Icon icon={Clock} size="xl" className="mx-auto mb-2 text-idus-500 animate-spin" />
-                <p className="mt-2 text-slate-500 dark:text-slate-400">로딩 중...</p>
-              </div>
+              <EnhancedLoadingPage message="소포수령증 추적 데이터를 불러오는 중..." variant="default" size="md" />
             ) : trackingData?.data ? (
               <>
                 {/* 요약 카드 */}

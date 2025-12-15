@@ -104,7 +104,7 @@ function CouponGeneratorContent() {
 
 export default function CouponGeneratorPage() {
   return (
-    <Suspense fallback={<EnhancedLoadingPage message="쿠폰 생성기 로딩 중..." variant="fullscreen" size="lg" />}>
+    <Suspense fallback={<EnhancedLoadingPage message="쿠폰 생성기 로딩 중..." variant="default" size="lg" />}>
       <CouponGeneratorContent />
     </Suspense>
   )

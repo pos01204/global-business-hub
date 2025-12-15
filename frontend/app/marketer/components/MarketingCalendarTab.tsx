@@ -2,6 +2,7 @@
 
 import { useState, useMemo, useCallback } from 'react'
 import { calendarApi } from '@/lib/api'
+import { EnhancedLoadingPage } from '@/components/ui'
 import StrategyModal from './StrategyModal'
 
 // 국가 정보
@@ -576,10 +577,7 @@ export default function MarketingCalendarTab() {
 
       {/* 로딩 상태 */}
       {isLoading ? (
-        <div className="card text-center py-12">
-          <div className="animate-spin text-4xl mb-4">🔄</div>
-          <p className="text-gray-500">기념일 정보를 불러오는 중...</p>
-        </div>
+        <EnhancedLoadingPage message="기념일 정보를 불러오는 중..." variant="default" size="md" />
       ) : (
         <>
           {/* 캘린더 / 리스트 뷰 */}

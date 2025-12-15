@@ -246,7 +246,7 @@ export default function LogisticsPage() {
   }
 
   if (isLoading) {
-    return <EnhancedLoadingPage message="물류 정보를 불러오는 중..." variant="fullscreen" size="lg" />
+    return <EnhancedLoadingPage message="물류 정보를 불러오는 중..." variant="default" size="lg" />
   }
 
   if (error) {

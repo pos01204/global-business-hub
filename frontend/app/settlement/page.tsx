@@ -4,6 +4,7 @@ import { useState, useCallback } from 'react'
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
 import { settlementApi } from '@/lib/api'
 import { Icon } from '@/components/ui/Icon'
+import { EnhancedLoadingPage } from '@/components/ui'
 import { DollarSign, Calendar, Truck, TrendingUp, RefreshCw } from 'lucide-react'
 
 // 탭 타입
@@ -540,10 +541,7 @@ export default function SettlementPage() {
         {activeTab === 'list' && (
           <div>
             {isListLoading ? (
-              <div className="card text-center py-12">
-                <div className="animate-spin rounded-full h-10 w-10 border-b-2 border-primary mx-auto mb-4"></div>
-                <p>데이터를 불러오는 중...</p>
-              </div>
+              <EnhancedLoadingPage message="정산 내역을 불러오는 중..." variant="default" size="md" />
             ) : listData?.success ? (
               <>
                 {/* 요약 통계 */}
@@ -628,10 +626,7 @@ export default function SettlementPage() {
         {activeTab === 'country' && (
           <div>
             {isCountryLoading ? (
-              <div className="card text-center py-12">
-                <div className="animate-spin rounded-full h-10 w-10 border-b-2 border-primary mx-auto mb-4"></div>
-                <p>분석 중...</p>
-              </div>
+              <EnhancedLoadingPage message="국가별 분석 데이터를 불러오는 중..." variant="default" size="md" />
             ) : countryData?.success ? (
               <div className="card">
                 <h2 className="text-xl font-semibold mb-4 flex items-center gap-2">
@@ -689,10 +684,7 @@ export default function SettlementPage() {
         {activeTab === 'carrier' && (
           <div>
             {isCarrierLoading ? (
-              <div className="card text-center py-12">
-                <div className="animate-spin rounded-full h-10 w-10 border-b-2 border-primary mx-auto mb-4"></div>
-                <p>분석 중...</p>
-              </div>
+              <EnhancedLoadingPage message="운송사별 분석 데이터를 불러오는 중..." variant="default" size="md" />
             ) : carrierData?.success ? (
               <div className="card">
                 <h2 className="text-xl font-semibold mb-4 flex items-center gap-2">
@@ -754,10 +746,7 @@ export default function SettlementPage() {
         {activeTab === 'weight' && (
           <div>
             {isWeightLoading ? (
-              <div className="card text-center py-12">
-                <div className="animate-spin rounded-full h-10 w-10 border-b-2 border-primary mx-auto mb-4"></div>
-                <p>분석 중...</p>
-              </div>
+              <EnhancedLoadingPage message="중량 분석 데이터를 불러오는 중..." variant="default" size="md" />
             ) : weightData?.success ? (
               <>
                 {/* 요약 통계 */}
@@ -873,10 +862,7 @@ export default function SettlementPage() {
         {activeTab === 'trend' && (
           <div>
             {isTrendLoading ? (
-              <div className="card text-center py-12">
-                <div className="animate-spin rounded-full h-10 w-10 border-b-2 border-primary mx-auto mb-4"></div>
-                <p>분석 중...</p>
-              </div>
+              <EnhancedLoadingPage message="트렌드 분석 데이터를 불러오는 중..." variant="default" size="md" />
             ) : trendData?.success ? (
               <>
                 {/* 전체 요약 */}
