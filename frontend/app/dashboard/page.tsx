@@ -13,7 +13,7 @@ import {
   DollarSign, Package, BarChart3, Palette, Users, Truck,
   MessageCircle, AlertTriangle, CheckCircle, Zap, Link2,
   FileText, Activity, Calendar, TrendingUp, Lightbulb,
-  Circle
+  Circle, AlertCircle
 } from 'lucide-react'
 
 export default function DashboardPage() {
