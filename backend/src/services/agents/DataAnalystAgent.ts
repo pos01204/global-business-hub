@@ -7,7 +7,7 @@ import { openaiRetryHandler } from './RetryHandler'
 import { dataAnalystValidator } from './ResponseValidator'
 import { correlationAnalyzer } from './CorrelationAnalyzer'
 import { metricsCollector } from './MetricsCollector'
-import { enhancedDateParser, ComparisonDateRanges } from './EnhancedDateParser'
+import { enhancedDateParser, ComparisonDateRanges, DateRange } from './EnhancedDateParser'
 
 export class DataAnalystAgent extends BaseAgent {
   private getSystemPrompt(): string {
@@ -82,6 +82,44 @@ ${getSchemaSummaryForPrompt()}
         }
       }
 
+      // 날짜 범위 파싱 및 검증
+      const parsedDateRange = extractedIntent.entities?.dateRange
+      if (parsedDateRange) {
+        // DateRange 타입으로 변환 (type이 'month' | 'year' | 'quarter'인 경우 'absolute'로 변환)
+        const dateRangeForValidation: DateRange = {
+          start: parsedDateRange.start,
+          end: parsedDateRange.end,
+          type: (parsedDateRange.type === 'absolute' || parsedDateRange.type === 'relative') 
+            ? parsedDateRange.type 
+            : 'absolute'
+        }
+        const validation = enhancedDateParser.validateDateRange(dateRangeForValidation)
+        if (!validation.valid) {
+          console.error('[DataAnalystAgent] 날짜 범위 검증 실패:', validation.warnings)
+        }
+        if (validation.warnings.length > 0) {
+          console.warn('[DataAnalystAgent] 날짜 범위 경고:', validation.warnings)
+        }
+        
+        // 현재 날짜와 비교하여 로깅
+        const currentDate = enhancedDateParser.getCurrentDateString()
+        console.log('[DataAnalystAgent] 날짜 범위 파싱 결과:', {
+          query,
+          parsed: parsedDateRange,
+          currentDate,
+          validation: {
+            valid: validation.valid,
+            warnings: validation.warnings
+          }
+        })
+      } else {
+        // 날짜 범위가 파싱되지 않은 경우 경고
+        console.warn('[DataAnalystAgent] 날짜 범위 파싱 실패:', {
+          query,
+          extractedIntent: extractedIntent.entities
+        })
+      }
+
       // 비교 분석 의도 감지 및 두 기간 추출
       let comparisonRanges: ComparisonDateRanges | undefined
       if (extractedIntent.intent === 'comparison') {
@@ -93,8 +131,11 @@ ${getSchemaSummaryForPrompt()}
             labels: {
               period1: comparisonRanges.period1Label,
               period2: comparisonRanges.period2Label
-            }
+            },
+            currentDate: enhancedDateParser.getCurrentDateString()
           })
+        } else {
+          console.warn('[DataAnalystAgent] 비교 분석 날짜 범위 파싱 실패:', query)
         }
       }
 

@@ -20,6 +20,15 @@ export interface AgentContext {
   userId?: string
   sessionId?: string
   history?: Array<{ role: string; content: string }>
+  query?: string
+  dateRange?: { start: string; end: string }
+  previousQuery?: string
+  previousIntent?: string
+  previousData?: any
+  previousAnalysis?: string
+  previousMarketingInsights?: string
+  previousStrategy?: string
+  dependencyResults?: Record<string, any>
   [key: string]: any
 }
 

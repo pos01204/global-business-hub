@@ -177,13 +177,26 @@ const QUICK_QUESTIONS = [
   },
 ]
 
+const CHAT_STORAGE_KEY = 'idus-chat-history'
+const SESSION_STORAGE_KEY = 'idus-chat-session'
+
 export default function ChatPage() {
   const router = useRouter()
   const [messages, setMessages] = useState<Message[]>([])
   const [input, setInput] = useState('')
   const [isConnected, setIsConnected] = useState(false)
   const [selectedAgent, setSelectedAgent] = useState<AgentType>('auto')
-  const [sessionId] = useState(() => `session-${Date.now()}`)
+  const [sessionId, setSessionId] = useState<string>(() => {
+    // 세션 ID를 sessionStorage에서 불러오거나 새로 생성
+    if (typeof window !== 'undefined') {
+      const saved = sessionStorage.getItem(SESSION_STORAGE_KEY)
+      if (saved) return saved
+      const newId = `session-${Date.now()}`
+      sessionStorage.setItem(SESSION_STORAGE_KEY, newId)
+      return newId
+    }
+    return `session-${Date.now()}`
+  })
   const [useStreaming, setUseStreaming] = useState(true)
   const [streamingContent, setStreamingContent] = useState('')
   const [isStreaming, setIsStreaming] = useState(false)
@@ -196,6 +209,45 @@ export default function ChatPage() {
   const [newMessageIndices, setNewMessageIndices] = useState<Set<number>>(new Set())
   const [shouldAutoScroll, setShouldAutoScroll] = useState(true)
   const lastScrollTop = useRef(0)
+
+  // 채팅 로그 불러오기 (컴포넌트 마운트 시)
+  useEffect(() => {
+    if (typeof window === 'undefined') return
+
+    try {
+      const savedMessages = localStorage.getItem(`${CHAT_STORAGE_KEY}-${sessionId}`)
+      if (savedMessages) {
+        const parsed = JSON.parse(savedMessages)
+        if (Array.isArray(parsed) && parsed.length > 0) {
+          setMessages(parsed)
+          console.log('[ChatPage] 채팅 로그 불러오기 성공:', parsed.length, '개 메시지')
+        }
+      }
+    } catch (error) {
+      console.error('[ChatPage] 채팅 로그 불러오기 실패:', error)
+    }
+  }, [sessionId])
+
+  // 채팅 로그 저장 (메시지 변경 시)
+  useEffect(() => {
+    if (typeof window === 'undefined' || messages.length === 0) return
+
+    try {
+      localStorage.setItem(`${CHAT_STORAGE_KEY}-${sessionId}`, JSON.stringify(messages))
+      // 최근 세션 목록도 저장
+      const recentSessions = JSON.parse(localStorage.getItem('idus-chat-sessions') || '[]')
+      const sessionInfo = {
+        sessionId,
+        lastMessage: messages[messages.length - 1]?.content?.substring(0, 50) || '',
+        messageCount: messages.length,
+        lastUpdated: new Date().toISOString()
+      }
+      const updated = [sessionInfo, ...recentSessions.filter((s: any) => s.sessionId !== sessionId)].slice(0, 10)
+      localStorage.setItem('idus-chat-sessions', JSON.stringify(updated))
+    } catch (error) {
+      console.error('[ChatPage] 채팅 로그 저장 실패:', error)
+    }
+  }, [messages, sessionId])
 
   // 챗봇 상태 확인
   const { data: healthData } = useQuery({
@@ -701,8 +753,15 @@ export default function ChatPage() {
             <div className="p-3 border-t border-slate-200">
               <button
                 onClick={() => {
-                  setMessages([])
-                  setInput('')
+                  if (confirm('새 대화를 시작하시겠습니까? 현재 대화 내용이 저장됩니다.')) {
+                    const newSessionId = `session-${Date.now()}`
+                    setSessionId(newSessionId)
+                    if (typeof window !== 'undefined') {
+                      sessionStorage.setItem(SESSION_STORAGE_KEY, newSessionId)
+                    }
+                    setMessages([])
+                    setInput('')
+                  }
                 }}
                 className="w-full py-2.5 bg-slate-100 hover:bg-slate-200 rounded-lg text-sm font-medium text-slate-700 transition-colors flex items-center justify-center gap-2"
               >

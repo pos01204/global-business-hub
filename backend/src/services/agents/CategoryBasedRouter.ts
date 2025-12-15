@@ -12,6 +12,7 @@ import { EnhancedAgentOrchestrator } from './EnhancedAgentOrchestrator'
 import { pageNavigationAgent, PageNavigationAgent } from './PageNavigationAgent'
 import { QuestionCategory, CategoryFlow, FlowStep, AgentRole } from './QuestionCategory'
 import { AgentContext } from './BaseAgent'
+import { nodeBasedWorkflow } from './NodeBasedWorkflow'
 
 export interface AgentResponse {
   response: string
@@ -367,9 +368,72 @@ export class CategoryBasedRouter {
   }
 
   /**
-   * Flow 실행
+   * Flow 실행 (Node 기반 워크플로우 사용)
    */
   private async executeFlow(
+    flow: CategoryFlow,
+    query: string,
+    context: AgentContext
+  ): Promise<AgentResponse> {
+    // 복합 질문인 경우 Node 기반 워크플로우 사용
+    if (flow.category === QuestionCategory.COMPLEX_QUERY || 
+        flow.executionOrder === 'hybrid' ||
+        flow.requiredAgents.length > 1) {
+      return this.executeNodeBasedWorkflow(flow, query, context)
+    }
+
+    // 단순 질문은 기존 방식 사용
+    return this.executeSimpleFlow(flow, query, context)
+  }
+
+  /**
+   * Node 기반 워크플로우 실행
+   */
+  private async executeNodeBasedWorkflow(
+    flow: CategoryFlow,
+    query: string,
+    context: AgentContext
+  ): Promise<AgentResponse> {
+    try {
+      // 필요한 노드 타입 결정
+      const requiredNodeTypes = flow.requiredAgents.map(role => {
+        switch (role) {
+          case 'data-analyst': return 'data-analyst' as const
+          case 'performance-marketer': return 'performance-marketer' as const
+          case 'business-manager': return 'business-manager' as const
+          case 'business-brain': return 'business-brain' as const
+          default: return 'data-analyst' as const
+        }
+      })
+
+      // 워크플로우 실행
+      const execution = await nodeBasedWorkflow.executeSelectiveWorkflow(
+        query,
+        requiredNodeTypes,
+        context
+      )
+
+      // 결과 통합
+      const integratedResult = await nodeBasedWorkflow.integrateResults(execution, query)
+
+      console.log('[CategoryBasedRouter] Node 기반 워크플로우 완료:', {
+        category: flow.category,
+        nodesExecuted: execution.executionOrder,
+        totalTime: execution.totalTime
+      })
+
+      return integratedResult
+    } catch (error: any) {
+      console.error('[CategoryBasedRouter] Node 기반 워크플로우 실패:', error)
+      // 폴백: 기존 방식 사용
+      return this.executeSimpleFlow(flow, query, context)
+    }
+  }
+
+  /**
+   * 단순 Flow 실행 (기존 방식)
+   */
+  private async executeSimpleFlow(
     flow: CategoryFlow,
     query: string,
     context: AgentContext
