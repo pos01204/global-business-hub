@@ -10,7 +10,7 @@ import ArtistOrdersModal from '@/components/ArtistOrdersModal'
 import { Tooltip } from '@/components/ui/Tooltip'
 import { Icon } from '@/components/ui/Icon'
 import { EnhancedBarChart } from '@/components/charts'
-import { Bar, Doughnut } from 'react-chartjs-2'
+import { Bar, Doughnut, Chart } from 'react-chartjs-2'
 import {
   Chart as ChartJS,
   CategoryScale,
