@@ -1,6 +1,6 @@
 'use client'
 
-import React, { useState, useEffect } from 'react'
+import React, { useState, useEffect, memo } from 'react'
 import { motion, useSpring, useTransform } from 'framer-motion'
 import { Icon } from './Icon'
 import { Tooltip } from './Tooltip'
@@ -20,7 +20,7 @@ export interface EnhancedKPICardProps {
   prefix?: string
 }
 
-export function EnhancedKPICard({
+export const EnhancedKPICard = memo(function EnhancedKPICard({
   title,
   value,
   change,
