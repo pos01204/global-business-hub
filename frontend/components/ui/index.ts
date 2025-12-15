@@ -91,3 +91,7 @@ export type { EnhancedButtonProps } from './EnhancedButton'
 
 export { EnhancedKPICard } from './EnhancedKPICard'
 export type { EnhancedKPICardProps } from './EnhancedKPICard'
+
+// Enhanced Loading Page
+export { EnhancedLoadingPage } from './EnhancedLoadingPage'
+export { LoadingStates } from './LoadingStates'

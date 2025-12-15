@@ -5,7 +5,7 @@ import { useSearchParams } from 'next/navigation'
 import PromotionCouponTab from './components/tabs/PromotionCouponTab'
 import IndividualIssueTab from './components/tabs/IndividualIssueTab'
 import { Tabs, TabPanel } from '@/components/ui'
-import { LoadingOverlay } from '@/components/ui/Spinner'
+import { EnhancedLoadingPage } from '@/components/ui'
 import { Icon } from '@/components/ui/Icon'
 import { Megaphone, User, Ticket, Zap, AlertTriangle } from 'lucide-react'
 
@@ -104,7 +104,7 @@ function CouponGeneratorContent() {
 
 export default function CouponGeneratorPage() {
   return (
-    <Suspense fallback={<LoadingOverlay message="쿠폰 생성기 로딩 중..." />}>
+    <Suspense fallback={<EnhancedLoadingPage message="쿠폰 생성기 로딩 중..." variant="fullscreen" size="lg" />}>
       <CouponGeneratorContent />
     </Suspense>
   )

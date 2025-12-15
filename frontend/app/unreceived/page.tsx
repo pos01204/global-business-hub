@@ -7,6 +7,7 @@ import { useSearchParams, useRouter } from 'next/navigation'
 import OrderDetailModal from '@/components/OrderDetailModal'
 import { useIsMobile } from '@/hooks/useMediaQuery'
 import { Icon } from '@/components/ui/Icon'
+import { EnhancedLoadingPage } from '@/components/ui'
 import { Package, MessageCircle } from 'lucide-react'
 
 // 경과일에 따른 위험도 배지 (한 줄로 표시)

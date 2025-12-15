@@ -245,14 +245,7 @@ export default function LogisticsPage() {
   }
 
   if (isLoading) {
-    return (
-      <div className="min-h-screen flex items-center justify-center">
-        <div className="text-center">
-          <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-primary mx-auto mb-4"></div>
-          <p>데이터를 불러오는 중...</p>
-        </div>
-      </div>
-    )
+    return <EnhancedLoadingPage message="물류 정보를 불러오는 중..." variant="fullscreen" size="lg" />
   }
 
   if (error) {

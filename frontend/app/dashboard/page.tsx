@@ -5,7 +5,7 @@ import { dashboardApi, controlTowerApi, artistAnalyticsApi, businessBrainApi, an
 import Link from 'next/link'
 import { useState, useEffect } from 'react'
 import { format } from 'date-fns'
-import { LoadingOverlay, EnhancedKPICard, Tooltip } from '@/components/ui'
+import { EnhancedKPICard, Tooltip, EnhancedLoadingPage } from '@/components/ui'
 import { Icon } from '@/components/ui/Icon'
 import { iconMap, emojiToIconMap } from '@/lib/icon-mapping'
 import { EnhancedLineChart, EnhancedBarChart } from '@/components/charts'
@@ -110,7 +110,7 @@ export default function DashboardPage() {
   }
 
   if (isLoading) {
-    return <LoadingOverlay message="대시보드 데이터를 불러오는 중..." />
+    return <EnhancedLoadingPage message="대시보드 데이터를 불러오는 중..." variant="fullscreen" size="lg" />
   }
 
   if (error) {

@@ -4,7 +4,7 @@ import { useState } from 'react'
 import { useRouter } from 'next/navigation'
 import { useQuery, useMutation } from '@tanstack/react-query'
 import { customerAnalyticsApi } from '@/lib/api'
-import { Tabs, TabPanel } from '@/components/ui'
+import { Tabs, TabPanel, EnhancedLoadingPage } from '@/components/ui'
 import { Icon } from '@/components/ui/Icon'
 import { Users, RefreshCw, AlertTriangle, BarChart3, DollarSign, Ticket, TrendingUp } from 'lucide-react'
 import {
@@ -1369,14 +1369,7 @@ function SummaryCard({
 }
 
 function LoadingState() {
-  return (
-    <div className="flex items-center justify-center py-20">
-      <div className="text-center">
-        <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-slate-800 mx-auto mb-4"></div>
-        <p className="text-slate-600">데이터를 분석하고 있습니다...</p>
-      </div>
-    </div>
-  )
+  return <EnhancedLoadingPage message="데이터를 분석하고 있습니다..." variant="default" size="md" />
 }
 
 function ErrorState() {

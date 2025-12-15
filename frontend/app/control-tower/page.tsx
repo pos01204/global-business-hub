@@ -6,6 +6,7 @@ import { useState } from 'react'
 import Link from 'next/link'
 import OrderDetailModal from '@/components/OrderDetailModal'
 import { Icon } from '@/components/ui/Icon'
+import { EnhancedLoadingPage } from '@/components/ui'
 import { Package, Truck, Search, CheckCircle, Activity, AlertTriangle, Clock, X, Lightbulb, BarChart3 } from 'lucide-react'
 
 interface CriticalOrder {
@@ -129,14 +130,7 @@ export default function ControlTowerPage() {
   }
 
   if (isLoading) {
-    return (
-      <div className="min-h-screen flex items-center justify-center">
-        <div className="text-center">
-          <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-primary mx-auto mb-4"></div>
-          <p>데이터를 불러오는 중...</p>
-        </div>
-      </div>
-    )
+    return <EnhancedLoadingPage message="물류 관제센터 데이터를 불러오는 중..." variant="fullscreen" size="lg" />
   }
 
   if (error) {

@@ -10,6 +10,7 @@ import { Tabs } from '@/components/ui/Tabs'
 import { Badge } from '@/components/ui/Badge'
 import { Tooltip } from '@/components/ui/Tooltip'
 import { Icon } from '@/components/ui/Icon'
+import { EnhancedLoadingPage } from '@/components/ui'
 import { iconMap } from '@/lib/icon-mapping'
 import { 
   Brain, BarChart3, Users, Palette, TrendingUp, Calendar,
@@ -754,17 +755,11 @@ export default function BusinessBrainPage() {
 
       {isLoading ? (
         <FadeIn>
-          <div className="flex flex-col items-center justify-center h-64 gap-4">
-            <div className="relative">
-              <div className="w-16 h-16 border-4 border-indigo-200 dark:border-indigo-800 rounded-full animate-spin border-t-indigo-600" />
-              <div className="absolute inset-0 flex items-center justify-center">
-                <span className="text-2xl">🧠</span>
-              </div>
-            </div>
-            <p className="text-sm text-slate-500 dark:text-slate-400 animate-pulse">
-              AI가 데이터를 분석하고 있습니다...
-            </p>
-          </div>
+          <EnhancedLoadingPage 
+            message="AI가 데이터를 분석하고 있습니다..." 
+            variant="default" 
+            size="lg" 
+          />
         </FadeIn>
       ) : (
         <>
