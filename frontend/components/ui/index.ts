@@ -94,4 +94,12 @@ export type { EnhancedKPICardProps } from './EnhancedKPICard'
 
 // Enhanced Loading Page
 export { EnhancedLoadingPage } from './EnhancedLoadingPage'
+
+// Period Selector
+export { PeriodSelector } from './PeriodSelector'
+export type { PeriodSelectorProps, PeriodPreset } from './PeriodSelector'
+
+// Aggregation Selector
+export { AggregationSelector } from './AggregationSelector'
+export type { AggregationSelectorProps, AggregationType } from './AggregationSelector'
 export { LoadingStates } from './LoadingStates'

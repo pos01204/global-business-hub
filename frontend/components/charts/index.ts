@@ -11,3 +11,11 @@ export type { EnhancedAreaChartProps } from './EnhancedAreaChart'
 export { EnhancedDoughnutChart } from './EnhancedDoughnutChart'
 export type { EnhancedDoughnutChartProps } from './EnhancedDoughnutChart'
 
+export { GMVTrendChart } from './GMVTrendChart'
+export type { GMVTrendChartProps, GMVTrendData } from './GMVTrendChart'
+
+export { CustomTooltip } from './ChartTooltip'
+
+export { StatSummaryCards } from './StatSummaryCards'
+export type { StatSummaryCardsProps, StatCardData } from './StatSummaryCards'
+

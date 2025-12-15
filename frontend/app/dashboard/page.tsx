@@ -5,10 +5,12 @@ import { dashboardApi, controlTowerApi, artistAnalyticsApi, businessBrainApi, an
 import Link from 'next/link'
 import { useState, useEffect } from 'react'
 import { format } from 'date-fns'
-import { EnhancedKPICard, Tooltip, EnhancedLoadingPage } from '@/components/ui'
+import { EnhancedKPICard, Tooltip, EnhancedLoadingPage, PeriodSelector, AggregationSelector } from '@/components/ui'
+import type { PeriodPreset, AggregationType } from '@/components/ui'
 import { Icon } from '@/components/ui/Icon'
 import { iconMap, emojiToIconMap } from '@/lib/icon-mapping'
-import { EnhancedLineChart, EnhancedBarChart } from '@/components/charts'
+import { EnhancedLineChart, EnhancedBarChart, GMVTrendChart, StatSummaryCards } from '@/components/charts'
+import type { GMVTrendData, StatCardData } from '@/components/charts'
 import { 
   DollarSign, Package, BarChart3, Palette, Users, Truck,
   MessageCircle, AlertTriangle, CheckCircle, Zap, Link2,
@@ -19,6 +21,8 @@ import {
 export default function DashboardPage() {
   const [startDate, setStartDate] = useState<string>('')
   const [endDate, setEndDate] = useState<string>('')
+  const [periodPreset, setPeriodPreset] = useState<PeriodPreset>('30d')
+  const [aggregation, setAggregation] = useState<AggregationType>('daily')
 
   useEffect(() => {
     const today = new Date()
@@ -28,6 +32,14 @@ export default function DashboardPage() {
     setEndDate(format(today, 'yyyy-MM-dd'))
     setStartDate(format(thirtyDaysAgo, 'yyyy-MM-dd'))
   }, [])
+
+  const handlePeriodChange = (preset: PeriodPreset, start?: string, end?: string) => {
+    setPeriodPreset(preset)
+    if (start && end) {
+      setStartDate(start)
+      setEndDate(end)
+    }
+  }
 
   const { data, isLoading, error } = useQuery({
     queryKey: ['dashboard', 'main', startDate, endDate],
@@ -575,53 +587,130 @@ export default function DashboardPage() {
 
           {/* 트렌드 차트 */}
           <div className="bg-white dark:bg-slate-900 rounded-2xl border border-slate-200 dark:border-slate-800 p-4 lg:p-6 mb-6 shadow-sm">
-            <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 mb-5">
-              <div className="flex items-center gap-3">
-                <div className="w-10 h-10 bg-idus-500 rounded-xl flex items-center justify-center shadow-sm">
-                  <Icon icon={TrendingUp} size="lg" className="text-white" />
-                </div>
-                <div>
-                  <h2 className="text-lg font-bold text-slate-800 dark:text-slate-100">GMV & 주문 추세</h2>
-                  <p className="text-xs text-slate-500 dark:text-slate-400">7일 이동평균 포함</p>
+            <div className="flex flex-col gap-4 mb-5">
+              <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
+                <div className="flex items-center gap-3">
+                  <div className="w-10 h-10 bg-idus-500 rounded-xl flex items-center justify-center shadow-sm">
+                    <Icon icon={TrendingUp} size="lg" className="text-white" />
+                  </div>
+                  <div>
+                    <h2 className="text-lg font-bold text-slate-800 dark:text-slate-100">GMV & 주문 추세</h2>
+                    <p className="text-xs text-slate-500 dark:text-slate-400">7일 이동평균 포함</p>
+                  </div>
                 </div>
               </div>
-              {startDate && endDate && (
-                <Tooltip content={`조회 기간: ${startDate} ~ ${endDate}`}>
-                  <span className="text-xs text-slate-500 dark:text-slate-400 bg-slate-100 dark:bg-slate-800 px-3 py-1.5 rounded-lg font-medium flex items-center gap-1">
-                    <Icon icon={Calendar} size="sm" />
-                    {startDate} ~ {endDate}
-                  </span>
-                </Tooltip>
-              )}
+              
+              {/* 필터 컨트롤 */}
+              <div className="flex flex-col sm:flex-row gap-3 items-start sm:items-center">
+                <PeriodSelector
+                  value={periodPreset}
+                  startDate={startDate}
+                  endDate={endDate}
+                  onChange={handlePeriodChange}
+                  className="flex-1"
+                />
+                <AggregationSelector
+                  value={aggregation}
+                  onChange={setAggregation}
+                />
+              </div>
             </div>
             {data.trend && (() => {
-              // Chart.js 데이터를 Recharts 형식으로 변환
-              const chartData = data.trend.labels.map((label: string, index: number) => {
-                const item: any = { date: label }
+              // Chart.js 데이터를 GMVTrendChart 형식으로 변환
+              const chartData: GMVTrendData[] = data.trend.labels.map((label: string, index: number) => {
+                const item: GMVTrendData = { 
+                  date: label,
+                  gmv: 0,
+                  orders: 0,
+                }
+                
+                // 각 데이터셋에서 해당 인덱스의 값을 추출
                 data.trend.datasets.forEach((dataset: any) => {
-                  if (dataset.data && dataset.data[index] !== undefined) {
-                    item[dataset.label || dataset.dataKey || 'value'] = dataset.data[index]
+                  if (dataset.data && dataset.data[index] !== undefined && dataset.data[index] !== null) {
+                    const value = dataset.data[index]
+                    
+                    // 정확한 라벨 매칭으로 데이터 추출
+                    if (dataset.label === 'GMV (일별)') {
+                      item.gmv = value
+                    } else if (dataset.label === '주문 건수 (일별)') {
+                      item.orders = value
+                    } else if (dataset.label === 'GMV (7일 이동평균)') {
+                      item.gmvMA7 = value
+                    } else if (dataset.label === '주문 건수 (7일 이동평균)') {
+                      item.ordersMA7 = value
+                    }
                   }
                 })
+                
                 return item
               })
               
-              const gmvKey = data.trend.datasets.find((d: any) => d.yAxisID === 'yGmv')?.label || 
-                            data.trend.datasets.find((d: any) => d.type === 'bar')?.label || 
-                            'gmv'
-              const ordersKey = data.trend.datasets.find((d: any) => d.yAxisID === 'yOrders')?.label || 
-                               data.trend.datasets.find((d: any) => d.type === 'line')?.label || 
-                               'orders'
+              // 통계 계산
+              const gmvValues = chartData.map(d => d.gmv).filter(v => v > 0)
+              const ordersValues = chartData.map(d => d.orders).filter(v => v > 0)
+              
+              const avgGmv = gmvValues.length > 0 
+                ? gmvValues.reduce((a, b) => a + b, 0) / gmvValues.length 
+                : 0
+              const avgOrders = ordersValues.length > 0 
+                ? ordersValues.reduce((a, b) => a + b, 0) / ordersValues.length 
+                : 0
+              
+              const maxGmv = Math.max(...gmvValues, 0)
+              const maxGmvIndex = gmvValues.indexOf(maxGmv)
+              const maxGmvDate = maxGmvIndex >= 0 ? chartData[maxGmvIndex]?.date : undefined
+              
+              const maxOrders = Math.max(...ordersValues, 0)
+              const maxOrdersIndex = ordersValues.indexOf(maxOrders)
+              const maxOrdersDate = maxOrdersIndex >= 0 ? chartData[maxOrdersIndex]?.date : undefined
+              
+              // 변화율 계산 (첫날 대비 마지막날)
+              const firstGmv = gmvValues[0] || 0
+              const lastGmv = gmvValues[gmvValues.length - 1] || 0
+              const gmvChange = firstGmv > 0 ? ((lastGmv - firstGmv) / firstGmv) * 100 : 0
+              
+              const firstOrders = ordersValues[0] || 0
+              const lastOrders = ordersValues[ordersValues.length - 1] || 0
+              const ordersChange = firstOrders > 0 ? ((lastOrders - firstOrders) / firstOrders) * 100 : 0
+              
+              const stats: StatCardData[] = [
+                {
+                  label: '평균 일일 GMV',
+                  value: avgGmv,
+                  change: gmvChange,
+                  trend: gmvChange > 0 ? 'up' : gmvChange < 0 ? 'down' : 'stable',
+                  format: 'currency',
+                },
+                {
+                  label: '평균 일일 주문',
+                  value: avgOrders,
+                  change: ordersChange,
+                  trend: ordersChange > 0 ? 'up' : ordersChange < 0 ? 'down' : 'stable',
+                  format: 'number',
+                },
+                {
+                  label: '최고 GMV',
+                  value: maxGmv,
+                  date: maxGmvDate ? format(new Date(maxGmvDate), 'MM/dd') : undefined,
+                  format: 'currency',
+                },
+                {
+                  label: '최고 주문',
+                  value: maxOrders,
+                  date: maxOrdersDate ? format(new Date(maxOrdersDate), 'MM/dd') : undefined,
+                  format: 'number',
+                },
+              ]
               
               return (
-                <EnhancedBarChart
-                  data={chartData}
-                  dataKeys={[gmvKey, ordersKey]}
-                  xAxisKey="date"
-                  names={['GMV', '주문 건수']}
-                  colors={['#F78C3A', '#3B82F6']}
-                  height={280}
-                />
+                <>
+                  <StatSummaryCards stats={stats} />
+                  <GMVTrendChart
+                    data={chartData}
+                    height={400}
+                    showMovingAverage={true}
+                  />
+                </>
               )
             })()}
           </div>
