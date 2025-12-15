@@ -17,6 +17,7 @@ import {
   AlertTriangle, HelpCircle, Zap,
   Target, Award, Gift, Tag, Percent,
   Palette, Sparkles, BookOpen, Database,
+  MessageCircle,
   BarChart, PieChart as PieChartIcon, LineChart as LineChartIcon
 } from 'lucide-react'
 
@@ -88,6 +89,7 @@ export const iconMap = {
   sparkles: Sparkles,
   book: BookOpen,
   database: Database,
+  messageCircle: MessageCircle,
 } as const
 
 // 이모지 → 아이콘 매핑 테이블 (완전판)
@@ -121,8 +123,6 @@ export const emojiToIconMap: Record<string, keyof typeof iconMap> = {
   '❌': 'close',
   '▶️': 'next',
   '◀️': 'prev',
-  '⬆️': 'up',
-  '⬇️': 'down',
   '📉': 'decline',
   '⏰': 'time',
   '🔔': 'notification',
@@ -154,8 +154,7 @@ export const emojiToIconMap: Record<string, keyof typeof iconMap> = {
   '👨‍🎨': 'palette',
   '📝': 'document',
   '🎟️': 'gift',
-  '💬': 'notification',
+  '💬': 'messageCircle',
   '🔎': 'search',
-  '📋': 'document',
 }
 
