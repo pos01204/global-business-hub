@@ -321,104 +321,107 @@ export default function DashboardPage() {
             </Link>
           </div>
 
-          <div className="space-y-4">
-            {/* 건강도 점수 */}
+          <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
+            {/* 왼쪽: 건강도 점수 */}
             {brainHealthData?.score && (
               <Tooltip content="비즈니스 전반적인 건강 상태를 종합적으로 평가한 점수입니다. 매출, 고객, 작가, 운영 등 4가지 차원을 종합합니다.">
                 <div className="bg-white/60 dark:bg-slate-800/60 rounded-xl p-4 backdrop-blur-sm border border-slate-200 dark:border-slate-700 cursor-help">
-                  <div className="flex items-center justify-between mb-2">
-                    <span className="text-sm text-slate-600 dark:text-slate-400">비즈니스 건강도</span>
-                    <span className={`text-lg font-bold ${
+                  <div className="flex items-center justify-between mb-3">
+                    <span className="text-sm font-medium text-slate-600 dark:text-slate-400">비즈니스 건강도</span>
+                    <span className={`text-2xl font-bold ${
                       brainHealthData.score.overall >= 70 ? 'text-emerald-600 dark:text-emerald-400' :
                       brainHealthData.score.overall >= 50 ? 'text-amber-600 dark:text-amber-400' : 'text-red-600 dark:text-red-400'
                     }`}>
                       {brainHealthData.score.overall}/100
                     </span>
                   </div>
-                <div className="w-full bg-slate-200 dark:bg-slate-700 rounded-full h-2 mb-3">
-                  <div 
-                    className={`h-2 rounded-full transition-all duration-500 ${
-                      brainHealthData.score.overall >= 70 ? 'bg-emerald-500' :
-                      brainHealthData.score.overall >= 50 ? 'bg-amber-500' : 'bg-red-500'
-                    }`}
-                    style={{ width: `${brainHealthData.score.overall}%` }}
-                  />
-                </div>
-                <div className="grid grid-cols-4 gap-2">
-                  {Object.entries(brainHealthData.score.dimensions).map(([key, dim]: [string, any]) => {
-                    const label = key === 'revenue' ? '매출' : key === 'customer' ? '고객' : key === 'artist' ? '작가' : '운영'
-                    const tooltipText = key === 'revenue' ? '매출 관련 건강도 지표' : 
-                                       key === 'customer' ? '고객 관련 건강도 지표' : 
-                                       key === 'artist' ? '작가 관련 건강도 지표' : 
-                                       '운영 관련 건강도 지표'
-                    return (
-                      <Tooltip key={key} content={tooltipText}>
-                        <div className="text-center cursor-help">
-                          <div className="text-xs text-slate-500 dark:text-slate-400">
-                            {label}
-                          </div>
-                          <div className={`text-sm font-semibold ${
-                            dim.trend === 'up' ? 'text-emerald-600 dark:text-emerald-400' :
-                            dim.trend === 'down' ? 'text-red-600 dark:text-red-400' : 'text-slate-600 dark:text-slate-400'
-                          }`}>
-                            {dim.score}
-                            <span className="text-xs ml-0.5">
+                  <div className="w-full bg-slate-200 dark:bg-slate-700 rounded-full h-2.5 mb-4">
+                    <div 
+                      className={`h-2.5 rounded-full transition-all duration-500 ${
+                        brainHealthData.score.overall >= 70 ? 'bg-emerald-500' :
+                        brainHealthData.score.overall >= 50 ? 'bg-amber-500' : 'bg-red-500'
+                      }`}
+                      style={{ width: `${brainHealthData.score.overall}%` }}
+                    />
+                  </div>
+                  <div className="grid grid-cols-4 gap-3">
+                    {Object.entries(brainHealthData.score.dimensions).map(([key, dim]: [string, any]) => {
+                      const label = key === 'revenue' ? '매출' : key === 'customer' ? '고객' : key === 'artist' ? '작가' : '운영'
+                      const tooltipText = key === 'revenue' ? '매출 관련 건강도 지표' : 
+                                         key === 'customer' ? '고객 관련 건강도 지표' : 
+                                         key === 'artist' ? '작가 관련 건강도 지표' : 
+                                         '운영 관련 건강도 지표'
+                      return (
+                        <Tooltip key={key} content={tooltipText}>
+                          <div className="text-center cursor-help p-2 bg-slate-50 dark:bg-slate-700/50 rounded-lg">
+                            <div className="text-xs text-slate-500 dark:text-slate-400 mb-1">
+                              {label}
+                            </div>
+                            <div className={`text-base font-bold ${
+                              dim.trend === 'up' ? 'text-emerald-600 dark:text-emerald-400' :
+                              dim.trend === 'down' ? 'text-red-600 dark:text-red-400' : 'text-slate-600 dark:text-slate-400'
+                            }`}>
+                              {dim.score}
+                            </div>
+                            <div className="text-xs mt-0.5">
                               {dim.trend === 'up' ? '↗' : dim.trend === 'down' ? '↘' : '→'}
-                            </span>
+                            </div>
                           </div>
-                        </div>
-                      </Tooltip>
-                    )
-                  })}
-                </div>
+                        </Tooltip>
+                      )
+                    })}
+                  </div>
                 </div>
               </Tooltip>
             )}
 
-            {/* 주요 인사이트 */}
-            {brainInsightsData?.insights && brainInsightsData.insights.length > 0 && (
-              <div className="bg-white/60 dark:bg-slate-800/60 rounded-xl p-4 backdrop-blur-sm">
-                <div className="flex items-center gap-2 mb-3">
-                  <Icon icon={Lightbulb} size="sm" className="text-amber-500" />
-                  <span className="text-sm font-medium text-slate-700 dark:text-slate-300">주요 인사이트</span>
-                </div>
-                <div className="space-y-2">
-                  {brainInsightsData.insights.slice(0, 2).map((insight: any, idx: number) => (
-                    <div key={idx} className="text-xs text-slate-600 dark:text-slate-400 line-clamp-2">
-                      • {insight.title || insight.description || '인사이트'}
-                    </div>
-                  ))}
-                </div>
-              </div>
-            )}
-
-            {/* 권장 액션 */}
-            {brainActionsData?.prioritizedActions && brainActionsData.prioritizedActions.length > 0 && (
-              <div className="bg-white/60 dark:bg-slate-800/60 rounded-xl p-4 backdrop-blur-sm">
-                <div className="flex items-center gap-2 mb-3">
-                  <Icon icon={Zap} size="sm" className="text-amber-500" />
-                  <span className="text-sm font-medium text-slate-700 dark:text-slate-300">권장 액션</span>
-                </div>
-                <div className="space-y-2">
-                  {brainActionsData.prioritizedActions
-                    .filter((a: any) => a.priority === 'P0')
-                    .slice(0, 2)
-                    .map((action: any, idx: number) => (
-                      <div key={idx} className="flex items-start gap-2">
-                        <Icon icon={Circle} size="xs" className="text-red-500 mt-0.5 fill-red-500" />
-                        <div className="flex-1">
-                          <div className="text-xs font-medium text-slate-800 dark:text-slate-200">
-                            {action.title}
-                          </div>
-                          <div className="text-xs text-slate-500 dark:text-slate-400 mt-0.5">
-                            {action.timeline}
-                          </div>
-                        </div>
+            {/* 오른쪽: 인사이트 & 액션 */}
+            <div className="space-y-4">
+              {/* 주요 인사이트 */}
+              {brainInsightsData?.insights && brainInsightsData.insights.length > 0 && (
+                <div className="bg-white/60 dark:bg-slate-800/60 rounded-xl p-4 backdrop-blur-sm border border-slate-200 dark:border-slate-700">
+                  <div className="flex items-center gap-2 mb-3">
+                    <Icon icon={Lightbulb} size="sm" className="text-amber-500" />
+                    <span className="text-sm font-semibold text-slate-700 dark:text-slate-300">주요 인사이트</span>
+                  </div>
+                  <div className="space-y-2.5">
+                    {brainInsightsData.insights.slice(0, 3).map((insight: any, idx: number) => (
+                      <div key={idx} className="text-xs text-slate-600 dark:text-slate-400 line-clamp-2 pl-1">
+                        • {insight.title || insight.description || '인사이트'}
                       </div>
                     ))}
+                  </div>
                 </div>
-              </div>
-            )}
+              )}
+
+              {/* 권장 액션 */}
+              {brainActionsData?.prioritizedActions && brainActionsData.prioritizedActions.length > 0 && (
+                <div className="bg-white/60 dark:bg-slate-800/60 rounded-xl p-4 backdrop-blur-sm border border-slate-200 dark:border-slate-700">
+                  <div className="flex items-center gap-2 mb-3">
+                    <Icon icon={Zap} size="sm" className="text-amber-500" />
+                    <span className="text-sm font-semibold text-slate-700 dark:text-slate-300">권장 액션</span>
+                  </div>
+                  <div className="space-y-2.5">
+                    {brainActionsData.prioritizedActions
+                      .filter((a: any) => a.priority === 'P0')
+                      .slice(0, 3)
+                      .map((action: any, idx: number) => (
+                        <div key={idx} className="flex items-start gap-2">
+                          <Icon icon={Circle} size="xs" className="text-red-500 mt-0.5 fill-red-500 flex-shrink-0" />
+                          <div className="flex-1 min-w-0">
+                            <div className="text-xs font-medium text-slate-800 dark:text-slate-200 line-clamp-1">
+                              {action.title}
+                            </div>
+                            <div className="text-xs text-slate-500 dark:text-slate-400 mt-0.5">
+                              {action.timeline}
+                            </div>
+                          </div>
+                        </div>
+                      ))}
+                  </div>
+                </div>
+              )}
+            </div>
           </div>
         </div>
       </div>
@@ -506,7 +509,8 @@ export default function DashboardPage() {
             {/* GMV */}
             <EnhancedKPICard
               title="GMV"
-              value={formatCurrency(data.kpis.gmv.value)}
+              value={data.kpis.gmv.value}
+              prefix="₩"
               change={(data.kpis.gmv.change || 0) * 100}
               icon={DollarSign}
               tooltip="Gross Merchandise Value: 총 상품 거래액"
@@ -527,7 +531,8 @@ export default function DashboardPage() {
             {/* AOV */}
             <EnhancedKPICard
               title="AOV"
-              value={formatCurrency(data.kpis.aov.value)}
+              value={data.kpis.aov.value}
+              prefix="₩"
               change={(data.kpis.aov.change || 0) * 100}
               icon={BarChart3}
               tooltip="Average Order Value: 평균 주문 금액"

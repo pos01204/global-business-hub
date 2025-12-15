@@ -55,11 +55,44 @@ export const EnhancedKPICard = memo(function EnhancedKPICard({
     }
   }, [value])
 
+  // 숫자를 만원/억원 단위로 변환하는 함수
+  const formatCompactNumber = (val: number): { value: string; unit: string } => {
+    if (val >= 100000000) {
+      return { value: (val / 100000000).toFixed(1), unit: '억' }
+    }
+    if (val >= 10000) {
+      return { value: (val / 10000).toFixed(0), unit: '만' }
+    }
+    return { value: val.toLocaleString(), unit: '' }
+  }
+
+  // 문자열에서 숫자 추출 (₩, 쉼표 제거)
+  const extractNumber = (str: string): number | null => {
+    const cleaned = str.replace(/[₩,\s]/g, '')
+    const num = parseFloat(cleaned)
+    return isNaN(num) ? null : num
+  }
+
   const formatValue = (val: number | string) => {
     if (typeof val === 'number') {
-      return val.toLocaleString()
+      // 숫자가 10000 이상이면 만원/억원 단위로 변환
+      if (val >= 10000) {
+        const compact = formatCompactNumber(val)
+        return { main: compact.value, unit: compact.unit, full: val.toLocaleString() }
+      }
+      return { main: val.toLocaleString(), unit: '', full: val.toLocaleString() }
     }
-    return val
+    
+    // 문자열인 경우 (₩ 포함 가능)
+    if (typeof val === 'string' && (val.includes('₩') || /[\d,]+/.test(val))) {
+      const num = extractNumber(val)
+      if (num !== null && num >= 10000) {
+        const compact = formatCompactNumber(num)
+        return { main: compact.value, unit: compact.unit, full: val }
+      }
+    }
+    
+    return { main: val, unit: '', full: val }
   }
 
   return (
@@ -92,17 +125,50 @@ export const EnhancedKPICard = memo(function EnhancedKPICard({
         initial={{ scale: 0.9 }}
         animate={{ scale: 1 }}
         transition={{ duration: 0.3, delay: 0.1 }}
-        className="text-3xl font-bold text-slate-900 dark:text-slate-100 mb-2 break-words overflow-hidden"
+        className="mb-2"
       >
-        <div className="truncate" title={typeof value === 'number' ? formatValue(displayValue) : String(value)}>
-          {prefix}
-          {typeof value === 'number' ? formatValue(displayValue) : value}
-          {suffix && (
-            <span className="text-lg font-normal text-slate-500 dark:text-slate-400 ml-1">
-              {suffix}
-            </span>
-          )}
-        </div>
+        {(() => {
+          const formatted = typeof value === 'number' 
+            ? formatValue(displayValue) 
+            : formatValue(value)
+          
+          const displayText = typeof formatted === 'object' ? formatted.main : formatted
+          const unit = typeof formatted === 'object' ? formatted.unit : ''
+          const fullText = typeof formatted === 'object' ? formatted.full : String(value)
+          
+          // 숫자가 길면 폰트 크기를 동적으로 조정
+          const textLength = displayText.length + (unit ? unit.length : 0) + (suffix ? suffix.length : 0) + (prefix ? prefix.length : 0)
+          let fontSize = 'text-3xl'
+          if (textLength > 15) {
+            fontSize = 'text-xl'
+          } else if (textLength > 12) {
+            fontSize = 'text-2xl'
+          } else if (textLength > 8) {
+            fontSize = 'text-2xl'
+          }
+          
+          return (
+            <div 
+              className={`${fontSize} font-bold text-slate-900 dark:text-slate-100 leading-tight`}
+              title={fullText}
+            >
+              <div className="flex items-baseline gap-1 flex-wrap min-w-0">
+                {prefix && <span className="flex-shrink-0">{prefix}</span>}
+                <span className="whitespace-nowrap min-w-0">{displayText}</span>
+                {unit && (
+                  <span className={`${fontSize === 'text-xl' ? 'text-lg' : 'text-xl'} font-semibold text-slate-600 dark:text-slate-400 flex-shrink-0`}>
+                    {unit}
+                  </span>
+                )}
+                {suffix && (
+                  <span className="text-lg font-normal text-slate-500 dark:text-slate-400 flex-shrink-0">
+                    {suffix}
+                  </span>
+                )}
+              </div>
+            </div>
+          )
+        })()}
       </motion.div>
 
       {change !== undefined && (
