@@ -6,6 +6,8 @@ import PromotionCouponTab from './components/tabs/PromotionCouponTab'
 import IndividualIssueTab from './components/tabs/IndividualIssueTab'
 import { Tabs, TabPanel } from '@/components/ui'
 import { LoadingOverlay } from '@/components/ui/Spinner'
+import { Icon } from '@/components/ui/Icon'
+import { Megaphone, User, Ticket, Zap, AlertTriangle } from 'lucide-react'
 
 type TabType = 'promotion' | 'individual'
 
@@ -13,12 +15,12 @@ const tabItems = [
   {
     id: 'promotion',
     label: '기획전 쿠폰',
-    icon: <span className="text-lg">📢</span>,
+    icon: <Icon icon={Megaphone} size="sm" />,
   },
   {
     id: 'individual',
     label: '개별 유저 발급',
-    icon: <span className="text-lg">👤</span>,
+    icon: <Icon icon={User} size="sm" />,
   },
 ]
 
@@ -37,12 +39,12 @@ function CouponGeneratorContent() {
   return (
     <div className="animate-fade-in">
       {/* 페이지 헤더 */}
-      <div className="relative bg-gradient-to-r from-amber-500 to-orange-500 dark:from-amber-900/70 dark:to-orange-900/70 rounded-2xl p-4 lg:p-6 mb-6 overflow-hidden shadow-lg dark:shadow-none">
+      <div className="relative bg-amber-500 dark:bg-amber-900/70 rounded-2xl p-4 lg:p-6 mb-6 overflow-hidden shadow-lg dark:shadow-none">
         <div className="absolute top-0 right-0 w-64 h-64 bg-white/10 dark:bg-white/5 rounded-full -translate-y-1/2 translate-x-1/2"></div>
         <div className="absolute bottom-0 left-0 w-32 h-32 bg-white/5 dark:bg-white/[0.02] rounded-full translate-y-1/2 -translate-x-1/2"></div>
         <div className="flex items-center gap-3 lg:gap-4">
           <div className="w-12 h-12 lg:w-14 lg:h-14 bg-white/20 dark:bg-white/10 backdrop-blur rounded-xl flex items-center justify-center shadow-lg dark:shadow-none">
-            <span className="text-2xl lg:text-3xl">🎟️</span>
+            <Icon icon={Ticket} size="xl" className="text-white" />
           </div>
           <div>
             <h1 className="text-xl lg:text-2xl font-extrabold text-white tracking-tight">쿠폰 생성/발급 도우미</h1>
@@ -54,7 +56,7 @@ function CouponGeneratorContent() {
       {/* 탭 선택 - 공통 컴포넌트 사용 */}
       <div className="mb-6">
         <div className="flex items-center gap-2 mb-4">
-          <span className="text-lg">⚡</span>
+          <Icon icon={Zap} size="md" className="text-slate-600 dark:text-slate-400" />
           <h2 className="text-lg font-semibold">쿠폰 발급 유형</h2>
         </div>
         <Tabs
@@ -84,7 +86,7 @@ function CouponGeneratorContent() {
       {/* 제약사항 안내 */}
       <div className="mt-6 p-4 bg-amber-50 border border-amber-200 rounded-xl">
         <div className="flex items-start gap-3">
-          <span className="text-xl">⚠️</span>
+          <Icon icon={AlertTriangle} size="lg" className="text-amber-600" />
           <div>
             <h4 className="font-medium text-amber-800 mb-2">쿠폰 적용 범위 안내</h4>
             <ul className="text-sm text-amber-700 space-y-1">

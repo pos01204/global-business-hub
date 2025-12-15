@@ -5,6 +5,8 @@ import { useRouter } from 'next/navigation'
 import { useQuery, useMutation } from '@tanstack/react-query'
 import { customerAnalyticsApi } from '@/lib/api'
 import { Tabs, TabPanel } from '@/components/ui'
+import { Icon } from '@/components/ui/Icon'
+import { Users, RefreshCw, AlertTriangle, BarChart3, DollarSign, Ticket, TrendingUp } from 'lucide-react'
 import {
   Chart as ChartJS,
   CategoryScale,
@@ -36,12 +38,12 @@ ChartJS.register(
 type TabType = 'rfm' | 'conversion' | 'churn' | 'cohort' | 'ltv' | 'coupon'
 
 const tabItems = [
-  { id: 'rfm', label: 'RFM 세그먼트', icon: <span>👥</span> },
-  { id: 'conversion', label: '구매 전환', icon: <span>🔄</span> },
-  { id: 'churn', label: '이탈 위험', icon: <span>⚠️</span> },
-  { id: 'cohort', label: '코호트 분석', icon: <span>📊</span> },
-  { id: 'ltv', label: 'LTV 분석', icon: <span>💰</span> },
-  { id: 'coupon', label: '쿠폰 시뮬레이터', icon: <span>🎫</span> },
+  { id: 'rfm', label: 'RFM 세그먼트', icon: <Icon icon={Users} size="sm" /> },
+  { id: 'conversion', label: '구매 전환', icon: <Icon icon={RefreshCw} size="sm" /> },
+  { id: 'churn', label: '이탈 위험', icon: <Icon icon={AlertTriangle} size="sm" /> },
+  { id: 'cohort', label: '코호트 분석', icon: <Icon icon={BarChart3} size="sm" /> },
+  { id: 'ltv', label: 'LTV 분석', icon: <Icon icon={DollarSign} size="sm" /> },
+  { id: 'coupon', label: '쿠폰 시뮬레이터', icon: <Icon icon={Ticket} size="sm" /> },
 ]
 
 export default function CustomerAnalyticsPage() {
@@ -50,11 +52,11 @@ export default function CustomerAnalyticsPage() {
   return (
     <div className="animate-fade-in">
       {/* 페이지 헤더 */}
-      <div className="relative bg-gradient-to-r from-slate-800 to-slate-700 dark:from-slate-800/90 dark:to-slate-700/90 dark:border dark:border-slate-700 rounded-2xl p-4 lg:p-6 mb-6 overflow-hidden">
+      <div className="relative bg-slate-800 dark:bg-slate-800/90 dark:border dark:border-slate-700 rounded-2xl p-4 lg:p-6 mb-6 overflow-hidden">
         <div className="absolute top-0 right-0 w-64 h-64 bg-white/5 rounded-full -translate-y-1/2 translate-x-1/2"></div>
         <div className="flex items-center gap-3 lg:gap-4">
           <div className="w-12 h-12 lg:w-14 lg:h-14 bg-white/10 backdrop-blur rounded-xl flex items-center justify-center">
-            <span className="text-2xl lg:text-3xl">📈</span>
+            <Icon icon={TrendingUp} size="xl" className="text-white" />
           </div>
           <div>
             <h1 className="text-xl lg:text-2xl font-extrabold text-white tracking-tight">고객 분석</h1>
@@ -561,10 +563,10 @@ function ChurnRiskTab() {
     <div className="space-y-6">
       {/* 경고 배너 */}
       {data.summary.highRiskCount > 0 && (
-        <div className="bg-gradient-to-r from-red-500 to-orange-500 rounded-xl p-4 text-white">
+        <div className="bg-red-500 rounded-xl p-4 text-white">
           <div className="flex items-center justify-between">
             <div className="flex items-center gap-3">
-              <span className="text-2xl">🚨</span>
+              <Icon icon={AlertTriangle} size="lg" className="text-white" />
               <div>
                 <p className="font-semibold">
                   이탈 위험 고객 {data.summary.highRiskCount}명 감지
@@ -1290,7 +1292,7 @@ function CouponSimulatorTab() {
               </div>
 
               {/* ROI 하이라이트 */}
-              <div className="bg-gradient-to-r from-green-500 to-emerald-500 rounded-xl p-6 text-white">
+              <div className="bg-green-500 rounded-xl p-6 text-white">
                 <div className="flex items-center justify-between">
                   <div>
                     <p className="text-sm opacity-90">예상 순이익</p>

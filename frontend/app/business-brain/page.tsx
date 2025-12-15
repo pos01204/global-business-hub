@@ -8,6 +8,15 @@ import { Card } from '@/components/ui/Card'
 import { Spinner } from '@/components/ui/Spinner'
 import { Tabs } from '@/components/ui/Tabs'
 import { Badge } from '@/components/ui/Badge'
+import { Tooltip } from '@/components/ui/Tooltip'
+import { Icon } from '@/components/ui/Icon'
+import { iconMap } from '@/lib/icon-mapping'
+import { 
+  Brain, BarChart3, Users, Palette, TrendingUp, Calendar,
+  Lightbulb, AlertTriangle, Target, FileText, Search,
+  Zap, CheckCircle, XCircle, Info, Circle, MessageCircle,
+  DollarSign, Activity
+} from 'lucide-react'
 // v4.2: 신뢰도 컴포넌트
 import { ConfidenceBadge } from '@/components/business-brain/ConfidenceBadge'
 import { ConfidenceInterval } from '@/components/business-brain/ConfidenceInterval'
@@ -109,17 +118,25 @@ function Skeleton({ className = '' }: { className?: string }) {
 
 // 빈 상태 컴포넌트
 function EmptyState({ 
-  icon = '📊', 
+  icon, 
   title, 
   description 
 }: { 
-  icon?: string
+  icon?: React.ReactNode
   title: string
   description: string 
 }) {
   return (
     <div className="flex flex-col items-center justify-center py-16 px-4">
-      <div className="text-6xl mb-4 animate-bounce">{icon}</div>
+      {icon && (
+        <div className="mb-4 animate-bounce">
+          {typeof icon === 'string' ? (
+            <div className="text-6xl">{icon}</div>
+          ) : (
+            icon
+          )}
+        </div>
+      )}
       <h3 className="text-lg font-semibold text-slate-700 dark:text-slate-300 mb-2">{title}</h3>
       <p className="text-sm text-slate-500 dark:text-slate-400 text-center max-w-md">{description}</p>
     </div>
@@ -526,68 +543,72 @@ export default function BusinessBrainPage() {
       name: '개요',
       description: '비즈니스 현황 한눈에 보기',
       tabs: [
-        { id: 'overview', label: '대시보드', icon: '📊', description: '현황 평가 + 종합 인사이트' },
+        { id: 'overview', label: '대시보드', icon: BarChart3, description: '현황 평가 + 종합 인사이트' },
       ]
     },
     {
       name: '고객 분석',
       description: '고객 세분화 및 이탈 예측',
       tabs: [
-        { id: 'rfm', label: 'RFM 세분화', icon: '👥', description: '고객 세그먼트 분석' },
-        { id: 'churn', label: '이탈 예측', icon: '🔮', description: '이탈 위험 고객 분석' },
-        { id: 'new-users', label: '신규 유저 유치', icon: '🆕', description: '신규 유저 획득 분석' },
-        { id: 'repurchase', label: '재구매율 향상', icon: '🔄', description: '재구매 전환 분석' },
+        { id: 'rfm', label: 'RFM 세분화', icon: Users, description: '고객 세그먼트 분석' },
+        { id: 'churn', label: '이탈 예측', icon: AlertTriangle, description: '이탈 위험 고객 분석' },
+        { id: 'new-users', label: '신규 유저 유치', icon: Users, description: '신규 유저 획득 분석' },
+        { id: 'repurchase', label: '재구매율 향상', icon: Zap, description: '재구매 전환 분석' },
       ]
     },
     {
       name: '작가 분석',
       description: '작가 성과 및 건강도',
       tabs: [
-        { id: 'artist-health', label: '작가 건강도', icon: '🎨', description: '작가별 건강도 점수' },
-        { id: 'pareto', label: '파레토 분석', icon: '📊', description: '작가 집중도 분석' },
+        { id: 'artist-health', label: '작가 건강도', icon: Palette, description: '작가별 건강도 점수' },
+        { id: 'pareto', label: '파레토 분석', icon: BarChart3, description: '작가 집중도 분석' },
       ]
     },
     {
       name: '매출 분석',
       description: '매출 트렌드 및 예측',
       tabs: [
-        { id: 'trends', label: '트렌드', icon: '📈', description: '장기 트렌드 분석' },
-        { id: 'forecast', label: '매출 예측', icon: '🔮', description: '30일 매출 예측' },
-        { id: 'cohort', label: '코호트 분석', icon: '📈', description: '월별 코호트 및 LTV' },
+        { id: 'trends', label: '트렌드', icon: TrendingUp, description: '장기 트렌드 분석' },
+        { id: 'forecast', label: '매출 예측', icon: TrendingUp, description: '30일 매출 예측' },
+        { id: 'cohort', label: '코호트 분석', icon: TrendingUp, description: '월별 코호트 및 LTV' },
       ]
     },
     {
       name: '인사이트',
       description: 'AI 기반 인사이트 및 전략',
       tabs: [
-        { id: 'insights', label: '기회 발견', icon: '💡', description: '자동 발견된 기회' },
-        { id: 'risks', label: '리스크', icon: '⚠️', description: '리스크 감지 및 대응' },
-        { id: 'strategy-analysis', label: '전략 분석', icon: '🎯', description: '시장 분석 및 성장 기회' },
-        { id: 'strategy', label: '전략 제안', icon: '📋', description: 'AI 전략 제안' },
+        { id: 'insights', label: '기회 발견', icon: Lightbulb, description: '자동 발견된 기회' },
+        { id: 'risks', label: '리스크', icon: AlertTriangle, description: '리스크 감지 및 대응' },
+        { id: 'strategy-analysis', label: '전략 분석', icon: Target, description: '시장 분석 및 성장 기회' },
+        { id: 'strategy', label: '전략 제안', icon: FileText, description: 'AI 전략 제안' },
       ]
     },
     {
       name: '고급 분석',
       description: '심층 분석 도구',
       tabs: [
-        { id: 'anomaly', label: '이상 탐지', icon: '🔍', description: '이상치 자동 감지' },
-        { id: 'multiperiod', label: '기간별 추이', icon: '📅', description: '다중 기간 비교 분석' },
+        { id: 'anomaly', label: '이상 탐지', icon: Search, description: '이상치 자동 감지' },
+        { id: 'multiperiod', label: '기간별 추이', icon: Calendar, description: '다중 기간 비교 분석' },
       ]
     },
     {
       name: '액션',
       description: '우선순위별 실행 계획',
       tabs: [
-        { id: 'action-proposals', label: '액션 제안', icon: '📋', description: '우선순위별 액션 및 실행 계획' },
-        { id: 'what-if', label: 'What-if 시뮬레이션', icon: '🔮', description: '시나리오 기반 예측 및 비교' },
-        { id: 'report', label: '리포트 생성', icon: '📄', description: '분석 결과 리포트 생성' },
+        { id: 'action-proposals', label: '액션 제안', icon: FileText, description: '우선순위별 액션 및 실행 계획' },
+        { id: 'what-if', label: 'What-if 시뮬레이션', icon: Zap, description: '시나리오 기반 예측 및 비교' },
+        { id: 'report', label: '리포트 생성', icon: FileText, description: '분석 결과 리포트 생성' },
       ]
     },
   ], [])
 
   // 평면화된 탭 목록 (Tabs 컴포넌트용) - useMemo로 최적화
   const tabItems = useMemo(() => 
-    tabGroups.flatMap(g => g.tabs.map(t => ({ id: t.id, label: `${t.icon} ${t.label}` }))),
+    tabGroups.flatMap(g => g.tabs.map(t => ({ 
+      id: t.id, 
+      label: t.label,
+      icon: t.icon
+    }))),
     [tabGroups]
   )
 
@@ -600,11 +621,11 @@ export default function BusinessBrainPage() {
       <FadeIn>
         <div className="flex items-center justify-between flex-wrap gap-4">
           <div className="flex items-center gap-4">
-            <div className="w-14 h-14 bg-gradient-to-br from-purple-500 via-indigo-500 to-blue-600 rounded-2xl flex items-center justify-center shadow-lg shadow-indigo-500/25 animate-pulse">
-              <span className="text-white text-3xl">🧠</span>
+            <div className="w-14 h-14 bg-purple-500 rounded-2xl flex items-center justify-center shadow-lg">
+              <Icon icon={Brain} size="xl" className="text-white" />
             </div>
             <div>
-              <h1 className="text-2xl font-bold bg-gradient-to-r from-purple-600 to-indigo-600 bg-clip-text text-transparent">
+              <h1 className="text-2xl font-bold text-slate-800 dark:text-slate-100">
                 Business Brain
               </h1>
               <p className="text-sm text-slate-500 dark:text-slate-400">
@@ -613,24 +634,26 @@ export default function BusinessBrainPage() {
             </div>
           </div>
           {healthScore ? (
-            <div className="text-right p-4 bg-gradient-to-br from-slate-50 to-white dark:from-slate-800 dark:to-slate-900 rounded-xl shadow-sm border border-slate-100 dark:border-slate-700">
-              <div className="text-xs font-medium text-slate-500 dark:text-slate-400 uppercase tracking-wide mb-1">비즈니스 건강도</div>
-              <div className="flex items-baseline gap-1">
-                <span className={`text-4xl font-bold ${getScoreColor(healthScore.overall)} transition-all duration-500`}>
-                  <AnimatedNumber value={healthScore.overall} />
-                </span>
-                <span className="text-lg text-slate-400">/100</span>
+            <Tooltip content="비즈니스 전반적인 건강 상태를 종합적으로 평가한 점수입니다. 매출, 고객, 작가, 운영 등 4가지 차원을 종합합니다.">
+              <div className="text-right p-4 bg-white dark:bg-slate-800 rounded-xl shadow-sm border border-slate-200 dark:border-slate-700 cursor-help">
+                <div className="text-xs font-medium text-slate-500 dark:text-slate-400 uppercase tracking-wide mb-1">비즈니스 건강도</div>
+                <div className="flex items-baseline gap-1">
+                  <span className={`text-4xl font-bold ${getScoreColor(healthScore.overall)} transition-all duration-500`}>
+                    <AnimatedNumber value={healthScore.overall} />
+                  </span>
+                  <span className="text-lg text-slate-400">/100</span>
+                </div>
+                <div className="mt-2 h-1.5 bg-slate-200 dark:bg-slate-700 rounded-full overflow-hidden">
+                  <div 
+                    className={`h-full rounded-full transition-all duration-1000 ease-out ${
+                      healthScore.overall >= 70 ? 'bg-emerald-500' :
+                      healthScore.overall >= 50 ? 'bg-amber-500' : 'bg-red-500'
+                    }`}
+                    style={{ width: `${healthScore.overall}%` }}
+                  />
+                </div>
               </div>
-              <div className="mt-2 h-1.5 bg-slate-200 dark:bg-slate-700 rounded-full overflow-hidden">
-                <div 
-                  className={`h-full rounded-full transition-all duration-1000 ease-out ${
-                    healthScore.overall >= 70 ? 'bg-emerald-500' :
-                    healthScore.overall >= 50 ? 'bg-amber-500' : 'bg-red-500'
-                  }`}
-                  style={{ width: `${healthScore.overall}%` }}
-                />
-              </div>
-            </div>
+            </Tooltip>
           ) : (
             <div className="p-4 bg-slate-50 dark:bg-slate-800 rounded-xl">
               <Skeleton className="h-4 w-24 mb-2" />
@@ -643,21 +666,25 @@ export default function BusinessBrainPage() {
       {/* 기간 선택 (해당 탭에서만 표시) */}
       {periodEnabledTabs.includes(activeTab) && (
         <FadeIn delay={100}>
-          <div className="flex items-center gap-4 p-4 bg-gradient-to-r from-slate-50 to-white dark:from-slate-800/50 dark:to-slate-900/50 rounded-xl border border-slate-100 dark:border-slate-700/50">
-            <span className="text-sm font-medium text-slate-600 dark:text-slate-400">📅 분석 기간:</span>
+          <div className="flex items-center gap-4 p-4 bg-white dark:bg-slate-800 rounded-xl border border-slate-200 dark:border-slate-700">
+            <div className="flex items-center gap-2">
+              <Icon icon={Calendar} size="sm" className="text-slate-600 dark:text-slate-400" />
+              <span className="text-sm font-medium text-slate-600 dark:text-slate-400">분석 기간:</span>
+            </div>
             <div className="flex gap-2 flex-wrap">
               {PERIOD_OPTIONS.map(option => (
-                <button
-                  key={option.value}
-                  onClick={() => setSelectedPeriod(option.value)}
-                  className={`px-4 py-2 text-sm rounded-lg transition-all duration-200 ${
-                    selectedPeriod === option.value
-                      ? 'bg-gradient-to-r from-indigo-600 to-purple-600 text-white shadow-md shadow-indigo-500/25 scale-105'
-                      : 'bg-white dark:bg-slate-700 text-slate-600 dark:text-slate-300 hover:bg-slate-100 dark:hover:bg-slate-600 hover:scale-102 border border-slate-200 dark:border-slate-600'
-                  }`}
-                >
-                  {option.label}
-                </button>
+                <Tooltip key={option.value} content={`${option.label} 데이터를 분석합니다`}>
+                  <button
+                    onClick={() => setSelectedPeriod(option.value)}
+                    className={`px-4 py-2 text-sm rounded-lg transition-all duration-200 ${
+                      selectedPeriod === option.value
+                        ? 'bg-idus-500 text-white shadow-md scale-105'
+                        : 'bg-white dark:bg-slate-700 text-slate-600 dark:text-slate-300 hover:bg-slate-100 dark:hover:bg-slate-600 hover:scale-102 border border-slate-200 dark:border-slate-600'
+                    }`}
+                  >
+                    {option.label}
+                  </button>
+                </Tooltip>
               ))}
             </div>
           </div>
@@ -680,22 +707,26 @@ export default function BusinessBrainPage() {
                 </div>
                 <div className="flex flex-wrap gap-2">
                   {group.tabs.map((tab) => (
-                    <button
-                      key={tab.id}
-                      onClick={() => handleTabChange(tab.id)}
-                      className={`group relative px-4 py-2.5 rounded-lg text-sm font-medium transition-all duration-200 flex items-center gap-2 ${
-                        activeTab === tab.id
-                          ? 'bg-gradient-to-r from-indigo-500 to-purple-500 text-white shadow-md shadow-indigo-500/25 scale-105'
-                          : 'bg-slate-100 dark:bg-slate-800 text-slate-600 dark:text-slate-400 hover:bg-slate-200 dark:hover:bg-slate-700 hover:scale-102'
-                      }`}
-                      title={tab.description}
-                    >
-                      <span className="text-base">{tab.icon}</span>
-                      <span>{tab.label}</span>
-                      {activeTab === tab.id && (
-                        <span className="absolute -top-1 -right-1 w-2 h-2 bg-white rounded-full"></span>
-                      )}
-                    </button>
+                    <Tooltip key={tab.id} content={tab.description}>
+                      <button
+                        onClick={() => handleTabChange(tab.id)}
+                        className={`group relative px-4 py-2.5 rounded-lg text-sm font-medium transition-all duration-200 flex items-center gap-2 ${
+                          activeTab === tab.id
+                            ? 'bg-idus-500 text-white shadow-md scale-105'
+                            : 'bg-slate-100 dark:bg-slate-800 text-slate-600 dark:text-slate-400 hover:bg-slate-200 dark:hover:bg-slate-700 hover:scale-102'
+                        }`}
+                      >
+                        <Icon 
+                          icon={tab.icon} 
+                          size="sm" 
+                          className={activeTab === tab.id ? 'text-white' : 'text-slate-600 dark:text-slate-400'} 
+                        />
+                        <span>{tab.label}</span>
+                        {activeTab === tab.id && (
+                          <span className="absolute -top-1 -right-1 w-2 h-2 bg-white rounded-full"></span>
+                        )}
+                      </button>
+                    </Tooltip>
                   ))}
                 </div>
               </div>
@@ -871,16 +902,16 @@ function OverviewTab({
       {/* AI 브리핑 */}
       {briefing && (
         <FadeIn>
-          <Card className="p-6 bg-gradient-to-br from-white to-slate-50 dark:from-slate-900 dark:to-slate-800 border border-slate-100 dark:border-slate-700">
+          <Card className="p-6 bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700">
             <div className="flex items-center gap-3 mb-4">
-              <div className="w-10 h-10 bg-gradient-to-br from-purple-500 to-indigo-600 rounded-xl flex items-center justify-center">
-                <span className="text-xl">💬</span>
+              <div className="w-10 h-10 bg-purple-500 rounded-xl flex items-center justify-center">
+                <Icon icon={MessageCircle} size="md" className="text-white" />
               </div>
               <div>
                 <h2 className="text-lg font-semibold text-slate-800 dark:text-slate-100">
                   AI 경영 브리핑
                 </h2>
-                <p className="text-xs text-slate-500">{getPeriodLabel(period)} 기준</p>
+                <p className="text-xs text-slate-500 dark:text-slate-400">{getPeriodLabel(period)} 기준</p>
               </div>
             </div>
             <p className="text-slate-600 dark:text-slate-400 leading-relaxed text-base">
@@ -978,9 +1009,9 @@ function OverviewTab({
               {/* 즉시 조치 사항 */}
               {briefing.immediateActions?.length > 0 && (
                 <FadeIn delay={100}>
-                  <div className="p-4 bg-gradient-to-br from-red-50 to-red-100/50 dark:from-red-900/30 dark:to-red-800/20 rounded-xl border border-red-100 dark:border-red-800/30">
+                  <div className="p-4 bg-red-50 dark:bg-red-900/20 rounded-xl border border-red-200 dark:border-red-800">
                     <h3 className="text-sm font-semibold text-red-700 dark:text-red-300 mb-3 flex items-center gap-2">
-                      <span className="w-6 h-6 bg-red-500 rounded-full flex items-center justify-center text-white text-xs">!</span>
+                      <Icon icon={AlertTriangle} size="sm" className="text-red-500" />
                       즉시 조치 필요
                     </h3>
                     <ul className="space-y-2">
@@ -998,9 +1029,9 @@ function OverviewTab({
               {/* 기회 */}
               {briefing.opportunities?.length > 0 && (
                 <FadeIn delay={150}>
-                  <div className="p-4 bg-gradient-to-br from-emerald-50 to-emerald-100/50 dark:from-emerald-900/30 dark:to-emerald-800/20 rounded-xl border border-emerald-100 dark:border-emerald-800/30">
+                  <div className="p-4 bg-emerald-50 dark:bg-emerald-900/20 rounded-xl border border-emerald-200 dark:border-emerald-800">
                     <h3 className="text-sm font-semibold text-emerald-700 dark:text-emerald-300 mb-3 flex items-center gap-2">
-                      <span className="w-6 h-6 bg-emerald-500 rounded-full flex items-center justify-center text-white text-xs">💡</span>
+                      <Icon icon={Lightbulb} size="sm" className="text-emerald-500" />
                       성장 기회
                     </h3>
                     <ul className="space-y-2">
@@ -1018,9 +1049,9 @@ function OverviewTab({
               {/* 주간 집중 사항 */}
               {briefing.weeklyFocus?.length > 0 && (
                 <FadeIn delay={200}>
-                  <div className="p-4 bg-gradient-to-br from-blue-50 to-blue-100/50 dark:from-blue-900/30 dark:to-blue-800/20 rounded-xl border border-blue-100 dark:border-blue-800/30">
+                  <div className="p-4 bg-blue-50 dark:bg-blue-900/20 rounded-xl border border-blue-200 dark:border-blue-800">
                     <h3 className="text-sm font-semibold text-blue-700 dark:text-blue-300 mb-3 flex items-center gap-2">
-                      <span className="w-6 h-6 bg-blue-500 rounded-full flex items-center justify-center text-white text-xs">🎯</span>
+                      <Icon icon={Target} size="sm" className="text-blue-500" />
                       이번 주 집중 사항
                     </h3>
                     <ul className="space-y-2">
@@ -1038,9 +1069,9 @@ function OverviewTab({
               {/* 리스크 */}
               {briefing.risks?.length > 0 && (
                 <FadeIn delay={250}>
-                  <div className="p-4 bg-gradient-to-br from-amber-50 to-amber-100/50 dark:from-amber-900/30 dark:to-amber-800/20 rounded-xl border border-amber-100 dark:border-amber-800/30">
+                  <div className="p-4 bg-amber-50 dark:bg-amber-900/20 rounded-xl border border-amber-200 dark:border-amber-800">
                     <h3 className="text-sm font-semibold text-amber-700 dark:text-amber-300 mb-3 flex items-center gap-2">
-                      <span className="w-6 h-6 bg-amber-500 rounded-full flex items-center justify-center text-white text-xs">⚠️</span>
+                      <Icon icon={AlertTriangle} size="sm" className="text-amber-500" />
                       주의 사항
                     </h3>
                     <ul className="space-y-2">
@@ -1060,9 +1091,9 @@ function OverviewTab({
             <div className="mt-6 pt-6 border-t border-slate-200 dark:border-slate-700">
               <button
                 onClick={() => router.push('/analytics?tab=daily')}
-                className="w-full px-4 py-3 bg-gradient-to-r from-indigo-600 to-purple-600 text-white rounded-lg font-medium hover:from-indigo-700 hover:to-purple-700 transition-all duration-200 shadow-sm hover:shadow-md flex items-center justify-center gap-2"
+                className="w-full px-4 py-3 bg-idus-500 text-white rounded-lg font-medium hover:bg-idus-600 transition-all duration-200 shadow-sm hover:shadow-md flex items-center justify-center gap-2"
               >
-                <span>📊</span>
+                <Icon icon={BarChart3} size="sm" className="text-white" />
                 <span>상세 성과 확인하기</span>
                 <span>→</span>
               </button>
@@ -1076,7 +1107,7 @@ function OverviewTab({
         <FadeIn delay={300}>
           <Card className="p-6">
             <h2 className="text-lg font-semibold text-slate-800 dark:text-slate-100 mb-6 flex items-center gap-2">
-              <span className="text-2xl">📊</span>
+              <Icon icon={BarChart3} size="lg" className="text-slate-600 dark:text-slate-400" />
               종합 현황 평가
             </h2>
             
@@ -1102,11 +1133,18 @@ function OverviewTab({
             <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
               {Object.entries(healthScore.dimensions).map(([key, dim]: [string, any], idx) => (
                 <FadeIn key={key} delay={350 + idx * 50}>
-                  <div className="p-5 bg-gradient-to-br from-slate-50 to-white dark:from-slate-800 dark:to-slate-900 rounded-xl border border-slate-100 dark:border-slate-700 text-center hover:shadow-lg hover:scale-102 transition-all duration-300">
-                    <div className="text-3xl mb-3">{getDimensionEmoji(key)}</div>
-                    <div className="text-sm font-medium text-slate-500 dark:text-slate-400 mb-2">
-                      {getDimensionLabel(key)}
-                    </div>
+                  <Tooltip content={`${getDimensionLabel(key)} 차원의 건강도 점수입니다. ${dim.trend === 'up' ? '상승 추세' : dim.trend === 'down' ? '하락 추세' : '안정 추세'}입니다.`}>
+                    <div className="p-5 bg-white dark:bg-slate-800 rounded-xl border border-slate-200 dark:border-slate-700 text-center hover:shadow-lg hover:scale-102 transition-all duration-300 cursor-help">
+                      <div className="mb-3 flex justify-center">
+                        <Icon 
+                          icon={key === 'revenue' ? DollarSign : key === 'customer' ? Users : key === 'artist' ? Palette : Activity} 
+                          size="lg" 
+                          className="text-slate-600 dark:text-slate-400" 
+                        />
+                      </div>
+                      <div className="text-sm font-medium text-slate-500 dark:text-slate-400 mb-2">
+                        {getDimensionLabel(key)}
+                      </div>
                     <div className="flex items-center justify-center gap-2">
                       <span className={`text-3xl font-bold ${getScoreColor(dim.score)} transition-all duration-500`}>
                         <AnimatedNumber value={dim.score} />
@@ -1117,8 +1155,8 @@ function OverviewTab({
                           <span className="ml-1">{(dim.change * 100).toFixed(0)}%</span>
                         )}
                       </span>
-                    </div>
-                    <div className="mt-3 h-1.5 bg-slate-200 dark:bg-slate-700 rounded-full overflow-hidden">
+                      </div>
+                      <div className="mt-3 h-1.5 bg-slate-200 dark:bg-slate-700 rounded-full overflow-hidden">
                       <div 
                         className={`h-full rounded-full transition-all duration-1000 ${
                           dim.score >= 70 ? 'bg-emerald-500' :
@@ -1126,8 +1164,9 @@ function OverviewTab({
                         }`}
                         style={{ width: `${dim.score}%` }}
                       />
+                      </div>
                     </div>
-                  </div>
+                  </Tooltip>
                 </FadeIn>
               ))}
             </div>
@@ -1148,7 +1187,7 @@ function OverviewTab({
             
             {/* 요약 - summary가 객체인 경우 표시하지 않음 (이미 위의 metricCards에서 표시됨) */}
             {comprehensiveData.summary && typeof comprehensiveData.summary === 'string' && (
-              <div className="mb-6 p-4 bg-gradient-to-br from-indigo-50 to-purple-50 dark:from-indigo-900/20 dark:to-purple-900/20 rounded-xl border border-indigo-100 dark:border-indigo-800/30">
+              <div className="mb-6 p-4 bg-indigo-50 dark:bg-indigo-900/20 rounded-xl border border-indigo-100 dark:border-indigo-800/30">
                 <p className="text-slate-700 dark:text-slate-300 leading-relaxed">
                   {comprehensiveData.summary}
                 </p>
@@ -1162,7 +1201,7 @@ function OverviewTab({
                   <FadeIn key={idx} delay={450 + idx * 50}>
                     <div className="p-4 bg-slate-50 dark:bg-slate-800 rounded-xl border border-slate-200 dark:border-slate-700">
                       <div className="flex items-start gap-3">
-                        <span className="text-xl">{insight.icon || '💡'}</span>
+                        <Icon icon={insight.icon ? (typeof insight.icon === 'string' ? Lightbulb : insight.icon) : Lightbulb} size="md" className="text-amber-500" />
                         <div className="flex-1">
                           <h3 className="font-medium text-slate-800 dark:text-slate-100 mb-1">
                             {insight.title}
@@ -1193,7 +1232,7 @@ function TrendsTab({ trends, trendsData, isLoading, period }: { trends: any[]; t
           <div className="relative">
             <div className="w-16 h-16 border-4 border-green-200 dark:border-green-800 rounded-full animate-spin border-t-green-600" />
             <div className="absolute inset-0 flex items-center justify-center">
-              <span className="text-2xl">📈</span>
+              <Icon icon={TrendingUp} size="lg" className="text-green-600" />
             </div>
           </div>
           <p className="text-sm text-slate-500 dark:text-slate-400 animate-pulse">
@@ -1207,7 +1246,7 @@ function TrendsTab({ trends, trendsData, isLoading, period }: { trends: any[]; t
   if (trends.length === 0) {
     return (
       <EmptyState 
-        icon="📈" 
+        icon={TrendingUp} 
         title="트렌드 데이터가 없습니다" 
         description="선택한 기간에 충분한 데이터가 없어 트렌드 분석을 수행할 수 없습니다."
       />
@@ -1244,8 +1283,8 @@ function TrendsTab({ trends, trendsData, isLoading, period }: { trends: any[]; t
       <FadeIn>
         <Card className="p-6">
           <div className="flex items-center gap-3 mb-6">
-            <div className="w-10 h-10 bg-gradient-to-br from-green-500 to-emerald-600 rounded-xl flex items-center justify-center">
-              <span className="text-xl">📈</span>
+            <div className="w-10 h-10 bg-green-500 rounded-xl flex items-center justify-center">
+              <Icon icon={TrendingUp} size="md" className="text-white" />
             </div>
             <div>
               <h2 className="text-lg font-semibold text-slate-800 dark:text-slate-100">
@@ -1286,7 +1325,7 @@ function TrendsTab({ trends, trendsData, isLoading, period }: { trends: any[]; t
             <div className="space-y-4">
               {trends.map((trend, idx) => (
                 <FadeIn key={idx} delay={idx * 50}>
-                  <div className="p-5 bg-gradient-to-br from-slate-50 to-white dark:from-slate-800 dark:to-slate-900 rounded-xl border border-slate-100 dark:border-slate-700 hover:shadow-md transition-all duration-300">
+                  <div className="p-5 bg-white dark:bg-slate-800 rounded-xl border border-slate-100 dark:border-slate-700 hover:shadow-md transition-all duration-300">
                     <div className="flex items-center justify-between mb-3">
                       <h3 className="font-semibold text-slate-800 dark:text-slate-100">
                         {trend.metric}
@@ -1353,10 +1392,10 @@ function RisksTab({ checks, isLoading, summary }: { checks: any[]; isLoading: bo
     <div className="space-y-6">
       {/* 요약 */}
       <FadeIn>
-        <Card className="p-6 bg-gradient-to-br from-white to-slate-50 dark:from-slate-900 dark:to-slate-800">
+        <Card className="p-6 bg-white dark:bg-slate-900">
           <div className="flex items-center gap-3 mb-4">
-            <div className="w-10 h-10 bg-gradient-to-br from-red-500 to-orange-600 rounded-xl flex items-center justify-center">
-              <span className="text-xl">⚠️</span>
+            <div className="w-10 h-10 bg-red-500 rounded-xl flex items-center justify-center">
+              <Icon icon={AlertTriangle} size="md" className="text-white" />
             </div>
             <h2 className="text-lg font-semibold text-slate-800 dark:text-slate-100">
               휴먼 에러 체크 결과
@@ -1385,9 +1424,9 @@ function RisksTab({ checks, isLoading, summary }: { checks: any[]; isLoading: bo
         {checks.map((check, idx) => (
           <FadeIn key={idx} delay={idx * 50}>
             <Card className={`p-5 border-l-4 hover:shadow-md transition-all duration-300 ${
-              check.status === 'fail' ? 'border-l-red-500 bg-gradient-to-r from-red-50/50 to-transparent dark:from-red-900/10' :
-              check.status === 'warning' ? 'border-l-amber-500 bg-gradient-to-r from-amber-50/50 to-transparent dark:from-amber-900/10' : 
-              'border-l-emerald-500 bg-gradient-to-r from-emerald-50/50 to-transparent dark:from-emerald-900/10'
+              check.status === 'fail' ? 'border-l-red-500 bg-red-50/50 dark:bg-red-900/10' :
+              check.status === 'warning' ? 'border-l-amber-500 bg-amber-50/50 dark:bg-amber-900/10' : 
+              'border-l-emerald-500 bg-emerald-50/50 dark:bg-emerald-900/10'
             }`}>
               <div className="flex items-start justify-between gap-4">
                 <div className="flex-1">

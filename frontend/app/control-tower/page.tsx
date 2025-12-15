@@ -5,6 +5,8 @@ import { controlTowerApi } from '@/lib/api'
 import { useState } from 'react'
 import Link from 'next/link'
 import OrderDetailModal from '@/components/OrderDetailModal'
+import { Icon } from '@/components/ui/Icon'
+import { Package, Truck, Search, CheckCircle, Activity, AlertTriangle, Clock, X, Lightbulb } from 'lucide-react'
 
 interface CriticalOrder {
   orderCode: string
@@ -49,7 +51,7 @@ interface ControlTowerData {
 
 const STAGE_META = {
   unreceived: { 
-    icon: '📦', 
+    icon: Package, 
     link: '/unreceived', 
     color: 'amber',
     bgColor: 'bg-amber-50',
@@ -58,7 +60,7 @@ const STAGE_META = {
     action: '작가 연락 필요',
   },
   artistShipping: { 
-    icon: '🚚', 
+    icon: Truck, 
     link: '/logistics?status=작가 발송',
     color: 'blue',
     bgColor: 'bg-blue-50',
@@ -67,7 +69,7 @@ const STAGE_META = {
     action: '택배사 확인',
   },
   awaitingInspection: { 
-    icon: '🔍', 
+    icon: Search, 
     link: '/logistics?status=검수 대기',
     color: 'purple',
     bgColor: 'bg-purple-50',
@@ -76,7 +78,7 @@ const STAGE_META = {
     action: '물류사 확인',
   },
   inspectionComplete: { 
-    icon: '✅', 
+    icon: CheckCircle, 
     link: '/logistics?status=검수 완료',
     color: 'green',
     bgColor: 'bg-green-50',
@@ -85,7 +87,7 @@ const STAGE_META = {
     action: '출고 확인',
   },
   internationalShipping: { 
-    icon: '✈️', 
+    icon: Activity, 
     link: '/logistics?status=국제배송 시작',
     color: 'indigo',
     bgColor: 'bg-indigo-50',
@@ -196,7 +198,7 @@ export default function ControlTowerPage() {
         
         <div className={`card ${totalCriticals > 0 ? 'bg-red-50 border-red-200' : ''}`}>
           <div className="flex items-center gap-2 mb-1">
-            <span className="text-lg">⚠️</span>
+            <Icon icon={AlertTriangle} size="sm" className="text-red-500" />
             <p className={`text-sm ${totalCriticals > 0 ? 'text-red-600' : 'text-gray-500'}`}>위험 주문</p>
           </div>
           <p className={`text-2xl font-bold ${totalCriticals > 0 ? 'text-red-700' : 'text-gray-900'}`}>{totalCriticals} <span className="text-sm font-normal">건</span></p>
@@ -205,7 +207,7 @@ export default function ControlTowerPage() {
 
         <div className={`card ${maxDelayDays >= 14 ? 'bg-orange-50 border-orange-200' : ''}`}>
           <div className="flex items-center gap-2 mb-1">
-            <span className="text-lg">⏰</span>
+            <Icon icon={Clock} size="sm" className="text-orange-500" />
             <p className={`text-sm ${maxDelayDays >= 7 ? 'text-orange-600' : 'text-gray-500'}`}>최장 지연</p>
           </div>
           <p className={`text-2xl font-bold ${maxDelayDays >= 14 ? 'text-orange-700' : maxDelayDays >= 7 ? 'text-orange-600' : 'text-gray-900'}`}>{maxDelayDays}<span className="text-sm font-normal">일</span></p>
@@ -221,7 +223,7 @@ export default function ControlTowerPage() {
             onClick={() => bundleAnalysis.partiallyReceivedCount > 0 && setShowBundleAnalysis(!showBundleAnalysis)}
           >
             <div className="flex items-center gap-2 mb-1">
-              <span className="text-lg">📦</span>
+              <Icon icon={Package} size="sm" className="text-amber-500" />
               <p className={`text-sm ${bundleAnalysis.partiallyReceivedCount > 0 ? 'text-amber-600' : 'text-gray-500'}`}>
                 합포장 이슈
               </p>
@@ -241,7 +243,7 @@ export default function ControlTowerPage() {
         <div className="card mb-6 bg-amber-50 border-amber-200">
           <div className="flex items-center justify-between mb-4">
             <div className="flex items-center gap-2">
-              <span className="text-xl">📦</span>
+              <Icon icon={Package} size="md" className="text-amber-500" />
               <div>
                 <h3 className="font-semibold text-amber-800">합포장 일부입고 주문</h3>
                 <p className="text-xs text-amber-600">미입고 작품으로 인해 전체 주문 출고가 지연되고 있습니다</p>
@@ -251,7 +253,7 @@ export default function ControlTowerPage() {
               onClick={() => setShowBundleAnalysis(false)}
               className="text-amber-600 hover:text-amber-800 text-xl"
             >
-              ✕
+              <Icon icon={X} size="sm" className="text-amber-600" />
             </button>
           </div>
           
@@ -267,12 +269,21 @@ export default function ControlTowerPage() {
                   </button>
                   <div className="flex gap-3 mt-1 text-xs">
                     <span className="text-gray-600">총 {order.totalItems}개 작품</span>
-                    <span className="text-red-600 font-medium">📦 미입고 {order.unreceivedItems}개</span>
+                    <span className="text-red-600 font-medium flex items-center gap-1">
+                      <Icon icon={Package} size="xs" />
+                      미입고 {order.unreceivedItems}개
+                    </span>
                     {order.inspectedItems > 0 && (
-                      <span className="text-green-600">✅ 검수완료 {order.inspectedItems}개</span>
+                      <span className="text-green-600 flex items-center gap-1">
+                        <Icon icon={CheckCircle} size="xs" />
+                        검수완료 {order.inspectedItems}개
+                      </span>
                     )}
                     {(order.receivedItems - order.inspectedItems) > 0 && (
-                      <span className="text-purple-600">🔍 검수대기 {order.receivedItems - order.inspectedItems}개</span>
+                      <span className="text-purple-600 flex items-center gap-1">
+                        <Icon icon={Search} size="xs" />
+                        검수대기 {order.receivedItems - order.inspectedItems}개
+                      </span>
                     )}
                   </div>
                 </div>
@@ -309,10 +320,15 @@ export default function ControlTowerPage() {
                   py-2 px-4 text-sm font-medium rounded-lg whitespace-nowrap flex items-center gap-2
                   ${hasIssue ? 'bg-red-100 text-red-700 border border-red-200' : 'bg-gray-100 text-gray-700'}
                 `}>
-                  <span>{meta.icon}</span>
+                  <Icon icon={meta.icon} size="md" className="text-slate-600 dark:text-slate-400" />
                   <span className="font-bold">{stage.orderCount}</span>
                   <span className="text-xs opacity-75">주문</span>
-                  {hasIssue && <span className="text-xs bg-red-200 px-1 rounded">⚠️{stage.criticalCount}</span>}
+                  {hasIssue && (
+                    <span className="text-xs bg-red-200 px-1 rounded flex items-center gap-0.5">
+                      <Icon icon={AlertTriangle} size="xs" className="text-red-600" />
+                      {stage.criticalCount}
+                    </span>
+                  )}
                 </div>
                 {index < stages.length - 1 && (
                   <div className="w-6 text-gray-400 text-center text-lg">→</div>
@@ -338,12 +354,15 @@ export default function ControlTowerPage() {
             >
               {/* 헤더 */}
               <div className="flex items-start gap-2 mb-3">
-                <span className="text-2xl">{meta.icon}</span>
+                <Icon icon={meta.icon} size="lg" className="text-slate-600 dark:text-slate-400" />
                 <div className="flex-1 min-w-0">
                   <h3 className="font-semibold text-gray-900 text-sm">{stage.title}</h3>
                   <p className="text-xs text-gray-500 mt-0.5">
                     {stage.criticalCount > 0 ? (
-                      <span className="text-red-600 font-medium">⚠️ {stage.criticalCount}건 {meta.criticalDays}일+ 지연</span>
+                      <span className="text-red-600 font-medium flex items-center gap-1">
+                        <Icon icon={AlertTriangle} size="xs" />
+                        {stage.criticalCount}건 {meta.criticalDays}일+ 지연
+                      </span>
                     ) : (
                       <span className="text-green-600">✓ 정상 운영</span>
                     )}
@@ -403,7 +422,10 @@ export default function ControlTowerPage() {
                         </div>
                         {critical.detail && (
                           <p className="text-xs text-amber-600 mt-1">
-                            ⚠️ {critical.detail}
+                            <span className="flex items-center gap-1">
+                              <Icon icon={AlertTriangle} size="xs" className="text-amber-600" />
+                              {critical.detail}
+                            </span>
                           </p>
                         )}
                       </li>
@@ -439,32 +461,35 @@ export default function ControlTowerPage() {
       {/* 범례 및 기획 설명 */}
       <div className="mt-6 card bg-slate-50 border-slate-200">
         <div className="flex items-center gap-2 mb-3">
-          <span className="text-lg">💡</span>
+          <Icon icon={Lightbulb} size="md" className="text-amber-500" />
           <h3 className="font-semibold text-slate-700">물류 관제 센터 안내</h3>
         </div>
         
         <div className="grid md:grid-cols-2 gap-4">
           <div>
-            <p className="text-xs font-medium text-slate-600 mb-2">📊 상태별 위험 기준</p>
+            <p className="text-xs font-medium text-slate-600 mb-2 flex items-center gap-1">
+              <Icon icon={BarChart3} size="sm" className="text-slate-600" />
+              상태별 위험 기준
+            </p>
             <div className="space-y-1 text-xs text-slate-600">
               <div className="flex items-center gap-2">
-                <span className="w-5">📦</span>
+                <Icon icon={Package} size="sm" className="text-slate-600 dark:text-slate-400" />
                 <span>미입고: 결제 후 <strong>7일+</strong> 경과 시 위험</span>
               </div>
               <div className="flex items-center gap-2">
-                <span className="w-5">🚚</span>
+                <Icon icon={Truck} size="sm" className="text-slate-600 dark:text-slate-400" />
                 <span>국내배송: 발송 후 <strong>5일+</strong> 경과 시 위험</span>
               </div>
               <div className="flex items-center gap-2">
-                <span className="w-5">🔍</span>
+                <Icon icon={Search} size="sm" className="text-slate-600 dark:text-slate-400" />
                 <span>검수대기: 입고 후 <strong>2일+</strong> 경과 시 위험</span>
               </div>
               <div className="flex items-center gap-2">
-                <span className="w-5">✅</span>
+                <Icon icon={CheckCircle} size="sm" className="text-slate-600 dark:text-slate-400" />
                 <span>포장대기: 검수 후 <strong>3일+</strong> 경과 시 위험</span>
               </div>
               <div className="flex items-center gap-2">
-                <span className="w-5">✈️</span>
+                <Icon icon={Activity} size="sm" className="text-slate-600 dark:text-slate-400" />
                 <span>국제배송: 출고 후 <strong>14일+</strong> 경과 시 위험</span>
               </div>
             </div>

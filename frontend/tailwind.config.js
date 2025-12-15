@@ -14,9 +14,17 @@ module.exports = {
           DEFAULT: '#F78C3A',
           50: '#FFF8F3',
           100: '#FFEDD5',
+          200: '#FED7AA',
+          300: '#FDBA74',
+          400: '#FB923C',
           500: '#F78C3A',
           600: '#E67729',
+          700: '#C65D1F',
         },
+        success: '#10B981',
+        warning: '#F59E0B',
+        danger: '#EF4444',
+        info: '#3B82F6',
         // Primary - 중립적 다크 톤
         primary: {
           DEFAULT: '#1F2937',
@@ -64,14 +72,87 @@ module.exports = {
         },
       },
       fontFamily: {
-        sans: ['Pretendard', '-apple-system', 'BlinkMacSystemFont', 'Segoe UI', 'Roboto', 'Noto Sans KR', 'sans-serif'],
+        sans: [
+          'SUITE',
+          'Pretendard',
+          '-apple-system',
+          'BlinkMacSystemFont',
+          'Segoe UI',
+          'Roboto',
+          'Noto Sans KR',
+          'sans-serif',
+        ],
+      },
+      fontSize: {
+        // Display - 대형 제목
+        'display-1': ['3.5rem', { 
+          lineHeight: '1.1', 
+          fontWeight: '800',
+          letterSpacing: '-0.02em',
+        }],
+        'display-2': ['2.75rem', { 
+          lineHeight: '1.2', 
+          fontWeight: '800',
+          letterSpacing: '-0.01em',
+        }],
+        
+        // Heading - 섹션 제목
+        'heading-1': ['2rem', { 
+          lineHeight: '1.3', 
+          fontWeight: '700',
+          letterSpacing: '-0.01em',
+        }],
+        'heading-2': ['1.625rem', { 
+          lineHeight: '1.4', 
+          fontWeight: '700',
+        }],
+        'heading-3': ['1.375rem', { 
+          lineHeight: '1.5', 
+          fontWeight: '600',
+        }],
+        'heading-4': ['1.125rem', { 
+          lineHeight: '1.5', 
+          fontWeight: '600',
+        }],
+        
+        // Body - 본문
+        'body-lg': ['1.125rem', { 
+          lineHeight: '1.7',
+          fontWeight: '400',
+        }],
+        'body': ['1rem', { 
+          lineHeight: '1.6',
+          fontWeight: '400',
+        }],
+        'body-sm': ['0.875rem', { 
+          lineHeight: '1.5',
+          fontWeight: '400',
+        }],
+        
+        // Caption - 작은 텍스트
+        'caption': ['0.75rem', { 
+          lineHeight: '1.4',
+          fontWeight: '400',
+        }],
+        'caption-sm': ['0.6875rem', { 
+          lineHeight: '1.3',
+          fontWeight: '400',
+        }],
       },
       boxShadow: {
         'sm': '0 1px 2px rgba(0, 0, 0, 0.04)',
         'md': '0 2px 4px rgba(0, 0, 0, 0.06)',
         'lg': '0 4px 12px rgba(0, 0, 0, 0.08)',
         'xl': '0 8px 24px rgba(0, 0, 0, 0.12)',
+        'hover': '0 4px 12px rgba(0, 0, 0, 0.1)',
+        'inner': 'inset 0 1px 2px rgba(0, 0, 0, 0.05)',
         'card': '0 1px 3px rgba(0, 0, 0, 0.04), 0 1px 2px rgba(0, 0, 0, 0.02)',
+      },
+      spacing: {
+        'section': '48px',
+        'card': '24px',
+        'element': '16px',
+        'tight': '8px',
       },
       borderRadius: {
         'xl': '12px',
@@ -98,10 +179,9 @@ module.exports = {
           '100%': { opacity: '1', transform: 'translateY(0)' },
         },
       },
+      // 그라데이션은 최소화 - 페이지 헤더에만 허용
       backgroundImage: {
-        'gradient-orange': 'linear-gradient(135deg, #F78C3A 0%, #FF6B35 100%)',
-        'gradient-orange-soft': 'linear-gradient(135deg, #FFF4EC 0%, #FFFFFF 100%)',
-        'gradient-orange-radial': 'radial-gradient(circle at top right, #FFF4EC 0%, transparent 60%)',
+        'gradient-orange': 'linear-gradient(135deg, #F78C3A 0%, #E67729 100%)',
       },
     },
   },

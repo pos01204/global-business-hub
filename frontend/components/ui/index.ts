@@ -78,3 +78,16 @@ export type { BreadcrumbProps, BreadcrumbItem } from './Breadcrumb'
 
 // ThemeToggle
 export { ThemeToggle } from './ThemeToggle'
+
+// Icon
+export { Icon } from './Icon'
+
+// Enhanced Components
+export { EnhancedCard } from './EnhancedCard'
+export type { EnhancedCardProps } from './EnhancedCard'
+
+export { EnhancedButton } from './EnhancedButton'
+export type { EnhancedButtonProps } from './EnhancedButton'
+
+export { EnhancedKPICard } from './EnhancedKPICard'
+export type { EnhancedKPICardProps } from './EnhancedKPICard'

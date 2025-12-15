@@ -3,6 +3,8 @@
 import { useState, useCallback } from 'react'
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
 import { sopoReceiptApi } from '@/lib/api'
+import { Icon } from '@/components/ui/Icon'
+import { Package, Upload, Users, FileText, BarChart3, CheckCircle, Clock, RefreshCw } from 'lucide-react'
 
 // 탭 타입
 type SopoTab = 'upload' | 'artists' | 'tracking' | 'history'
@@ -121,7 +123,7 @@ export default function SopoReceiptPage() {
     onSuccess: (data) => {
       queryClient.invalidateQueries({ queryKey: ['sopo-tracking'] })
       if (data.data) {
-        alert(`✅ JotForm 동기화 완료: ${data.data.synced}건 업데이트`)
+        alert(`JotForm 동기화 완료: ${data.data.synced}건 업데이트`)
       }
     },
   })
@@ -183,21 +185,21 @@ export default function SopoReceiptPage() {
 
   // 탭 설정
   const tabs = [
-    { id: 'upload' as const, label: '📤 선적 업로드', description: 'CSV 업로드 & 검증' },
-    { id: 'artists' as const, label: '👥 대상 작가', description: '작가 관리 & 발송' },
-    { id: 'tracking' as const, label: '📋 신청 현황', description: '트래킹 & 리마인더' },
-    { id: 'history' as const, label: '📊 히스토리', description: '발급 이력' },
+    { id: 'upload' as const, label: '선적 업로드', icon: Upload, description: 'CSV 업로드 & 검증' },
+    { id: 'artists' as const, label: '대상 작가', icon: Users, description: '작가 관리 & 발송' },
+    { id: 'tracking' as const, label: '신청 현황', icon: FileText, description: '트래킹 & 리마인더' },
+    { id: 'history' as const, label: '히스토리', icon: BarChart3, description: '발급 이력' },
   ]
 
   return (
-    <div className="min-h-screen bg-gradient-to-br from-slate-50 via-orange-50/30 to-amber-50/20">
+    <div className="min-h-screen bg-slate-50">
       {/* 헤더 */}
       <div className="bg-white border-b border-gray-200 sticky top-0 z-10">
         <div className="max-w-7xl mx-auto px-6 py-4">
           <div className="flex items-center justify-between">
             <div>
               <h1 className="text-2xl font-bold text-gray-900 flex items-center gap-3">
-                <span className="text-3xl">📦</span>
+                <Icon icon={Package} size="xl" className="text-slate-600 dark:text-slate-400" />
                 소포수령증 관리
               </h1>
               <p className="text-sm text-gray-500 mt-1">해외 배송 주문 소포수령증 발급 자동화</p>
@@ -225,7 +227,8 @@ export default function SopoReceiptPage() {
                 className="px-4 py-2 text-sm bg-purple-100 text-purple-700 rounded-lg hover:bg-purple-200 disabled:opacity-50 flex items-center gap-2"
                 title="JotForm 신청 데이터 동기화"
               >
-                {syncJotformMutation.isPending ? '⏳' : '🔄'} JotForm 동기화
+                <Icon icon={syncJotformMutation.isPending ? Clock : RefreshCw} size="sm" className="text-purple-700" />
+                JotForm 동기화
               </button>
             </div>
           </div>
@@ -242,7 +245,10 @@ export default function SopoReceiptPage() {
                     : 'bg-gray-100 text-gray-600 hover:bg-gray-200'
                 }`}
               >
-                {tab.label}
+                <span className="flex items-center gap-2">
+                  <Icon icon={tab.icon} size="sm" className={activeTab === tab.id ? 'text-white' : 'text-gray-600'} />
+                  {tab.label}
+                </span>
               </button>
             ))}
           </div>

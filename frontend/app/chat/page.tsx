@@ -7,6 +7,8 @@ import { chatApi } from '@/lib/api'
 import { StaggeredFadeText } from '@/components/chat/StaggeredFadeText'
 import { AnimatedMessage } from '@/components/chat/AnimatedMessage'
 import { Button, Spinner, Badge } from '@/components/ui'
+import { Icon } from '@/components/ui/Icon'
+import { Bot, BarChart3, TrendingUp, Briefcase } from 'lucide-react'
 import { Bar, Line, Pie } from 'react-chartjs-2'
 import {
   Chart as ChartJS,
@@ -47,27 +49,27 @@ interface Message {
 type AgentType = 'data_analyst' | 'performance_marketer' | 'business_manager' | 'auto'
 
 // Agent 메타 정보
-const AGENT_META: Record<AgentType, { icon: string; color: string; bgColor: string; description: string }> = {
+const AGENT_META: Record<AgentType, { icon: React.ReactNode; color: string; bgColor: string; description: string }> = {
   auto: { 
-    icon: '🤖', 
+    icon: <Icon icon={Bot} size="sm" />, 
     color: 'text-slate-700', 
     bgColor: 'bg-slate-100 hover:bg-slate-200 border-slate-300',
     description: '질문에 맞는 역할 자동 선택'
   },
   data_analyst: { 
-    icon: '📊', 
+    icon: <Icon icon={BarChart3} size="sm" />, 
     color: 'text-blue-700', 
     bgColor: 'bg-blue-50 hover:bg-blue-100 border-blue-300',
     description: '매출, 트렌드, 랭킹 분석'
   },
   performance_marketer: { 
-    icon: '📈', 
+    icon: <Icon icon={TrendingUp} size="sm" />, 
     color: 'text-purple-700', 
     bgColor: 'bg-purple-50 hover:bg-purple-100 border-purple-300',
     description: '마케팅 카피, CRM 세그먼트'
   },
   business_manager: { 
-    icon: '💼', 
+    icon: <Icon icon={Briefcase} size="sm" />, 
     color: 'text-emerald-700', 
     bgColor: 'bg-emerald-50 hover:bg-emerald-100 border-emerald-300',
     description: '전략 수립, 예측, 시뮬레이션'
@@ -682,7 +684,7 @@ export default function ChatPage() {
   }
 
   return (
-    <div className="min-h-screen bg-gradient-to-br from-slate-50 to-slate-100 flex">
+    <div className="min-h-screen bg-slate-50 dark:bg-slate-900 flex">
       {/* 사이드바 */}
       <div className={`${sidebarOpen ? 'w-72' : 'w-0'} transition-all duration-300 bg-white border-r border-slate-200 flex flex-col overflow-hidden`}>
         {sidebarOpen && (
@@ -722,7 +724,7 @@ export default function ChatPage() {
                       <div className="p-2 space-y-1 bg-white">
                         {/* Agent 힌트 */}
                         <div className="px-3 py-1.5 text-[10px] text-slate-400 flex items-center gap-1">
-                          <span>{agentMeta.icon}</span>
+                          {agentMeta.icon}
                           <span>{agentMeta.description}</span>
                         </div>
                         {cat.questions.map((q, idx) => (
@@ -840,7 +842,7 @@ export default function ChatPage() {
                   }`}
                 >
                   <div className="flex items-center gap-2 mb-1">
-                    <span className="text-lg">{meta.icon}</span>
+                    {meta.icon}
                     <span className={`text-sm font-semibold ${isSelected ? meta.color : 'text-slate-700'}`}>
                       {agentInfo?.name || agentType}
                     </span>
@@ -951,13 +953,13 @@ export default function ChatPage() {
                 <div
                   className={`max-w-[85%] rounded-2xl px-4 py-3 shadow-sm transition-all hover:shadow-md ${
                     message.role === 'user'
-                      ? 'bg-gradient-to-br from-primary to-primary/90 text-white'
+                      ? 'bg-primary text-white'
                       : 'bg-white border border-slate-200 text-slate-900'
                   }`}
                 >
                 {message.agent && message.role === 'assistant' && (
                   <div className="flex items-center gap-1.5 text-xs font-semibold text-slate-500 mb-2">
-                    <span>{AGENT_META[message.agent.toLowerCase().replace(/ /g, '_') as AgentType]?.icon || '🤖'}</span>
+                    {AGENT_META[message.agent.toLowerCase().replace(/ /g, '_') as AgentType]?.icon || <Icon icon={Bot} size="sm" className="text-slate-500" />}
                     <span>{message.agent}</span>
                   </div>
                 )}
@@ -1065,7 +1067,7 @@ export default function ChatPage() {
             <div className="flex justify-start">
               <div className="max-w-[85%] rounded-2xl px-4 py-3 bg-white border border-slate-200 text-slate-900 shadow-sm animate-in fade-in slide-in-from-bottom-2 duration-300">
                 <div className="flex items-center gap-1.5 text-xs font-semibold text-slate-500 mb-2">
-                  <span>{AGENT_META[selectedAgent]?.icon || '🤖'}</span>
+                  {AGENT_META[selectedAgent]?.icon || <Icon icon={Bot} size="sm" className="text-slate-500" />}
                   <span className="flex items-center gap-1">
                     <span className="animate-pulse">응답 중</span>
                     <span className="flex gap-0.5">
@@ -1139,7 +1141,7 @@ export default function ChatPage() {
               <button
                 onClick={handleSend}
                 disabled={!input.trim() || !isConnected || sendMessageMutation.isPending || isStreaming}
-                className="px-5 py-3 bg-gradient-to-r from-primary to-primary/90 text-white rounded-xl hover:shadow-lg hover:scale-[1.02] active:scale-[0.98] transition-all disabled:from-slate-300 disabled:to-slate-300 disabled:cursor-not-allowed disabled:hover:scale-100 font-medium flex items-center justify-center min-h-[48px] min-w-[80px]"
+                className="px-5 py-3 bg-primary text-white rounded-xl hover:shadow-lg hover:scale-[1.02] active:scale-[0.98] transition-all disabled:bg-slate-300 disabled:cursor-not-allowed disabled:hover:scale-100 font-medium flex items-center justify-center min-h-[48px] min-w-[80px]"
               >
                 전송 →
               </button>
@@ -1149,7 +1151,7 @@ export default function ChatPage() {
                 {isConnected && (
                   <>
                     <span className="inline-flex items-center gap-1">
-                      {AGENT_META[selectedAgent]?.icon}
+                      {AGENT_META[selectedAgent]?.icon || <Icon icon={Bot} size="sm" className="text-slate-500" />}
                       <span>{agentsData?.data?.find((a: any) => a.type === selectedAgent)?.name || '자동 선택'}</span>
                     </span>
                     <span className="mx-2">•</span>

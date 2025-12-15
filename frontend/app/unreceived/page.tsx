@@ -6,6 +6,8 @@ import { useState, useEffect } from 'react'
 import { useSearchParams, useRouter } from 'next/navigation'
 import OrderDetailModal from '@/components/OrderDetailModal'
 import { useIsMobile } from '@/hooks/useMediaQuery'
+import { Icon } from '@/components/ui/Icon'
+import { Package, MessageCircle } from 'lucide-react'
 
 // 경과일에 따른 위험도 배지 (한 줄로 표시)
 function DelayBadge({ days }: { days: number }) {
@@ -165,11 +167,11 @@ export default function UnreceivedPage() {
   return (
     <div className="animate-fade-in">
       {/* 페이지 헤더 - idus 브랜드 스타일 */}
-      <div className="relative bg-gradient-to-r from-idus-500 to-idus-600 dark:from-orange-900/70 dark:to-orange-800/70 rounded-2xl p-4 lg:p-6 mb-6 overflow-hidden shadow-orange dark:shadow-none">
+      <div className="relative bg-idus-500 dark:bg-orange-900/70 rounded-2xl p-4 lg:p-6 mb-6 overflow-hidden shadow-lg dark:shadow-none">
         <div className="absolute top-0 right-0 w-64 h-64 bg-white/10 dark:bg-white/5 rounded-full -translate-y-1/2 translate-x-1/2"></div>
         <div className="flex items-center gap-4">
           <div className="w-12 h-12 lg:w-14 lg:h-14 bg-white/20 dark:bg-white/10 backdrop-blur rounded-xl flex items-center justify-center shadow-lg dark:shadow-none">
-            <span className="text-2xl lg:text-3xl">📦</span>
+            <Icon icon={Package} size="xl" className="text-white" />
           </div>
           <div>
             <h1 className="text-xl lg:text-2xl font-extrabold text-white tracking-tight">미입고 관리</h1>
@@ -375,14 +377,20 @@ export default function UnreceivedPage() {
                   {/* 묶음 주문 표시 */}
                   {item.isBundle && (
                     <span className="inline-flex items-center gap-1 text-xs text-blue-600 dark:text-blue-400 bg-blue-50 dark:bg-blue-900/30 px-2 py-1 rounded-full mb-3">
-                      📦 묶음 ({item.allItems?.length || 0}개)
+                      <span className="flex items-center gap-1">
+                        <Icon icon={Package} size="sm" className="text-slate-600 dark:text-slate-400" />
+                        묶음 ({item.allItems?.length || 0}개)
+                      </span>
                     </span>
                   )}
                   
                   {/* 메모 표시 */}
                   {item.currentStatus && (
                     <p className="text-xs text-slate-500 dark:text-slate-400 bg-slate-100 dark:bg-slate-800 rounded-lg px-3 py-2 mb-3 line-clamp-2">
-                      💬 {item.currentStatus}
+                      <span className="flex items-center gap-1">
+                        <Icon icon={MessageCircle} size="sm" className="text-slate-600 dark:text-slate-400" />
+                        {item.currentStatus}
+                      </span>
                     </p>
                   )}
                   
@@ -468,7 +476,10 @@ export default function UnreceivedPage() {
                           </div>
                           {item.isBundle && (
                             <span className="inline-flex items-center gap-1 mt-1 text-xs text-blue-600 dark:text-blue-400 bg-blue-50 dark:bg-blue-900/30 px-2 py-0.5 rounded-full">
-                              <span>📦</span> 묶음 ({item.allItems?.length || 0}개)
+                              <span className="flex items-center gap-1">
+                                <Icon icon={Package} size="sm" className="text-slate-600 dark:text-slate-400" />
+                                묶음 ({item.allItems?.length || 0}개)
+                              </span>
                             </span>
                           )}
                         </div>

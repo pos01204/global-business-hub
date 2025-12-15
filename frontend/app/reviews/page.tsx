@@ -3,20 +3,22 @@
 import { useState, useEffect, useRef } from 'react'
 import { useQuery } from '@tanstack/react-query'
 import { reviewsApi } from '@/lib/api'
+import { Icon } from '@/components/ui/Icon'
+import { Palette } from 'lucide-react'
 
-// 국가별 테마 컬러
-const countryThemes: Record<string, { gradient: string; accent: string }> = {
-  JP: { gradient: 'from-pink-100 via-rose-50 to-pink-100', accent: 'text-pink-600' },
-  US: { gradient: 'from-blue-100 via-indigo-50 to-blue-100', accent: 'text-blue-600' },
-  SG: { gradient: 'from-red-100 via-rose-50 to-red-100', accent: 'text-red-600' },
-  HK: { gradient: 'from-rose-100 via-pink-50 to-rose-100', accent: 'text-rose-600' },
-  AU: { gradient: 'from-emerald-100 via-teal-50 to-emerald-100', accent: 'text-emerald-600' },
-  PL: { gradient: 'from-red-100 via-white to-red-100', accent: 'text-red-600' },
-  CA: { gradient: 'from-red-100 via-amber-50 to-red-100', accent: 'text-red-600' },
-  GB: { gradient: 'from-blue-100 via-red-50 to-blue-100', accent: 'text-blue-700' },
-  NL: { gradient: 'from-orange-100 via-white to-blue-100', accent: 'text-orange-600' },
-  FR: { gradient: 'from-blue-100 via-white to-rose-100', accent: 'text-blue-600' },
-  DEFAULT: { gradient: 'from-violet-100 via-purple-50 to-violet-100', accent: 'text-violet-600' },
+// 국가별 테마 컬러 (그라데이션 제거)
+const countryThemes: Record<string, { bg: string; accent: string }> = {
+  JP: { bg: 'bg-pink-100', accent: 'text-pink-600' },
+  US: { bg: 'bg-blue-100', accent: 'text-blue-600' },
+  SG: { bg: 'bg-red-100', accent: 'text-red-600' },
+  HK: { bg: 'bg-rose-100', accent: 'text-rose-600' },
+  AU: { bg: 'bg-emerald-100', accent: 'text-emerald-600' },
+  PL: { bg: 'bg-red-100', accent: 'text-red-600' },
+  CA: { bg: 'bg-red-100', accent: 'text-red-600' },
+  GB: { bg: 'bg-blue-100', accent: 'text-blue-700' },
+  NL: { bg: 'bg-orange-100', accent: 'text-orange-600' },
+  FR: { bg: 'bg-blue-100', accent: 'text-blue-600' },
+  DEFAULT: { bg: 'bg-violet-100', accent: 'text-violet-600' },
 }
 
 export default function ReviewsPage() {
@@ -450,7 +452,10 @@ function PhotoReviewCard({ review, onClick, delay }: { review: any; onClick: () 
           "{review.contents || '...'}"
         </p>
         <div className="mt-3 pt-3 border-t border-stone-100">
-          <p className="text-stone-400 text-xs truncate">🎨 {review.artistName}</p>
+          <p className="text-stone-400 text-xs truncate flex items-center gap-1">
+            <Icon icon={Palette} size="xs" className="text-stone-400" />
+            {review.artistName}
+          </p>
           <p className="text-stone-600 text-xs truncate mt-0.5 font-medium">{review.productName}</p>
         </div>
       </div>
@@ -477,7 +482,7 @@ function TextReviewCard({ review, theme, onClick, delay }: { review: any; theme:
         isVisible ? 'opacity-100 translate-y-0' : 'opacity-0 translate-y-4'
       }`}
     >
-      <div className={`relative p-6 bg-gradient-to-br ${theme.gradient} min-h-[200px] ${isLong ? 'min-h-[280px]' : ''}`}>
+      <div className={`relative p-6 ${theme.bg} min-h-[200px] ${isLong ? 'min-h-[280px]' : ''}`}>
         {/* Decorative Quote */}
         <div className="absolute top-4 left-4 text-6xl font-serif text-black/5 leading-none select-none">
           "
@@ -606,9 +611,9 @@ function ReviewModal({ review, onClose }: { review: any; onClose: () => void }) 
           </div>
 
           {/* Product Info */}
-          <div className="flex items-center gap-4 p-4 bg-gradient-to-r from-stone-100 to-stone-50 rounded-xl">
-            <div className="w-14 h-14 bg-gradient-to-br from-amber-400 to-orange-500 rounded-xl flex items-center justify-center text-white text-2xl shadow-lg">
-              🎨
+          <div className="flex items-center gap-4 p-4 bg-stone-100 rounded-xl">
+            <div className="w-14 h-14 bg-amber-500 rounded-xl flex items-center justify-center shadow-lg">
+              <Icon icon={Palette} size="lg" className="text-white" />
             </div>
             <div className="flex-1 min-w-0">
               <p className="font-medium text-stone-800 truncate">{review.productName}</p>

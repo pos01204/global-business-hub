@@ -7,35 +7,12 @@ import { useRouter, useSearchParams } from 'next/navigation'
 import CustomerDetailModal from '@/components/CustomerDetailModal'
 import OrderDetailModal from '@/components/OrderDetailModal'
 import ArtistOrdersModal from '@/components/ArtistOrdersModal'
-import {
-  Chart as ChartJS,
-  CategoryScale,
-  LinearScale,
-  BarElement,
-  BarController,
-  ArcElement,
-  PointElement,
-  LineElement,
-  LineController,
-  Title,
-  Tooltip,
-  Legend
-} from 'chart.js'
-import { Bar, Pie, Doughnut, Chart } from 'react-chartjs-2'
-
-ChartJS.register(
-  CategoryScale,
-  LinearScale,
-  BarElement,
-  BarController,
-  ArcElement,
-  PointElement,
-  LineElement,
-  LineController,
-  Title,
-  Tooltip,
-  Legend
-)
+import { Tooltip } from '@/components/ui/Tooltip'
+import { Icon } from '@/components/ui/Icon'
+import { 
+  Palette, BarChart3, Calendar, Lightbulb, CheckCircle,
+  TrendingUp, TrendingDown, ArrowRight
+} from 'lucide-react'
 
 // 물류 처리 시간 분석 탭 컴포넌트
 function LogisticsPerformanceTab({
@@ -118,7 +95,7 @@ function LogisticsPerformanceTab({
           </p>
         </div>
 
-        <div className="card bg-gradient-to-br from-primary/10 to-accent/10">
+        <div className="card bg-primary/5 border-primary/20">
           <h3 className="text-sm font-medium text-muted-color mb-2">전체 처리 시간</h3>
           <p className="text-2xl font-bold text-primary">{formatDays(data.summary.total.avg)}</p>
           <p className="text-xs text-gray-500 mt-1">
@@ -190,7 +167,10 @@ function LogisticsPerformanceTab({
       {/* 작가별 성과 */}
       {data.artistStats && data.artistStats.length > 0 && (
         <div className="card">
-          <h2 className="text-xl font-semibold mb-4">👨‍🎨 작가별 처리 시간 성과 (Top 20)</h2>
+          <h2 className="text-xl font-semibold mb-4 flex items-center gap-2">
+            <Icon icon={Palette} size="md" className="text-slate-600 dark:text-slate-400" />
+            작가별 처리 시간 성과 (Top 20)
+          </h2>
           <div className="overflow-x-auto">
             <table className="w-full">
               <thead>
@@ -285,7 +265,10 @@ function LogisticsPerformanceTab({
       {/* 처리 시간 분포 */}
       {data.dailyDistribution && Object.keys(data.dailyDistribution).length > 0 && (
         <div className="card">
-          <h2 className="text-xl font-semibold mb-4">📊 처리 시간 분포</h2>
+          <h2 className="text-xl font-semibold mb-4 flex items-center gap-2">
+            <Icon icon={BarChart3} size="md" className="text-slate-600 dark:text-slate-400" />
+            처리 시간 분포
+          </h2>
           <div style={{ position: 'relative', height: '300px' }}>
             <Bar
               data={{
@@ -447,7 +430,10 @@ function ComparisonTab({
     <div className="space-y-6">
       {/* 비교 유형 선택 */}
       <div className="card">
-        <h2 className="text-xl font-semibold mb-4">📊 비교 분석</h2>
+        <h2 className="text-xl font-semibold mb-4 flex items-center gap-2">
+          <Icon icon={BarChart3} size="md" className="text-slate-600 dark:text-slate-400" />
+          비교 분석
+        </h2>
         <div className="flex gap-4 mb-6">
           <button
             onClick={() => setComparisonType('period')}
@@ -486,7 +472,7 @@ function ComparisonTab({
           <div className="space-y-3">
             <div className="flex items-center gap-4">
               <label className="text-sm font-medium flex items-center gap-2">
-                <span>📅</span>
+                <Icon icon={Calendar} size="sm" className="text-slate-600 dark:text-slate-400" />
                 <span>비교 기간 수:</span>
               </label>
               <select
@@ -502,7 +488,10 @@ function ComparisonTab({
             </div>
             <div className="bg-blue-50 border border-blue-200 rounded-lg p-3">
               <p className="text-sm text-blue-800">
-                <span className="font-semibold">💡 안내:</span> 각 기간은 선택한 기간 길이(예: 30일)로 나뉩니다. 
+                <span className="font-semibold flex items-center gap-1">
+                  <Icon icon={Lightbulb} size="sm" className="text-amber-500" />
+                  안내:
+                </span> 각 기간은 선택한 기간 길이(예: 30일)로 나뉩니다. 
                 현재 기간은 가장 최근 기간이며, 숫자가 클수록 더 이전 기간을 의미합니다.
               </p>
             </div>
@@ -554,7 +543,10 @@ function ComparisonTab({
           <div className="space-y-3">
             <div className="bg-green-50 border border-green-200 rounded-lg p-3">
               <p className="text-sm text-green-800">
-                <span className="font-semibold">💡 안내:</span> 비교하고 싶은 국가 코드를 쉼표로 구분하여 입력하세요. 
+                <span className="font-semibold flex items-center gap-1">
+                  <Icon icon={Lightbulb} size="sm" className="text-amber-500" />
+                  안내:
+                </span> 비교하고 싶은 국가 코드를 쉼표로 구분하여 입력하세요. 
                 예: JP,US,KR (일본, 미국, 한국)
               </p>
             </div>
@@ -609,7 +601,7 @@ function ComparisonTab({
           {/* 안내 문구 */}
           <div className="card bg-blue-50 border-blue-200">
             <div className="flex items-start gap-3">
-              <div className="text-2xl">💡</div>
+              <Icon icon={Lightbulb} size="lg" className="text-amber-500" />
               <div className="flex-1">
                 <h3 className="font-semibold text-blue-900 mb-1">기간 비교 안내</h3>
                 <p className="text-sm text-blue-700">
@@ -622,7 +614,10 @@ function ComparisonTab({
 
           <div className="card">
             <div className="flex items-center justify-between mb-4">
-              <h3 className="text-lg font-semibold">📅 기간별 성과 비교</h3>
+              <h3 className="text-lg font-semibold flex items-center gap-2">
+                <Icon icon={Calendar} size="md" className="text-slate-600 dark:text-slate-400" />
+                기간별 성과 비교
+              </h3>
               <div className="text-sm text-gray-500">
                 기간 길이: {dateRange === '7d' ? '7일' : dateRange === '30d' ? '30일' : dateRange === '90d' ? '90일' : '365일'}
               </div>
@@ -656,7 +651,12 @@ function ComparisonTab({
                         <td className="py-3 px-4">
                           <div className="flex flex-col">
                             <span className="font-medium text-gray-900">
-                              {isCurrentPeriod ? '✅ 현재 기간' : 
+                              {isCurrentPeriod ? (
+                                <span className="flex items-center gap-1">
+                                  <Icon icon={CheckCircle} size="sm" className="text-emerald-500" />
+                                  현재 기간
+                                </span>
+                              ) : 
                                isPreviousPeriod ? '이전 기간' :
                                `${periodNum}기간 전`}
                             </span>
@@ -809,7 +809,10 @@ function ComparisonTab({
       {comparisonType === 'artist' && artistData && (
         <div className="space-y-6">
           <div className="card">
-            <h3 className="text-lg font-semibold mb-4">👨‍🎨 작가별 성과 비교</h3>
+            <h3 className="text-lg font-semibold mb-4 flex items-center gap-2">
+              <Icon icon={Palette} size="md" className="text-slate-600 dark:text-slate-400" />
+              작가별 성과 비교
+            </h3>
             <div className="overflow-x-auto">
               <table className="w-full">
                 <thead>
@@ -1204,7 +1207,7 @@ export default function AnalyticsPage() {
   return (
     <div className="animate-fade-in">
       {/* 페이지 헤더 - idus 브랜드 스타일 */}
-      <div className="relative bg-gradient-to-r from-idus-500 to-idus-600 rounded-2xl p-6 mb-6 overflow-hidden shadow-orange">
+      <div className="relative bg-idus-500 rounded-2xl p-6 mb-6 overflow-hidden shadow-lg">
         <div className="absolute top-0 right-0 w-64 h-64 bg-white/10 rounded-full -translate-y-1/2 translate-x-1/2"></div>
         <div className="flex items-center gap-4">
           <div className="w-14 h-14 bg-white/20 backdrop-blur rounded-xl flex items-center justify-center shadow-lg">
@@ -1318,7 +1321,7 @@ export default function AnalyticsPage() {
                       onClick={() => handleTabChange(tab.id)}
                       className={`group relative px-4 py-2.5 rounded-lg text-sm font-medium transition-all duration-200 flex items-center gap-2 ${
                         activeTab === tab.id
-                          ? 'bg-gradient-to-r from-[#F78C3A] to-[#E67729] text-white shadow-md shadow-orange-500/25 scale-105'
+                          ? 'bg-idus-500 text-white shadow-md scale-105'
                           : 'bg-slate-100 dark:bg-slate-800 text-slate-600 dark:text-slate-400 hover:bg-slate-200 dark:hover:bg-slate-700 hover:scale-102'
                       }`}
                     >
@@ -1345,9 +1348,9 @@ export default function AnalyticsPage() {
             {/* P2: Business Brain 연계 버튼 */}
             <button
               onClick={() => router.push('/business-brain?tab=trends&period=30d')}
-              className="px-4 py-2 bg-gradient-to-r from-indigo-600 to-purple-600 text-white rounded-lg font-medium hover:from-indigo-700 hover:to-purple-700 transition-all duration-200 shadow-sm hover:shadow-md flex items-center gap-2 text-sm"
+              className="px-4 py-2 bg-idus-500 text-white rounded-lg font-medium hover:bg-idus-600 transition-all duration-200 shadow-sm hover:shadow-md flex items-center gap-2 text-sm"
             >
-              <span>📊</span>
+              <Icon icon={BarChart3} size="sm" className="text-slate-600 dark:text-slate-400" />
               <span>이 성과의 원인 분석하기</span>
               <span>→</span>
             </button>
@@ -1473,7 +1476,7 @@ export default function AnalyticsPage() {
               {/* P2: Business Brain 연계 버튼 */}
               <button
                 onClick={() => router.push('/business-brain?tab=artist-health&period=30d')}
-                className="px-4 py-2 bg-gradient-to-r from-indigo-600 to-purple-600 text-white rounded-lg font-medium hover:from-indigo-700 hover:to-purple-700 transition-all duration-200 shadow-sm hover:shadow-md flex items-center gap-2 text-sm"
+                className="px-4 py-2 bg-idus-500 text-white rounded-lg font-medium hover:bg-idus-600 transition-all duration-200 shadow-sm hover:shadow-md flex items-center gap-2 text-sm"
               >
                 <span>🎨</span>
                 <span>작가 성과 분석</span>
@@ -1861,7 +1864,7 @@ export default function AnalyticsPage() {
             </div>
 
             {/* 고객 분석 페이지 안내 */}
-            <div className="card bg-gradient-to-r from-slate-50 to-slate-100 border-slate-200">
+            <div className="card bg-slate-50 dark:bg-slate-800 border-slate-200 dark:border-slate-700">
               <div className="flex items-center justify-between">
                 <div className="flex items-center gap-3">
                   <span className="text-3xl">👥</span>
@@ -1886,7 +1889,10 @@ export default function AnalyticsPage() {
             {/* 채널별 상세 통계 */}
             {data.channelAnalysis && data.channelAnalysis.stats && (
               <div className="card">
-                <h2 className="text-xl font-semibold mb-4">📊 채널별 상세 성과</h2>
+                <h2 className="text-xl font-semibold mb-4 flex items-center gap-2">
+                  <Icon icon={BarChart3} size="md" className="text-slate-600 dark:text-slate-400" />
+                  채널별 상세 성과
+                </h2>
                 <div className="overflow-x-auto">
                   <table className="w-full">
                     <thead>

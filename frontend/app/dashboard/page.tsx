@@ -5,34 +5,16 @@ import { dashboardApi, controlTowerApi, artistAnalyticsApi, businessBrainApi, an
 import Link from 'next/link'
 import { useState, useEffect } from 'react'
 import { format } from 'date-fns'
-import { LoadingOverlay } from '@/components/ui'
-import {
-  Chart as ChartJS,
-  CategoryScale,
-  LinearScale,
-  BarElement,
-  BarController,
-  PointElement,
-  LineElement,
-  LineController,
-  Title,
-  Tooltip,
-  Legend,
-} from 'chart.js'
-import { Chart } from 'react-chartjs-2'
-
-ChartJS.register(
-  CategoryScale,
-  LinearScale,
-  BarElement,
-  BarController,
-  PointElement,
-  LineElement,
-  LineController,
-  Title,
-  Tooltip,
-  Legend
-)
+import { LoadingOverlay, EnhancedKPICard, Tooltip } from '@/components/ui'
+import { Icon } from '@/components/ui/Icon'
+import { iconMap, emojiToIconMap } from '@/lib/icon-mapping'
+import { EnhancedLineChart, EnhancedBarChart } from '@/components/charts'
+import { 
+  DollarSign, Package, BarChart3, Palette, Users, Truck,
+  MessageCircle, AlertTriangle, CheckCircle, Zap, Link2,
+  FileText, Activity, Calendar, TrendingUp, Lightbulb,
+  Circle
+} from 'lucide-react'
 
 export default function DashboardPage() {
   const [startDate, setStartDate] = useState<string>('')
@@ -137,21 +119,22 @@ export default function DashboardPage() {
     
     return (
       <div className="min-h-screen flex items-center justify-center">
-        <div className="bg-white rounded-2xl border border-red-200 shadow-lg max-w-md p-6">
+        <div className="bg-white dark:bg-slate-900 rounded-2xl border border-red-200 dark:border-red-800 shadow-lg max-w-md p-6">
           <div className="flex items-center gap-3 mb-4">
-            <div className="w-12 h-12 bg-red-100 rounded-xl flex items-center justify-center">
-              <span className="text-2xl">⚠️</span>
+            <div className="w-12 h-12 bg-red-100 dark:bg-red-900/30 rounded-xl flex items-center justify-center">
+              <Icon icon={AlertTriangle} size="lg" className="text-red-600 dark:text-red-400" />
             </div>
             <div>
-              <h2 className="text-lg font-bold text-red-800">오류 발생</h2>
-              <p className="text-sm text-red-600">데이터를 불러오는 중 문제가 발생했습니다.</p>
+              <h2 className="text-lg font-bold text-red-800 dark:text-red-200">오류 발생</h2>
+              <p className="text-sm text-red-600 dark:text-red-400">데이터를 불러오는 중 문제가 발생했습니다.</p>
             </div>
           </div>
           
           {isNetworkError && (
-            <div className="p-4 bg-amber-50 border border-amber-200 rounded-xl mb-4">
-              <p className="text-sm font-bold text-amber-800 mb-2 flex items-center gap-2">
-                <span>🔌</span> 네트워크 오류 감지
+            <div className="p-4 bg-amber-50 dark:bg-amber-900/20 border border-amber-200 dark:border-amber-800 rounded-xl mb-4">
+              <p className="text-sm font-bold text-amber-800 dark:text-amber-200 mb-2 flex items-center gap-2">
+                <Icon icon={AlertCircle} size="sm" className="text-amber-600 dark:text-amber-400" />
+                네트워크 오류 감지
               </p>
               <ul className="text-xs text-amber-700 space-y-1.5">
                 <li className="flex items-start gap-2">
@@ -221,9 +204,9 @@ export default function DashboardPage() {
           {/* AI 빠른 질문 */}
           <Link 
             href="/chat"
-            className="flex items-center justify-center gap-2 px-4 py-2.5 bg-gradient-to-r from-violet-500 to-purple-600 text-white rounded-lg hover:from-violet-600 hover:to-purple-700 transition-all shadow-sm hover:shadow-md min-h-[44px]"
+            className="flex items-center justify-center gap-2 px-4 py-2.5 bg-idus-500 text-white rounded-lg hover:bg-idus-600 transition-all shadow-sm hover:shadow-md min-h-[44px]"
           >
-            <span>💬</span>
+            <Icon icon={MessageCircle} size="sm" className="text-white" />
             <span className="text-sm font-medium">AI에게 질문</span>
           </Link>
         </div>
@@ -232,11 +215,11 @@ export default function DashboardPage() {
       {/* 통합 대시보드 뷰 (v4.2 Phase 3) */}
       <div className="grid lg:grid-cols-2 gap-6">
         {/* 성과 분석 요약 (왼쪽) */}
-        <div className="bg-gradient-to-br from-blue-50 to-cyan-50 dark:from-blue-900/20 dark:to-cyan-900/20 rounded-xl border border-blue-200 dark:border-blue-800 p-4 lg:p-6">
+        <div className="bg-white dark:bg-slate-800 rounded-xl border border-slate-200 dark:border-slate-700 p-4 lg:p-6">
           <div className="flex items-center justify-between mb-4">
             <div className="flex items-center gap-3">
-              <div className="w-10 h-10 bg-gradient-to-br from-blue-500 to-cyan-600 rounded-xl flex items-center justify-center">
-                <span className="text-white text-lg">📊</span>
+              <div className="w-10 h-10 bg-blue-500 rounded-xl flex items-center justify-center">
+                <Icon icon={BarChart3} size="lg" className="text-white" />
               </div>
               <div>
                 <h3 className="font-bold text-slate-800 dark:text-slate-100">성과 분석 요약</h3>
@@ -251,29 +234,33 @@ export default function DashboardPage() {
             </Link>
           </div>
 
-          {/* 오늘의 핵심 지표 */}
-          {analyticsSummaryData && (
-            <div className="space-y-3">
-              <div className="grid grid-cols-2 gap-3">
-                <div className="bg-white/60 dark:bg-slate-800/60 rounded-lg p-3 backdrop-blur-sm">
-                  <div className="text-xs text-slate-500 dark:text-slate-400 mb-1">오늘 GMV</div>
-                  <div className="text-lg font-bold text-slate-800 dark:text-slate-200">
-                    {formatCurrency(analyticsSummaryData.summary?.gmv || 0)}
+              {/* 오늘의 핵심 지표 */}
+              {analyticsSummaryData && (
+                <div className="space-y-3">
+                  <div className="grid grid-cols-2 gap-3">
+                    <Tooltip content="오늘 발생한 총 상품 거래액">
+                      <div className="bg-white/60 dark:bg-slate-800/60 rounded-lg p-3 backdrop-blur-sm border border-slate-200 dark:border-slate-700">
+                        <div className="text-xs text-slate-500 dark:text-slate-400 mb-1">오늘 GMV</div>
+                        <div className="text-lg font-bold text-slate-800 dark:text-slate-200">
+                          {formatCurrency(analyticsSummaryData.summary?.gmv || 0)}
+                        </div>
+                      </div>
+                    </Tooltip>
+                    <Tooltip content="오늘 발생한 총 주문 건수">
+                      <div className="bg-white/60 dark:bg-slate-800/60 rounded-lg p-3 backdrop-blur-sm border border-slate-200 dark:border-slate-700">
+                        <div className="text-xs text-slate-500 dark:text-slate-400 mb-1">오늘 주문</div>
+                        <div className="text-lg font-bold text-slate-800 dark:text-slate-200">
+                          {analyticsSummaryData.summary?.orders || 0}건
+                        </div>
+                      </div>
+                    </Tooltip>
                   </div>
-                </div>
-                <div className="bg-white/60 dark:bg-slate-800/60 rounded-lg p-3 backdrop-blur-sm">
-                  <div className="text-xs text-slate-500 dark:text-slate-400 mb-1">오늘 주문</div>
-                  <div className="text-lg font-bold text-slate-800 dark:text-slate-200">
-                    {analyticsSummaryData.summary?.orders || 0}건
-                  </div>
-                </div>
-              </div>
 
               {/* 긴급 이슈 */}
               {tasksData && tasksData.urgent && tasksData.urgent.length > 0 && (
                 <div className="bg-red-50 dark:bg-red-900/20 rounded-lg p-3 border border-red-200 dark:border-red-800">
                   <div className="flex items-center gap-2 mb-2">
-                    <span className="text-red-600 dark:text-red-400">🚨</span>
+                    <Icon icon={AlertTriangle} size="sm" className="text-red-600 dark:text-red-400" />
                     <span className="text-sm font-semibold text-red-800 dark:text-red-200">긴급 이슈</span>
                   </div>
                   <div className="space-y-1">
@@ -315,11 +302,11 @@ export default function DashboardPage() {
         </div>
 
         {/* Business Brain 요약 (오른쪽) */}
-        <div className="bg-gradient-to-br from-purple-50 to-indigo-50 dark:from-purple-900/20 dark:to-indigo-900/20 rounded-xl border border-purple-200 dark:border-purple-800 p-4 lg:p-6">
+        <div className="bg-white dark:bg-slate-800 rounded-xl border border-slate-200 dark:border-slate-700 p-4 lg:p-6">
           <div className="flex items-center justify-between mb-4">
             <div className="flex items-center gap-3">
-              <div className="w-10 h-10 bg-gradient-to-br from-purple-500 to-indigo-600 rounded-xl flex items-center justify-center">
-                <span className="text-white text-lg">🧠</span>
+              <div className="w-10 h-10 bg-purple-500 rounded-xl flex items-center justify-center">
+                <Icon icon={iconMap.brain} size="lg" className="text-white" />
               </div>
               <div>
                 <h3 className="font-bold text-slate-800 dark:text-slate-100">Business Brain 요약</h3>
@@ -337,16 +324,17 @@ export default function DashboardPage() {
           <div className="space-y-4">
             {/* 건강도 점수 */}
             {brainHealthData?.score && (
-              <div className="bg-white/60 dark:bg-slate-800/60 rounded-xl p-4 backdrop-blur-sm">
-                <div className="flex items-center justify-between mb-2">
-                  <span className="text-sm text-slate-600 dark:text-slate-400">비즈니스 건강도</span>
-                  <span className={`text-lg font-bold ${
-                    brainHealthData.score.overall >= 70 ? 'text-emerald-600' :
-                    brainHealthData.score.overall >= 50 ? 'text-amber-600' : 'text-red-600'
-                  }`}>
-                    {brainHealthData.score.overall}/100
-                  </span>
-                </div>
+              <Tooltip content="비즈니스 전반적인 건강 상태를 종합적으로 평가한 점수입니다. 매출, 고객, 작가, 운영 등 4가지 차원을 종합합니다.">
+                <div className="bg-white/60 dark:bg-slate-800/60 rounded-xl p-4 backdrop-blur-sm border border-slate-200 dark:border-slate-700 cursor-help">
+                  <div className="flex items-center justify-between mb-2">
+                    <span className="text-sm text-slate-600 dark:text-slate-400">비즈니스 건강도</span>
+                    <span className={`text-lg font-bold ${
+                      brainHealthData.score.overall >= 70 ? 'text-emerald-600 dark:text-emerald-400' :
+                      brainHealthData.score.overall >= 50 ? 'text-amber-600 dark:text-amber-400' : 'text-red-600 dark:text-red-400'
+                    }`}>
+                      {brainHealthData.score.overall}/100
+                    </span>
+                  </div>
                 <div className="w-full bg-slate-200 dark:bg-slate-700 rounded-full h-2 mb-3">
                   <div 
                     className={`h-2 rounded-full transition-all duration-500 ${
@@ -357,31 +345,41 @@ export default function DashboardPage() {
                   />
                 </div>
                 <div className="grid grid-cols-4 gap-2">
-                  {Object.entries(brainHealthData.score.dimensions).map(([key, dim]: [string, any]) => (
-                    <div key={key} className="text-center">
-                      <div className="text-xs text-slate-500 dark:text-slate-400">
-                        {key === 'revenue' ? '매출' : key === 'customer' ? '고객' : key === 'artist' ? '작가' : '운영'}
-                      </div>
-                      <div className={`text-sm font-semibold ${
-                        dim.trend === 'up' ? 'text-emerald-600' :
-                        dim.trend === 'down' ? 'text-red-600' : 'text-slate-600 dark:text-slate-400'
-                      }`}>
-                        {dim.score}
-                        <span className="text-xs ml-0.5">
-                          {dim.trend === 'up' ? '↗' : dim.trend === 'down' ? '↘' : '→'}
-                        </span>
-                      </div>
-                    </div>
-                  ))}
+                  {Object.entries(brainHealthData.score.dimensions).map(([key, dim]: [string, any]) => {
+                    const label = key === 'revenue' ? '매출' : key === 'customer' ? '고객' : key === 'artist' ? '작가' : '운영'
+                    const tooltipText = key === 'revenue' ? '매출 관련 건강도 지표' : 
+                                       key === 'customer' ? '고객 관련 건강도 지표' : 
+                                       key === 'artist' ? '작가 관련 건강도 지표' : 
+                                       '운영 관련 건강도 지표'
+                    return (
+                      <Tooltip key={key} content={tooltipText}>
+                        <div className="text-center cursor-help">
+                          <div className="text-xs text-slate-500 dark:text-slate-400">
+                            {label}
+                          </div>
+                          <div className={`text-sm font-semibold ${
+                            dim.trend === 'up' ? 'text-emerald-600 dark:text-emerald-400' :
+                            dim.trend === 'down' ? 'text-red-600 dark:text-red-400' : 'text-slate-600 dark:text-slate-400'
+                          }`}>
+                            {dim.score}
+                            <span className="text-xs ml-0.5">
+                              {dim.trend === 'up' ? '↗' : dim.trend === 'down' ? '↘' : '→'}
+                            </span>
+                          </div>
+                        </div>
+                      </Tooltip>
+                    )
+                  })}
                 </div>
-              </div>
+                </div>
+              </Tooltip>
             )}
 
             {/* 주요 인사이트 */}
             {brainInsightsData?.insights && brainInsightsData.insights.length > 0 && (
               <div className="bg-white/60 dark:bg-slate-800/60 rounded-xl p-4 backdrop-blur-sm">
                 <div className="flex items-center gap-2 mb-3">
-                  <span>💡</span>
+                  <Icon icon={Lightbulb} size="sm" className="text-amber-500" />
                   <span className="text-sm font-medium text-slate-700 dark:text-slate-300">주요 인사이트</span>
                 </div>
                 <div className="space-y-2">
@@ -398,7 +396,7 @@ export default function DashboardPage() {
             {brainActionsData?.prioritizedActions && brainActionsData.prioritizedActions.length > 0 && (
               <div className="bg-white/60 dark:bg-slate-800/60 rounded-xl p-4 backdrop-blur-sm">
                 <div className="flex items-center gap-2 mb-3">
-                  <span>⚡</span>
+                  <Icon icon={Zap} size="sm" className="text-amber-500" />
                   <span className="text-sm font-medium text-slate-700 dark:text-slate-300">권장 액션</span>
                 </div>
                 <div className="space-y-2">
@@ -407,7 +405,7 @@ export default function DashboardPage() {
                     .slice(0, 2)
                     .map((action: any, idx: number) => (
                       <div key={idx} className="flex items-start gap-2">
-                        <span className="text-red-500 text-xs mt-0.5">🔴</span>
+                        <Icon icon={Circle} size="xs" className="text-red-500 mt-0.5 fill-red-500" />
                         <div className="flex-1">
                           <div className="text-xs font-medium text-slate-800 dark:text-slate-200">
                             {action.title}
@@ -427,9 +425,9 @@ export default function DashboardPage() {
 
       {/* 연계 정보 (v4.2 Phase 3) */}
       {(analyticsSummaryData || brainInsightsData || brainActionsData) && (
-        <div className="bg-gradient-to-r from-slate-50 to-slate-100 dark:from-slate-800 dark:to-slate-900 rounded-xl border border-slate-200 dark:border-slate-700 p-4 lg:p-6">
+        <div className="bg-white dark:bg-slate-800 rounded-xl border border-slate-200 dark:border-slate-700 p-4 lg:p-6">
           <div className="flex items-center gap-3 mb-4">
-            <span className="text-2xl">🔗</span>
+            <Icon icon={Link2} size="lg" className="text-slate-600 dark:text-slate-400" />
             <div>
               <h3 className="font-bold text-slate-800 dark:text-slate-100">연계 정보</h3>
               <p className="text-xs text-slate-500 dark:text-slate-400">성과 분석 ↔ Business Brain 연결</p>
@@ -443,7 +441,7 @@ export default function DashboardPage() {
               className="bg-white dark:bg-slate-800 rounded-lg p-4 border border-slate-200 dark:border-slate-700 hover:border-blue-300 dark:hover:border-blue-700 hover:shadow-md transition-all"
             >
               <div className="flex items-center gap-2 mb-2">
-                <span className="text-blue-500">📊</span>
+                <Icon icon={BarChart3} size="sm" className="text-blue-500" />
                 <span className="text-sm font-medium text-slate-700 dark:text-slate-300">성과 변화 분석</span>
               </div>
               <p className="text-xs text-slate-500 dark:text-slate-400">
@@ -457,7 +455,7 @@ export default function DashboardPage() {
               className="bg-white dark:bg-slate-800 rounded-lg p-4 border border-slate-200 dark:border-slate-700 hover:border-purple-300 dark:hover:border-purple-700 hover:shadow-md transition-all"
             >
               <div className="flex items-center gap-2 mb-2">
-                <span className="text-purple-500">💡</span>
+                <Icon icon={Lightbulb} size="sm" className="text-purple-500" />
                 <span className="text-sm font-medium text-slate-700 dark:text-slate-300">인사이트 → 액션</span>
               </div>
               <p className="text-xs text-slate-500 dark:text-slate-400">
@@ -471,7 +469,7 @@ export default function DashboardPage() {
               className="bg-white dark:bg-slate-800 rounded-lg p-4 border border-slate-200 dark:border-slate-700 hover:border-emerald-300 dark:hover:border-emerald-700 hover:shadow-md transition-all"
             >
               <div className="flex items-center gap-2 mb-2">
-                <span className="text-emerald-500">⚡</span>
+                <Icon icon={Zap} size="sm" className="text-emerald-500" />
                 <span className="text-sm font-medium text-slate-700 dark:text-slate-300">액션 추적</span>
               </div>
               <p className="text-xs text-slate-500 dark:text-slate-400">
@@ -486,10 +484,10 @@ export default function DashboardPage() {
       {data && data.inventoryStatus.delayed > 0 && (
         <Link 
           href="/unreceived?delay=critical"
-          className="flex items-center justify-between p-4 bg-gradient-to-r from-red-500 to-rose-500 rounded-xl text-white hover:from-red-600 hover:to-rose-600 transition-all shadow-lg"
+          className="flex items-center justify-between p-4 bg-red-500 rounded-xl text-white hover:bg-red-600 transition-all shadow-lg"
         >
           <div className="flex items-center gap-3">
-            <span className="text-2xl animate-pulse">🚨</span>
+            <Icon icon={AlertTriangle} size="xl" className="text-white animate-pulse" />
             <div>
               <p className="font-bold">긴급: {data.inventoryStatus.threshold}일+ 미입고 {data.inventoryStatus.delayed}건 발생</p>
               <p className="text-sm text-red-100">즉시 확인이 필요합니다</p>
@@ -506,223 +504,131 @@ export default function DashboardPage() {
         <>
           <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-6 gap-3 lg:gap-4">
             {/* GMV */}
-            <div className="bg-white dark:bg-slate-900 rounded-xl p-3 lg:p-4 border border-slate-200 dark:border-slate-800 hover:shadow-md transition-shadow">
-              <div className="flex items-center justify-between mb-2">
-                <span className="text-lg">💰</span>
-                <div className={`text-xs font-medium ${data.kpis.gmv.change >= 0 ? 'text-emerald-600 dark:text-emerald-400' : 'text-red-600 dark:text-red-400'}`}>
-                  {formatChange(data.kpis.gmv.change)}
-                </div>
-              </div>
-              <p className="text-lg lg:text-xl font-bold text-slate-900 dark:text-slate-100">{formatCurrency(data.kpis.gmv.value)}</p>
-              <p className="text-xs text-slate-500 dark:text-slate-400 mt-1">GMV</p>
-            </div>
+            <EnhancedKPICard
+              title="GMV"
+              value={formatCurrency(data.kpis.gmv.value)}
+              change={(data.kpis.gmv.change || 0) * 100}
+              icon={DollarSign}
+              tooltip="Gross Merchandise Value: 총 상품 거래액"
+              detailInfo={`전기간 대비 ${formatChange(data.kpis.gmv.change)} 변화`}
+            />
 
             {/* 주문 건수 */}
-            <div className="bg-white dark:bg-slate-900 rounded-xl p-3 lg:p-4 border border-slate-200 dark:border-slate-800 hover:shadow-md transition-shadow">
-              <div className="flex items-center justify-between mb-2">
-                <span className="text-lg">📦</span>
-                <div className={`text-xs font-medium ${data.kpis.orderCount.change >= 0 ? 'text-emerald-600 dark:text-emerald-400' : 'text-red-600 dark:text-red-400'}`}>
-                  {formatChange(data.kpis.orderCount.change)}
-                </div>
-              </div>
-              <p className="text-lg lg:text-xl font-bold text-slate-900 dark:text-slate-100">{data.kpis.orderCount.value.toLocaleString()}<span className="text-sm font-normal text-slate-500 dark:text-slate-400">건</span></p>
-              <p className="text-xs text-slate-500 dark:text-slate-400 mt-1">주문 건수</p>
-            </div>
+            <EnhancedKPICard
+              title="주문 건수"
+              value={data.kpis.orderCount.value.toLocaleString()}
+              suffix="건"
+              change={(data.kpis.orderCount.change || 0) * 100}
+              icon={Package}
+              tooltip="선택한 기간 동안 발생한 총 주문 건수"
+              detailInfo={`전기간 대비 ${formatChange(data.kpis.orderCount.change)} 변화`}
+            />
 
             {/* AOV */}
-            <div className="bg-white dark:bg-slate-900 rounded-xl p-3 lg:p-4 border border-slate-200 dark:border-slate-800 hover:shadow-md transition-shadow">
-              <div className="flex items-center justify-between mb-2">
-                <span className="text-lg">📊</span>
-                <div className={`text-xs font-medium ${data.kpis.aov.change >= 0 ? 'text-emerald-600 dark:text-emerald-400' : 'text-red-600 dark:text-red-400'}`}>
-                  {formatChange(data.kpis.aov.change)}
-                </div>
-              </div>
-              <p className="text-lg lg:text-xl font-bold text-slate-900 dark:text-slate-100">{formatCurrency(data.kpis.aov.value)}</p>
-              <p className="text-xs text-slate-500 dark:text-slate-400 mt-1">AOV</p>
-            </div>
+            <EnhancedKPICard
+              title="AOV"
+              value={formatCurrency(data.kpis.aov.value)}
+              change={(data.kpis.aov.change || 0) * 100}
+              icon={BarChart3}
+              tooltip="Average Order Value: 평균 주문 금액"
+              detailInfo={`전기간 대비 ${formatChange(data.kpis.aov.change)} 변화`}
+            />
 
             {/* 판매 작품 수 */}
-            <div className="bg-white dark:bg-slate-900 rounded-xl p-3 lg:p-4 border border-slate-200 dark:border-slate-800 hover:shadow-md transition-shadow">
-              <div className="flex items-center justify-between mb-2">
-                <span className="text-lg">🎨</span>
-                <div className={`text-xs font-medium ${data.kpis.itemCount.change >= 0 ? 'text-emerald-600 dark:text-emerald-400' : 'text-red-600 dark:text-red-400'}`}>
-                  {formatChange(data.kpis.itemCount.change)}
-                </div>
-              </div>
-              <p className="text-lg lg:text-xl font-bold text-slate-900 dark:text-slate-100">{data.kpis.itemCount.value.toLocaleString()}<span className="text-sm font-normal text-slate-500 dark:text-slate-400">개</span></p>
-              <p className="text-xs text-slate-500 dark:text-slate-400 mt-1">판매 작품</p>
-            </div>
+            <EnhancedKPICard
+              title="판매 작품"
+              value={data.kpis.itemCount.value.toLocaleString()}
+              suffix="개"
+              change={(data.kpis.itemCount.change || 0) * 100}
+              icon={Palette}
+              tooltip="선택한 기간 동안 판매된 작품 수"
+              detailInfo={`전기간 대비 ${formatChange(data.kpis.itemCount.change)} 변화`}
+            />
 
             {/* 신규 고객 */}
-            <div className="bg-white dark:bg-slate-900 rounded-xl p-3 lg:p-4 border border-slate-200 dark:border-slate-800 hover:shadow-md transition-shadow">
-              <div className="flex items-center justify-between mb-2">
-                <span className="text-lg">👥</span>
-                <div className="text-xs font-medium text-emerald-600 dark:text-emerald-400">+12%</div>
-              </div>
-              <p className="text-lg lg:text-xl font-bold text-slate-900 dark:text-slate-100">{Math.floor(data.kpis.orderCount.value * 0.18)}<span className="text-sm font-normal text-slate-500 dark:text-slate-400">명</span></p>
-              <p className="text-xs text-slate-500 dark:text-slate-400 mt-1">신규 고객</p>
-            </div>
+            <EnhancedKPICard
+              title="신규 고객"
+              value={Math.floor(data.kpis.orderCount.value * 0.18)}
+              suffix="명"
+              change={12}
+              icon={Users}
+              tooltip="선택한 기간 동안 신규로 가입한 고객 수"
+              detailInfo="전기간 대비 +12% 증가"
+            />
 
             {/* 배송 완료율 */}
-            <div className="bg-white dark:bg-slate-900 rounded-xl p-3 lg:p-4 border border-slate-200 dark:border-slate-800 hover:shadow-md transition-shadow">
-              <div className="flex items-center justify-between mb-2">
-                <span className="text-lg">🚚</span>
-                <div className="text-xs font-medium text-emerald-600 dark:text-emerald-400">+1.2%</div>
-              </div>
-              <p className="text-lg lg:text-xl font-bold text-slate-900 dark:text-slate-100">92.1<span className="text-sm font-normal text-slate-500 dark:text-slate-400">%</span></p>
-              <p className="text-xs text-slate-500 dark:text-slate-400 mt-1">배송 완료율</p>
-            </div>
+            <EnhancedKPICard
+              title="배송 완료율"
+              value="92.1"
+              suffix="%"
+              change={1.2}
+              icon={Truck}
+              tooltip="배송이 완료된 주문의 비율"
+              detailInfo="전기간 대비 +1.2% 증가"
+            />
           </div>
 
           {/* 트렌드 차트 */}
-          <div className="bg-white dark:bg-slate-900 rounded-2xl border border-gray-100 dark:border-slate-800 p-4 lg:p-6 mb-6 shadow-sm">
+          <div className="bg-white dark:bg-slate-900 rounded-2xl border border-slate-200 dark:border-slate-800 p-4 lg:p-6 mb-6 shadow-sm">
             <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 mb-5">
               <div className="flex items-center gap-3">
-                <div className="w-10 h-10 bg-gradient-to-br from-idus-500 to-idus-600 rounded-xl flex items-center justify-center shadow-sm">
-                  <span className="text-white text-lg">📈</span>
+                <div className="w-10 h-10 bg-idus-500 rounded-xl flex items-center justify-center shadow-sm">
+                  <Icon icon={TrendingUp} size="lg" className="text-white" />
                 </div>
                 <div>
-                  <h2 className="text-lg font-bold text-gray-800 dark:text-slate-100">GMV & 주문 추세</h2>
-                  <p className="text-xs text-gray-500 dark:text-slate-400">7일 이동평균 포함</p>
+                  <h2 className="text-lg font-bold text-slate-800 dark:text-slate-100">GMV & 주문 추세</h2>
+                  <p className="text-xs text-slate-500 dark:text-slate-400">7일 이동평균 포함</p>
                 </div>
               </div>
               {startDate && endDate && (
-                <span className="text-xs text-gray-500 dark:text-slate-400 bg-gray-100 dark:bg-slate-800 px-3 py-1.5 rounded-lg font-medium">
-                  📅 {startDate} ~ {endDate}
-                </span>
+                <Tooltip content={`조회 기간: ${startDate} ~ ${endDate}`}>
+                  <span className="text-xs text-slate-500 dark:text-slate-400 bg-slate-100 dark:bg-slate-800 px-3 py-1.5 rounded-lg font-medium flex items-center gap-1">
+                    <Icon icon={Calendar} size="sm" />
+                    {startDate} ~ {endDate}
+                  </span>
+                </Tooltip>
               )}
             </div>
-            <div style={{ position: 'relative', height: '280px' }}>
-              {data.trend && (
-                <Chart
-                  type="bar"
-                  data={{
-                    labels: data.trend.labels,
-                    datasets: data.trend.datasets.map((dataset: any) => {
-                      if (dataset.type === 'line') {
-                        return {
-                          ...dataset,
-                          type: 'line' as const,
-                          borderColor: '#F78C3A',
-                          backgroundColor: 'rgba(247, 140, 58, 0.1)',
-                        }
-                      }
-                      return {
-                        ...dataset,
-                        type: 'bar' as const,
-                        backgroundColor: 'rgba(247, 140, 58, 0.6)',
-                        hoverBackgroundColor: 'rgba(247, 140, 58, 0.8)',
-                      }
-                    }),
-                  }}
-                  options={{
-                    responsive: true,
-                    maintainAspectRatio: false,
-                    interaction: {
-                      mode: 'index' as const,
-                      intersect: false,
-                    },
-                    plugins: {
-                      legend: {
-                        position: 'bottom' as const,
-                        labels: {
-                          font: { size: 11, weight: 500 },
-                          padding: 20,
-                          usePointStyle: true,
-                          pointStyle: 'circle',
-                        },
-                      },
-                      tooltip: {
-                        backgroundColor: 'white',
-                        titleColor: '#1f2937',
-                        bodyColor: '#4b5563',
-                        borderColor: '#e5e7eb',
-                        borderWidth: 1,
-                        padding: 12,
-                        boxPadding: 6,
-                        usePointStyle: true,
-                        callbacks: {
-                          label: function (context) {
-                            let label = context.dataset.label || ''
-                            if (label) {
-                              label += ': '
-                            }
-                            if (context.parsed.y !== null) {
-                              if (context.dataset.yAxisID === 'yGmv') {
-                                label += `₩${context.parsed.y.toLocaleString()}`
-                              } else {
-                                label += `${context.parsed.y}건`
-                              }
-                            }
-                            return label
-                          },
-                        },
-                      },
-                    },
-                    scales: {
-                      x: {
-                        grid: { display: false },
-                        ticks: {
-                          font: { size: 11 },
-                          maxRotation: 0,
-                          autoSkip: true,
-                        },
-                      },
-                      yGmv: {
-                        type: 'linear' as const,
-                        position: 'left' as const,
-                        grid: { color: '#f3f4f6' },
-                        ticks: {
-                          font: { size: 11 },
-                          callback: function (value) {
-                            const num = Number(value)
-                            if (num >= 1e9) return (num / 1e9).toFixed(1) + 'B'
-                            if (num >= 1e6) return (num / 1e6).toFixed(1) + 'M'
-                            if (num >= 1e3) return (num / 1e3).toFixed(1) + 'K'
-                            return num.toLocaleString()
-                          },
-                        },
-                        title: {
-                          display: true,
-                          text: 'GMV (KRW)',
-                          font: { size: 12, weight: 600 },
-                          color: '#6b7280',
-                        },
-                        beginAtZero: true,
-                      },
-                      yOrders: {
-                        type: 'linear' as const,
-                        position: 'right' as const,
-                        grid: { drawOnChartArea: false },
-                        ticks: {
-                          font: { size: 11 },
-                          color: '#F78C3A',
-                          stepSize: 5,
-                          precision: 0,
-                        },
-                        title: {
-                          display: true,
-                          text: '주문 건수',
-                          font: { size: 12, weight: 600 },
-                          color: '#F78C3A',
-                        },
-                        beginAtZero: true,
-                      },
-                    },
-                  }}
+            {data.trend && (() => {
+              // Chart.js 데이터를 Recharts 형식으로 변환
+              const chartData = data.trend.labels.map((label: string, index: number) => {
+                const item: any = { date: label }
+                data.trend.datasets.forEach((dataset: any) => {
+                  if (dataset.data && dataset.data[index] !== undefined) {
+                    item[dataset.label || dataset.dataKey || 'value'] = dataset.data[index]
+                  }
+                })
+                return item
+              })
+              
+              const gmvKey = data.trend.datasets.find((d: any) => d.yAxisID === 'yGmv')?.label || 
+                            data.trend.datasets.find((d: any) => d.type === 'bar')?.label || 
+                            'gmv'
+              const ordersKey = data.trend.datasets.find((d: any) => d.yAxisID === 'yOrders')?.label || 
+                               data.trend.datasets.find((d: any) => d.type === 'line')?.label || 
+                               'orders'
+              
+              return (
+                <EnhancedBarChart
+                  data={chartData}
+                  dataKeys={[gmvKey, ordersKey]}
+                  xAxisKey="date"
+                  names={['GMV', '주문 건수']}
+                  colors={['#F78C3A', '#3B82F6']}
+                  height={280}
                 />
-              )}
-            </div>
+              )
+            })()}
           </div>
 
           {/* 오늘 할 일 + 물류 파이프라인 */}
           <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
             {/* 오늘 할 일 - 우선순위별 분류 */}
-            <div className="bg-white dark:bg-slate-900 rounded-2xl border border-gray-100 dark:border-slate-800 p-4 lg:p-6 shadow-sm">
+            <div className="bg-white dark:bg-slate-900 rounded-2xl border border-slate-200 dark:border-slate-800 p-4 lg:p-6 shadow-sm">
               <div className="flex items-center justify-between mb-4">
                 <div className="flex items-center gap-3">
-                  <div className="w-10 h-10 bg-gradient-to-br from-violet-500 to-purple-600 rounded-xl flex items-center justify-center shadow-sm">
-                    <span className="text-white text-lg">📝</span>
+                  <div className="w-10 h-10 bg-violet-500 rounded-xl flex items-center justify-center shadow-sm">
+                    <Icon icon={FileText} size="lg" className="text-white" />
                   </div>
                   <div>
                     <h3 className="font-bold text-gray-800 dark:text-slate-100">오늘 할 일</h3>
@@ -737,7 +643,8 @@ export default function DashboardPage() {
                   {tasksData.tasks.filter((t: any) => t.priority === 'high').length > 0 && (
                     <div>
                       <p className="text-xs font-semibold text-red-600 mb-2 flex items-center gap-1">
-                        <span>🔴</span> 긴급 ({tasksData.tasks.filter((t: any) => t.priority === 'high').length})
+                        <Icon icon={Circle} size="xs" className="fill-red-600 text-red-600" />
+                        긴급 ({tasksData.tasks.filter((t: any) => t.priority === 'high').length})
                       </p>
                       <div className="space-y-2">
                         {tasksData.tasks.filter((t: any) => t.priority === 'high').slice(0, 3).map((task: any) => (
@@ -760,7 +667,8 @@ export default function DashboardPage() {
                   {tasksData.tasks.filter((t: any) => t.priority === 'medium').length > 0 && (
                     <div>
                       <p className="text-xs font-semibold text-amber-600 mb-2 flex items-center gap-1">
-                        <span>🟡</span> 중요 ({tasksData.tasks.filter((t: any) => t.priority === 'medium').length})
+                        <Icon icon={Circle} size="xs" className="fill-amber-600 text-amber-600" />
+                        중요 ({tasksData.tasks.filter((t: any) => t.priority === 'medium').length})
                       </p>
                       <div className="space-y-2">
                         {tasksData.tasks.filter((t: any) => t.priority === 'medium').slice(0, 4).map((task: any) => (
@@ -783,7 +691,8 @@ export default function DashboardPage() {
                   {tasksData.tasks.filter((t: any) => t.priority === 'low').length > 0 && (
                     <div>
                       <p className="text-xs font-semibold text-slate-600 mb-2 flex items-center gap-1">
-                        <span>🟢</span> 참고 ({tasksData.tasks.filter((t: any) => t.priority === 'low').length})
+                        <Icon icon={Circle} size="xs" className="fill-slate-600 text-slate-600" />
+                        참고 ({tasksData.tasks.filter((t: any) => t.priority === 'low').length})
                       </p>
                       <div className="space-y-2">
                         {tasksData.tasks.filter((t: any) => t.priority === 'low').slice(0, 2).map((task: any) => (
@@ -803,19 +712,19 @@ export default function DashboardPage() {
                   )}
                 </div>
               ) : (
-                <div className="text-center py-8 text-gray-400">
-                  <span className="text-4xl mb-2 block">✅</span>
+                <div className="text-center py-8 text-slate-400">
+                  <Icon icon={CheckCircle} size="xl" className="mx-auto mb-2 text-emerald-500" />
                   <p className="text-sm">모든 작업이 완료되었습니다!</p>
                 </div>
               )}
             </div>
 
             {/* 물류 파이프라인 미니뷰 */}
-            <div className="bg-white dark:bg-slate-900 rounded-2xl border border-gray-100 dark:border-slate-800 p-4 lg:p-6 shadow-sm">
+            <div className="bg-white dark:bg-slate-900 rounded-2xl border border-slate-200 dark:border-slate-800 p-4 lg:p-6 shadow-sm">
               <div className="flex items-center justify-between mb-4">
                 <div className="flex items-center gap-3">
-                  <div className="w-10 h-10 bg-gradient-to-br from-blue-500 to-indigo-600 rounded-xl flex items-center justify-center shadow-sm">
-                    <span className="text-white text-lg">📡</span>
+                  <div className="w-10 h-10 bg-blue-500 rounded-xl flex items-center justify-center shadow-sm">
+                    <Icon icon={Activity} size="lg" className="text-white" />
                   </div>
                   <div>
                     <h3 className="font-bold text-gray-800 dark:text-slate-100">물류 현황</h3>
@@ -830,48 +739,68 @@ export default function DashboardPage() {
               {pipelineData?.pipeline ? (
                 <>
                   {/* 파이프라인 시각화 */}
-                  <div className="flex items-center justify-between mb-4 p-4 bg-gradient-to-r from-slate-50 to-blue-50 rounded-xl">
+                  <div className="flex items-center justify-between mb-4 p-4 bg-slate-50 dark:bg-slate-800 rounded-xl">
                     <div className="text-center flex-1">
-                      <div className="w-12 h-12 mx-auto bg-blue-100 rounded-xl flex items-center justify-center mb-1">
-                        <span className="text-xl">📦</span>
+                      <div className="w-12 h-12 mx-auto bg-blue-100 dark:bg-blue-900/30 rounded-xl flex items-center justify-center mb-1">
+                        <Icon icon={Package} size="md" className="text-blue-600 dark:text-blue-400" />
                       </div>
-                      <p className="text-lg font-bold text-gray-800">{pipelineData.pipeline.unreceived?.orderCount || 0}</p>
-                      <p className="text-xs text-gray-500">미입고</p>
+                      <p className="text-lg font-bold text-slate-800 dark:text-slate-100">{pipelineData.pipeline.unreceived?.orderCount || 0}</p>
+                      <p className="text-xs text-slate-500 dark:text-slate-400">미입고</p>
                       {(pipelineData.pipeline.unreceived?.criticalCount || 0) > 0 && (
-                        <span className="text-xs text-red-500 font-medium">⚠️ {pipelineData.pipeline.unreceived?.criticalCount}</span>
+                        <Tooltip content={`긴급 미입고 ${pipelineData.pipeline.unreceived?.criticalCount}건`}>
+                          <span className="text-xs text-red-500 font-medium flex items-center justify-center gap-1">
+                            <Icon icon={AlertTriangle} size="xs" />
+                            {pipelineData.pipeline.unreceived?.criticalCount}
+                          </span>
+                        </Tooltip>
                       )}
                     </div>
-                    <span className="text-gray-300">→</span>
+                    <span className="text-slate-300 dark:text-slate-600">→</span>
                     <div className="text-center flex-1">
-                      <div className="w-12 h-12 mx-auto bg-green-100 rounded-xl flex items-center justify-center mb-1">
-                        <span className="text-xl">🚚</span>
+                      <div className="w-12 h-12 mx-auto bg-green-100 dark:bg-green-900/30 rounded-xl flex items-center justify-center mb-1">
+                        <Icon icon={Truck} size="md" className="text-green-600 dark:text-green-400" />
                       </div>
-                      <p className="text-lg font-bold text-gray-800">{pipelineData.pipeline.artistShipping?.orderCount || 0}</p>
-                      <p className="text-xs text-gray-500">국내배송</p>
+                      <p className="text-lg font-bold text-slate-800 dark:text-slate-100">{pipelineData.pipeline.artistShipping?.orderCount || 0}</p>
+                      <p className="text-xs text-slate-500 dark:text-slate-400">국내배송</p>
                       {(pipelineData.pipeline.artistShipping?.criticalCount || 0) > 0 && (
-                        <span className="text-xs text-red-500 font-medium">⚠️ {pipelineData.pipeline.artistShipping?.criticalCount}</span>
+                        <Tooltip content={`긴급 국내배송 ${pipelineData.pipeline.artistShipping?.criticalCount}건`}>
+                          <span className="text-xs text-red-500 font-medium flex items-center justify-center gap-1">
+                            <Icon icon={AlertTriangle} size="xs" />
+                            {pipelineData.pipeline.artistShipping?.criticalCount}
+                          </span>
+                        </Tooltip>
                       )}
                     </div>
-                    <span className="text-gray-300">→</span>
+                    <span className="text-slate-300 dark:text-slate-600">→</span>
                     <div className="text-center flex-1">
-                      <div className="w-12 h-12 mx-auto bg-purple-100 rounded-xl flex items-center justify-center mb-1">
-                        <span className="text-xl">🔍</span>
+                      <div className="w-12 h-12 mx-auto bg-purple-100 dark:bg-purple-900/30 rounded-xl flex items-center justify-center mb-1">
+                        <Icon icon={iconMap.search} size="md" className="text-purple-600 dark:text-purple-400" />
                       </div>
-                      <p className="text-lg font-bold text-gray-800">{pipelineData.pipeline.awaitingInspection?.orderCount || 0}</p>
-                      <p className="text-xs text-gray-500">검수대기</p>
+                      <p className="text-lg font-bold text-slate-800 dark:text-slate-100">{pipelineData.pipeline.awaitingInspection?.orderCount || 0}</p>
+                      <p className="text-xs text-slate-500 dark:text-slate-400">검수대기</p>
                       {(pipelineData.pipeline.awaitingInspection?.criticalCount || 0) > 0 && (
-                        <span className="text-xs text-red-500 font-medium">⚠️ {pipelineData.pipeline.awaitingInspection?.criticalCount}</span>
+                        <Tooltip content={`긴급 검수대기 ${pipelineData.pipeline.awaitingInspection?.criticalCount}건`}>
+                          <span className="text-xs text-red-500 font-medium flex items-center justify-center gap-1">
+                            <Icon icon={AlertTriangle} size="xs" />
+                            {pipelineData.pipeline.awaitingInspection?.criticalCount}
+                          </span>
+                        </Tooltip>
                       )}
                     </div>
-                    <span className="text-gray-300">→</span>
+                    <span className="text-slate-300 dark:text-slate-600">→</span>
                     <div className="text-center flex-1">
-                      <div className="w-12 h-12 mx-auto bg-indigo-100 rounded-xl flex items-center justify-center mb-1">
-                        <span className="text-xl">✈️</span>
+                      <div className="w-12 h-12 mx-auto bg-indigo-100 dark:bg-indigo-900/30 rounded-xl flex items-center justify-center mb-1">
+                        <Icon icon={iconMap.shipping} size="md" className="text-indigo-600 dark:text-indigo-400" />
                       </div>
-                      <p className="text-lg font-bold text-gray-800">{pipelineData.pipeline.internationalShipping?.orderCount || 0}</p>
-                      <p className="text-xs text-gray-500">국제배송</p>
+                      <p className="text-lg font-bold text-slate-800 dark:text-slate-100">{pipelineData.pipeline.internationalShipping?.orderCount || 0}</p>
+                      <p className="text-xs text-slate-500 dark:text-slate-400">국제배송</p>
                       {(pipelineData.pipeline.internationalShipping?.criticalCount || 0) > 0 && (
-                        <span className="text-xs text-red-500 font-medium">⚠️ {pipelineData.pipeline.internationalShipping?.criticalCount}</span>
+                        <Tooltip content={`긴급 국제배송 ${pipelineData.pipeline.internationalShipping?.criticalCount}건`}>
+                          <span className="text-xs text-red-500 font-medium flex items-center justify-center gap-1">
+                            <Icon icon={AlertTriangle} size="xs" />
+                            {pipelineData.pipeline.internationalShipping?.criticalCount}
+                          </span>
+                        </Tooltip>
                       )}
                     </div>
                   </div>
@@ -897,8 +826,8 @@ export default function DashboardPage() {
                   </div>
                 </>
               ) : (
-                <div className="text-center py-8 text-gray-400">
-                  <span className="text-4xl mb-2 block">📡</span>
+                <div className="text-center py-8 text-slate-400">
+                  <Icon icon={Activity} size="xl" className="mx-auto mb-2 text-slate-400" />
                   <p className="text-sm">물류 데이터를 불러오는 중...</p>
                 </div>
               )}
@@ -908,18 +837,18 @@ export default function DashboardPage() {
           {/* 작가 현황 + 빠른 이동 */}
           <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
             {/* 작가 현황 요약 */}
-            <div className="bg-white rounded-2xl border border-gray-100 p-6 shadow-sm">
+            <div className="bg-white dark:bg-slate-900 rounded-2xl border border-slate-200 dark:border-slate-800 p-6 shadow-sm">
               <div className="flex items-center justify-between mb-4">
                 <div className="flex items-center gap-3">
-                  <div className="w-10 h-10 bg-gradient-to-br from-pink-500 to-rose-500 rounded-xl flex items-center justify-center shadow-sm">
-                    <span className="text-white text-lg">🎨</span>
+                  <div className="w-10 h-10 bg-pink-500 rounded-xl flex items-center justify-center shadow-sm">
+                    <Icon icon={Palette} size="lg" className="text-white" />
                   </div>
                   <div>
-                    <h3 className="font-bold text-gray-800">작가 현황</h3>
-                    <p className="text-xs text-gray-500">활동 작가 요약</p>
+                    <h3 className="font-bold text-slate-800 dark:text-slate-100">작가 현황</h3>
+                    <p className="text-xs text-slate-500 dark:text-slate-400">활동 작가 요약</p>
                   </div>
                 </div>
-                <Link href="/artist-analytics" className="text-xs text-pink-500 hover:text-pink-700 font-medium">
+                <Link href="/artist-analytics" className="text-xs text-pink-500 hover:text-pink-700 dark:text-pink-400 dark:hover:text-pink-300 font-medium">
                   상세보기 →
                 </Link>
               </div>
@@ -928,125 +857,144 @@ export default function DashboardPage() {
                 <>
                   {/* 작가 통계 */}
                   <div className="grid grid-cols-3 gap-4 mb-4">
-                    <div className="text-center p-4 bg-gradient-to-br from-pink-50 to-rose-50 rounded-xl border border-pink-100">
-                      <p className="text-2xl font-bold text-pink-600">{artistData.summary.activeArtists || data.snapshot.activeArtists || 0}</p>
-                      <p className="text-xs text-gray-500 mt-1">활성 작가</p>
+                    <div className="text-center p-4 bg-pink-50 dark:bg-pink-900/20 rounded-xl border border-pink-100 dark:border-pink-800">
+                      <p className="text-2xl font-bold text-pink-600 dark:text-pink-400">{artistData.summary.activeArtists || data.snapshot.activeArtists || 0}</p>
+                      <p className="text-xs text-slate-500 dark:text-slate-400 mt-1">활성 작가</p>
                     </div>
-                    <div className="text-center p-4 bg-gradient-to-br from-emerald-50 to-teal-50 rounded-xl border border-emerald-100">
-                      <p className="text-2xl font-bold text-emerald-600">{artistData.summary.totalArtists || 0}</p>
-                      <p className="text-xs text-gray-500 mt-1">전체 작가</p>
+                    <div className="text-center p-4 bg-emerald-50 dark:bg-emerald-900/20 rounded-xl border border-emerald-100 dark:border-emerald-800">
+                      <p className="text-2xl font-bold text-emerald-600 dark:text-emerald-400">{artistData.summary.totalArtists || 0}</p>
+                      <p className="text-xs text-slate-500 dark:text-slate-400 mt-1">전체 작가</p>
                     </div>
-                    <div className="text-center p-4 bg-gradient-to-br from-blue-50 to-indigo-50 rounded-xl border border-blue-100">
-                      <p className="text-2xl font-bold text-blue-600">{artistData.summary.activeRate?.toFixed(1) || 0}%</p>
-                      <p className="text-xs text-gray-500 mt-1">활성률</p>
+                    <div className="text-center p-4 bg-blue-50 dark:bg-blue-900/20 rounded-xl border border-blue-100 dark:border-blue-800">
+                      <p className="text-2xl font-bold text-blue-600 dark:text-blue-400">{artistData.summary.activeRate?.toFixed(1) || 0}%</p>
+                      <p className="text-xs text-slate-500 dark:text-slate-400 mt-1">활성률</p>
                     </div>
                   </div>
                   
                   {/* 매출 집중도 */}
-                  <div className="p-4 bg-gradient-to-r from-slate-50 to-pink-50 rounded-xl border border-slate-100">
+                  <div className="p-4 bg-slate-50 dark:bg-slate-800 rounded-xl border border-slate-200 dark:border-slate-700">
                     <div className="flex items-center justify-between">
                       <div className="flex items-center gap-2">
-                        <span className="text-lg">📊</span>
-                        <span className="text-sm font-medium text-gray-700">매출 집중도</span>
+                        <Icon icon={BarChart3} size="sm" className="text-slate-600 dark:text-slate-400" />
+                        <span className="text-sm font-medium text-slate-700 dark:text-slate-300">매출 집중도</span>
                       </div>
-                      <span className="text-sm font-bold text-pink-600">
-                        상위 20% → 매출 {artistData.concentration?.top20Percent?.toFixed(1) || 68}%
-                      </span>
+                      <Tooltip content="상위 20% 작가가 전체 매출의 비율">
+                        <span className="text-sm font-bold text-pink-600 dark:text-pink-400 cursor-help">
+                          상위 20% → 매출 {artistData.concentration?.top20Percent?.toFixed(1) || 68}%
+                        </span>
+                      </Tooltip>
                     </div>
-                    <div className="mt-2 h-2 bg-gray-200 rounded-full overflow-hidden">
+                    <div className="mt-2 h-2 bg-slate-200 dark:bg-slate-700 rounded-full overflow-hidden">
                       <div 
-                        className="h-full bg-gradient-to-r from-pink-400 to-rose-500 rounded-full"
+                        className="h-full bg-pink-500 dark:bg-pink-600 rounded-full"
                         style={{ width: `${artistData.concentration?.top20Percent || 68}%` }}
                       ></div>
                     </div>
                   </div>
                 </>
               ) : (
-                <div className="text-center py-8 text-gray-400">
-                  <span className="text-4xl mb-2 block">🎨</span>
+                <div className="text-center py-8 text-slate-400">
+                  <Icon icon={Palette} size="xl" className="mx-auto mb-2 text-slate-400" />
                   <p className="text-sm">작가 데이터를 불러오는 중...</p>
                 </div>
               )}
             </div>
 
             {/* 빠른 이동 - 8개 */}
-            <div className="bg-white rounded-2xl border border-gray-100 p-6 shadow-sm">
+            <div className="bg-white dark:bg-slate-900 rounded-2xl border border-slate-200 dark:border-slate-800 p-6 shadow-sm">
               <div className="flex items-center gap-3 mb-4">
-                <div className="w-10 h-10 bg-gradient-to-br from-idus-500 to-idus-600 rounded-xl flex items-center justify-center shadow-sm">
-                  <span className="text-white text-lg">⚡</span>
+                <div className="w-10 h-10 bg-idus-500 rounded-xl flex items-center justify-center shadow-sm">
+                  <Icon icon={Zap} size="lg" className="text-white" />
                 </div>
                 <div>
-                  <h3 className="font-bold text-gray-800">빠른 이동</h3>
-                  <p className="text-xs text-gray-500">자주 사용하는 기능</p>
+                  <h3 className="font-bold text-slate-800 dark:text-slate-100">빠른 이동</h3>
+                  <p className="text-xs text-slate-500 dark:text-slate-400">자주 사용하는 기능</p>
                 </div>
               </div>
               
               <div className="grid grid-cols-2 gap-3">
-                <Link href="/unreceived" className="flex items-center gap-3 p-3 bg-gray-50 rounded-xl border border-gray-100 hover:border-idus-300 hover:bg-idus-50 hover:shadow-md transition-all group">
-                  <span className="text-xl group-hover:scale-110 transition-transform">📦</span>
-                  <span className="font-medium text-sm text-gray-700 group-hover:text-idus-600">미입고 관리</span>
-                </Link>
+                <Tooltip content="미입고 주문 관리 및 처리">
+                  <Link href="/unreceived" className="flex items-center gap-3 p-3 bg-slate-50 dark:bg-slate-800 rounded-xl border border-slate-200 dark:border-slate-700 hover:border-idus-300 dark:hover:border-idus-600 hover:bg-idus-50 dark:hover:bg-idus-900/20 hover:shadow-md transition-all group">
+                    <Icon icon={Package} size="md" className="text-slate-600 dark:text-slate-400 group-hover:text-idus-600 dark:group-hover:text-idus-400 group-hover:scale-110 transition-transform" />
+                    <span className="font-medium text-sm text-slate-700 dark:text-slate-300 group-hover:text-idus-600 dark:group-hover:text-idus-400">미입고 관리</span>
+                  </Link>
+                </Tooltip>
                 
-                <Link href="/cost-analysis" className="flex items-center gap-3 p-3 bg-gray-50 rounded-xl border border-gray-100 hover:border-idus-300 hover:bg-idus-50 hover:shadow-md transition-all group">
-                  <span className="text-xl group-hover:scale-110 transition-transform">💰</span>
-                  <span className="font-medium text-sm text-gray-700 group-hover:text-idus-600">비용 분석</span>
-                </Link>
+                <Tooltip content="비용 분석 및 정책 시뮬레이션">
+                  <Link href="/cost-analysis" className="flex items-center gap-3 p-3 bg-slate-50 dark:bg-slate-800 rounded-xl border border-slate-200 dark:border-slate-700 hover:border-idus-300 dark:hover:border-idus-600 hover:bg-idus-50 dark:hover:bg-idus-900/20 hover:shadow-md transition-all group">
+                    <Icon icon={DollarSign} size="md" className="text-slate-600 dark:text-slate-400 group-hover:text-idus-600 dark:group-hover:text-idus-400 group-hover:scale-110 transition-transform" />
+                    <span className="font-medium text-sm text-slate-700 dark:text-slate-300 group-hover:text-idus-600 dark:group-hover:text-idus-400">비용 분석</span>
+                  </Link>
+                </Tooltip>
                 
-                <Link href="/analytics" className="flex items-center gap-3 p-3 bg-gray-50 rounded-xl border border-gray-100 hover:border-idus-300 hover:bg-idus-50 hover:shadow-md transition-all group">
-                  <span className="text-xl group-hover:scale-110 transition-transform">📈</span>
-                  <span className="font-medium text-sm text-gray-700 group-hover:text-idus-600">성과 분석</span>
-                </Link>
+                <Tooltip content="일일/주간/월간 성과 분석">
+                  <Link href="/analytics" className="flex items-center gap-3 p-3 bg-slate-50 dark:bg-slate-800 rounded-xl border border-slate-200 dark:border-slate-700 hover:border-idus-300 dark:hover:border-idus-600 hover:bg-idus-50 dark:hover:bg-idus-900/20 hover:shadow-md transition-all group">
+                    <Icon icon={TrendingUp} size="md" className="text-slate-600 dark:text-slate-400 group-hover:text-idus-600 dark:group-hover:text-idus-400 group-hover:scale-110 transition-transform" />
+                    <span className="font-medium text-sm text-slate-700 dark:text-slate-300 group-hover:text-idus-600 dark:group-hover:text-idus-400">성과 분석</span>
+                  </Link>
+                </Tooltip>
                 
-                <Link href="/lookup" className="flex items-center gap-3 p-3 bg-gray-50 rounded-xl border border-gray-100 hover:border-idus-300 hover:bg-idus-50 hover:shadow-md transition-all group">
-                  <span className="text-xl group-hover:scale-110 transition-transform">🔍</span>
-                  <span className="font-medium text-sm text-gray-700 group-hover:text-idus-600">통합 검색</span>
-                </Link>
+                <Tooltip content="통합 검색 및 조회">
+                  <Link href="/lookup" className="flex items-center gap-3 p-3 bg-slate-50 dark:bg-slate-800 rounded-xl border border-slate-200 dark:border-slate-700 hover:border-idus-300 dark:hover:border-idus-600 hover:bg-idus-50 dark:hover:bg-idus-900/20 hover:shadow-md transition-all group">
+                    <Icon icon={iconMap.search} size="md" className="text-slate-600 dark:text-slate-400 group-hover:text-idus-600 dark:group-hover:text-idus-400 group-hover:scale-110 transition-transform" />
+                    <span className="font-medium text-sm text-slate-700 dark:text-slate-300 group-hover:text-idus-600 dark:group-hover:text-idus-400">통합 검색</span>
+                  </Link>
+                </Tooltip>
                 
-                <Link href="/control-tower" className="flex items-center gap-3 p-3 bg-gray-50 rounded-xl border border-gray-100 hover:border-idus-300 hover:bg-idus-50 hover:shadow-md transition-all group">
-                  <span className="text-xl group-hover:scale-110 transition-transform">📡</span>
-                  <span className="font-medium text-sm text-gray-700 group-hover:text-idus-600">물류 관제</span>
-                </Link>
+                <Tooltip content="물류 파이프라인 관제">
+                  <Link href="/control-tower" className="flex items-center gap-3 p-3 bg-slate-50 dark:bg-slate-800 rounded-xl border border-slate-200 dark:border-slate-700 hover:border-idus-300 dark:hover:border-idus-600 hover:bg-idus-50 dark:hover:bg-idus-900/20 hover:shadow-md transition-all group">
+                    <Icon icon={Activity} size="md" className="text-slate-600 dark:text-slate-400 group-hover:text-idus-600 dark:group-hover:text-idus-400 group-hover:scale-110 transition-transform" />
+                    <span className="font-medium text-sm text-slate-700 dark:text-slate-300 group-hover:text-idus-600 dark:group-hover:text-idus-400">물류 관제</span>
+                  </Link>
+                </Tooltip>
                 
-                <Link href="/artist-analytics" className="flex items-center gap-3 p-3 bg-gray-50 rounded-xl border border-gray-100 hover:border-idus-300 hover:bg-idus-50 hover:shadow-md transition-all group">
-                  <span className="text-xl group-hover:scale-110 transition-transform">🎨</span>
-                  <span className="font-medium text-sm text-gray-700 group-hover:text-idus-600">작가 분석</span>
-                </Link>
+                <Tooltip content="작가 분석 및 현황">
+                  <Link href="/artist-analytics" className="flex items-center gap-3 p-3 bg-slate-50 dark:bg-slate-800 rounded-xl border border-slate-200 dark:border-slate-700 hover:border-idus-300 dark:hover:border-idus-600 hover:bg-idus-50 dark:hover:bg-idus-900/20 hover:shadow-md transition-all group">
+                    <Icon icon={Palette} size="md" className="text-slate-600 dark:text-slate-400 group-hover:text-idus-600 dark:group-hover:text-idus-400 group-hover:scale-110 transition-transform" />
+                    <span className="font-medium text-sm text-slate-700 dark:text-slate-300 group-hover:text-idus-600 dark:group-hover:text-idus-400">작가 분석</span>
+                  </Link>
+                </Tooltip>
                 
-                <Link href="/chat" className="flex items-center gap-3 p-3 bg-gray-50 rounded-xl border border-gray-100 hover:border-idus-300 hover:bg-idus-50 hover:shadow-md transition-all group">
-                  <span className="text-xl group-hover:scale-110 transition-transform">💬</span>
-                  <span className="font-medium text-sm text-gray-700 group-hover:text-idus-600">AI 채팅</span>
-                </Link>
+                <Tooltip content="AI 어시스턴트 채팅">
+                  <Link href="/chat" className="flex items-center gap-3 p-3 bg-slate-50 dark:bg-slate-800 rounded-xl border border-slate-200 dark:border-slate-700 hover:border-idus-300 dark:hover:border-idus-600 hover:bg-idus-50 dark:hover:bg-idus-900/20 hover:shadow-md transition-all group">
+                    <Icon icon={MessageCircle} size="md" className="text-slate-600 dark:text-slate-400 group-hover:text-idus-600 dark:group-hover:text-idus-400 group-hover:scale-110 transition-transform" />
+                    <span className="font-medium text-sm text-slate-700 dark:text-slate-300 group-hover:text-idus-600 dark:group-hover:text-idus-400">AI 채팅</span>
+                  </Link>
+                </Tooltip>
                 
-                <Link href="/settlement" className="flex items-center gap-3 p-3 bg-gray-50 rounded-xl border border-gray-100 hover:border-idus-300 hover:bg-idus-50 hover:shadow-md transition-all group">
-                  <span className="text-xl group-hover:scale-110 transition-transform">📋</span>
-                  <span className="font-medium text-sm text-gray-700 group-hover:text-idus-600">정산 관리</span>
-                </Link>
+                <Tooltip content="정산 관리 및 내역">
+                  <Link href="/settlement" className="flex items-center gap-3 p-3 bg-slate-50 dark:bg-slate-800 rounded-xl border border-slate-200 dark:border-slate-700 hover:border-idus-300 dark:hover:border-idus-600 hover:bg-idus-50 dark:hover:bg-idus-900/20 hover:shadow-md transition-all group">
+                    <Icon icon={FileText} size="md" className="text-slate-600 dark:text-slate-400 group-hover:text-idus-600 dark:group-hover:text-idus-400 group-hover:scale-110 transition-transform" />
+                    <span className="font-medium text-sm text-slate-700 dark:text-slate-300 group-hover:text-idus-600 dark:group-hover:text-idus-400">정산 관리</span>
+                  </Link>
+                </Tooltip>
               </div>
             </div>
           </div>
 
           {/* AI 인사이트 */}
-          <div className="bg-gradient-to-r from-violet-50 to-purple-50 rounded-2xl border border-violet-100 p-6 shadow-sm">
+          <div className="bg-white dark:bg-slate-800 rounded-2xl border border-slate-200 dark:border-slate-700 p-6 shadow-sm">
             <div className="flex items-center justify-between mb-4">
               <div className="flex items-center gap-3">
-                <div className="w-10 h-10 bg-gradient-to-br from-violet-500 to-purple-600 rounded-xl flex items-center justify-center shadow-sm">
-                  <span className="text-white text-lg">💬</span>
+                <div className="w-10 h-10 bg-violet-500 rounded-xl flex items-center justify-center shadow-sm">
+                  <Icon icon={MessageCircle} size="lg" className="text-white" />
                 </div>
                 <div>
-                  <h3 className="font-bold text-gray-800">AI 인사이트</h3>
-                  <p className="text-xs text-gray-500">데이터 기반 분석 요약</p>
+                  <h3 className="font-bold text-slate-800 dark:text-slate-100">AI 인사이트</h3>
+                  <p className="text-xs text-slate-500 dark:text-slate-400">데이터 기반 분석 요약</p>
                 </div>
               </div>
-              <Link href="/chat" className="text-xs text-violet-500 hover:text-violet-700 font-medium">
+              <Link href="/chat" className="text-xs text-violet-500 hover:text-violet-700 dark:text-violet-400 dark:hover:text-violet-300 font-medium">
                 더 질문하기 →
               </Link>
             </div>
             
-            <div className="p-4 bg-white/70 rounded-xl border border-violet-100 mb-4">
-              <p className="text-sm text-gray-700 leading-relaxed">
-                📊 "이번 기간 GMV가 전기간 대비 <span className="font-semibold text-emerald-600">+{((data.kpis.gmv.change || 0) * 100).toFixed(1)}%</span> 변동했습니다. 
-                총 <span className="font-semibold text-violet-600">{data.kpis.orderCount.value.toLocaleString()}건</span>의 주문이 발생했으며, 
-                평균 객단가는 <span className="font-semibold text-blue-600">{formatCurrency(data.kpis.aov.value)}</span>입니다."
+            <div className="p-4 bg-slate-50 dark:bg-slate-900 rounded-xl border border-slate-200 dark:border-slate-700 mb-4">
+              <p className="text-sm text-slate-700 dark:text-slate-300 leading-relaxed">
+                <Icon icon={BarChart3} size="sm" className="inline mr-1 text-slate-600 dark:text-slate-400" />
+                "이번 기간 GMV가 전기간 대비 <span className="font-semibold text-emerald-600 dark:text-emerald-400">+{((data.kpis.gmv.change || 0) * 100).toFixed(1)}%</span> 변동했습니다. 
+                총 <span className="font-semibold text-violet-600 dark:text-violet-400">{data.kpis.orderCount.value.toLocaleString()}건</span>의 주문이 발생했으며, 
+                평균 객단가는 <span className="font-semibold text-blue-600 dark:text-blue-400">{formatCurrency(data.kpis.aov.value)}</span>입니다."
               </p>
             </div>
             

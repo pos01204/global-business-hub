@@ -3,6 +3,8 @@
 import { useState, useCallback } from 'react'
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
 import { settlementApi } from '@/lib/api'
+import { Icon } from '@/components/ui/Icon'
+import { DollarSign, Calendar, Truck, TrendingUp, RefreshCw } from 'lucide-react'
 
 // 탭 타입
 type SettlementTab = 'upload' | 'list' | 'country' | 'carrier' | 'weight' | 'trend' | 'validate' | 'crossValidate' | 'simulate'
@@ -179,8 +181,8 @@ export default function SettlementPage() {
       {/* 페이지 헤더 */}
       <div className="mb-6">
         <div className="flex items-center gap-3 mb-2">
-          <div className="w-12 h-12 bg-gradient-to-br from-emerald-500 to-teal-500 rounded-lg flex items-center justify-center shadow-lg">
-            <span className="text-white text-2xl">💰</span>
+          <div className="w-12 h-12 bg-emerald-500 rounded-lg flex items-center justify-center shadow-lg">
+            <Icon icon={DollarSign} size="lg" className="text-white" />
           </div>
           <div>
             <h1 className="text-3xl font-bold text-gray-900">물류비 정산</h1>
@@ -193,7 +195,7 @@ export default function SettlementPage() {
       <div className="card mb-6">
         <div className="flex items-center gap-4">
           <div className="flex items-center gap-2">
-            <span className="text-lg">📅</span>
+            <Icon icon={Calendar} size="md" className="text-slate-600 dark:text-slate-400" />
             <label className="font-medium">정산 기간</label>
           </div>
           <select
@@ -295,7 +297,7 @@ export default function SettlementPage() {
             onClick={() => setActiveTab('crossValidate')}
             className={`px-4 py-2.5 rounded-lg font-medium transition-all flex items-center gap-2 ${
               activeTab === 'crossValidate'
-                ? 'bg-gradient-to-r from-emerald-500 to-teal-500 text-white shadow-md'
+                ? 'bg-emerald-500 text-white shadow-md'
                 : 'bg-emerald-50 text-emerald-700 hover:bg-emerald-100 border border-emerald-200'
             }`}
           >
@@ -306,7 +308,7 @@ export default function SettlementPage() {
             onClick={() => setActiveTab('simulate')}
             className={`px-4 py-2.5 rounded-lg font-medium transition-all flex items-center gap-2 ${
               activeTab === 'simulate'
-                ? 'bg-gradient-to-r from-violet-500 to-purple-500 text-white shadow-md'
+                ? 'bg-violet-500 text-white shadow-md'
                 : 'bg-violet-50 text-violet-700 hover:bg-violet-100 border border-violet-200'
             }`}
           >
@@ -656,7 +658,7 @@ export default function SettlementPage() {
                         </div>
                         <div className="h-6 bg-gray-100 rounded-full overflow-hidden">
                           <div 
-                            className="h-full bg-gradient-to-r from-emerald-400 to-teal-500 rounded-full transition-all duration-500"
+                            className="h-full bg-emerald-500 rounded-full transition-all duration-500"
                             style={{ width: `${widthPercent}%` }}
                           />
                         </div>
@@ -1285,7 +1287,7 @@ export default function SettlementPage() {
                 <button
                   onClick={() => crossValidateMutation.mutate(selectedPeriod || undefined)}
                   disabled={crossValidateMutation.isPending}
-                  className="btn bg-gradient-to-r from-emerald-500 to-teal-500 text-white hover:from-emerald-600 hover:to-teal-600 flex items-center gap-2"
+                  className="btn bg-emerald-500 text-white hover:bg-emerald-600 flex items-center gap-2"
                 >
                   {crossValidateMutation.isPending ? (
                     <>
@@ -1509,7 +1511,7 @@ export default function SettlementPage() {
                   <button
                     onClick={() => refetchSimulate()}
                     disabled={isSimulateLoading}
-                    className="w-full btn bg-gradient-to-r from-violet-500 to-purple-500 text-white hover:from-violet-600 hover:to-purple-600"
+                    className="w-full btn bg-violet-500 text-white hover:bg-violet-600"
                   >
                     {isSimulateLoading ? '계산 중...' : '🔍 비용 계산'}
                   </button>

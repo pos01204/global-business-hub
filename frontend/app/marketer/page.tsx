@@ -3,6 +3,8 @@
 import { useState } from 'react'
 import MarketingCalendarTab from './components/MarketingCalendarTab'
 import ContentGeneratorTab from './components/ContentGeneratorTab'
+import { Icon } from '@/components/ui/Icon'
+import { Target } from 'lucide-react'
 
 // 탭 타입 정의
 type MarketerTab = 'calendar' | 'content'
@@ -13,12 +15,12 @@ export default function MarketerPage() {
   return (
     <div className="animate-fade-in">
       {/* 페이지 헤더 - idus 브랜드 스타일 */}
-      <div className="relative bg-gradient-to-r from-purple-600 to-pink-500 rounded-2xl p-6 mb-6 overflow-hidden shadow-lg">
+      <div className="relative bg-purple-600 rounded-2xl p-6 mb-6 overflow-hidden shadow-lg">
         <div className="absolute top-0 right-0 w-64 h-64 bg-white/10 rounded-full -translate-y-1/2 translate-x-1/2"></div>
         <div className="absolute bottom-0 left-0 w-32 h-32 bg-white/5 rounded-full translate-y-1/2 -translate-x-1/2"></div>
         <div className="flex items-center gap-4">
           <div className="w-14 h-14 bg-white/20 backdrop-blur rounded-xl flex items-center justify-center shadow-lg">
-            <span className="text-3xl">🎯</span>
+            <Icon icon={Target} size="xl" className="text-white" />
           </div>
           <div>
             <h1 className="text-2xl font-extrabold text-white tracking-tight">퍼포먼스 마케터</h1>

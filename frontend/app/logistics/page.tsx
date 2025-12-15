@@ -267,11 +267,11 @@ export default function LogisticsPage() {
   return (
     <div className="animate-fade-in">
       {/* 페이지 헤더 - idus 브랜드 스타일 */}
-      <div className="relative bg-gradient-to-r from-idus-500 to-idus-600 rounded-2xl p-6 mb-6 overflow-hidden shadow-orange">
+      <div className="relative bg-idus-500 rounded-2xl p-6 mb-6 overflow-hidden shadow-lg">
         <div className="absolute top-0 right-0 w-64 h-64 bg-white/10 rounded-full -translate-y-1/2 translate-x-1/2"></div>
         <div className="flex items-center gap-4">
           <div className="w-14 h-14 bg-white/20 backdrop-blur rounded-xl flex items-center justify-center shadow-lg">
-            <span className="text-3xl">🚚</span>
+            <Icon icon={Truck} size="xl" className="text-white" />
           </div>
           <div>
             <h1 className="text-2xl font-extrabold text-white tracking-tight">글로벌 물류 추적</h1>
@@ -450,7 +450,7 @@ export default function LogisticsPage() {
                               target="_blank"
                               className="inline-flex items-center gap-1.5 text-sm text-primary hover:underline"
                             >
-                              <span className="text-xs">📦</span>
+                              <Icon icon={Package} size="xs" className="text-slate-600 dark:text-slate-400" />
                               <span className="font-medium">{order.artistTracking.number}</span>
                             </Link>
                           ) : (

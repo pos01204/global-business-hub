@@ -8,16 +8,18 @@ import TrendTab from './components/TrendTab'
 import HealthTab from './components/HealthTab'
 import SelectionTab from './components/SelectionTab'
 import { Tabs, TabPanel, Select } from '@/components/ui'
+import { Icon } from '@/components/ui/Icon'
+import { BarChart3, Award, Package, TrendingUp, Users, AlertTriangle, Palette } from 'lucide-react'
 
 type TabType = 'overview' | 'performance' | 'products' | 'trend' | 'health' | 'selection'
 
 const tabItems = [
-  { id: 'overview', label: '개요', icon: <span>📊</span> },
-  { id: 'performance', label: '작가 성과', icon: <span>🏆</span> },
-  { id: 'products', label: '작품 분석', icon: <span>📦</span> },
-  { id: 'trend', label: '성장 추이', icon: <span>📈</span> },
-  { id: 'selection', label: '셀렉션 관리', icon: <span>👥</span> },
-  { id: 'health', label: '건강도', icon: <span>⚠️</span> },
+  { id: 'overview', label: '개요', icon: <Icon icon={BarChart3} size="sm" /> },
+  { id: 'performance', label: '작가 성과', icon: <Icon icon={Award} size="sm" /> },
+  { id: 'products', label: '작품 분석', icon: <Icon icon={Package} size="sm" /> },
+  { id: 'trend', label: '성장 추이', icon: <Icon icon={TrendingUp} size="sm" /> },
+  { id: 'selection', label: '셀렉션 관리', icon: <Icon icon={Users} size="sm" /> },
+  { id: 'health', label: '건강도', icon: <Icon icon={AlertTriangle} size="sm" /> },
 ]
 
 const dateRangeOptions = [
@@ -43,12 +45,12 @@ export default function ArtistAnalyticsPage() {
   return (
     <div className="animate-fade-in">
       {/* 페이지 헤더 */}
-      <div className="relative bg-gradient-to-r from-violet-600 to-purple-500 dark:from-violet-900/70 dark:to-purple-900/70 rounded-2xl p-4 lg:p-6 mb-6 overflow-hidden">
+      <div className="relative bg-violet-600 dark:bg-violet-900/70 rounded-2xl p-4 lg:p-6 mb-6 overflow-hidden">
         <div className="absolute top-0 right-0 w-64 h-64 bg-white/10 dark:bg-white/5 rounded-full -translate-y-1/2 translate-x-1/2"></div>
         <div className="absolute bottom-0 left-0 w-32 h-32 bg-white/5 dark:bg-white/[0.02] rounded-full translate-y-1/2 -translate-x-1/2"></div>
         <div className="flex items-center gap-3 lg:gap-4">
           <div className="w-12 h-12 lg:w-14 lg:h-14 bg-white/20 dark:bg-white/10 backdrop-blur rounded-xl flex items-center justify-center">
-            <span className="text-2xl lg:text-3xl">👨‍🎨</span>
+            <Icon icon={Palette} size="xl" className="text-white" />
           </div>
           <div>
             <h1 className="text-xl lg:text-2xl font-extrabold text-white tracking-tight">작가 분석</h1>

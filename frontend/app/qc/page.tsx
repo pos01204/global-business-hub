@@ -7,16 +7,18 @@ import ImageQCTab from './components/ImageQCTab'
 import ArtistsNotificationTab from './components/ArtistsNotificationTab'
 import QCArchiveTab from './components/QCArchiveTab'
 import { TabPanel } from '@/components/ui'
+import { Icon } from '@/components/ui/Icon'
+import { Upload, FileText, Image as ImageIcon, Users, BookOpen, CheckCircle, FileText as FileTextIcon } from 'lucide-react'
 
 // 탭 타입 정의
 type QCTab = 'upload' | 'text' | 'image' | 'artists' | 'archive'
 
 const tabItems = [
-  { id: 'upload', label: 'CSV 업로드', icon: <span>📤</span> },
-  { id: 'text', label: '텍스트 QC', icon: <span>📝</span> },
-  { id: 'image', label: '이미지 QC', icon: <span>🖼️</span> },
-  { id: 'artists', label: '작가 알람 명단', icon: <span>👥</span> },
-  { id: 'archive', label: 'QC 아카이브', icon: <span>📚</span> },
+  { id: 'upload', label: 'CSV 업로드', icon: Upload },
+  { id: 'text', label: '텍스트 QC', icon: FileText },
+  { id: 'image', label: '이미지 QC', icon: ImageIcon },
+  { id: 'artists', label: '작가 알람 명단', icon: Users },
+  { id: 'archive', label: 'QC 아카이브', icon: BookOpen },
 ]
 
 export default function QCPage() {
@@ -25,11 +27,11 @@ export default function QCPage() {
   return (
     <div className="animate-fade-in">
       {/* 페이지 헤더 - idus 브랜드 스타일 */}
-      <div className="relative bg-gradient-to-r from-idus-500 to-idus-600 dark:from-orange-900/70 dark:to-orange-800/70 rounded-2xl p-4 lg:p-6 mb-6 overflow-hidden shadow-orange dark:shadow-none">
+      <div className="relative bg-idus-500 dark:bg-orange-900/70 rounded-2xl p-4 lg:p-6 mb-6 overflow-hidden shadow-lg dark:shadow-none">
         <div className="absolute top-0 right-0 w-64 h-64 bg-white/10 dark:bg-white/5 rounded-full -translate-y-1/2 translate-x-1/2"></div>
         <div className="flex items-center gap-4">
           <div className="w-12 h-12 lg:w-14 lg:h-14 bg-white/20 dark:bg-white/10 backdrop-blur rounded-xl flex items-center justify-center shadow-lg dark:shadow-none">
-            <span className="text-2xl lg:text-3xl">✅</span>
+            <Icon icon={CheckCircle} size="xl" className="text-white" />
           </div>
           <div>
             <h1 className="text-xl lg:text-2xl font-extrabold text-white tracking-tight">QC 관리</h1>
@@ -41,7 +43,7 @@ export default function QCPage() {
       {/* 탭 네비게이션 - 모바일 최적화 */}
       <div className="mb-6">
         <div className="flex items-center gap-2 mb-4">
-          <span className="text-lg">📑</span>
+          <Icon icon={FileTextIcon} size="md" className="text-slate-600 dark:text-slate-400" />
           <h2 className="text-lg font-semibold text-slate-900 dark:text-slate-100">QC 기능</h2>
         </div>
         
@@ -63,7 +65,7 @@ export default function QCPage() {
                     }
                   `}
                 >
-                  {item.icon}
+                  <Icon icon={item.icon} size="sm" className={isActive ? 'text-white' : 'text-slate-600 dark:text-slate-400'} />
                   <span className="hidden sm:inline">{item.label}</span>
                   <span className="sm:hidden">{item.label.split(' ')[0]}</span>
                 </button>
@@ -81,7 +83,10 @@ export default function QCPage() {
 
         <TabPanel id="text" activeTab={activeTab}>
           <div className="mb-6">
-            <h2 className="text-xl font-semibold mb-2 text-slate-900 dark:text-slate-100">📝 텍스트 QC</h2>
+            <h2 className="text-xl font-semibold mb-2 text-slate-900 dark:text-slate-100 flex items-center gap-2">
+              <Icon icon={FileText} size="md" className="text-slate-600 dark:text-slate-400" />
+              텍스트 QC
+            </h2>
             <p className="text-gray-600 dark:text-slate-400">
               일본어 원문과 한글 번역을 비교하여 QC를 진행하세요.
             </p>

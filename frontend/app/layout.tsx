@@ -37,6 +37,14 @@ export default function RootLayout({
   return (
     <html lang="ko">
       <head>
+        {/* SUITE 폰트 preload 최적화 */}
+        <link
+          rel="preload"
+          href="/fonts/SUITE-Variable-woff2/SUITE-Variable.woff2"
+          as="font"
+          type="font/woff2"
+          crossOrigin="anonymous"
+        />
         {/* Pretendard 폰트 */}
         <link
           rel="stylesheet"
