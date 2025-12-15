@@ -15,7 +15,8 @@ import {
   Brain, BarChart3, Users, Palette, TrendingUp, Calendar,
   Lightbulb, AlertTriangle, Target, FileText, Search,
   Zap, CheckCircle, XCircle, Info, Circle, MessageCircle,
-  DollarSign, Activity
+  DollarSign, Activity,
+  type LucideIcon
 } from 'lucide-react'
 // v4.2: 신뢰도 컴포넌트
 import { ConfidenceBadge } from '@/components/business-brain/ConfidenceBadge'
@@ -122,19 +123,32 @@ function EmptyState({
   title, 
   description 
 }: { 
-  icon?: React.ReactNode
+  icon?: React.ReactNode | LucideIcon
   title: string
   description: string 
 }) {
+  // icon이 LucideIcon 컴포넌트인 경우 Icon으로 감싸기
+  const renderIcon = () => {
+    if (!icon) return null
+    
+    if (typeof icon === 'string') {
+      return <div className="text-6xl">{icon}</div>
+    }
+    
+    // LucideIcon인 경우 (함수 컴포넌트)
+    if (typeof icon === 'function') {
+      return <Icon icon={icon as LucideIcon} size="xl" className="text-slate-400" />
+    }
+    
+    // 이미 ReactNode인 경우
+    return icon as React.ReactNode
+  }
+
   return (
     <div className="flex flex-col items-center justify-center py-16 px-4">
       {icon && (
         <div className="mb-4 animate-bounce">
-          {typeof icon === 'string' ? (
-            <div className="text-6xl">{icon}</div>
-          ) : (
-            icon
-          )}
+          {renderIcon()}
         </div>
       )}
       <h3 className="text-lg font-semibold text-slate-700 dark:text-slate-300 mb-2">{title}</h3>

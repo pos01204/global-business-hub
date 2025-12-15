@@ -32,6 +32,7 @@ import customerAnalyticsRoutes from './routes/customer-analytics';
 import calendarRoutes from './routes/calendarRoutes';
 import artistAnalyticsRoutes from './routes/artist-analytics';
 import businessBrainRoutes from './routes/business-brain';
+import notionRoutes from './routes/notion';
 
 // .env 파일 로드 (backend 폴더 기준)
 let envPath: string;
@@ -114,6 +115,8 @@ app.use('/api/artist-analytics', artistAnalyticsRoutes);
 console.log('[Server] Artist Analytics 라우터 등록 완료: /api/artist-analytics');
 app.use('/api/business-brain', businessBrainRoutes);
 console.log('[Server] Business Brain 라우터 등록 완료: /api/business-brain');
+app.use('/api/notion', notionRoutes);
+console.log('[Server] Notion 라우터 등록 완료: /api/notion');
 
 app.get('/api', (req, res) => {
   res.json({ message: 'Global Business Hub API' });
