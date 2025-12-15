@@ -140,12 +140,11 @@ function LogisticsPerformanceTab({
             { name: '검수 → 배송 시작', value: data.summary.inspectionToShipment.avg },
             { name: '전체 처리 시간', value: data.summary.total.avg },
           ]}
-          dataKey="value"
-          name="평균 처리 시간 (일)"
+          dataKeys="value"
+          names="평균 처리 시간 (일)"
           height={300}
           xAxisKey="name"
           colors={['#4A6FA5', '#F79F79', '#27AE60', '#9C27B0']}
-          valueFormatter={(value) => `${value.toFixed(1)}일`}
         />
       </div>
 
@@ -210,12 +209,11 @@ function LogisticsPerformanceTab({
               name: c.country,
               value: c.avgTotalTime,
             }))}
-            dataKey="value"
-            name="평균 처리 시간 (일)"
+            dataKeys="value"
+            names="평균 처리 시간 (일)"
             height={300}
             xAxisKey="name"
             colors={['#4A6FA5']}
-            valueFormatter={(value) => `${value.toFixed(1)}일`}
           />
         </div>
       )}
