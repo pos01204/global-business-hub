@@ -5,7 +5,7 @@ import { dashboardApi, controlTowerApi, artistAnalyticsApi, businessBrainApi, an
 import Link from 'next/link'
 import { useState, useEffect } from 'react'
 import { format } from 'date-fns'
-import { EnhancedKPICard, Tooltip, EnhancedLoadingPage, PeriodSelector, AggregationSelector } from '@/components/ui'
+import { EnhancedKPICard, Tooltip, EnhancedLoadingPage, UnifiedDateFilter, AggregationSelector } from '@/components/ui'
 import type { PeriodPreset, AggregationType } from '@/components/ui'
 import { Icon } from '@/components/ui/Icon'
 import { iconMap, emojiToIconMap } from '@/lib/icon-mapping'
@@ -38,6 +38,7 @@ export default function DashboardPage() {
     if (start && end) {
       setStartDate(start)
       setEndDate(end)
+      // React Query가 자동으로 재실행됨 (queryKey에 startDate, endDate 포함)
     }
   }
 
@@ -184,34 +185,17 @@ export default function DashboardPage() {
         </div>
         
         <div className="flex flex-col sm:flex-row items-stretch sm:items-center gap-3">
-          {/* 날짜 필터 - 모바일 최적화 */}
-          <div className="flex flex-col sm:flex-row items-stretch sm:items-center gap-2 bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-lg p-3 sm:px-3 sm:py-2">
-            <div className="flex items-center gap-2">
-              <input
-                type="date"
-                value={startDate}
-                onChange={(e) => setStartDate(e.target.value)}
-                className="flex-1 sm:flex-none border border-slate-200 dark:border-slate-600 sm:border-0 bg-white dark:bg-slate-800 sm:bg-transparent text-base sm:text-sm text-slate-700 dark:text-slate-300 focus:outline-none focus:ring-2 focus:ring-primary sm:focus:ring-0 rounded-lg sm:rounded-none px-3 py-2 sm:p-0 w-full sm:w-28 lg:w-32"
-              />
-              <span className="text-slate-300 dark:text-slate-600 hidden sm:inline">~</span>
-              <span className="text-slate-400 dark:text-slate-500 sm:hidden text-sm">부터</span>
-            </div>
-            <div className="flex items-center gap-2">
-              <input
-                type="date"
-                value={endDate}
-                onChange={(e) => setEndDate(e.target.value)}
-                className="flex-1 sm:flex-none border border-slate-200 dark:border-slate-600 sm:border-0 bg-white dark:bg-slate-800 sm:bg-transparent text-base sm:text-sm text-slate-700 dark:text-slate-300 focus:outline-none focus:ring-2 focus:ring-primary sm:focus:ring-0 rounded-lg sm:rounded-none px-3 py-2 sm:p-0 w-full sm:w-28 lg:w-32"
-              />
-              <span className="text-slate-400 dark:text-slate-500 sm:hidden text-sm">까지</span>
-            </div>
-            <button
-              onClick={handleApply}
-              className="w-full sm:w-auto sm:ml-2 px-4 py-2.5 sm:py-1.5 bg-slate-900 dark:bg-slate-700 text-white text-sm font-medium rounded-lg sm:rounded-md hover:bg-slate-800 dark:hover:bg-slate-600 transition-colors min-h-[44px] sm:min-h-0"
-            >
-              조회
-            </button>
-          </div>
+          {/* 통합 날짜 필터 */}
+          <UnifiedDateFilter
+            startDate={startDate}
+            endDate={endDate}
+            periodPreset={periodPreset}
+            onStartDateChange={setStartDate}
+            onEndDateChange={setEndDate}
+            onPeriodChange={handlePeriodChange}
+            showApplyButton={false}
+            className="flex-1"
+          />
           
           {/* AI 빠른 질문 */}
           <Link 
@@ -600,15 +584,8 @@ export default function DashboardPage() {
                 </div>
               </div>
               
-              {/* 필터 컨트롤 */}
-              <div className="flex flex-col sm:flex-row gap-3 items-start sm:items-center">
-                <PeriodSelector
-                  value={periodPreset}
-                  startDate={startDate}
-                  endDate={endDate}
-                  onChange={handlePeriodChange}
-                  className="flex-1"
-                />
+              {/* 집계 단위 선택 (날짜 필터는 상단에서 통합 관리) */}
+              <div className="flex items-center justify-end">
                 <AggregationSelector
                   value={aggregation}
                   onChange={setAggregation}

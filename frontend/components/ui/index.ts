@@ -102,4 +102,8 @@ export type { PeriodSelectorProps, PeriodPreset } from './PeriodSelector'
 // Aggregation Selector
 export { AggregationSelector } from './AggregationSelector'
 export type { AggregationSelectorProps, AggregationType } from './AggregationSelector'
+
+// Unified Date Filter
+export { UnifiedDateFilter } from './UnifiedDateFilter'
+export type { UnifiedDateFilterProps } from './UnifiedDateFilter'
 export { LoadingStates } from './LoadingStates'
