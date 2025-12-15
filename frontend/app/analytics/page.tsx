@@ -10,7 +10,7 @@ import ArtistOrdersModal from '@/components/ArtistOrdersModal'
 import { Tooltip } from '@/components/ui/Tooltip'
 import { Icon } from '@/components/ui/Icon'
 import { EnhancedBarChart } from '@/components/charts'
-import { Bar } from 'react-chartjs-2'
+import { Bar, Doughnut } from 'react-chartjs-2'
 import {
   Chart as ChartJS,
   CategoryScale,
@@ -19,6 +19,7 @@ import {
   Title,
   Tooltip as ChartTooltip,
   Legend,
+  ArcElement,
 } from 'chart.js'
 import { 
   Palette, BarChart3, Calendar, Lightbulb, CheckCircle,
@@ -31,7 +32,8 @@ ChartJS.register(
   BarElement,
   Title,
   ChartTooltip,
-  Legend
+  Legend,
+  ArcElement
 )
 
 // 물류 처리 시간 분석 탭 컴포넌트
