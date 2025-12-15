@@ -114,12 +114,11 @@ export default function UnreceivedPage() {
 
   if (isLoading) {
     return (
-      <div className="min-h-screen flex items-center justify-center">
-        <div className="text-center">
-          <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-idus-500 mx-auto mb-4"></div>
-          <p className="text-gray-600">데이터를 불러오는 중...</p>
-        </div>
-      </div>
+      <EnhancedLoadingPage 
+        message="미입고 관리 데이터를 불러오는 중..." 
+        variant="default" 
+        size="lg" 
+      />
     )
   }
 

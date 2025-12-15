@@ -1,9 +1,34 @@
 'use client'
 
-import React from 'react'
+import React, { useState, useEffect } from 'react'
 import { motion } from 'framer-motion'
 import Image from 'next/image'
 import { cn } from '@/lib/utils'
+
+// GIF 반복 재생을 보장하는 컴포넌트
+function GifImage({ src, alt, width, height }: { src: string; alt: string; width: number; height: number }) {
+  const [imageSrc, setImageSrc] = useState(src)
+  
+  useEffect(() => {
+    // GIF가 한 사이클 끝나면 다시 로드하여 반복 재생 보장
+    // src에 타임스탬프를 추가하여 브라우저가 이미지를 다시 로드하도록 함
+    const interval = setInterval(() => {
+      setImageSrc(`${src}?t=${Date.now()}`)
+    }, 5000) // 5초마다 재로드 (GIF 사이클 시간에 맞게 조정 가능)
+    
+    return () => clearInterval(interval)
+  }, [src])
+  
+  return (
+    <img
+      src={imageSrc}
+      alt={alt}
+      className="w-full h-full object-contain"
+      style={{ width, height }}
+      loading="eager"
+    />
+  )
+}
 
 interface EnhancedLoadingPageProps {
   message?: string
@@ -57,12 +82,12 @@ export function EnhancedLoadingPage({
         <div className="relative mb-6 md:mb-8" style={{ width: characterSize, height: characterSize }}>
           {useGif ? (
             // GIF 사용: 네이티브 img 태그 사용 (Next.js Image는 GIF 애니메이션 미지원)
-            <img
+            // GIF는 파일 자체에 반복 정보가 포함되어 있지만, 반복 재생을 보장하기 위해 key를 사용
+            <GifImage
               src={characterSrc}
               alt="idus 캐릭터"
-              className="w-full h-full object-contain"
-              style={{ width: characterSize, height: characterSize }}
-              loading="eager"
+              width={characterSize}
+              height={characterSize}
             />
           ) : (
             // PNG 사용: Next.js Image + CSS 애니메이션
@@ -140,7 +165,7 @@ export function EnhancedLoadingPage({
         className={cn(
           'bg-white dark:bg-slate-900 rounded-xl border border-slate-200 dark:border-slate-800 shadow-sm',
           'flex flex-col items-center justify-center',
-          'py-12 min-h-[300px] md:min-h-[400px]',
+          'w-full min-h-[calc(100vh-120px)]',
           className
         )}
         role="status"
