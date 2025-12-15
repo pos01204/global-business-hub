@@ -9,10 +9,30 @@ import OrderDetailModal from '@/components/OrderDetailModal'
 import ArtistOrdersModal from '@/components/ArtistOrdersModal'
 import { Tooltip } from '@/components/ui/Tooltip'
 import { Icon } from '@/components/ui/Icon'
+import { EnhancedBarChart } from '@/components/charts'
+import { Bar } from 'react-chartjs-2'
+import {
+  Chart as ChartJS,
+  CategoryScale,
+  LinearScale,
+  BarElement,
+  Title,
+  Tooltip as ChartTooltip,
+  Legend,
+} from 'chart.js'
 import { 
   Palette, BarChart3, Calendar, Lightbulb, CheckCircle,
   TrendingUp, TrendingDown, ArrowRight
 } from 'lucide-react'
+
+ChartJS.register(
+  CategoryScale,
+  LinearScale,
+  BarElement,
+  Title,
+  ChartTooltip,
+  Legend
+)
 
 // 물류 처리 시간 분석 탭 컴포넌트
 function LogisticsPerformanceTab({
@@ -109,59 +129,24 @@ function LogisticsPerformanceTab({
 
       {/* 단계별 처리 시간 비교 차트 */}
       <div className="card">
-        <h2 className="text-xl font-semibold mb-4">⏱️ 단계별 평균 처리 시간</h2>
-        <div style={{ position: 'relative', height: '300px' }}>
-          <Bar
-            data={{
-              labels: ['주문 → 작가 발송', '작가 발송 → 검수', '검수 → 배송 시작', '전체 처리 시간'],
-              datasets: [
-                {
-                  label: '평균 처리 시간 (일)',
-                  data: [
-                    data.summary.orderToShip.avg,
-                    data.summary.shipToInspection.avg,
-                    data.summary.inspectionToShipment.avg,
-                    data.summary.total.avg,
-                  ],
-                  backgroundColor: [
-                    'rgba(74, 111, 165, 0.6)',
-                    'rgba(247, 159, 121, 0.6)',
-                    'rgba(39, 174, 96, 0.6)',
-                    'rgba(156, 39, 176, 0.6)',
-                  ],
-                },
-              ],
-            }}
-            options={{
-              responsive: true,
-              maintainAspectRatio: false,
-              plugins: {
-                legend: {
-                  display: false,
-                },
-                tooltip: {
-                  callbacks: {
-                    label: function (context) {
-                      const value = context.parsed.y
-                      return `평균: ${value != null ? value.toFixed(1) : '0'}일`
-                    },
-                  },
-                },
-              },
-              scales: {
-                y: {
-                  beginAtZero: true,
-                  grid: { color: '#eee' },
-                  ticks: {
-                    callback: function (value) {
-                      return value + '일'
-                    },
-                  },
-                },
-              },
-            }}
-          />
-        </div>
+        <h2 className="text-xl font-semibold mb-4 flex items-center gap-2">
+          <Icon icon={BarChart3} size="md" className="text-slate-600 dark:text-slate-400" />
+          단계별 평균 처리 시간
+        </h2>
+        <EnhancedBarChart
+          data={[
+            { name: '주문 → 작가 발송', value: data.summary.orderToShip.avg },
+            { name: '작가 발송 → 검수', value: data.summary.shipToInspection.avg },
+            { name: '검수 → 배송 시작', value: data.summary.inspectionToShipment.avg },
+            { name: '전체 처리 시간', value: data.summary.total.avg },
+          ]}
+          dataKey="value"
+          name="평균 처리 시간 (일)"
+          height={300}
+          xAxisKey="name"
+          colors={['#4A6FA5', '#F79F79', '#27AE60', '#9C27B0']}
+          valueFormatter={(value) => `${value.toFixed(1)}일`}
+        />
       </div>
 
       {/* 작가별 성과 */}
@@ -216,49 +201,22 @@ function LogisticsPerformanceTab({
       {/* 국가별 성과 */}
       {data.countryStats && data.countryStats.length > 0 && (
         <div className="card">
-          <h2 className="text-xl font-semibold mb-4">🌍 국가별 평균 처리 시간</h2>
-          <div style={{ position: 'relative', height: '300px' }}>
-            <Bar
-              data={{
-                labels: data.countryStats.map((c: any) => c.country),
-                datasets: [
-                  {
-                    label: '평균 처리 시간 (일)',
-                    data: data.countryStats.map((c: any) => c.avgTotalTime),
-                    backgroundColor: 'rgba(74, 111, 165, 0.6)',
-                  },
-                ],
-              }}
-              options={{
-                responsive: true,
-                maintainAspectRatio: false,
-                plugins: {
-                  legend: {
-                    display: false,
-                  },
-                  tooltip: {
-                    callbacks: {
-                      label: function (context) {
-                        const value = context.parsed.y
-                        return `평균: ${value != null ? value.toFixed(1) : '0'}일`
-                      },
-                    },
-                  },
-                },
-                scales: {
-                  y: {
-                    beginAtZero: true,
-                    grid: { color: '#eee' },
-                    ticks: {
-                      callback: function (value) {
-                        return value + '일'
-                      },
-                    },
-                  },
-                },
-              }}
-            />
-          </div>
+          <h2 className="text-xl font-semibold mb-4 flex items-center gap-2">
+            <Icon icon={BarChart3} size="md" className="text-slate-600 dark:text-slate-400" />
+            국가별 평균 처리 시간
+          </h2>
+          <EnhancedBarChart
+            data={data.countryStats.map((c: any) => ({
+              name: c.country,
+              value: c.avgTotalTime,
+            }))}
+            dataKey="value"
+            name="평균 처리 시간 (일)"
+            height={300}
+            xAxisKey="name"
+            colors={['#4A6FA5']}
+            valueFormatter={(value) => `${value.toFixed(1)}일`}
+          />
         </div>
       )}
 
