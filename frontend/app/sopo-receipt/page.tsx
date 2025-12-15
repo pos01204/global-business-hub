@@ -4,7 +4,7 @@ import { useState, useCallback } from 'react'
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
 import { sopoReceiptApi } from '@/lib/api'
 import { Icon } from '@/components/ui/Icon'
-import { Package, Upload, Users, FileText, BarChart3, CheckCircle, Clock, RefreshCw } from 'lucide-react'
+import { Package, Upload, Users, FileText, BarChart3, CheckCircle, Clock, RefreshCw, AlertTriangle, Mail, Download, X, Calendar } from 'lucide-react'
 
 // 탭 타입
 type SopoTab = 'upload' | 'artists' | 'tracking' | 'history'
@@ -192,63 +192,76 @@ export default function SopoReceiptPage() {
   ]
 
   return (
-    <div className="min-h-screen bg-slate-50">
-      {/* 헤더 */}
-      <div className="bg-white border-b border-gray-200 sticky top-0 z-10">
-        <div className="max-w-7xl mx-auto px-6 py-4">
-          <div className="flex items-center justify-between">
-            <div>
-              <h1 className="text-2xl font-bold text-gray-900 flex items-center gap-3">
-                <Icon icon={Package} size="xl" className="text-slate-600 dark:text-slate-400" />
-                소포수령증 관리
-              </h1>
-              <p className="text-sm text-gray-500 mt-1">해외 배송 주문 소포수령증 발급 자동화</p>
+    <div className="animate-fade-in">
+      {/* 페이지 헤더 - idus 브랜드 스타일 */}
+      <div className="relative bg-idus-500 dark:bg-orange-900/70 rounded-2xl p-4 lg:p-6 mb-6 overflow-hidden shadow-lg dark:shadow-none">
+        <div className="absolute top-0 right-0 w-64 h-64 bg-white/10 dark:bg-white/5 rounded-full -translate-y-1/2 translate-x-1/2"></div>
+        <div className="flex items-center justify-between flex-wrap gap-4">
+          <div className="flex items-center gap-4">
+            <div className="w-12 h-12 lg:w-14 lg:h-14 bg-white/20 dark:bg-white/10 backdrop-blur rounded-xl flex items-center justify-center shadow-lg dark:shadow-none">
+              <Icon icon={Package} size="xl" className="text-white" />
             </div>
-            
-            {/* 기간 선택 & 액션 */}
-            <div className="flex items-center gap-4">
-              <div className="flex items-center gap-2">
-                <label className="text-sm font-medium text-gray-700">기간:</label>
-                <select
-                  value={selectedPeriod}
-                  onChange={(e) => setSelectedPeriod(e.target.value)}
-                  className="px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-orange-500 focus:border-orange-500"
-                >
-                  {generatePeriodOptions().map(period => (
-                    <option key={period} value={period}>{formatPeriodDisplay(period)}</option>
-                  ))}
-                </select>
-              </div>
-              
-              {/* JotForm 동기화 버튼 */}
-              <button
-                onClick={() => syncJotformMutation.mutate()}
-                disabled={syncJotformMutation.isPending}
-                className="px-4 py-2 text-sm bg-purple-100 text-purple-700 rounded-lg hover:bg-purple-200 disabled:opacity-50 flex items-center gap-2"
-                title="JotForm 신청 데이터 동기화"
-              >
-                <Icon icon={syncJotformMutation.isPending ? Clock : RefreshCw} size="sm" className="text-purple-700" />
-                JotForm 동기화
-              </button>
+            <div>
+              <h1 className="text-xl lg:text-2xl font-extrabold text-white tracking-tight">소포수령증 관리</h1>
+              <p className="text-idus-100 dark:text-orange-200/80 text-xs lg:text-sm font-medium">해외 배송 주문 소포수령증 발급 자동화</p>
             </div>
           </div>
+          
+          {/* 기간 선택 & 액션 */}
+          <div className="flex items-center gap-3 flex-wrap">
+            <div className="flex items-center gap-2">
+              <label className="text-sm font-medium text-white/90">기간:</label>
+              <select
+                value={selectedPeriod}
+                onChange={(e) => setSelectedPeriod(e.target.value)}
+                className="px-3 py-2 bg-white/20 backdrop-blur border border-white/30 rounded-lg text-white text-sm focus:ring-2 focus:ring-white/50 focus:border-white/50"
+              >
+                {generatePeriodOptions().map(period => (
+                  <option key={period} value={period} className="text-gray-900">{formatPeriodDisplay(period)}</option>
+                ))}
+              </select>
+            </div>
+            
+            {/* JotForm 동기화 버튼 */}
+            <button
+              onClick={() => syncJotformMutation.mutate()}
+              disabled={syncJotformMutation.isPending}
+              className="px-4 py-2 text-sm bg-white/20 backdrop-blur border border-white/30 text-white rounded-lg hover:bg-white/30 disabled:opacity-50 flex items-center gap-2 transition-colors"
+              title="JotForm 신청 데이터 동기화"
+            >
+              <Icon icon={syncJotformMutation.isPending ? Clock : RefreshCw} size="sm" className={syncJotformMutation.isPending ? 'animate-spin' : ''} />
+              JotForm 동기화
+            </button>
+          </div>
+        </div>
+      </div>
 
-          {/* 탭 네비게이션 */}
-          <div className="flex gap-2 mt-4">
+      {/* 탭 네비게이션 - 모바일 최적화 */}
+      <div className="mb-6">
+        <div className="flex items-center gap-2 mb-4">
+          <Icon icon={FileText} size="lg" className="text-slate-600 dark:text-slate-400" />
+          <h2 className="text-lg font-semibold text-slate-900 dark:text-slate-100">소포수령증 기능</h2>
+        </div>
+        
+        {/* 모바일: 가로 스크롤 탭 */}
+        <div className="overflow-x-auto scrollbar-hide -mx-4 px-4 lg:mx-0 lg:px-0">
+          <div className="flex gap-2 min-w-max lg:flex-wrap">
             {tabs.map(tab => (
               <button
                 key={tab.id}
                 onClick={() => setActiveTab(tab.id)}
-                className={`px-4 py-2 rounded-lg text-sm font-medium transition-all ${
-                  activeTab === tab.id
-                    ? 'bg-orange-500 text-white shadow-md'
-                    : 'bg-gray-100 text-gray-600 hover:bg-gray-200'
-                }`}
+                className={`
+                  flex items-center gap-2 px-4 py-3 rounded-xl whitespace-nowrap
+                  text-sm font-medium transition-all min-h-[48px]
+                  ${activeTab === tab.id
+                    ? 'bg-idus-500 text-white shadow-sm'
+                    : 'bg-slate-100 dark:bg-slate-800 text-slate-600 dark:text-slate-400 hover:bg-slate-200 dark:hover:bg-slate-700'
+                  }
+                `}
               >
-                <span className="flex items-center gap-2">
-                  <Icon icon={tab.icon} size="sm" className={activeTab === tab.id ? 'text-white' : 'text-gray-600'} />
-                  {tab.label}
-                </span>
+                <Icon icon={tab.icon} size="sm" className={activeTab === tab.id ? 'text-white' : 'text-slate-600 dark:text-slate-400'} />
+                <span className="hidden sm:inline">{tab.label}</span>
+                <span className="sm:hidden">{tab.label.split(' ')[0]}</span>
               </button>
             ))}
           </div>
@@ -256,18 +269,18 @@ export default function SopoReceiptPage() {
       </div>
 
       {/* 메인 컨텐츠 */}
-      <div className="max-w-7xl mx-auto px-6 py-6">
+      <div>
         {/* 탭 1: 선적 업로드 */}
         {activeTab === 'upload' && (
           <div className="space-y-6">
             {/* 업로드 카드 */}
-            <div className="bg-white rounded-xl shadow-sm border border-gray-200 p-6">
-              <h2 className="text-lg font-semibold text-gray-900 mb-4 flex items-center gap-2">
-                <span className="text-xl">📁</span>
+            <div className="bg-white dark:bg-slate-800 rounded-2xl shadow-sm border border-slate-200 dark:border-slate-700 p-6">
+              <h2 className="text-lg font-semibold text-slate-900 dark:text-slate-100 mb-4 flex items-center gap-2">
+                <Icon icon={Upload} size="lg" className="text-idus-500" />
                 롯데 선적 CSV 업로드
               </h2>
               
-              <div className="border-2 border-dashed border-gray-300 rounded-lg p-8 text-center hover:border-orange-400 transition-colors">
+              <div className="border-2 border-dashed border-slate-300 dark:border-slate-600 rounded-xl p-12 text-center hover:border-idus-400 dark:hover:border-idus-500 transition-colors bg-slate-50 dark:bg-slate-900/50">
                 <input
                   type="file"
                   accept=".csv"
@@ -275,23 +288,24 @@ export default function SopoReceiptPage() {
                   className="hidden"
                   id="csv-upload"
                 />
-                <label htmlFor="csv-upload" className="cursor-pointer">
-                  <div className="text-5xl mb-4">📄</div>
-                  <p className="text-gray-600 mb-2">CSV 파일을 드래그하거나 클릭하여 업로드</p>
-                  <p className="text-sm text-gray-400">backpa_XX월_선적내역_추출_YYYYMMDD.csv</p>
+                <label htmlFor="csv-upload" className="cursor-pointer block">
+                  <Icon icon={Upload} size="xl" className="mx-auto mb-4 text-slate-400 dark:text-slate-500" />
+                  <p className="text-slate-700 dark:text-slate-300 mb-2 font-medium">CSV 파일을 드래그하거나 클릭하여 업로드</p>
+                  <p className="text-sm text-slate-500 dark:text-slate-400">backpa_XX월_선적내역_추출_YYYYMMDD.csv</p>
                 </label>
               </div>
 
               {uploadMutation.isPending && (
-                <div className="mt-4 text-center text-orange-600">
-                  <div className="animate-spin inline-block w-6 h-6 border-2 border-orange-600 border-t-transparent rounded-full mr-2"></div>
+                <div className="mt-4 text-center text-idus-600 dark:text-idus-400 flex items-center justify-center gap-2">
+                  <Icon icon={Clock} size="md" className="animate-spin" />
                   업로드 및 검증 중...
                 </div>
               )}
 
               {uploadMutation.isError && (
-                <div className="mt-4 p-4 bg-red-50 text-red-700 rounded-lg">
-                  업로드 실패: {(uploadMutation.error as Error).message}
+                <div className="mt-4 p-4 bg-red-50 dark:bg-red-900/20 border border-red-200 dark:border-red-800 text-red-700 dark:text-red-300 rounded-xl flex items-center gap-2">
+                  <Icon icon={AlertTriangle} size="md" className="text-red-600 dark:text-red-400" />
+                  <span>업로드 실패: {(uploadMutation.error as Error).message}</span>
                 </div>
               )}
             </div>
@@ -300,43 +314,46 @@ export default function SopoReceiptPage() {
             {uploadResult && (
               <div className="space-y-6">
                 {/* 요약 카드 */}
-                <div className="grid grid-cols-5 gap-4">
+                <div className="grid grid-cols-2 md:grid-cols-5 gap-4">
                   <StatCard 
                     title="총 선적 건수" 
                     value={uploadResult.totalShipments} 
-                    icon="📦"
+                    icon={Package}
                     color="blue"
                   />
                   <StatCard 
                     title="매칭 성공" 
                     value={uploadResult.matchedCount} 
-                    icon="✅"
+                    icon={CheckCircle}
                     color="green"
                   />
                   <StatCard 
                     title="매칭 실패" 
                     value={uploadResult.unmatchedCount} 
-                    icon="⚠️"
+                    icon={AlertTriangle}
                     color={uploadResult.unmatchedCount > 0 ? 'red' : 'gray'}
                   />
                   <StatCard 
                     title="대상 작가" 
                     value={uploadResult.artistCount} 
-                    icon="👤"
+                    icon={Users}
                     color="orange"
                   />
                   <StatCard 
                     title="이메일 보유" 
                     value={uploadResult.emailStats?.withEmail || uploadResult.artists.filter(a => a.artistEmail).length} 
-                    icon="📧"
+                    icon={Mail}
                     color="purple"
                   />
                 </div>
 
                 {/* 매칭 실패 경고 */}
                 {uploadResult.unmatchedShipments.length > 0 && (
-                  <div className="bg-red-50 border border-red-200 rounded-lg p-4">
-                    <h3 className="font-medium text-red-800 mb-2">⚠️ 매칭 실패 shipment_id</h3>
+                  <div className="bg-red-50 dark:bg-red-900/20 border border-red-200 dark:border-red-800 rounded-xl p-4">
+                    <h3 className="font-medium text-red-800 dark:text-red-200 mb-2 flex items-center gap-2">
+                      <Icon icon={AlertTriangle} size="md" className="text-red-600 dark:text-red-400" />
+                      매칭 실패 shipment_id
+                    </h3>
                     <p className="text-sm text-red-600">
                       다음 선적 건이 logistics 데이터와 매칭되지 않았습니다:
                     </p>
@@ -351,54 +368,56 @@ export default function SopoReceiptPage() {
                 )}
 
                 {/* 작가 목록 */}
-                <div className="bg-white rounded-xl shadow-sm border border-gray-200 p-6">
+                <div className="bg-white dark:bg-slate-800 rounded-2xl shadow-sm border border-slate-200 dark:border-slate-700 p-6">
                   <div className="flex items-center justify-between mb-4">
-                    <h2 className="text-lg font-semibold text-gray-900">대상 작가 목록</h2>
+                    <h2 className="text-lg font-semibold text-slate-900 dark:text-slate-100">대상 작가 목록</h2>
                     <button
                       onClick={() => setActiveTab('artists')}
-                      className="px-4 py-2 bg-orange-500 text-white rounded-lg hover:bg-orange-600 transition-colors"
+                      className="px-4 py-2 bg-idus-500 text-white rounded-lg hover:bg-idus-600 transition-colors flex items-center gap-2"
                     >
-                      작가 관리로 이동 →
+                      작가 관리로 이동
+                      <Icon icon={Users} size="sm" />
                     </button>
                   </div>
 
                   <div className="overflow-x-auto">
                     <table className="w-full">
-                      <thead className="bg-gray-50">
+                      <thead className="bg-slate-50 dark:bg-slate-900">
                         <tr>
-                          <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase">작가명</th>
-                          <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase">이메일</th>
-                          <th className="px-4 py-3 text-right text-xs font-medium text-gray-500 uppercase">주문 수</th>
-                          <th className="px-4 py-3 text-right text-xs font-medium text-gray-500 uppercase">총 금액</th>
-                          <th className="px-4 py-3 text-center text-xs font-medium text-gray-500 uppercase">액션</th>
+                          <th className="px-4 py-3 text-left text-xs font-medium text-slate-500 dark:text-slate-400 uppercase">작가명</th>
+                          <th className="px-4 py-3 text-left text-xs font-medium text-slate-500 dark:text-slate-400 uppercase">이메일</th>
+                          <th className="px-4 py-3 text-right text-xs font-medium text-slate-500 dark:text-slate-400 uppercase">주문 수</th>
+                          <th className="px-4 py-3 text-right text-xs font-medium text-slate-500 dark:text-slate-400 uppercase">총 금액</th>
+                          <th className="px-4 py-3 text-center text-xs font-medium text-slate-500 dark:text-slate-400 uppercase">액션</th>
                         </tr>
                       </thead>
-                      <tbody className="divide-y divide-gray-200">
+                      <tbody className="divide-y divide-slate-200 dark:divide-slate-700">
                         {uploadResult.artists.map(artist => (
-                          <tr key={artist.artistName} className="hover:bg-gray-50">
-                            <td className="px-4 py-3 font-medium text-gray-900">{artist.artistName}</td>
+                          <tr key={artist.artistName} className="hover:bg-slate-50 dark:hover:bg-slate-700/50">
+                            <td className="px-4 py-3 font-medium text-slate-900 dark:text-slate-100">{artist.artistName}</td>
                             <td className="px-4 py-3 text-sm">
                               {artist.artistEmail ? (
-                                <span className="text-gray-600">{artist.artistEmail}</span>
+                                <span className="text-slate-600 dark:text-slate-400">{artist.artistEmail}</span>
                               ) : (
-                                <span className="px-2 py-0.5 bg-red-100 text-red-600 rounded text-xs">이메일 없음</span>
+                                <span className="px-2 py-0.5 bg-red-100 dark:bg-red-900/30 text-red-600 dark:text-red-400 rounded text-xs">이메일 없음</span>
                               )}
                             </td>
-                            <td className="px-4 py-3 text-right text-sm">{artist.orderCount}건</td>
-                            <td className="px-4 py-3 text-right text-sm font-medium">
+                            <td className="px-4 py-3 text-right text-sm text-slate-700 dark:text-slate-300">{artist.orderCount}건</td>
+                            <td className="px-4 py-3 text-right text-sm font-medium text-slate-900 dark:text-slate-100">
                               {formatAmount(artist)}
                             </td>
                             <td className="px-4 py-3 text-center">
                               <button
                                 onClick={() => setSelectedArtistDetail(artist)}
-                                className="text-blue-600 hover:text-blue-800 text-sm mr-2"
+                                className="text-blue-600 dark:text-blue-400 hover:text-blue-800 dark:hover:text-blue-300 text-sm mr-2"
                               >
                                 상세
                               </button>
                               <button
                                 onClick={() => handleDownloadOrderSheet(artist)}
-                                className="text-green-600 hover:text-green-800 text-sm"
+                                className="text-green-600 dark:text-green-400 hover:text-green-800 dark:hover:text-green-300 text-sm flex items-center gap-1"
                               >
+                                <Icon icon={Download} size="xs" />
                                 다운로드
                               </button>
                             </td>
@@ -417,11 +436,14 @@ export default function SopoReceiptPage() {
         {activeTab === 'artists' && uploadResult && (
           <div className="space-y-6">
             {/* 일괄 발송 컨트롤 */}
-            <div className="bg-white rounded-xl shadow-sm border border-gray-200 p-6">
+            <div className="bg-white dark:bg-slate-800 rounded-2xl shadow-sm border border-slate-200 dark:border-slate-700 p-6">
               <div className="flex items-center justify-between">
                 <div>
-                  <h2 className="text-lg font-semibold text-gray-900">📧 안내 이메일 발송</h2>
-                  <p className="text-sm text-gray-500 mt-1">
+                  <h2 className="text-lg font-semibold text-slate-900 dark:text-slate-100 flex items-center gap-2">
+                    <Icon icon={Mail} size="lg" className="text-idus-500" />
+                    안내 이메일 발송
+                  </h2>
+                  <p className="text-sm text-slate-500 dark:text-slate-400 mt-1">
                     선택된 작가: {selectedArtists.size}명 / 전체: {uploadResult.artists.filter(a => a.artistEmail).length}명
                   </p>
                 </div>
@@ -433,13 +455,13 @@ export default function SopoReceiptPage() {
                       )
                       setSelectedArtists(allWithEmail)
                     }}
-                    className="px-4 py-2 text-sm border border-gray-300 rounded-lg hover:bg-gray-50"
+                    className="px-4 py-2 text-sm border border-slate-300 dark:border-slate-600 rounded-lg hover:bg-slate-50 dark:hover:bg-slate-700 text-slate-700 dark:text-slate-300"
                   >
                     전체 선택
                   </button>
                   <button
                     onClick={() => setSelectedArtists(new Set())}
-                    className="px-4 py-2 text-sm border border-gray-300 rounded-lg hover:bg-gray-50"
+                    className="px-4 py-2 text-sm border border-slate-300 dark:border-slate-600 rounded-lg hover:bg-slate-50 dark:hover:bg-slate-700 text-slate-700 dark:text-slate-300"
                   >
                     선택 해제
                   </button>
@@ -457,16 +479,27 @@ export default function SopoReceiptPage() {
                       }
                     }}
                     disabled={notifyMutation.isPending || selectedArtists.size === 0}
-                    className="px-6 py-2 bg-orange-500 text-white rounded-lg hover:bg-orange-600 disabled:bg-gray-300 disabled:cursor-not-allowed transition-colors"
+                    className="px-6 py-2 bg-idus-500 text-white rounded-lg hover:bg-idus-600 disabled:bg-gray-300 disabled:cursor-not-allowed transition-colors flex items-center gap-2"
                   >
-                    {notifyMutation.isPending ? '발송 중...' : '📧 안내 발송'}
+                    {notifyMutation.isPending ? (
+                      <>
+                        <Icon icon={Clock} size="sm" className="animate-spin" />
+                        발송 중...
+                      </>
+                    ) : (
+                      <>
+                        <Icon icon={Mail} size="sm" />
+                        안내 발송
+                      </>
+                    )}
                   </button>
                 </div>
               </div>
 
               {notifyMutation.isSuccess && (
-                <div className="mt-4 p-4 bg-green-50 text-green-700 rounded-lg">
-                  ✅ {notifyMutation.data.data.sentCount}명에게 발송 완료
+                <div className="mt-4 p-4 bg-green-50 dark:bg-green-900/20 border border-green-200 dark:border-green-800 text-green-700 dark:text-green-300 rounded-xl flex items-center gap-2">
+                  <Icon icon={CheckCircle} size="md" className="text-green-600 dark:text-green-400" />
+                  <span>{notifyMutation.data.data.sentCount}명에게 발송 완료</span>
                   {notifyMutation.data.data.failedCount > 0 && (
                     <span className="ml-2 text-red-600">
                       ({notifyMutation.data.data.failedCount}명 실패)
@@ -477,9 +510,9 @@ export default function SopoReceiptPage() {
             </div>
 
             {/* 작가 테이블 */}
-            <div className="bg-white rounded-xl shadow-sm border border-gray-200 overflow-hidden">
+            <div className="bg-white dark:bg-slate-800 rounded-2xl shadow-sm border border-slate-200 dark:border-slate-700 overflow-hidden">
               <table className="w-full">
-                <thead className="bg-gray-50">
+                <thead className="bg-slate-50 dark:bg-slate-900">
                   <tr>
                     <th className="px-4 py-3 text-left">
                       <input
@@ -494,19 +527,19 @@ export default function SopoReceiptPage() {
                             setSelectedArtists(new Set())
                           }
                         }}
-                        className="w-4 h-4 rounded border-gray-300"
+                        className="w-4 h-4 rounded border-slate-300 dark:border-slate-600"
                       />
                     </th>
-                    <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase">작가명</th>
-                    <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase">이메일</th>
-                    <th className="px-4 py-3 text-right text-xs font-medium text-gray-500 uppercase">주문</th>
-                    <th className="px-4 py-3 text-right text-xs font-medium text-gray-500 uppercase">금액</th>
-                    <th className="px-4 py-3 text-center text-xs font-medium text-gray-500 uppercase">주문내역서</th>
+                    <th className="px-4 py-3 text-left text-xs font-medium text-slate-500 dark:text-slate-400 uppercase">작가명</th>
+                    <th className="px-4 py-3 text-left text-xs font-medium text-slate-500 dark:text-slate-400 uppercase">이메일</th>
+                    <th className="px-4 py-3 text-right text-xs font-medium text-slate-500 dark:text-slate-400 uppercase">주문</th>
+                    <th className="px-4 py-3 text-right text-xs font-medium text-slate-500 dark:text-slate-400 uppercase">금액</th>
+                    <th className="px-4 py-3 text-center text-xs font-medium text-slate-500 dark:text-slate-400 uppercase">주문내역서</th>
                   </tr>
                 </thead>
-                <tbody className="divide-y divide-gray-200">
+                <tbody className="divide-y divide-slate-200 dark:divide-slate-700">
                   {uploadResult.artists.map(artist => (
-                    <tr key={artist.artistName} className="hover:bg-gray-50">
+                    <tr key={artist.artistName} className="hover:bg-slate-50 dark:hover:bg-slate-700/50">
                       <td className="px-4 py-3">
                         <input
                           type="checkbox"
@@ -521,27 +554,28 @@ export default function SopoReceiptPage() {
                             }
                             setSelectedArtists(newSet)
                           }}
-                          className="w-4 h-4 rounded border-gray-300 disabled:opacity-50"
+                          className="w-4 h-4 rounded border-slate-300 dark:border-slate-600 disabled:opacity-50"
                         />
                       </td>
-                      <td className="px-4 py-3 font-medium text-gray-900">{artist.artistName}</td>
+                      <td className="px-4 py-3 font-medium text-slate-900 dark:text-slate-100">{artist.artistName}</td>
                       <td className="px-4 py-3 text-sm">
                         {artist.artistEmail ? (
-                          <span className="text-gray-600">{artist.artistEmail}</span>
+                          <span className="text-slate-600 dark:text-slate-400">{artist.artistEmail}</span>
                         ) : (
-                          <span className="px-2 py-0.5 bg-red-100 text-red-600 rounded text-xs">이메일 없음</span>
+                          <span className="px-2 py-0.5 bg-red-100 dark:bg-red-900/30 text-red-600 dark:text-red-400 rounded text-xs">이메일 없음</span>
                         )}
                       </td>
-                      <td className="px-4 py-3 text-right text-sm">{artist.orderCount}건</td>
-                      <td className="px-4 py-3 text-right text-sm font-medium">
+                      <td className="px-4 py-3 text-right text-sm text-slate-700 dark:text-slate-300">{artist.orderCount}건</td>
+                      <td className="px-4 py-3 text-right text-sm font-medium text-slate-900 dark:text-slate-100">
                         {formatAmount(artist)}
                       </td>
                       <td className="px-4 py-3 text-center">
                         <button
                           onClick={() => handleDownloadOrderSheet(artist)}
-                          className="px-3 py-1 text-xs bg-green-100 text-green-700 rounded hover:bg-green-200"
+                          className="px-3 py-1 text-xs bg-green-100 dark:bg-green-900/30 text-green-700 dark:text-green-300 rounded hover:bg-green-200 dark:hover:bg-green-900/50 flex items-center gap-1"
                         >
-                          📥 다운로드
+                          <Icon icon={Download} size="xs" />
+                          다운로드
                         </button>
                       </td>
                     </tr>
@@ -556,7 +590,7 @@ export default function SopoReceiptPage() {
         {activeTab === 'tracking' && (
           <div className="space-y-6">
             {/* 검색 & 필터 */}
-            <div className="bg-white rounded-xl shadow-sm border border-gray-200 p-4">
+            <div className="bg-white dark:bg-slate-800 rounded-2xl shadow-sm border border-slate-200 dark:border-slate-700 p-4">
               <div className="flex items-center gap-4 flex-wrap">
                 <div className="flex-1 min-w-[200px]">
                   <input
@@ -564,13 +598,13 @@ export default function SopoReceiptPage() {
                     placeholder="작가명 또는 이메일로 검색..."
                     value={searchQuery}
                     onChange={(e) => setSearchQuery(e.target.value)}
-                    className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-orange-500 focus:border-orange-500"
+                    className="w-full px-4 py-2 border border-slate-300 dark:border-slate-600 bg-white dark:bg-slate-700 text-slate-900 dark:text-slate-100 rounded-lg focus:ring-2 focus:ring-idus-500 focus:border-idus-500"
                   />
                 </div>
                 <select
                   value={statusFilter}
                   onChange={(e) => setStatusFilter(e.target.value)}
-                  className="px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-orange-500"
+                  className="px-4 py-2 border border-slate-300 dark:border-slate-600 bg-white dark:bg-slate-700 text-slate-900 dark:text-slate-100 rounded-lg focus:ring-2 focus:ring-idus-500"
                 >
                   <option value="all">전체 상태</option>
                   <option value="pending">대기 중</option>
@@ -580,31 +614,32 @@ export default function SopoReceiptPage() {
                 </select>
                 <button
                   onClick={() => refetchTracking()}
-                  className="px-4 py-2 text-gray-600 border border-gray-300 rounded-lg hover:bg-gray-50"
+                  className="px-4 py-2 text-slate-600 dark:text-slate-400 border border-slate-300 dark:border-slate-600 rounded-lg hover:bg-slate-50 dark:hover:bg-slate-700 flex items-center gap-2"
                 >
-                  🔄 새로고침
+                  <Icon icon={RefreshCw} size="sm" />
+                  새로고침
                 </button>
               </div>
             </div>
 
             {trackingLoading ? (
               <div className="text-center py-12">
-                <div className="animate-spin inline-block w-8 h-8 border-2 border-orange-600 border-t-transparent rounded-full"></div>
-                <p className="mt-2 text-gray-500">로딩 중...</p>
+                <Icon icon={Clock} size="xl" className="mx-auto mb-2 text-idus-500 animate-spin" />
+                <p className="mt-2 text-slate-500 dark:text-slate-400">로딩 중...</p>
               </div>
             ) : trackingData?.data ? (
               <>
                 {/* 요약 카드 */}
-                <div className="grid grid-cols-5 gap-4">
-                  <StatCard title="전체" value={trackingData.data.summary.total} icon="📊" color="blue" />
-                  <StatCard title="안내 발송" value={trackingData.data.summary.notified} icon="📧" color="purple" />
-                  <StatCard title="대기 중" value={trackingData.data.summary.pending} icon="⏳" color="orange" />
-                  <StatCard title="신청 완료" value={trackingData.data.summary.submitted} icon="✅" color="green" />
-                  <StatCard title="발급 완료" value={trackingData.data.summary.completed || 0} icon="🎉" color="gray" />
+                <div className="grid grid-cols-2 md:grid-cols-5 gap-4">
+                  <StatCard title="전체" value={trackingData.data.summary.total} icon={BarChart3} color="blue" />
+                  <StatCard title="안내 발송" value={trackingData.data.summary.notified} icon={Mail} color="purple" />
+                  <StatCard title="대기 중" value={trackingData.data.summary.pending} icon={Clock} color="orange" />
+                  <StatCard title="신청 완료" value={trackingData.data.summary.submitted} icon={CheckCircle} color="green" />
+                  <StatCard title="발급 완료" value={trackingData.data.summary.completed || 0} icon={CheckCircle} color="gray" />
                 </div>
 
                 {/* 트래킹 테이블 */}
-                <div className="bg-white rounded-xl shadow-sm border border-gray-200 overflow-hidden">
+                <div className="bg-white dark:bg-slate-800 rounded-2xl shadow-sm border border-slate-200 dark:border-slate-700 overflow-hidden">
                   <div className="p-4 border-b border-gray-200">
                     <span className="text-sm text-gray-500">검색 결과: {filteredTrackingRecords.length}건</span>
                   </div>
@@ -684,7 +719,7 @@ export default function SopoReceiptPage() {
                     </tbody>
                   </table>
                   {filteredTrackingRecords.length === 0 && (
-                    <div className="p-8 text-center text-gray-500">
+                    <div className="p-8 text-center text-slate-500 dark:text-slate-400">
                       {searchQuery || statusFilter !== 'all' 
                         ? '검색 조건에 맞는 데이터가 없습니다.'
                         : '해당 기간의 트래킹 데이터가 없습니다.'}
@@ -693,10 +728,10 @@ export default function SopoReceiptPage() {
                 </div>
               </>
             ) : (
-              <div className="bg-white rounded-xl shadow-sm border border-gray-200 p-12 text-center">
-                <div className="text-5xl mb-4">📋</div>
-                <h3 className="text-lg font-medium text-gray-900 mb-2">트래킹 데이터가 없습니다</h3>
-                <p className="text-gray-500">해당 기간의 선적 데이터를 먼저 업로드해주세요.</p>
+              <div className="bg-white dark:bg-slate-800 rounded-2xl shadow-sm border border-slate-200 dark:border-slate-700 p-12 text-center">
+                <Icon icon={FileText} size="xl" className="mx-auto mb-4 text-slate-400 dark:text-slate-500" />
+                <h3 className="text-lg font-medium text-slate-900 dark:text-slate-100 mb-2">트래킹 데이터가 없습니다</h3>
+                <p className="text-slate-500 dark:text-slate-400">해당 기간의 선적 데이터를 먼저 업로드해주세요.</p>
               </div>
             )}
           </div>
@@ -707,24 +742,27 @@ export default function SopoReceiptPage() {
           <div className="space-y-6">
             {/* 전체 통계 */}
             {trackingData?.data?.summary && (
-              <div className="bg-white rounded-xl shadow-sm border border-gray-200 p-6">
-                <h2 className="text-lg font-semibold text-gray-900 mb-4">📊 {formatPeriodDisplay(selectedPeriod)} 발급 현황</h2>
-                <div className="grid grid-cols-4 gap-4">
-                  <div className="p-4 bg-blue-50 rounded-lg">
-                    <p className="text-sm text-blue-600 mb-1">대상 작가</p>
-                    <p className="text-2xl font-bold text-blue-900">{trackingData.data.summary.total}명</p>
+              <div className="bg-white dark:bg-slate-800 rounded-2xl shadow-sm border border-slate-200 dark:border-slate-700 p-6">
+                <h2 className="text-lg font-semibold text-slate-900 dark:text-slate-100 mb-4 flex items-center gap-2">
+                  <Icon icon={BarChart3} size="lg" className="text-idus-500" />
+                  {formatPeriodDisplay(selectedPeriod)} 발급 현황
+                </h2>
+                <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
+                  <div className="p-4 bg-blue-50 dark:bg-blue-900/20 rounded-xl border border-blue-200 dark:border-blue-800">
+                    <p className="text-sm text-blue-600 dark:text-blue-400 mb-1">대상 작가</p>
+                    <p className="text-2xl font-bold text-blue-900 dark:text-blue-100">{trackingData.data.summary.total}명</p>
                   </div>
-                  <div className="p-4 bg-purple-50 rounded-lg">
-                    <p className="text-sm text-purple-600 mb-1">안내 발송</p>
-                    <p className="text-2xl font-bold text-purple-900">{trackingData.data.summary.notified}명</p>
+                  <div className="p-4 bg-purple-50 dark:bg-purple-900/20 rounded-xl border border-purple-200 dark:border-purple-800">
+                    <p className="text-sm text-purple-600 dark:text-purple-400 mb-1">안내 발송</p>
+                    <p className="text-2xl font-bold text-purple-900 dark:text-purple-100">{trackingData.data.summary.notified}명</p>
                   </div>
-                  <div className="p-4 bg-green-50 rounded-lg">
-                    <p className="text-sm text-green-600 mb-1">신청 완료</p>
-                    <p className="text-2xl font-bold text-green-900">{trackingData.data.summary.submitted}명</p>
+                  <div className="p-4 bg-green-50 dark:bg-green-900/20 rounded-xl border border-green-200 dark:border-green-800">
+                    <p className="text-sm text-green-600 dark:text-green-400 mb-1">신청 완료</p>
+                    <p className="text-2xl font-bold text-green-900 dark:text-green-100">{trackingData.data.summary.submitted}명</p>
                   </div>
-                  <div className="p-4 bg-orange-50 rounded-lg">
-                    <p className="text-sm text-orange-600 mb-1">신청률</p>
-                    <p className="text-2xl font-bold text-orange-900">
+                  <div className="p-4 bg-orange-50 dark:bg-orange-900/20 rounded-xl border border-orange-200 dark:border-orange-800">
+                    <p className="text-sm text-orange-600 dark:text-orange-400 mb-1">신청률</p>
+                    <p className="text-2xl font-bold text-orange-900 dark:text-orange-100">
                       {trackingData.data.summary.notified > 0 
                         ? Math.round((trackingData.data.summary.submitted / trackingData.data.summary.notified) * 100)
                         : 0}%
@@ -735,10 +773,13 @@ export default function SopoReceiptPage() {
             )}
 
             {/* 기간별 이력 */}
-            <div className="bg-white rounded-xl shadow-sm border border-gray-200 p-6">
-              <h2 className="text-lg font-semibold text-gray-900 mb-4">📅 기간별 이력</h2>
+            <div className="bg-white dark:bg-slate-800 rounded-2xl shadow-sm border border-slate-200 dark:border-slate-700 p-6">
+              <h2 className="text-lg font-semibold text-slate-900 dark:text-slate-100 mb-4 flex items-center gap-2">
+                <Icon icon={Calendar} size="lg" className="text-idus-500" />
+                기간별 이력
+              </h2>
               {periodsData?.data?.periods?.length > 0 ? (
-                <div className="grid grid-cols-4 gap-4">
+                <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
                   {periodsData.data.periods.map((period: string) => (
                     <button
                       key={period}
@@ -746,19 +787,19 @@ export default function SopoReceiptPage() {
                         setSelectedPeriod(period)
                         setActiveTab('tracking')
                       }}
-                      className={`p-4 border rounded-lg text-left transition-all hover:shadow-md ${
+                      className={`p-4 border rounded-xl text-left transition-all hover:shadow-md ${
                         selectedPeriod === period 
-                          ? 'border-orange-500 bg-orange-50' 
-                          : 'border-gray-200 hover:border-orange-300'
+                          ? 'border-idus-500 bg-idus-50 dark:bg-idus-900/20' 
+                          : 'border-slate-200 dark:border-slate-700 hover:border-idus-300 dark:hover:border-idus-600'
                       }`}
                     >
-                      <p className="text-lg font-semibold text-gray-900">{formatPeriodDisplay(period)}</p>
-                      <p className="text-sm text-gray-500 mt-1">클릭하여 상세 보기</p>
+                      <p className="text-lg font-semibold text-slate-900 dark:text-slate-100">{formatPeriodDisplay(period)}</p>
+                      <p className="text-sm text-slate-500 dark:text-slate-400 mt-1">클릭하여 상세 보기</p>
                     </button>
                   ))}
                 </div>
               ) : (
-                <div className="text-center py-8 text-gray-500">
+                <div className="text-center py-8 text-slate-500 dark:text-slate-400">
                   발급 이력이 없습니다.
                 </div>
               )}
@@ -769,61 +810,62 @@ export default function SopoReceiptPage() {
 
       {/* 작가 상세 모달 */}
       {selectedArtistDetail && (
-        <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4">
-          <div className="bg-white rounded-xl shadow-xl max-w-4xl w-full max-h-[80vh] overflow-hidden">
-            <div className="p-6 border-b border-gray-200 flex items-center justify-between">
-              <h3 className="text-lg font-semibold">{selectedArtistDetail.artistName} 주문 상세</h3>
+        <div className="fixed inset-0 bg-black/50 dark:bg-black/70 flex items-center justify-center z-50 p-4">
+          <div className="bg-white dark:bg-slate-800 rounded-2xl shadow-xl max-w-4xl w-full max-h-[80vh] overflow-hidden">
+            <div className="p-6 border-b border-slate-200 dark:border-slate-700 flex items-center justify-between">
+              <h3 className="text-lg font-semibold text-slate-900 dark:text-slate-100">{selectedArtistDetail.artistName} 주문 상세</h3>
               <button 
                 onClick={() => setSelectedArtistDetail(null)}
-                className="text-gray-400 hover:text-gray-600"
+                className="text-slate-400 dark:text-slate-500 hover:text-slate-600 dark:hover:text-slate-300"
               >
-                ✕
+                <Icon icon={X} size="lg" />
               </button>
             </div>
             <div className="p-6 overflow-y-auto max-h-[60vh]">
               <table className="w-full text-sm">
-                <thead className="bg-gray-50">
+                <thead className="bg-slate-50 dark:bg-slate-900">
                   <tr>
-                    <th className="px-3 py-2 text-left">주문번호</th>
-                    <th className="px-3 py-2 text-left">작품명</th>
-                    <th className="px-3 py-2 text-center">수량</th>
-                    <th className="px-3 py-2 text-right">금액</th>
-                    <th className="px-3 py-2 text-center">운송사</th>
-                    <th className="px-3 py-2 text-left">국가</th>
+                    <th className="px-3 py-2 text-left text-slate-500 dark:text-slate-400">주문번호</th>
+                    <th className="px-3 py-2 text-left text-slate-500 dark:text-slate-400">작품명</th>
+                    <th className="px-3 py-2 text-center text-slate-500 dark:text-slate-400">수량</th>
+                    <th className="px-3 py-2 text-right text-slate-500 dark:text-slate-400">금액</th>
+                    <th className="px-3 py-2 text-center text-slate-500 dark:text-slate-400">운송사</th>
+                    <th className="px-3 py-2 text-left text-slate-500 dark:text-slate-400">국가</th>
                   </tr>
                 </thead>
-                <tbody className="divide-y divide-gray-100">
+                <tbody className="divide-y divide-slate-100 dark:divide-slate-700">
                   {selectedArtistDetail.orders.map((order, idx) => (
-                    <tr key={idx}>
-                      <td className="px-3 py-2 font-mono text-xs">{order.orderCode}</td>
-                      <td className="px-3 py-2 truncate max-w-[200px]" title={order.productName}>
+                    <tr key={idx} className="hover:bg-slate-50 dark:hover:bg-slate-700/50">
+                      <td className="px-3 py-2 font-mono text-xs text-slate-700 dark:text-slate-300">{order.orderCode}</td>
+                      <td className="px-3 py-2 truncate max-w-[200px] text-slate-900 dark:text-slate-100" title={order.productName}>
                         {order.productName}
                       </td>
-                      <td className="px-3 py-2 text-center">{order.quantity}</td>
-                      <td className="px-3 py-2 text-right">
+                      <td className="px-3 py-2 text-center text-slate-700 dark:text-slate-300">{order.quantity}</td>
+                      <td className="px-3 py-2 text-right text-slate-900 dark:text-slate-100 font-medium">
                         ₩{(order.amount || 0).toLocaleString()}
                       </td>
                       <td className="px-3 py-2 text-center">
-                        <span className="px-2 py-0.5 bg-blue-100 text-blue-700 rounded text-xs">
+                        <span className="px-2 py-0.5 bg-blue-100 dark:bg-blue-900/30 text-blue-700 dark:text-blue-300 rounded text-xs">
                           {order.carrier}
                         </span>
                       </td>
-                      <td className="px-3 py-2">{order.countryCode}</td>
+                      <td className="px-3 py-2 text-slate-700 dark:text-slate-300">{order.countryCode}</td>
                     </tr>
                   ))}
                 </tbody>
               </table>
             </div>
-            <div className="p-4 border-t border-gray-200 flex justify-end gap-3">
+            <div className="p-4 border-t border-slate-200 dark:border-slate-700 flex justify-end gap-3">
               <button
                 onClick={() => handleDownloadOrderSheet(selectedArtistDetail)}
-                className="px-4 py-2 bg-green-500 text-white rounded-lg hover:bg-green-600"
+                className="px-4 py-2 bg-green-500 text-white rounded-lg hover:bg-green-600 flex items-center gap-2"
               >
-                📥 주문내역서 다운로드
+                <Icon icon={Download} size="sm" />
+                주문내역서 다운로드
               </button>
               <button
                 onClick={() => setSelectedArtistDetail(null)}
-                className="px-4 py-2 border border-gray-300 rounded-lg hover:bg-gray-50"
+                className="px-4 py-2 border border-slate-300 dark:border-slate-600 rounded-lg hover:bg-slate-50 dark:hover:bg-slate-700 text-slate-700 dark:text-slate-300"
               >
                 닫기
               </button>
@@ -839,27 +881,27 @@ export default function SopoReceiptPage() {
 function StatCard({ title, value, icon, color }: { 
   title: string
   value: number
-  icon: string
+  icon: any
   color: 'blue' | 'green' | 'red' | 'orange' | 'gray' | 'purple'
 }) {
-  const colors = {
-    blue: 'from-blue-500 to-blue-600',
-    green: 'from-green-500 to-green-600',
-    red: 'from-red-500 to-red-600',
-    orange: 'from-orange-500 to-orange-600',
-    gray: 'from-gray-400 to-gray-500',
-    purple: 'from-purple-500 to-purple-600',
+  const colorClasses = {
+    blue: 'bg-blue-100 dark:bg-blue-900/30 text-blue-600 dark:text-blue-400',
+    green: 'bg-green-100 dark:bg-green-900/30 text-green-600 dark:text-green-400',
+    red: 'bg-red-100 dark:bg-red-900/30 text-red-600 dark:text-red-400',
+    orange: 'bg-orange-100 dark:bg-orange-900/30 text-orange-600 dark:text-orange-400',
+    gray: 'bg-slate-100 dark:bg-slate-700 text-slate-600 dark:text-slate-400',
+    purple: 'bg-purple-100 dark:bg-purple-900/30 text-purple-600 dark:text-purple-400',
   }
 
   return (
-    <div className="bg-white rounded-xl shadow-sm border border-gray-200 p-4">
+    <div className="bg-white dark:bg-slate-800 rounded-xl shadow-sm border border-slate-200 dark:border-slate-700 p-4">
       <div className="flex items-center gap-3">
-        <div className={`w-12 h-12 rounded-lg bg-gradient-to-br ${colors[color]} flex items-center justify-center text-white text-xl`}>
-          {icon}
+        <div className={`w-12 h-12 rounded-lg ${colorClasses[color]} flex items-center justify-center`}>
+          <Icon icon={icon} size="lg" />
         </div>
         <div>
-          <p className="text-sm text-gray-500">{title}</p>
-          <p className="text-2xl font-bold text-gray-900">{value}</p>
+          <p className="text-sm text-slate-500 dark:text-slate-400">{title}</p>
+          <p className="text-2xl font-bold text-slate-900 dark:text-slate-100">{value.toLocaleString()}</p>
         </div>
       </div>
     </div>
