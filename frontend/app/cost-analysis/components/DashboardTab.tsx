@@ -3,6 +3,7 @@
 import { useState, useEffect } from 'react'
 import { useQuery } from '@tanstack/react-query'
 import { costAnalysisApi } from '@/lib/api'
+import { EnhancedLoadingPage } from '@/components/ui'
 import { format, subDays } from 'date-fns'
 import {
   Chart as ChartJS,
