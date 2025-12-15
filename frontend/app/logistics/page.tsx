@@ -6,6 +6,8 @@ import { useState, useMemo, useEffect } from 'react'
 import { useSearchParams, useRouter } from 'next/navigation'
 import Link from 'next/link'
 import OrderDetailModal from '@/components/OrderDetailModal'
+import { Icon } from '@/components/ui/Icon'
+import { Truck, Package } from 'lucide-react'
 
 interface LogisticsItem {
   name: string
