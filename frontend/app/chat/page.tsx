@@ -777,25 +777,29 @@ export default function ChatPage() {
       {/* 메인 영역 */}
       <div className="flex-1 flex flex-col min-w-0">
         {/* 헤더 */}
-        <div className="bg-white border-b border-slate-200 px-6 py-4">
+        <div className="relative bg-idus-500 dark:bg-orange-900/70 rounded-2xl p-4 lg:p-6 mb-6 overflow-hidden shadow-lg dark:shadow-none">
+          <div className="absolute top-0 right-0 w-64 h-64 bg-white/10 dark:bg-white/5 rounded-full -translate-y-1/2 translate-x-1/2"></div>
           <div className="flex items-center justify-between">
             <div className="flex items-center gap-4">
               {!sidebarOpen && (
                 <button
                   onClick={() => setSidebarOpen(true)}
-                  className="p-2 hover:bg-slate-100 rounded-lg text-slate-500 hover:text-slate-700 transition-colors"
+                  className="p-2 hover:bg-white/20 rounded-lg text-white hover:text-white/90 transition-colors"
                   title="사이드바 열기"
                 >
-                  ☰
+                  <Icon icon={BarChart3} size="md" />
                 </button>
               )}
-              <div>
-                <h1 className="text-xl font-bold text-slate-900 flex items-center gap-2">
-                  <span className="text-2xl">💬</span> AI 어시스턴트
-                </h1>
-                <p className="text-xs text-slate-500 mt-0.5">
-                  자연어 기반 데이터 분석 및 질의응답
-                </p>
+              <div className="flex items-center gap-4">
+                <div className="w-12 h-12 lg:w-14 lg:h-14 bg-white/20 dark:bg-white/10 backdrop-blur rounded-xl flex items-center justify-center shadow-lg dark:shadow-none">
+                  <Icon icon={Bot} size="xl" className="text-white" />
+                </div>
+                <div>
+                  <h1 className="text-xl lg:text-2xl font-extrabold text-white tracking-tight">AI 어시스턴트</h1>
+                  <p className="text-idus-100 dark:text-orange-200/80 text-xs lg:text-sm font-medium">
+                    자연어 기반 데이터 분석 및 질의응답
+                  </p>
+                </div>
               </div>
             </div>
             

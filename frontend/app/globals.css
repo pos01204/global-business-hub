@@ -230,7 +230,7 @@ html,
 body {
   max-width: 100vw;
   overflow-x: hidden;
-  font-family: 'SUITE', 'Pretendard', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, 'Noto Sans KR', sans-serif;
+  font-family: 'Pretendard Variable', 'Pretendard', -apple-system, BlinkMacSystemFont, 'Apple SD Gothic Neo', system-ui, Roboto, 'Helvetica Neue', 'Segoe UI', 'Noto Sans KR', 'Malgun Gothic', sans-serif;
   font-weight: 400;
   background-color: var(--background-color);
   color: var(--text-color);

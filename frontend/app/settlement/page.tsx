@@ -177,16 +177,17 @@ export default function SettlementPage() {
   }
 
   return (
-    <div>
-      {/* 페이지 헤더 */}
-      <div className="mb-6">
-        <div className="flex items-center gap-3 mb-2">
-          <div className="w-12 h-12 bg-emerald-500 rounded-lg flex items-center justify-center shadow-lg">
-            <Icon icon={DollarSign} size="lg" className="text-white" />
+    <div className="animate-fade-in">
+      {/* 페이지 헤더 - idus 브랜드 스타일 */}
+      <div className="relative bg-idus-500 dark:bg-orange-900/70 rounded-2xl p-4 lg:p-6 mb-6 overflow-hidden shadow-lg dark:shadow-none">
+        <div className="absolute top-0 right-0 w-64 h-64 bg-white/10 dark:bg-white/5 rounded-full -translate-y-1/2 translate-x-1/2"></div>
+        <div className="flex items-center gap-4">
+          <div className="w-12 h-12 lg:w-14 lg:h-14 bg-white/20 dark:bg-white/10 backdrop-blur rounded-xl flex items-center justify-center shadow-lg dark:shadow-none">
+            <Icon icon={DollarSign} size="xl" className="text-white" />
           </div>
           <div>
-            <h1 className="text-3xl font-bold text-gray-900">물류비 정산</h1>
-            <p className="text-gray-600 text-sm mt-1">물류비 정산서 업로드 및 비용 분석</p>
+            <h1 className="text-xl lg:text-2xl font-extrabold text-white tracking-tight">물류비 정산</h1>
+            <p className="text-idus-100 dark:text-orange-200/80 text-xs lg:text-sm font-medium">물류비 정산서 업로드 및 비용 분석</p>
           </div>
         </div>
       </div>

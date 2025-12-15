@@ -92,15 +92,17 @@ export const EnhancedKPICard = memo(function EnhancedKPICard({
         initial={{ scale: 0.9 }}
         animate={{ scale: 1 }}
         transition={{ duration: 0.3, delay: 0.1 }}
-        className="text-3xl font-bold text-slate-900 dark:text-slate-100 mb-2"
+        className="text-3xl font-bold text-slate-900 dark:text-slate-100 mb-2 break-words overflow-hidden"
       >
-        {prefix}
-        {typeof value === 'number' ? formatValue(displayValue) : value}
-        {suffix && (
-          <span className="text-lg font-normal text-slate-500 dark:text-slate-400 ml-1">
-            {suffix}
-          </span>
-        )}
+        <div className="truncate" title={typeof value === 'number' ? formatValue(displayValue) : String(value)}>
+          {prefix}
+          {typeof value === 'number' ? formatValue(displayValue) : value}
+          {suffix && (
+            <span className="text-lg font-normal text-slate-500 dark:text-slate-400 ml-1">
+              {suffix}
+            </span>
+          )}
+        </div>
       </motion.div>
 
       {change !== undefined && (

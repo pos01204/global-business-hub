@@ -37,20 +37,18 @@ export default function RootLayout({
   return (
     <html lang="ko">
       <head>
-        {/* SUITE 폰트 preload 최적화 */}
+        {/* Pretendard 폰트 - 가변 폰트 (Dynamic Subset) */}
         <link
           rel="preload"
-          href="/fonts/SUITE-Variable-woff2/SUITE-Variable.woff2"
-          as="font"
-          type="font/woff2"
+          href="https://cdn.jsdelivr.net/gh/orioncactus/pretendard@v1.3.9/dist/web/variable/pretendardvariable-dynamic-subset.min.css"
+          as="style"
           crossOrigin="anonymous"
         />
-        {/* Pretendard 폰트 */}
         <link
           rel="stylesheet"
           as="style"
           crossOrigin="anonymous"
-          href="https://cdn.jsdelivr.net/gh/orioncactus/pretendard@v1.3.9/dist/web/variable/pretendardvariable.min.css"
+          href="https://cdn.jsdelivr.net/gh/orioncactus/pretendard@v1.3.9/dist/web/variable/pretendardvariable-dynamic-subset.min.css"
         />
       </head>
       <body className="font-sans antialiased">

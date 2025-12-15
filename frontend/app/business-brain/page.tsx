@@ -631,49 +631,52 @@ export default function BusinessBrainPage() {
 
   return (
     <div className="p-6 space-y-6 min-h-screen">
-      {/* 헤더 */}
+      {/* 헤더 - idus 브랜드 스타일 */}
       <FadeIn>
-        <div className="flex items-center justify-between flex-wrap gap-4">
-          <div className="flex items-center gap-4">
-            <div className="w-14 h-14 bg-purple-500 rounded-2xl flex items-center justify-center shadow-lg">
-              <Icon icon={Brain} size="xl" className="text-white" />
-            </div>
-            <div>
-              <h1 className="text-2xl font-bold text-slate-800 dark:text-slate-100">
-                Business Brain
-              </h1>
-              <p className="text-sm text-slate-500 dark:text-slate-400">
-                AI 기반 경영 인사이트 시스템
-              </p>
-            </div>
-          </div>
-          {healthScore ? (
-            <Tooltip content="비즈니스 전반적인 건강 상태를 종합적으로 평가한 점수입니다. 매출, 고객, 작가, 운영 등 4가지 차원을 종합합니다.">
-              <div className="text-right p-4 bg-white dark:bg-slate-800 rounded-xl shadow-sm border border-slate-200 dark:border-slate-700 cursor-help">
-                <div className="text-xs font-medium text-slate-500 dark:text-slate-400 uppercase tracking-wide mb-1">비즈니스 건강도</div>
-                <div className="flex items-baseline gap-1">
-                  <span className={`text-4xl font-bold ${getScoreColor(healthScore.overall)} transition-all duration-500`}>
-                    <AnimatedNumber value={healthScore.overall} />
-                  </span>
-                  <span className="text-lg text-slate-400">/100</span>
-                </div>
-                <div className="mt-2 h-1.5 bg-slate-200 dark:bg-slate-700 rounded-full overflow-hidden">
-                  <div 
-                    className={`h-full rounded-full transition-all duration-1000 ease-out ${
-                      healthScore.overall >= 70 ? 'bg-emerald-500' :
-                      healthScore.overall >= 50 ? 'bg-amber-500' : 'bg-red-500'
-                    }`}
-                    style={{ width: `${healthScore.overall}%` }}
-                  />
-                </div>
+        <div className="relative bg-idus-500 dark:bg-orange-900/70 rounded-2xl p-4 lg:p-6 mb-6 overflow-hidden shadow-lg dark:shadow-none">
+          <div className="absolute top-0 right-0 w-64 h-64 bg-white/10 dark:bg-white/5 rounded-full -translate-y-1/2 translate-x-1/2"></div>
+          <div className="flex items-center justify-between flex-wrap gap-4 relative">
+            <div className="flex items-center gap-4">
+              <div className="w-12 h-12 lg:w-14 lg:h-14 bg-white/20 dark:bg-white/10 backdrop-blur rounded-xl flex items-center justify-center shadow-lg dark:shadow-none">
+                <Icon icon={Brain} size="xl" className="text-white" />
               </div>
-            </Tooltip>
-          ) : (
-            <div className="p-4 bg-slate-50 dark:bg-slate-800 rounded-xl">
-              <Skeleton className="h-4 w-24 mb-2" />
-              <Skeleton className="h-10 w-20" />
+              <div>
+                <h1 className="text-xl lg:text-2xl font-extrabold text-white tracking-tight">
+                  Business Brain
+                </h1>
+                <p className="text-idus-100 dark:text-orange-200/80 text-xs lg:text-sm font-medium">
+                  AI 기반 경영 인사이트 시스템
+                </p>
+              </div>
             </div>
-          )}
+            {healthScore ? (
+              <Tooltip content="비즈니스 전반적인 건강 상태를 종합적으로 평가한 점수입니다. 매출, 고객, 작가, 운영 등 4가지 차원을 종합합니다.">
+                <div className="text-right p-4 bg-white/20 dark:bg-white/10 backdrop-blur rounded-xl border border-white/30 dark:border-white/20 cursor-help">
+                  <div className="text-xs font-medium text-white/90 dark:text-white/80 uppercase tracking-wide mb-1">비즈니스 건강도</div>
+                  <div className="flex items-baseline gap-1">
+                    <span className={`text-4xl font-bold text-white transition-all duration-500`}>
+                      <AnimatedNumber value={healthScore.overall} />
+                    </span>
+                    <span className="text-lg text-white/80">/100</span>
+                  </div>
+                  <div className="mt-2 h-1.5 bg-white/30 dark:bg-white/20 rounded-full overflow-hidden">
+                    <div 
+                      className={`h-full rounded-full transition-all duration-1000 ease-out ${
+                        healthScore.overall >= 70 ? 'bg-emerald-300' :
+                        healthScore.overall >= 50 ? 'bg-amber-300' : 'bg-red-300'
+                      }`}
+                      style={{ width: `${healthScore.overall}%` }}
+                    />
+                  </div>
+                </div>
+              </Tooltip>
+            ) : (
+              <div className="p-4 bg-white/20 dark:bg-white/10 backdrop-blur rounded-xl border border-white/30 dark:border-white/20">
+                <Skeleton className="h-4 w-24 mb-2 bg-white/30" />
+                <Skeleton className="h-10 w-20 bg-white/30" />
+              </div>
+            )}
+          </div>
         </div>
       </FadeIn>
 
