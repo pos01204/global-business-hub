@@ -6,7 +6,7 @@ import { useState } from 'react'
 import Link from 'next/link'
 import OrderDetailModal from '@/components/OrderDetailModal'
 import { Icon } from '@/components/ui/Icon'
-import { Package, Truck, Search, CheckCircle, Activity, AlertTriangle, Clock, X, Lightbulb } from 'lucide-react'
+import { Package, Truck, Search, CheckCircle, Activity, AlertTriangle, Clock, X, Lightbulb, BarChart3 } from 'lucide-react'
 
 interface CriticalOrder {
   orderCode: string

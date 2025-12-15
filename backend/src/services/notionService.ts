@@ -43,7 +43,7 @@ class NotionService {
 
     try {
       // 사용자 정보 조회로 연결 테스트
-      const response = await this.client.users.me();
+      const response = await this.client.users.me({});
       return {
         connected: true,
         details: {
@@ -106,7 +106,7 @@ class NotionService {
 
         // 중첩된 블록도 재귀적으로 읽기
         for (const block of response.results) {
-          if (block.has_children) {
+          if ('has_children' in block && block.has_children) {
             const childBlocks = await this.getBlockChildren(block.id);
             blocks.push(...childBlocks);
           }
@@ -143,7 +143,7 @@ class NotionService {
 
         // 중첩된 블록도 재귀적으로 읽기
         for (const block of response.results) {
-          if (block.has_children) {
+          if ('has_children' in block && block.has_children) {
             const childBlocks = await this.getBlockChildren(block.id);
             blocks.push(...childBlocks);
           }
