@@ -19,6 +19,8 @@ interface EnhancedLoadingPageProps {
   pngSrc?: string
   // PNG 사용 시 추가 애니메이션 (useGif가 false일 때만)
   animate?: boolean
+  // 하얀 박스 컨테이너로 감싸기 (기본값: true, variant="default"일 때만 적용)
+  container?: boolean
   className?: string
 }
 
@@ -38,6 +40,7 @@ export function EnhancedLoadingPage({
   gifSrc = '/loading/3times.gif',
   pngSrc = '/characters/idus-character-3d.png',
   animate = true,
+  container = true, // 기본값: 하얀 박스로 감싸기
   className,
 }: EnhancedLoadingPageProps) {
   const { character: characterSize, spacing } = sizeMap[size]
@@ -45,19 +48,10 @@ export function EnhancedLoadingPage({
   const isFullscreen = variant === 'fullscreen'
   const isMinimal = variant === 'minimal'
   const characterSrc = useGif ? gifSrc : pngSrc
+  const useContainer = container && variant === 'default' && !isFullscreen && !isMinimal
 
-  return (
-    <div
-      className={cn(
-        'flex flex-col items-center justify-center',
-        isFullscreen && 'fixed inset-0 bg-white/95 dark:bg-slate-900/95 backdrop-blur-sm z-50',
-        !isFullscreen && 'py-12 min-h-[300px] md:min-h-[400px]',
-        className
-      )}
-      role="status"
-      aria-live="polite"
-      aria-label={message}
-    >
+  const content = (
+      <>
       {/* 캐릭터 영역 */}
       {showCharacter && (
         <div className="relative mb-6 md:mb-8" style={{ width: characterSize, height: characterSize }}>
@@ -119,6 +113,58 @@ export function EnhancedLoadingPage({
       >
         {message}
       </motion.p>
+      </>
+  )
+
+  // Fullscreen variant: 전체 화면 오버레이
+  if (isFullscreen) {
+    return (
+      <div
+        className={cn(
+          'fixed inset-0 flex flex-col items-center justify-center bg-white/95 dark:bg-slate-900/95 backdrop-blur-sm z-50',
+          className
+        )}
+        role="status"
+        aria-live="polite"
+        aria-label={message}
+      >
+        {content}
+      </div>
+    )
+  }
+
+  // Container variant: 하얀 박스로 감싸기 (기본값)
+  if (useContainer) {
+    return (
+      <div
+        className={cn(
+          'bg-white dark:bg-slate-900 rounded-xl border border-slate-200 dark:border-slate-800 shadow-sm',
+          'flex flex-col items-center justify-center',
+          'py-12 min-h-[300px] md:min-h-[400px]',
+          className
+        )}
+        role="status"
+        aria-live="polite"
+        aria-label={message}
+      >
+        {content}
+      </div>
+    )
+  }
+
+  // Default variant (container=false): 투명 배경
+  return (
+    <div
+      className={cn(
+        'flex flex-col items-center justify-center',
+        'py-12 min-h-[300px] md:min-h-[400px]',
+        className
+      )}
+      role="status"
+      aria-live="polite"
+      aria-label={message}
+    >
+      {content}
     </div>
   )
 }

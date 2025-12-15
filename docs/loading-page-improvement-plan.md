@@ -10,12 +10,14 @@
 - "데이터를 불러오는 중..." 텍스트만 표시
 - 브랜드 아이덴티티가 부족
 - 시각적 흥미도가 낮음
+- **배경 색상과의 조화 문제**: 로딩 페이지가 페이지 배경과 어색하게 보임
 
 ### 1.3 개선 목표
 - **브랜드 아이덴티티 강화**: idus 캐릭터를 활용한 친근하고 일관된 브랜드 경험
 - **깔끔한 디자인**: 미니멀하고 세련된 디자인으로 전문성 강조
 - **최소한의 요소**: 불필요한 텍스트와 애니메이션 제거, 핵심만 유지
 - **일관성**: 모든 페이지에서 통일된 로딩 경험 제공
+- **배경 조화**: 하얀 박스 컨테이너로 감싸서 페이지 배경과 자연스럽게 조화
 
 ---
 
@@ -70,9 +72,26 @@ interface EnhancedLoadingPageProps {
   showCharacter?: boolean
   animate?: boolean // 애니메이션 활성화 여부 (기본: true)
   
+  // 하얀 박스 컨테이너로 감싸기 (기본값: true, variant="default"일 때만 적용)
+  // 페이지 배경과의 조화를 위해 하얀 박스로 감싸서 표시
+  container?: boolean
+  
   className?: string
 }
 ```
+
+#### 3.1.3 Variant별 동작
+- **`default`**: 기본 로딩 상태
+  - `container=true` (기본값): 하얀 박스로 감싸서 표시 (카드 스타일)
+    - 배경: `bg-white dark:bg-slate-900`
+    - 테두리: `border border-slate-200 dark:border-slate-800`
+    - 그림자: `shadow-sm`
+    - 둥근 모서리: `rounded-xl`
+  - `container=false`: 투명 배경으로 표시
+- **`minimal`**: 최소한의 로딩 (캐릭터 없음, 작은 크기)
+  - 항상 투명 배경
+- **`fullscreen`**: 전체 화면 오버레이
+  - 반투명 배경 + 블러 효과
 
 ### 3.2 애니메이션 설계 (단순화)
 
@@ -807,6 +826,60 @@ frontend/
 - 애니메이션 단순화 (미묘한 float만)
 - 불필요한 요소 제거 (펄스 점, 회전 링, 그라데이션 등)
 - 깔끔한 레이아웃 (충분한 여백 활용)
+- **배경 조화**: 하얀 박스 컨테이너로 감싸서 페이지 배경과 자연스럽게 조화
 
 모든 구현은 기존 디자인 시스템과 일관성을 유지하며, 접근성과 성능을 최우선으로 고려합니다.
+
+---
+
+## 18. 최신 개선 사항 (배경 조화 개선)
+
+### 18.1 문제점
+로딩 페이지가 페이지 배경 색상과 조화롭지 않아 어색하게 보이는 문제가 있었습니다. 특히 비용&손익분석 페이지처럼 하얀 박스 안에서 로딩이 동작할 때 더 자연스럽게 보였습니다.
+
+### 18.2 해결 방안
+`EnhancedLoadingPage` 컴포넌트에 `container` prop을 추가하여 하얀 박스로 감싸는 옵션을 제공합니다.
+
+**주요 변경 사항:**
+- `container` prop 추가 (기본값: `true`)
+- `variant="default"`일 때 기본적으로 하얀 박스로 감싸서 표시
+- 카드 스타일 적용: 하얀 배경, 테두리, 그림자, 둥근 모서리
+- `container=false`로 설정하면 기존처럼 투명 배경 사용 가능
+
+**스타일:**
+```typescript
+// 하얀 박스 스타일 (container=true, 기본값)
+bg-white dark:bg-slate-900
+rounded-xl
+border border-slate-200 dark:border-slate-800
+shadow-sm
+```
+
+### 18.3 사용 예시
+```typescript
+// 기본 사용 (하얀 박스로 감싸짐)
+<EnhancedLoadingPage 
+  message="데이터를 불러오는 중..." 
+  variant="default" 
+/>
+
+// 투명 배경 사용
+<EnhancedLoadingPage 
+  message="데이터를 불러오는 중..." 
+  variant="default" 
+  container={false}
+/>
+
+// 전체 화면 (container prop 무시)
+<EnhancedLoadingPage 
+  message="데이터를 불러오는 중..." 
+  variant="fullscreen" 
+/>
+```
+
+### 18.4 효과
+- 페이지 배경과 자연스럽게 조화
+- 비용&손익분석 페이지와 일관된 디자인
+- 카드 스타일로 더욱 세련된 느낌
+- 기존 코드와의 호환성 유지 (기본값 변경으로 자동 적용)
 
