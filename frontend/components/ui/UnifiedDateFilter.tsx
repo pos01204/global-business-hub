@@ -91,56 +91,58 @@ export function UnifiedDateFilter({
   }
 
   return (
-    <div className={cn('bg-white dark:bg-slate-900 rounded-xl border border-slate-200 dark:border-slate-800 shadow-sm p-4', className)}>
-      <div className="flex flex-col gap-4">
-        {/* 프리셋 버튼 */}
-        <div className="flex items-center gap-2 flex-wrap">
-          <div className="flex items-center gap-2 mr-2">
-            <Icon icon={Calendar} size="sm" className="text-slate-500" />
-            <span className="text-sm font-medium text-slate-700 dark:text-slate-300">기간 선택:</span>
+    <div className={cn('bg-white dark:bg-slate-900 rounded-xl border border-slate-200 dark:border-slate-800 shadow-sm', className)}>
+      <div className="p-4 lg:p-5">
+        <div className="flex flex-col lg:flex-row lg:items-center gap-4">
+          {/* 프리셋 버튼 */}
+          <div className="flex items-center gap-2 flex-wrap flex-1">
+            <div className="flex items-center gap-2 mr-2">
+              <Icon icon={Calendar} size="sm" className="text-slate-500 dark:text-slate-400" />
+              <span className="text-sm font-semibold text-slate-700 dark:text-slate-300">기간 선택:</span>
+            </div>
+            {presets.map((preset) => (
+              <button
+                key={preset.value}
+                onClick={() => handlePresetClick(preset.value)}
+                className={cn(
+                  'px-3 py-1.5 rounded-lg text-sm font-medium transition-all',
+                  periodPreset === preset.value
+                    ? 'bg-idus-500 text-white shadow-sm'
+                    : 'bg-slate-100 dark:bg-slate-800 text-slate-700 dark:text-slate-300 hover:bg-slate-200 dark:hover:bg-slate-700'
+                )}
+              >
+                {preset.label}
+              </button>
+            ))}
           </div>
-          {presets.map((preset) => (
-            <button
-              key={preset.value}
-              onClick={() => handlePresetClick(preset.value)}
-              className={cn(
-                'px-3 py-1.5 rounded-lg text-sm font-medium transition-all',
-                periodPreset === preset.value
-                  ? 'bg-idus-500 text-white shadow-sm'
-                  : 'bg-slate-100 dark:bg-slate-800 text-slate-700 dark:text-slate-300 hover:bg-slate-200 dark:hover:bg-slate-700'
-              )}
-            >
-              {preset.label}
-            </button>
-          ))}
-        </div>
 
-        {/* 커스텀 날짜 선택 및 조회 버튼 */}
-        <div className="flex flex-col sm:flex-row items-stretch sm:items-center gap-3 pt-3 border-t border-slate-200 dark:border-slate-700">
-          <div className="flex items-center gap-2 flex-1">
-            <input
-              type="date"
-              value={startDate}
-              onChange={(e) => handleCustomDateChange('start', e.target.value)}
-              className="flex-1 border border-slate-200 dark:border-slate-600 bg-white dark:bg-slate-800 text-sm text-slate-700 dark:text-slate-300 focus:outline-none focus:ring-2 focus:ring-idus-500 rounded-lg px-3 py-2"
-            />
-            <span className="text-slate-400 dark:text-slate-500">~</span>
-            <input
-              type="date"
-              value={endDate}
-              onChange={(e) => handleCustomDateChange('end', e.target.value)}
-              className="flex-1 border border-slate-200 dark:border-slate-600 bg-white dark:bg-slate-800 text-sm text-slate-700 dark:text-slate-300 focus:outline-none focus:ring-2 focus:ring-idus-500 rounded-lg px-3 py-2"
-            />
+          {/* 커스텀 날짜 선택 및 조회 버튼 */}
+          <div className="flex items-center gap-3 lg:border-l lg:border-slate-200 dark:lg:border-slate-700 lg:pl-4">
+            <div className="flex items-center gap-2">
+              <input
+                type="date"
+                value={startDate}
+                onChange={(e) => handleCustomDateChange('start', e.target.value)}
+                className="border border-slate-200 dark:border-slate-600 bg-white dark:bg-slate-800 text-sm text-slate-700 dark:text-slate-300 focus:outline-none focus:ring-2 focus:ring-idus-500 rounded-lg px-3 py-2 w-36"
+              />
+              <span className="text-slate-400 dark:text-slate-500">~</span>
+              <input
+                type="date"
+                value={endDate}
+                onChange={(e) => handleCustomDateChange('end', e.target.value)}
+                className="border border-slate-200 dark:border-slate-600 bg-white dark:bg-slate-800 text-sm text-slate-700 dark:text-slate-300 focus:outline-none focus:ring-2 focus:ring-idus-500 rounded-lg px-3 py-2 w-36"
+              />
+            </div>
+            {showApplyButton && onApply && (
+              <button
+                onClick={onApply}
+                className="px-6 py-2 bg-idus-500 text-white text-sm font-semibold rounded-lg hover:bg-idus-600 transition-colors shadow-sm flex items-center justify-center gap-2"
+              >
+                <Icon icon={Search} size="sm" />
+                조회
+              </button>
+            )}
           </div>
-          {showApplyButton && onApply && (
-            <button
-              onClick={onApply}
-              className="px-6 py-2 bg-idus-500 text-white text-sm font-semibold rounded-lg hover:bg-idus-600 transition-colors shadow-sm flex items-center justify-center gap-2"
-            >
-              <Icon icon={Search} size="sm" />
-              조회
-            </button>
-          )}
         </div>
       </div>
     </div>

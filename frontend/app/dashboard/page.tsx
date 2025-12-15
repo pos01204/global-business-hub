@@ -177,36 +177,44 @@ export default function DashboardPage() {
 
   return (
     <div className="space-y-6">
-      {/* 페이지 헤더 */}
-      <div className="flex flex-col lg:flex-row lg:items-center justify-between gap-4">
-        <div>
-          <h1 className="text-2xl font-bold text-slate-900 dark:text-slate-100">대시보드</h1>
-          <p className="text-slate-500 dark:text-slate-400 text-sm mt-1">Global Business 핵심 현황</p>
-        </div>
-        
-        <div className="flex flex-col sm:flex-row items-stretch sm:items-center gap-3">
-          {/* 통합 날짜 필터 */}
-          <UnifiedDateFilter
-            startDate={startDate}
-            endDate={endDate}
-            periodPreset={periodPreset}
-            onStartDateChange={setStartDate}
-            onEndDateChange={setEndDate}
-            onPeriodChange={handlePeriodChange}
-            showApplyButton={false}
-            className="flex-1"
-          />
+      {/* 페이지 헤더 - idus 브랜드 스타일 */}
+      <div className="relative bg-idus-500 dark:bg-orange-900/70 rounded-2xl p-4 lg:p-6 mb-6 overflow-hidden shadow-lg dark:shadow-none">
+        <div className="absolute top-0 right-0 w-64 h-64 bg-white/10 dark:bg-white/5 rounded-full -translate-y-1/2 translate-x-1/2"></div>
+        <div className="relative flex items-center justify-between flex-wrap gap-4">
+          <div className="flex items-center gap-4">
+            <div className="w-12 h-12 lg:w-14 lg:h-14 bg-white/20 dark:bg-white/10 backdrop-blur rounded-xl flex items-center justify-center shadow-lg dark:shadow-none">
+              <Icon icon={BarChart3} size="xl" className="text-white" />
+            </div>
+            <div>
+              <h1 className="text-xl lg:text-2xl font-extrabold text-white tracking-tight">대시보드</h1>
+              <p className="text-idus-100 dark:text-orange-200/80 text-xs lg:text-sm font-medium">
+                Global Business 핵심 현황
+              </p>
+            </div>
+          </div>
           
           {/* AI 빠른 질문 */}
           <Link 
             href="/chat"
-            className="flex items-center justify-center gap-2 px-4 py-2.5 bg-idus-500 text-white rounded-lg hover:bg-idus-600 transition-all shadow-sm hover:shadow-md min-h-[44px]"
+            className="flex items-center justify-center gap-2 px-4 py-2.5 bg-white/20 dark:bg-white/10 backdrop-blur text-white rounded-lg hover:bg-white/30 dark:hover:bg-white/20 transition-all shadow-sm hover:shadow-md border border-white/30"
           >
             <Icon icon={MessageCircle} size="sm" className="text-white" />
             <span className="text-sm font-medium">AI에게 질문</span>
           </Link>
         </div>
       </div>
+
+      {/* 통합 날짜 필터 */}
+      <UnifiedDateFilter
+        startDate={startDate}
+        endDate={endDate}
+        periodPreset={periodPreset}
+        onStartDateChange={setStartDate}
+        onEndDateChange={setEndDate}
+        onPeriodChange={handlePeriodChange}
+        showApplyButton={false}
+        className="mb-6"
+      />
 
       {/* 통합 대시보드 뷰 (v4.2 Phase 3) */}
       <div className="grid lg:grid-cols-3 gap-6">
