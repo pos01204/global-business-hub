@@ -8,7 +8,8 @@ import Link from 'next/link'
 import OrderDetailModal from '@/components/OrderDetailModal'
 import { Icon } from '@/components/ui/Icon'
 import { EnhancedLoadingPage } from '@/components/ui'
-import { Truck, Package } from 'lucide-react'
+import { Truck, Package, Filter, ExternalLink } from 'lucide-react'
+import { cn } from '@/lib/utils'
 
 interface LogisticsItem {
   name: string
@@ -85,9 +86,9 @@ const countryMap: Record<string, { flag: string; name: string }> = {
 function CountryBadge({ code }: { code: string }) {
   const country = countryMap[code] || { flag: '🌐', name: code }
   return (
-    <span className="inline-flex items-center gap-1 text-sm text-gray-700 whitespace-nowrap">
+    <span className="inline-flex items-center gap-1.5 px-2 py-1 bg-slate-100 dark:bg-slate-800 rounded-lg text-sm whitespace-nowrap">
       <span>{country.flag}</span>
-      <span className="font-medium">{code}</span>
+      <span className="font-medium text-slate-700 dark:text-slate-300">{code}</span>
     </span>
   )
 }
@@ -96,29 +97,48 @@ function CountryBadge({ code }: { code: string }) {
 function StatusBadge({ status }: { status: string }) {
   const statusLower = status.toLowerCase()
   
-  let style = 'bg-gray-100 text-gray-700'
+  let style = 'bg-slate-100 dark:bg-slate-800 text-slate-700 dark:text-slate-300'
   
   if (statusLower.includes('결제 완료')) {
-    style = 'bg-blue-100 text-blue-700'
+    style = 'bg-blue-100 dark:bg-blue-900/30 text-blue-700 dark:text-blue-400'
   } else if (statusLower.includes('작가') && statusLower.includes('송장')) {
-    style = 'bg-orange-100 text-orange-700'
+    style = 'bg-orange-100 dark:bg-orange-900/30 text-orange-700 dark:text-orange-400'
   } else if (statusLower.includes('작가') && statusLower.includes('발송')) {
-    style = 'bg-amber-100 text-amber-700'
+    style = 'bg-amber-100 dark:bg-amber-900/30 text-amber-700 dark:text-amber-400'
   } else if (statusLower.includes('검수 대기') || statusLower.includes('입고')) {
-    style = 'bg-yellow-100 text-yellow-700'
+    style = 'bg-yellow-100 dark:bg-yellow-900/30 text-yellow-700 dark:text-yellow-400'
   } else if (statusLower.includes('검수완료') || statusLower.includes('검수 완료')) {
-    style = 'bg-green-100 text-green-700'
+    style = 'bg-green-100 dark:bg-green-900/30 text-green-700 dark:text-green-400'
   } else if (statusLower.includes('국제배송') || statusLower.includes('배송중') || statusLower.includes('배송 중')) {
-    style = 'bg-purple-100 text-purple-700'
+    style = 'bg-purple-100 dark:bg-purple-900/30 text-purple-700 dark:text-purple-400'
   } else if (statusLower.includes('완료') || statusLower.includes('도착')) {
-    style = 'bg-emerald-100 text-emerald-700'
+    style = 'bg-emerald-100 dark:bg-emerald-900/30 text-emerald-700 dark:text-emerald-400'
   }
   
   return (
-    <span className={`px-2 py-0.5 rounded text-xs font-medium whitespace-nowrap ${style}`}>
+    <span className={cn('px-2.5 py-1 rounded-lg text-xs font-semibold whitespace-nowrap', style)}>
       {status}
     </span>
   )
+}
+
+// 상태별 카드 테두리/배경 색상
+function getStatusColor(status: string) {
+  const statusLower = status.toLowerCase()
+  
+  if (statusLower.includes('결제 완료')) {
+    return 'border-blue-300 dark:border-blue-800 bg-blue-50/50 dark:bg-blue-900/10'
+  } else if (statusLower.includes('송장')) {
+    return 'border-orange-300 dark:border-orange-800 bg-orange-50/50 dark:bg-orange-900/10'
+  } else if (statusLower.includes('검수 대기') || statusLower.includes('입고')) {
+    return 'border-yellow-300 dark:border-yellow-800 bg-yellow-50/50 dark:bg-yellow-900/10'
+  } else if (statusLower.includes('배송') || statusLower.includes('배송중') || statusLower.includes('국제배송')) {
+    return 'border-purple-300 dark:border-purple-800 bg-purple-50/50 dark:bg-purple-900/10'
+  } else if (statusLower.includes('완료') || statusLower.includes('도착')) {
+    return 'border-emerald-300 dark:border-emerald-800 bg-emerald-50/50 dark:bg-emerald-900/10'
+  }
+  
+  return 'border-slate-200 dark:border-slate-800 bg-white dark:bg-slate-900'
 }
 
 export default function LogisticsPage() {
@@ -276,49 +296,96 @@ export default function LogisticsPage() {
         </div>
       </div>
 
-      {/* 통계 카드 */}
-      <div className="grid grid-cols-2 md:grid-cols-4 gap-4 mb-6">
-        <div className="card">
-          <p className="text-sm text-gray-500 mb-1">전체 주문</p>
-          <p className="text-2xl font-bold text-gray-900">{stats.total}</p>
+      {/* 통계 카드 + 빠른 필터 통합 */}
+      <div className="bg-white dark:bg-slate-900 rounded-xl border border-slate-200 dark:border-slate-800 p-5 lg:p-6 mb-6 shadow-sm">
+        {/* 통계 카드 */}
+        <div className="grid grid-cols-2 md:grid-cols-4 gap-4 mb-5">
+          <div className="bg-slate-50 dark:bg-slate-800 rounded-xl p-4 border border-slate-200 dark:border-slate-700">
+            <p className="text-xs lg:text-sm text-slate-500 dark:text-slate-400 mb-1 font-medium">전체 주문</p>
+            <p className="text-xl lg:text-2xl font-bold text-slate-900 dark:text-slate-100">
+              {stats.total} <span className="text-sm font-normal text-slate-500 dark:text-slate-400">건</span>
+            </p>
+          </div>
+          <div className="bg-orange-50 dark:bg-orange-900/20 rounded-xl p-4 border border-orange-200 dark:border-orange-800">
+            <p className="text-xs lg:text-sm text-orange-600 dark:text-orange-400 mb-1 font-medium">송장 입력 대기</p>
+            <p className="text-xl lg:text-2xl font-bold text-orange-700 dark:text-orange-300">
+              {Object.entries(stats.byStatus).filter(([k]) => k.includes('송장')).reduce((a, [, v]) => a + v, 0)} <span className="text-sm font-normal">건</span>
+            </p>
+          </div>
+          <div className="bg-purple-50 dark:bg-purple-900/20 rounded-xl p-4 border border-purple-200 dark:border-purple-800">
+            <p className="text-xs lg:text-sm text-purple-600 dark:text-purple-400 mb-1 font-medium">국제 배송중</p>
+            <p className="text-xl lg:text-2xl font-bold text-purple-700 dark:text-purple-300">
+              {Object.entries(stats.byStatus).filter(([k]) => k.includes('배송')).reduce((a, [, v]) => a + v, 0)} <span className="text-sm font-normal">건</span>
+            </p>
+          </div>
+          <div className="bg-slate-50 dark:bg-slate-800 rounded-xl p-4 border border-slate-200 dark:border-slate-700">
+            <p className="text-xs lg:text-sm text-slate-500 dark:text-slate-400 mb-1 font-medium">배송 국가</p>
+            <p className="text-xl lg:text-2xl font-bold text-slate-900 dark:text-slate-100">
+              {Object.keys(stats.byCountry).length} <span className="text-sm font-normal text-slate-500 dark:text-slate-400">개국</span>
+            </p>
+          </div>
         </div>
-        <div className="card">
-          <p className="text-sm text-gray-500 mb-1">송장 입력 대기</p>
-          <p className="text-2xl font-bold text-orange-600">
-            {Object.entries(stats.byStatus).filter(([k]) => k.includes('송장')).reduce((a, [, v]) => a + v, 0)}
-          </p>
-        </div>
-        <div className="card">
-          <p className="text-sm text-gray-500 mb-1">국제 배송중</p>
-          <p className="text-2xl font-bold text-purple-600">
-            {Object.entries(stats.byStatus).filter(([k]) => k.includes('배송')).reduce((a, [, v]) => a + v, 0)}
-          </p>
-        </div>
-        <div className="card">
-          <p className="text-sm text-gray-500 mb-1">배송 국가</p>
-          <p className="text-2xl font-bold text-gray-900">{Object.keys(stats.byCountry).length}</p>
+        
+        {/* 빠른 필터 (인라인) */}
+        <div className="flex items-center gap-2 pt-4 border-t border-slate-200 dark:border-slate-700 flex-wrap">
+          <span className="text-sm font-semibold text-slate-600 dark:text-slate-400 mr-2">빠른 필터:</span>
+          <button
+            onClick={() => {
+              setSelectedStatus('모든 상태')
+              setSelectedCountry('모든 국가')
+            }}
+            className={cn(
+              'px-3 py-1.5 rounded-lg text-sm font-medium transition-all whitespace-nowrap',
+              selectedStatus === '모든 상태' && selectedCountry === '모든 국가'
+                ? 'bg-slate-900 dark:bg-slate-700 text-white shadow-sm'
+                : 'bg-slate-100 dark:bg-slate-800 text-slate-600 dark:text-slate-300 hover:bg-slate-200 dark:hover:bg-slate-700'
+            )}
+          >
+            전체 ({stats.total})
+          </button>
+          {/* 주요 국가 빠른 필터 */}
+          {['JP', 'US', 'SG', 'HK'].filter(c => stats.byCountry[c]).map(countryCode => (
+            <button
+              key={countryCode}
+              onClick={() => setSelectedCountry(countryCode)}
+              className={cn(
+                'px-3 py-1.5 rounded-lg text-sm font-medium transition-all whitespace-nowrap',
+                selectedCountry === countryCode
+                  ? 'bg-idus-500 text-white shadow-sm'
+                  : 'bg-slate-100 dark:bg-slate-800 text-slate-600 dark:text-slate-300 hover:bg-slate-200 dark:hover:bg-slate-700'
+              )}
+            >
+              {countryMap[countryCode]?.flag} {countryCode} ({stats.byCountry[countryCode] || 0})
+            </button>
+          ))}
         </div>
       </div>
 
-      {/* 필터 */}
-      <div className="card mb-6">
+      {/* 통합 필터 섹션 */}
+      <div className="bg-white dark:bg-slate-900 rounded-xl border border-slate-200 dark:border-slate-800 p-5 mb-6 shadow-sm">
+        <div className="flex items-center gap-2 mb-4">
+          <Icon icon={Filter} size="sm" className="text-slate-500 dark:text-slate-400" />
+          <h3 className="text-sm font-semibold text-slate-700 dark:text-slate-300">필터</h3>
+        </div>
+        
+        {/* 검색 및 드롭다운 */}
         <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
           <div>
-            <label className="block text-sm font-medium text-gray-700 mb-1.5">주문번호</label>
+            <label className="block text-sm font-medium text-slate-700 dark:text-slate-300 mb-2">주문번호</label>
             <input
               type="text"
               value={searchTerm}
               onChange={(e) => setSearchTerm(e.target.value)}
               placeholder="주문번호로 검색..."
-              className="w-full border border-gray-300 rounded px-3 py-2 text-sm focus:ring-2 focus:ring-primary focus:border-primary"
+              className="w-full border border-slate-200 dark:border-slate-600 rounded-lg px-4 py-2.5 text-sm bg-white dark:bg-slate-800 text-slate-900 dark:text-slate-100 focus:ring-2 focus:ring-idus-500 focus:border-idus-500 transition-all"
             />
           </div>
           <div>
-            <label className="block text-sm font-medium text-gray-700 mb-1.5">국가</label>
+            <label className="block text-sm font-medium text-slate-700 dark:text-slate-300 mb-2">국가</label>
             <select
               value={selectedCountry}
               onChange={(e) => setSelectedCountry(e.target.value)}
-              className="w-full border border-gray-300 rounded px-3 py-2 text-sm focus:ring-2 focus:ring-primary focus:border-primary"
+              className="w-full border border-slate-200 dark:border-slate-600 rounded-lg px-4 py-2.5 text-sm bg-white dark:bg-slate-800 text-slate-900 dark:text-slate-100 focus:ring-2 focus:ring-idus-500 focus:border-idus-500 transition-all"
             >
               {countries.map((country) => {
                 const countryInfo = countryMap[country]
@@ -331,11 +398,11 @@ export default function LogisticsPage() {
             </select>
           </div>
           <div>
-            <label className="block text-sm font-medium text-gray-700 mb-1.5">상태</label>
+            <label className="block text-sm font-medium text-slate-700 dark:text-slate-300 mb-2">상태</label>
             <select
               value={selectedStatus}
               onChange={(e) => setSelectedStatus(e.target.value)}
-              className="w-full border border-gray-300 rounded px-3 py-2 text-sm focus:ring-2 focus:ring-primary focus:border-primary"
+              className="w-full border border-slate-200 dark:border-slate-600 rounded-lg px-4 py-2.5 text-sm bg-white dark:bg-slate-800 text-slate-900 dark:text-slate-100 focus:ring-2 focus:ring-idus-500 focus:border-idus-500 transition-all"
             >
               {statuses.map((status) => (
                 <option key={status} value={status}>
@@ -347,147 +414,160 @@ export default function LogisticsPage() {
         </div>
       </div>
 
-      {/* 테이블 */}
-      <div className="card overflow-hidden">
-        <div className="overflow-x-auto">
-          <table className="w-full min-w-[1000px]">
-            <thead className="bg-gray-50 border-b border-gray-200">
-              <tr>
-                <th className="text-left py-4 px-4 font-semibold text-gray-700 min-w-[150px]">주문번호</th>
-                <th className="text-left py-4 px-4 font-semibold text-gray-700 min-w-[300px]">작품 목록</th>
-                <th className="text-center py-4 px-4 font-semibold text-gray-700 min-w-[80px]">국가</th>
-                <th className="text-left py-4 px-4 font-semibold text-gray-700 min-w-[140px]">종합 상태</th>
-                <th className="text-left py-4 px-4 font-semibold text-gray-700 min-w-[140px]">국내배송</th>
-                <th className="text-left py-4 px-4 font-semibold text-gray-700 min-w-[140px]">국제배송</th>
-                <th className="text-right py-4 px-4 font-semibold text-gray-700 min-w-[100px]">최종 업데이트</th>
-              </tr>
-            </thead>
-            <tbody>
-              {filteredData.length === 0 ? (
-                <tr>
-                  <td colSpan={7} className="text-center py-12">
-                    <div className="text-gray-400">
-                      <div className="text-4xl mb-2">📭</div>
-                      <p className="font-medium">표시할 데이터가 없습니다.</p>
-                    </div>
-                  </td>
-                </tr>
-              ) : (
-                filteredData
-                  .sort((a: LogisticsOrder, b: LogisticsOrder) =>
-                    b.orderCode.localeCompare(a.orderCode)
-                  )
-                  .map((order: LogisticsOrder) => {
-                    const isExpanded = expandedItems.has(order.orderCode)
-                    const firstItem = order.items[0]
-                    const hasMultipleItems = order.items.length > 1
+      {/* 향상된 카드 스타일 테이블 */}
+      <div className="space-y-3">
+        {filteredData.length === 0 ? (
+          <div className="bg-white dark:bg-slate-900 rounded-xl border border-slate-200 dark:border-slate-800 p-12 text-center">
+            <div className="w-20 h-20 bg-slate-100 dark:bg-slate-800 rounded-full flex items-center justify-center mx-auto mb-4">
+              <Icon icon={Truck} size="xl" className="text-slate-400" />
+            </div>
+            <h3 className="text-lg font-semibold text-slate-900 dark:text-slate-100 mb-2">
+              추적할 주문이 없습니다
+            </h3>
+            <p className="text-slate-500 dark:text-slate-400 text-sm mb-4">
+              필터 조건을 변경하여 다른 주문을 확인해보세요.
+            </p>
+            <button
+              onClick={() => {
+                setSelectedStatus('모든 상태')
+                setSelectedCountry('모든 국가')
+                setSearchTerm('')
+              }}
+              className="px-4 py-2 text-sm font-medium text-idus-500 hover:text-idus-600 hover:bg-idus-50 dark:hover:bg-idus-900/20 rounded-lg transition-colors"
+            >
+              필터 초기화
+            </button>
+          </div>
+        ) : (
+          <>
+            {filteredData
+              .sort((a: LogisticsOrder, b: LogisticsOrder) =>
+                b.orderCode.localeCompare(a.orderCode)
+              )
+              .map((order: LogisticsOrder) => {
+                const isExpanded = expandedItems.has(order.orderCode)
+                const hasMultipleItems = order.items.length > 1
 
-                    return (
-                      <tr key={order.orderCode} className="border-b hover:bg-gray-50 transition-colors">
-                        <td className="py-4 px-4">
+                return (
+                  <div
+                    key={order.orderCode}
+                    className={cn(
+                      'bg-white dark:bg-slate-900 rounded-xl border-2 p-5 transition-all',
+                      'hover:shadow-lg hover:-translate-y-0.5',
+                      getStatusColor(order.logisticsStatus)
+                    )}
+                  >
+                    {/* 카드 헤더: 주문번호 + 상태 + 국가 */}
+                    <div className="flex items-start justify-between mb-4">
+                      <div className="flex-1">
+                        <div className="flex items-center gap-3 mb-2 flex-wrap">
                           <button
                             onClick={() => openOrderDetailModal(order.orderCode)}
-                            className="text-primary hover:underline font-medium text-sm"
+                            className="text-lg font-bold text-idus-500 hover:text-idus-600 hover:underline transition-colors"
                           >
                             {order.orderCode}
                           </button>
-                        </td>
-                        <td className="py-4 px-4">
-                          <div className="item-list-cell">
-                            <div className="flex items-start gap-2">
-                              {firstItem && (
-                                <Link
-                                  href={firstItem.url}
-                                  target="_blank"
-                                  className="flex-1 text-gray-900 hover:text-primary hover:underline font-medium text-sm line-clamp-1"
-                                  title={`${firstItem.name} (수량: ${firstItem.quantity})`}
-                                >
-                                  {firstItem.name} <span className="text-gray-500">(수량: {firstItem.quantity})</span>
-                                </Link>
-                              )}
-                              {hasMultipleItems && (
-                                <button
-                                  onClick={() => toggleItems(order.orderCode)}
-                                  className="flex-shrink-0 w-6 h-6 flex items-center justify-center rounded-full bg-gray-100 hover:bg-gray-200 text-gray-600 text-xs transition-colors"
-                                  title={isExpanded ? '숨기기' : '전체 목록 보기'}
-                                >
-                                  {isExpanded ? '▲' : `+${order.items.length - 1}`}
-                                </button>
-                              )}
-                            </div>
-                            {hasMultipleItems && isExpanded && (
-                              <ul className="mt-2 space-y-1 pl-3 border-l-2 border-gray-200">
-                                {order.items.slice(1).map((item, idx) => (
-                                  <li key={idx}>
-                                    <Link
-                                      href={item.url}
-                                      target="_blank"
-                                      className="text-sm text-gray-600 hover:text-primary hover:underline line-clamp-1"
-                                      title={`${item.name} (수량: ${item.quantity})`}
-                                    >
-                                      {item.name} <span className="text-gray-400">(수량: {item.quantity})</span>
-                                    </Link>
-                                  </li>
-                                ))}
-                              </ul>
-                            )}
-                          </div>
-                        </td>
-                        <td className="py-4 px-4 text-center">
-                          <CountryBadge code={order.country} />
-                        </td>
-                        <td className="py-4 px-4">
                           <StatusBadge status={order.logisticsStatus} />
-                        </td>
-                        <td className="py-4 px-4">
-                          {order.artistTracking.number !== 'N/A' ? (
-                            <Link
-                              href={order.artistTracking.url}
-                              target="_blank"
-                              className="inline-flex items-center gap-1.5 text-sm text-primary hover:underline"
-                            >
-                              <Icon icon={Package} size="xs" className="text-slate-600 dark:text-slate-400" />
-                              <span className="font-medium">{order.artistTracking.number}</span>
-                            </Link>
-                          ) : (
-                            <span className="text-gray-400 text-sm">—</span>
-                          )}
-                        </td>
-                        <td className="py-4 px-4">
-                          {order.internationalTracking.number !== 'N/A' ? (
-                            <Link
-                              href={order.internationalTracking.url}
-                              target="_blank"
-                              className="inline-flex items-center gap-1.5 text-sm text-primary hover:underline"
-                            >
-                              <span className="text-xs">✈️</span>
-                              <span className="font-medium">{order.internationalTracking.number}</span>
-                            </Link>
-                          ) : (
-                            <span className="text-gray-400 text-sm">—</span>
-                          )}
-                        </td>
-                        <td className="py-4 px-4 text-right text-sm text-gray-600">
-                          {order.lastUpdate}
-                        </td>
-                      </tr>
-                    )
-                  })
-              )}
-            </tbody>
-          </table>
-        </div>
-        
-        {/* 테이블 푸터 */}
-        {filteredData.length > 0 && (
-          <div className="px-4 py-3 bg-gray-50 border-t border-gray-200 flex items-center justify-between">
-            <p className="text-sm text-gray-600">
-              총 <span className="font-semibold text-gray-900">{filteredData.length}</span>개 주문
-            </p>
-            <p className="text-xs text-gray-500">
-              마지막 업데이트: {new Date().toLocaleString('ko-KR')}
-            </p>
-          </div>
+                          <CountryBadge code={order.country} />
+                        </div>
+                        <p className="text-sm text-slate-500 dark:text-slate-400">
+                          최종 업데이트: {order.lastUpdate}
+                        </p>
+                      </div>
+                      <button
+                        onClick={() => openOrderDetailModal(order.orderCode)}
+                        className="px-3 py-1.5 text-sm text-slate-600 dark:text-slate-400 hover:text-idus-500 hover:bg-slate-100 dark:hover:bg-slate-800 rounded-lg transition-colors"
+                      >
+                        상세보기
+                      </button>
+                    </div>
+                    
+                    {/* 작품 목록 */}
+                    <div className="mb-4">
+                      <div className="flex items-center gap-2 mb-2">
+                        <Icon icon={Package} size="sm" className="text-slate-400" />
+                        <span className="text-sm font-semibold text-slate-700 dark:text-slate-300">작품 목록</span>
+                        {hasMultipleItems && (
+                          <span className="text-xs text-slate-500 dark:text-slate-400 bg-slate-100 dark:bg-slate-800 px-2 py-0.5 rounded-full">
+                            {order.items.length}개
+                          </span>
+                        )}
+                      </div>
+                      <div className="space-y-2">
+                        {order.items.slice(0, isExpanded ? order.items.length : 2).map((item, idx) => (
+                          <Link
+                            key={idx}
+                            href={item.url}
+                            target="_blank"
+                            className="block text-sm text-slate-900 dark:text-slate-100 hover:text-idus-500 hover:underline line-clamp-1"
+                          >
+                            {item.name} <span className="text-slate-500 dark:text-slate-400">(수량: {item.quantity})</span>
+                          </Link>
+                        ))}
+                        {order.items.length > 2 && (
+                          <button
+                            onClick={() => toggleItems(order.orderCode)}
+                            className="text-sm text-idus-500 hover:text-idus-600 font-medium"
+                          >
+                            {isExpanded ? '접기' : `+${order.items.length - 2}개 더 보기`}
+                          </button>
+                        )}
+                      </div>
+                    </div>
+                    
+                    {/* 추적 정보 */}
+                    <div className="grid grid-cols-1 md:grid-cols-2 gap-4 pt-4 border-t border-slate-200 dark:border-slate-700">
+                      <div>
+                        <div className="flex items-center gap-2 mb-2">
+                          <Icon icon={Package} size="sm" className="text-slate-400" />
+                          <span className="text-xs font-medium text-slate-500 dark:text-slate-400">국내배송</span>
+                        </div>
+                        {order.artistTracking.number !== 'N/A' ? (
+                          <Link
+                            href={order.artistTracking.url}
+                            target="_blank"
+                            className="inline-flex items-center gap-2 px-3 py-2 bg-blue-50 dark:bg-blue-900/20 text-blue-700 dark:text-blue-400 rounded-lg hover:bg-blue-100 dark:hover:bg-blue-900/30 transition-colors text-sm font-medium"
+                          >
+                            {order.artistTracking.number}
+                            <Icon icon={ExternalLink} size="xs" />
+                          </Link>
+                        ) : (
+                          <span className="text-sm text-slate-400 dark:text-slate-500">—</span>
+                        )}
+                      </div>
+                      <div>
+                        <div className="flex items-center gap-2 mb-2">
+                          <Icon icon={Truck} size="sm" className="text-slate-400" />
+                          <span className="text-xs font-medium text-slate-500 dark:text-slate-400">국제배송</span>
+                        </div>
+                        {order.internationalTracking.number !== 'N/A' ? (
+                          <Link
+                            href={order.internationalTracking.url}
+                            target="_blank"
+                            className="inline-flex items-center gap-2 px-3 py-2 bg-purple-50 dark:bg-purple-900/20 text-purple-700 dark:text-purple-400 rounded-lg hover:bg-purple-100 dark:hover:bg-purple-900/30 transition-colors text-sm font-medium"
+                          >
+                            {order.internationalTracking.number}
+                            <Icon icon={ExternalLink} size="xs" />
+                          </Link>
+                        ) : (
+                          <span className="text-sm text-slate-400 dark:text-slate-500">—</span>
+                        )}
+                      </div>
+                    </div>
+                  </div>
+                )
+              })}
+            
+            {/* 카드뷰 푸터 */}
+            <div className="px-4 py-3 bg-slate-50 dark:bg-slate-800 rounded-xl border border-slate-200 dark:border-slate-700 flex flex-col sm:flex-row items-start sm:items-center justify-between gap-2">
+              <p className="text-sm text-slate-600 dark:text-slate-400">
+                총 <span className="font-semibold text-slate-900 dark:text-slate-100">{filteredData.length}</span>개 주문
+              </p>
+              <p className="text-xs text-slate-500 dark:text-slate-500">
+                마지막 업데이트: {new Date().toLocaleString('ko-KR', { month: 'short', day: 'numeric', hour: '2-digit', minute: '2-digit' })}
+              </p>
+            </div>
+          </>
         )}
       </div>
 

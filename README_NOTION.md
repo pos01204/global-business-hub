@@ -108,3 +108,4 @@ console.log(data.text);   // 텍스트 형식 데이터
 2. **페이지 공유 필수**: API로 접근하려면 각 페이지를 통합에 공유해야 함
 3. **Rate Limit**: Notion API는 초당 3회 요청 제한이 있음
 
+
