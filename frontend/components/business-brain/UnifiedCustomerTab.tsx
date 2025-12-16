@@ -15,6 +15,9 @@ import { EChartsPieChart, EChartsBarChart } from './charts'
 // 서브탭 타입
 type CustomerSubTab = 'overview' | 'rfm' | 'churn'
 
+// 환율 상수 (USD → KRW)
+const USD_TO_KRW = 1350
+
 // 포맷팅 함수
 function formatNumber(value: number): string {
   return value.toLocaleString()
@@ -25,8 +28,19 @@ function formatPercent(value: number): string {
   return `${sign}${value.toFixed(1)}%`
 }
 
+// 원화 포맷팅 (customer-analytics와 동일)
 function formatCurrency(value: number): string {
-  return `$${value.toLocaleString(undefined, { maximumFractionDigits: 0 })}`
+  // USD 값을 원화로 변환하여 표시
+  const krwValue = Math.round(value * USD_TO_KRW)
+  if (krwValue >= 10000) {
+    return `₩${(krwValue / 10000).toFixed(1)}만`
+  }
+  return `₩${krwValue.toLocaleString()}`
+}
+
+// 원화 포맷팅 (숫자만)
+function toKRW(usdAmount: number): number {
+  return Math.round(usdAmount * USD_TO_KRW)
 }
 
 // 세그먼트 색상 매핑
@@ -384,19 +398,30 @@ export function UnifiedCustomerTab({
     return segments.reduce((sum: number, seg: any) => sum + seg.count, 0)
   }, [segments])
 
-  // 전체 평균 구매가 계산 (세그먼트별 평균의 평균이 아닌, 전체 고객 기준)
+  // 전체 평균 구매가 계산 (customer-analytics와 동일한 로직)
   const overallAvgPurchasePrice = useMemo(() => {
     if (!rfmData || segments.length === 0) return 0
     
-    // RFM 데이터에서 전체 총 매출과 총 고객 수 계산
-    const totalRevenue = segments.reduce((sum: number, seg: any) => {
-      const segData = Array.isArray(rfmData.segments) 
-        ? rfmData.segments.find((s: any) => (s.segment || s.name) === seg.name)
-        : null
-      return sum + (segData?.totalRevenue || segData?.avgMonetary * seg.count || seg.avgValue * seg.count || 0)
-    }, 0)
+    // customer-analytics 구조: segments에 totalRevenue와 count가 있음
+    // Business Brain 구조: segments에 avgMonetary와 count가 있음
+    let totalRevenue = 0
+    let totalCustomers = 0
     
-    const totalCustomers = segments.reduce((sum: number, seg: any) => sum + seg.count, 0)
+    segments.forEach((seg: any) => {
+      // customer-analytics 구조 우선 확인
+      if (seg.totalRevenue !== undefined) {
+        totalRevenue += seg.totalRevenue || 0
+        totalCustomers += seg.count || 0
+      } else if (seg.avgMonetary !== undefined) {
+        // Business Brain 구조: avgMonetary * count = totalRevenue
+        totalRevenue += (seg.avgMonetary || 0) * (seg.count || 0)
+        totalCustomers += seg.count || 0
+      } else if (seg.avgValue !== undefined) {
+        // 대체 구조
+        totalRevenue += (seg.avgValue || 0) * (seg.count || 0)
+        totalCustomers += seg.count || 0
+      }
+    })
     
     return totalCustomers > 0 ? totalRevenue / totalCustomers : 0
   }, [rfmData, segments])

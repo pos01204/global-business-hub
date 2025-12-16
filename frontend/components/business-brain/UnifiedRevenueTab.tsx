@@ -14,14 +14,17 @@ import { EChartsTrendChart, EChartsBarChart, EChartsHeatmap, EChartsForecast } f
 // 서브탭 타입
 type RevenueSubTab = 'overview' | 'trends' | 'forecast'
 
-// 포맷팅 함수
+// 환율 상수 (USD → KRW) - analytics 페이지와 동일
+const USD_TO_KRW = 1350
+
+// 원화 포맷팅 함수 (analytics 페이지와 동일)
 function formatCurrency(value: number): string {
-  if (value >= 1000000) {
-    return `$${(value / 1000000).toFixed(1)}M`
-  } else if (value >= 1000) {
-    return `$${(value / 1000).toFixed(1)}K`
+  if (value === null || value === undefined || isNaN(value)) {
+    return '₩0'
   }
-  return `$${value.toLocaleString(undefined, { maximumFractionDigits: 0 })}`
+  // USD 값을 원화로 변환
+  const krwValue = Math.round(value * USD_TO_KRW)
+  return `₩${krwValue.toLocaleString()}`
 }
 
 function formatPercent(value: number): string {
@@ -199,7 +202,7 @@ export function UnifiedRevenueTab({
     }
   }, [trendsData, trendChartData])
 
-  // 예측 데이터 - 다양한 데이터 구조 지원
+  // 예측 데이터 - 실제 데이터가 끝나는 시점부터 예측 시작
   const forecastChartData = useMemo(() => {
     // 백엔드 ForecastResult 구조: historicalData, predictions
     const historicalData = forecastData?.historicalData ||
@@ -217,19 +220,35 @@ export function UnifiedRevenueTab({
     // historicalData와 predictions가 모두 있는 경우
     if (Array.isArray(historicalData) && historicalData.length > 0 && 
         Array.isArray(predictions) && predictions.length > 0) {
+      // historicalData의 마지막 날짜 찾기
+      const histDates = historicalData
+        .map((item: any) => item.date || item.day || item.period)
+        .filter(Boolean)
+        .sort()
+      
+      const lastHistoricalDate = histDates.length > 0 ? histDates[histDates.length - 1] : null
+      
+      // historical 데이터 매핑
       const histData = historicalData.map((item: any) => ({
         date: item.date || item.day || item.period,
         actual: item.value || item.actual || item.gmv || item.revenue || 0
       }))
       
-      const predData = predictions.map((item: any) => ({
-        date: item.date || item.day || item.period,
-        predicted: item.predicted || item.value || item.forecast || item.prediction || 0,
-        lower: item.lower || item.lower95 || (item.predicted ? item.predicted * 0.85 : 0),
-        upper: item.upper || item.upper95 || (item.predicted ? item.predicted * 1.15 : 0),
-        lower80: item.lower80 || (item.predicted ? item.predicted * 0.9 : 0),
-        upper80: item.upper80 || (item.predicted ? item.predicted * 1.1 : 0)
-      }))
+      // predictions는 lastHistoricalDate 이후의 데이터만 포함
+      const predData = predictions
+        .filter((item: any) => {
+          const predDate = item.date || item.day || item.period
+          if (!lastHistoricalDate || !predDate) return true // 날짜 정보가 없으면 포함
+          return predDate > lastHistoricalDate // 실제 데이터가 끝난 이후만
+        })
+        .map((item: any) => ({
+          date: item.date || item.day || item.period,
+          predicted: item.predicted || item.value || item.forecast || item.prediction || 0,
+          lower: item.lower || item.lower95 || (item.predicted ? item.predicted * 0.85 : 0),
+          upper: item.upper || item.upper95 || (item.predicted ? item.predicted * 1.15 : 0),
+          lower80: item.lower80 || (item.predicted ? item.predicted * 0.9 : 0),
+          upper80: item.upper80 || (item.predicted ? item.predicted * 1.1 : 0)
+        }))
       
       return [...histData, ...predData]
     }
@@ -247,14 +266,22 @@ export function UnifiedRevenueTab({
         return { date: date.toISOString().split('T')[0], actual: Math.round(value) }
       })
       
-      const predData = predictions.map((item: any) => ({
-        date: item.date || item.day || item.period,
-        predicted: item.predicted || item.value || item.forecast || item.prediction || 0,
-        lower: item.lower || item.lower95 || (item.predicted ? item.predicted * 0.85 : 0),
-        upper: item.upper || item.upper95 || (item.predicted ? item.predicted * 1.15 : 0),
-        lower80: item.lower80 || (item.predicted ? item.predicted * 0.9 : 0),
-        upper80: item.upper80 || (item.predicted ? item.predicted * 1.1 : 0)
-      }))
+      // predictions는 오늘 이후의 데이터만 포함
+      const todayStr = today.toISOString().split('T')[0]
+      const predData = predictions
+        .filter((item: any) => {
+          const predDate = item.date || item.day || item.period
+          if (!predDate) return true
+          return predDate > todayStr // 오늘 이후만
+        })
+        .map((item: any) => ({
+          date: item.date || item.day || item.period,
+          predicted: item.predicted || item.value || item.forecast || item.prediction || 0,
+          lower: item.lower || item.lower95 || (item.predicted ? item.predicted * 0.85 : 0),
+          upper: item.upper || item.upper95 || (item.predicted ? item.predicted * 1.15 : 0),
+          lower80: item.lower80 || (item.predicted ? item.predicted * 0.9 : 0),
+          upper80: item.upper80 || (item.predicted ? item.predicted * 1.1 : 0)
+        }))
       
       return [...hist, ...predData]
     }
@@ -465,12 +492,38 @@ export function UnifiedRevenueTab({
                 />
                 <GoalGauge 
                   current={summary?.totalOrders || 0} 
-                  target={summary?.totalOrders && summary.totalOrders > 0 ? summary.totalOrders * 1.15 : 100} 
+                  target={(() => {
+                    // 실제 주문 수가 있으면 1.15배, 없으면 일평균 매출 기반으로 추정
+                    if (summary?.totalOrders && summary.totalOrders > 0) {
+                      return summary.totalOrders * 1.15
+                    }
+                    // 일평균 매출이 있으면 주문 수 추정 (AOV 가정)
+                    const dailyAvg = (summary?.totalGMV || 0) / 30
+                    const estimatedAOV = summary?.avgOrderValue || 100
+                    if (dailyAvg > 0 && estimatedAOV > 0) {
+                      const estimatedDailyOrders = dailyAvg / estimatedAOV
+                      return Math.max(estimatedDailyOrders * 30 * 1.15, 100)
+                    }
+                    return 100
+                  })()} 
                   label="월간 주문 목표" 
                 />
                 <GoalGauge 
                   current={summary?.avgOrderValue || 0} 
-                  target={summary?.avgOrderValue && summary.avgOrderValue > 0 ? summary.avgOrderValue * 1.1 : 100} 
+                  target={(() => {
+                    // 실제 AOV가 있으면 1.1배, 없으면 일평균 매출 기반으로 추정
+                    if (summary?.avgOrderValue && summary.avgOrderValue > 0) {
+                      return summary.avgOrderValue * 1.1
+                    }
+                    // 일평균 매출이 있으면 AOV 추정
+                    const dailyAvg = (summary?.totalGMV || 0) / 30
+                    if (dailyAvg > 0) {
+                      // 주문 수가 있으면 실제 계산, 없으면 가정값 사용
+                      const orders = summary?.totalOrders || (dailyAvg / 100) // 기본 AOV $100 가정
+                      return Math.max((dailyAvg / orders) * 1.1, 100)
+                    }
+                    return 100
+                  })()} 
                   label="AOV 목표" 
                 />
               </div>
