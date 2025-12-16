@@ -102,25 +102,34 @@ export function EChartsTrendChart({
           data: values,
           smooth: true,
           symbol: 'circle',
-          symbolSize: 6,
+          symbolSize: 7,
           showSymbol: values.length < 30,
           lineStyle: {
-            width: 2.5,
+            width: 3,
             color,
+            shadowBlur: 4,
+            shadowColor: `${color}30`,
           },
           itemStyle: {
             color,
-            borderWidth: 2,
+            borderWidth: 2.5,
             borderColor: '#fff',
+            shadowBlur: 3,
+            shadowColor: `${color}40`,
           },
           areaStyle: s.type === 'area' ? {
-            color: createGradient(color, 0.3, 0.02),
+            color: createGradient(color, 0.35, 0.05),
           } : undefined,
           emphasis: {
             focus: 'series',
+            scale: true,
             itemStyle: {
-              shadowBlur: 10,
-              shadowColor: `${color}60`,
+              shadowBlur: 12,
+              shadowColor: `${color}80`,
+              borderWidth: 3,
+            },
+            lineStyle: {
+              width: 3.5,
             },
           },
         })
@@ -240,11 +249,12 @@ export function EChartsTrendChart({
         formatter: createTooltipFormatter(valueFormatter),
       },
       grid: {
-        left: '3%',
+        left: '4%',
         right: '4%',
-        bottom: showDataZoom ? '18%' : '15%',
-        top: title ? '15%' : '10%',
+        bottom: showDataZoom ? '18%' : '12%',
+        top: title ? '12%' : '8%',
         containLabel: true,
+        backgroundColor: 'transparent',
       },
       xAxis: {
         type: 'category',

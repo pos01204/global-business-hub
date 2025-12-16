@@ -1,18 +1,19 @@
 'use client'
 
 import { useState, useMemo } from 'react'
+import { useRouter } from 'next/navigation'
 import { Card } from '@/components/ui/Card'
 import { Badge } from '@/components/ui/Badge'
 import { Icon } from '@/components/ui/Icon'
 import { 
   Users, AlertTriangle, TrendingUp, TrendingDown, 
   UserPlus, RefreshCw, ArrowRight, Download, Filter,
-  ChevronDown, ChevronRight, Mail, Gift, Phone
+  ChevronDown, ChevronRight, Mail, Gift, Phone, ExternalLink
 } from 'lucide-react'
 import { EChartsPieChart, EChartsBarChart } from './charts'
 
 // 서브탭 타입
-type CustomerSubTab = 'overview' | 'rfm' | 'churn' | 'acquisition' | 'retention'
+type CustomerSubTab = 'overview' | 'rfm' | 'churn'
 
 // 포맷팅 함수
 function formatNumber(value: number): string {
@@ -212,11 +213,12 @@ function ChurnRiskTable({ customers }: { customers: any[] }) {
           </tr>
         </thead>
         <tbody>
-          {customers.map((customer, idx) => (
-            <tr 
-              key={idx}
-              className="border-b border-slate-100 dark:border-slate-800 hover:bg-slate-50 dark:hover:bg-slate-800/50 transition-colors"
-            >
+          {Array.isArray(customers) && customers.length > 0 ? (
+            customers.map((customer, idx) => (
+              <tr 
+                key={idx}
+                className="border-b border-slate-100 dark:border-slate-800 hover:bg-slate-50 dark:hover:bg-slate-800/50 transition-colors"
+              >
               <td className="py-3 px-4 font-medium text-slate-800 dark:text-slate-100">
                 {customer.id}
               </td>
@@ -262,7 +264,14 @@ function ChurnRiskTable({ customers }: { customers: any[] }) {
                 </button>
               </td>
             </tr>
-          ))}
+            ))
+          ) : (
+            <tr>
+              <td colSpan={6} className="py-8 text-center text-slate-400">
+                이탈 위험 고객이 없습니다.
+              </td>
+            </tr>
+          )}
         </tbody>
       </table>
     </div>
@@ -353,6 +362,7 @@ export function UnifiedCustomerTab({
 
   // 파이 차트 데이터
   const pieChartData = useMemo(() => {
+    if (!Array.isArray(segments) || segments.length === 0) return []
     return segments.map((seg: any) => ({
       name: seg.name,
       value: seg.count,
@@ -379,43 +389,66 @@ export function UnifiedCustomerTab({
     )
   }
 
+  const router = useRouter()
+
   return (
     <div className="space-y-6">
+      {/* AI 인사이트 배너 */}
+      <Card className="p-4 bg-gradient-to-r from-blue-50 to-indigo-50 dark:from-blue-900/20 dark:to-indigo-900/20 border border-blue-200 dark:border-blue-800">
+        <div className="flex items-center justify-between">
+          <div className="flex items-center gap-3">
+            <div className="w-10 h-10 rounded-xl bg-blue-100 dark:bg-blue-900/50 flex items-center justify-center">
+              <Icon icon={AlertTriangle} size="md" className="text-blue-600 dark:text-blue-400" />
+            </div>
+            <div>
+              <h3 className="font-semibold text-slate-800 dark:text-slate-100">AI 고객 인사이트</h3>
+              <p className="text-sm text-slate-600 dark:text-slate-400">
+                고객 세그먼트, 이탈 위험, 재구매 패턴을 AI가 분석하여 핵심 인사이트를 제공합니다.
+              </p>
+            </div>
+          </div>
+          <button
+            onClick={() => router.push('/customer-analytics')}
+            className="flex items-center gap-2 px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors text-sm font-medium"
+          >
+            <span>상세 분석 보기</span>
+            <Icon icon={ExternalLink} size="xs" />
+          </button>
+        </div>
+      </Card>
+
       {/* 서브탭 네비게이션 */}
       <Card className="p-4 bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700">
-        <div className="flex items-center gap-2 overflow-x-auto pb-1">
-          <SubTabButton
-            active={activeSubTab === 'overview'}
-            onClick={() => setActiveSubTab('overview')}
-            icon={Users}
-            label="전체 현황"
-          />
-          <SubTabButton
-            active={activeSubTab === 'rfm'}
-            onClick={() => setActiveSubTab('rfm')}
-            icon={Users}
-            label="RFM 세그먼트"
-            count={segments.length}
-          />
-          <SubTabButton
-            active={activeSubTab === 'churn'}
-            onClick={() => setActiveSubTab('churn')}
-            icon={AlertTriangle}
-            label="이탈 위험"
-            count={churnRiskCustomers.length}
-          />
-          <SubTabButton
-            active={activeSubTab === 'acquisition'}
-            onClick={() => setActiveSubTab('acquisition')}
-            icon={UserPlus}
-            label="신규 유입"
-          />
-          <SubTabButton
-            active={activeSubTab === 'retention'}
-            onClick={() => setActiveSubTab('retention')}
-            icon={RefreshCw}
-            label="재구매 분석"
-          />
+        <div className="flex items-center justify-between mb-3">
+          <div className="flex items-center gap-2 overflow-x-auto pb-1">
+            <SubTabButton
+              active={activeSubTab === 'overview'}
+              onClick={() => setActiveSubTab('overview')}
+              icon={Users}
+              label="AI 인사이트"
+            />
+            <SubTabButton
+              active={activeSubTab === 'rfm'}
+              onClick={() => setActiveSubTab('rfm')}
+              icon={Users}
+              label="RFM 요약"
+              count={segments.length}
+            />
+            <SubTabButton
+              active={activeSubTab === 'churn'}
+              onClick={() => setActiveSubTab('churn')}
+              icon={AlertTriangle}
+              label="이탈 위험"
+              count={churnRiskCustomers.length}
+            />
+          </div>
+          <button
+            onClick={() => router.push('/customer-analytics')}
+            className="flex items-center gap-1 px-3 py-1.5 text-xs text-slate-600 dark:text-slate-300 bg-slate-100 dark:bg-slate-700 rounded-lg hover:bg-slate-200 dark:hover:bg-slate-600 transition-colors"
+          >
+            <Icon icon={ExternalLink} size="xs" />
+            <span>상세 분석</span>
+          </button>
         </div>
       </Card>
 
@@ -509,21 +542,27 @@ export function UnifiedCustomerTab({
               </div>
               
               <div className="space-y-3">
-                {segments.map((segment: any) => (
-                  <SegmentCard
-                    key={segment.name}
-                    name={segment.name}
-                    count={segment.count}
-                    percentage={segment.percentage}
-                    avgValue={segment.avgValue}
-                    change={segment.change}
-                    onClick={() => setExpandedSegment(
-                      expandedSegment === segment.name ? null : segment.name
-                    )}
-                    isExpanded={expandedSegment === segment.name}
-                    details={segment.details}
-                  />
-                ))}
+                {Array.isArray(segments) && segments.length > 0 ? (
+                  segments.map((segment: any) => (
+                    <SegmentCard
+                      key={segment.name}
+                      name={segment.name}
+                      count={segment.count}
+                      percentage={segment.percentage}
+                      avgValue={segment.avgValue}
+                      change={segment.change}
+                      onClick={() => setExpandedSegment(
+                        expandedSegment === segment.name ? null : segment.name
+                      )}
+                      isExpanded={expandedSegment === segment.name}
+                      details={segment.details}
+                    />
+                  ))
+                ) : (
+                  <div className="text-center py-12 text-slate-400">
+                    세그먼트 데이터를 불러오는 중...
+                  </div>
+                )}
               </div>
             </Card>
           </div>
@@ -629,83 +668,26 @@ export function UnifiedCustomerTab({
         </div>
       )}
 
-      {/* 신규 유입 */}
-      {activeSubTab === 'acquisition' && (
-        <Card className="p-6 bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700">
-          <h3 className="font-semibold text-slate-800 dark:text-slate-100 mb-4">신규 고객 유입 분석</h3>
-          {newUserData ? (
-            <div className="grid grid-cols-2 lg:grid-cols-4 gap-4">
-              <div className="p-4 bg-slate-50 dark:bg-slate-700/50 rounded-xl text-center">
-                <p className="text-xs text-slate-500 mb-1">신규 고객 수</p>
-                <p className="text-2xl font-bold text-slate-800 dark:text-slate-100">
-                  {newUserData.summary?.newCustomers || 0}
-                </p>
-              </div>
-              <div className="p-4 bg-slate-50 dark:bg-slate-700/50 rounded-xl text-center">
-                <p className="text-xs text-slate-500 mb-1">전환율</p>
-                <p className="text-2xl font-bold text-emerald-600">
-                  {newUserData.summary?.conversionRate?.toFixed(1) || 0}%
-                </p>
-              </div>
-              <div className="p-4 bg-slate-50 dark:bg-slate-700/50 rounded-xl text-center">
-                <p className="text-xs text-slate-500 mb-1">첫 구매 금액</p>
-                <p className="text-2xl font-bold text-slate-800 dark:text-slate-100">
-                  {formatCurrency(newUserData.summary?.avgFirstOrderValue || 0)}
-                </p>
-              </div>
-              <div className="p-4 bg-slate-50 dark:bg-slate-700/50 rounded-xl text-center">
-                <p className="text-xs text-slate-500 mb-1">CAC</p>
-                <p className="text-2xl font-bold text-slate-800 dark:text-slate-100">
-                  {formatCurrency(newUserData.summary?.cac || 0)}
-                </p>
-              </div>
-            </div>
-          ) : (
-            <div className="text-center py-12 text-slate-400">
-              신규 고객 데이터를 불러오는 중...
-            </div>
-          )}
-        </Card>
-      )}
-
-      {/* 재구매 분석 */}
-      {activeSubTab === 'retention' && (
-        <Card className="p-6 bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700">
-          <h3 className="font-semibold text-slate-800 dark:text-slate-100 mb-4">재구매율 분석</h3>
-          {repurchaseData ? (
-            <div className="grid grid-cols-2 lg:grid-cols-4 gap-4">
-              <div className="p-4 bg-slate-50 dark:bg-slate-700/50 rounded-xl text-center">
-                <p className="text-xs text-slate-500 mb-1">전체 재구매율</p>
-                <p className="text-2xl font-bold text-emerald-600">
-                  {repurchaseData.overallRate?.toFixed(1) || 0}%
-                </p>
-              </div>
-              <div className="p-4 bg-slate-50 dark:bg-slate-700/50 rounded-xl text-center">
-                <p className="text-xs text-slate-500 mb-1">30일 재구매율</p>
-                <p className="text-2xl font-bold text-slate-800 dark:text-slate-100">
-                  {repurchaseData.rate30d?.toFixed(1) || 0}%
-                </p>
-              </div>
-              <div className="p-4 bg-slate-50 dark:bg-slate-700/50 rounded-xl text-center">
-                <p className="text-xs text-slate-500 mb-1">평균 재구매 주기</p>
-                <p className="text-2xl font-bold text-slate-800 dark:text-slate-100">
-                  {repurchaseData.avgCycle || 0}일
-                </p>
-              </div>
-              <div className="p-4 bg-slate-50 dark:bg-slate-700/50 rounded-xl text-center">
-                <p className="text-xs text-slate-500 mb-1">재구매 고객 LTV</p>
-                <p className="text-2xl font-bold text-slate-800 dark:text-slate-100">
-                  {formatCurrency(repurchaseData.repeatCustomerLTV || 0)}
-                </p>
-              </div>
-            </div>
-          ) : (
-            <div className="text-center py-12 text-slate-400">
-              재구매 데이터를 불러오는 중...
-            </div>
-          )}
-        </Card>
-      )}
+      {/* 상세 분석 안내 */}
+      <Card className="p-6 bg-slate-50 dark:bg-slate-800/50 border border-slate-200 dark:border-slate-700">
+        <div className="flex items-center justify-between">
+          <div>
+            <h3 className="font-semibold text-slate-800 dark:text-slate-100 mb-2">
+              더 자세한 고객 분석이 필요하신가요?
+            </h3>
+            <p className="text-sm text-slate-600 dark:text-slate-400">
+              신규 유입, 재구매 분석, 코호트 분석, LTV 분석 등 상세한 고객 분석은 고객 분석 페이지에서 확인하실 수 있습니다.
+            </p>
+          </div>
+          <button
+            onClick={() => router.push('/customer-analytics')}
+            className="flex items-center gap-2 px-4 py-2 bg-idus-500 text-white rounded-lg hover:bg-idus-600 transition-colors text-sm font-medium whitespace-nowrap"
+          >
+            <span>고객 분석 페이지로</span>
+            <Icon icon={ArrowRight} size="xs" />
+          </button>
+        </div>
+      </Card>
     </div>
   )
 }

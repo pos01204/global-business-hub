@@ -94,18 +94,22 @@ export function EChartsBarChart({
               borderRadius: horizontal ? [0, 4, 4, 0] : [4, 4, 0, 0],
             },
           })),
-          barWidth: '60%',
+          barWidth: '65%',
+          barMaxWidth: 40,
           label: {
             show: showLabels,
             position: horizontal ? 'right' : 'top',
             formatter: (params: any) => valueFormatter(params.value),
             fontSize: 11,
+            fontWeight: 600,
+            color: '#1E293B',
           },
           emphasis: {
             itemStyle: {
-              shadowBlur: 10,
-              shadowColor: 'rgba(0, 0, 0, 0.2)',
+              shadowBlur: 12,
+              shadowColor: 'rgba(0, 0, 0, 0.25)',
             },
+            focus: 'series',
           },
         },
       ]

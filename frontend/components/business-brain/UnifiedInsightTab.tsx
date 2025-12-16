@@ -127,7 +127,7 @@ function InsightCard({ insight, onClick }: { insight: Insight; onClick?: () => v
           </p>
           
           {/* 관련 지표 */}
-          {insight.metrics && insight.metrics.length > 0 && (
+          {insight.metrics && Array.isArray(insight.metrics) && insight.metrics.length > 0 && (
             <div className="flex items-center gap-4 mb-3">
               {insight.metrics.map((metric, idx) => (
                 <div key={idx} className="flex items-center gap-2">
@@ -189,7 +189,7 @@ function StrategyCard({ strategy }: { strategy: any }) {
           </p>
           
           {/* 실행 단계 */}
-          {strategy.steps && (
+          {strategy.steps && Array.isArray(strategy.steps) && strategy.steps.length > 0 && (
             <div className="space-y-2">
               <p className="text-xs font-medium text-slate-500 uppercase">실행 단계</p>
               {strategy.steps.map((step: string, idx: number) => (

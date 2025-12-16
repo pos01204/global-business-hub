@@ -1,17 +1,18 @@
 'use client'
 
 import { useState, useMemo } from 'react'
+import { useRouter } from 'next/navigation'
 import { Card } from '@/components/ui/Card'
 import { Badge } from '@/components/ui/Badge'
 import { Icon } from '@/components/ui/Icon'
 import { 
   TrendingUp, TrendingDown, DollarSign, BarChart3, 
-  Calendar, ArrowRight, Download, Target, Activity
+  Calendar, ArrowRight, Download, Target, Activity, ExternalLink
 } from 'lucide-react'
 import { EChartsTrendChart, EChartsBarChart, EChartsHeatmap, EChartsForecast } from './charts'
 
 // 서브탭 타입
-type RevenueSubTab = 'overview' | 'trends' | 'forecast' | 'cohort'
+type RevenueSubTab = 'overview' | 'trends' | 'forecast'
 
 // 포맷팅 함수
 function formatCurrency(value: number): string {
@@ -267,35 +268,64 @@ export function UnifiedRevenueTab({
     )
   }
 
+  const router = useRouter()
+
   return (
     <div className="space-y-6">
+      {/* AI 인사이트 배너 */}
+      <Card className="p-4 bg-gradient-to-r from-emerald-50 to-teal-50 dark:from-emerald-900/20 dark:to-teal-900/20 border border-emerald-200 dark:border-emerald-800">
+        <div className="flex items-center justify-between">
+          <div className="flex items-center gap-3">
+            <div className="w-10 h-10 rounded-xl bg-emerald-100 dark:bg-emerald-900/50 flex items-center justify-center">
+              <Icon icon={TrendingUp} size="md" className="text-emerald-600 dark:text-emerald-400" />
+            </div>
+            <div>
+              <h3 className="font-semibold text-slate-800 dark:text-slate-100">AI 매출 인사이트</h3>
+              <p className="text-sm text-slate-600 dark:text-slate-400">
+                매출 트렌드, 예측, 코호트 분석을 AI가 분석하여 핵심 인사이트를 제공합니다.
+              </p>
+            </div>
+          </div>
+          <button
+            onClick={() => router.push('/analytics')}
+            className="flex items-center gap-2 px-4 py-2 bg-emerald-600 text-white rounded-lg hover:bg-emerald-700 transition-colors text-sm font-medium"
+          >
+            <span>상세 분석 보기</span>
+            <Icon icon={ExternalLink} size="xs" />
+          </button>
+        </div>
+      </Card>
+
       {/* 서브탭 네비게이션 */}
       <Card className="p-4 bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700">
-        <div className="flex items-center gap-2 overflow-x-auto pb-1">
-          <SubTabButton
-            active={activeSubTab === 'overview'}
-            onClick={() => setActiveSubTab('overview')}
-            icon={BarChart3}
-            label="전체 현황"
-          />
-          <SubTabButton
-            active={activeSubTab === 'trends'}
-            onClick={() => setActiveSubTab('trends')}
-            icon={TrendingUp}
-            label="트렌드 분석"
-          />
-          <SubTabButton
-            active={activeSubTab === 'forecast'}
-            onClick={() => setActiveSubTab('forecast')}
-            icon={Activity}
-            label="매출 예측"
-          />
-          <SubTabButton
-            active={activeSubTab === 'cohort'}
-            onClick={() => setActiveSubTab('cohort')}
-            icon={Calendar}
-            label="코호트 분석"
-          />
+        <div className="flex items-center justify-between mb-3">
+          <div className="flex items-center gap-2 overflow-x-auto pb-1">
+            <SubTabButton
+              active={activeSubTab === 'overview'}
+              onClick={() => setActiveSubTab('overview')}
+              icon={BarChart3}
+              label="AI 인사이트"
+            />
+            <SubTabButton
+              active={activeSubTab === 'trends'}
+              onClick={() => setActiveSubTab('trends')}
+              icon={TrendingUp}
+              label="트렌드 요약"
+            />
+            <SubTabButton
+              active={activeSubTab === 'forecast'}
+              onClick={() => setActiveSubTab('forecast')}
+              icon={Activity}
+              label="매출 예측"
+            />
+          </div>
+          <button
+            onClick={() => router.push('/analytics')}
+            className="flex items-center gap-1 px-3 py-1.5 text-xs text-slate-600 dark:text-slate-300 bg-slate-100 dark:bg-slate-700 rounded-lg hover:bg-slate-200 dark:hover:bg-slate-600 transition-colors"
+          >
+            <Icon icon={ExternalLink} size="xs" />
+            <span>상세 분석</span>
+          </button>
         </div>
       </Card>
 
@@ -428,12 +458,16 @@ export function UnifiedRevenueTab({
             <div className="mt-6 p-4 bg-slate-50 dark:bg-slate-700/50 rounded-xl">
               <h4 className="font-medium text-slate-800 dark:text-slate-100 mb-2">트렌드 인사이트</h4>
               <ul className="space-y-2">
-                {trendsData.insights.map((insight: string, idx: number) => (
-                  <li key={idx} className="text-sm text-slate-600 dark:text-slate-400 flex items-start gap-2">
-                    <span className="text-idus-500">•</span>
-                    {insight}
-                  </li>
-                ))}
+                {Array.isArray(trendsData.insights) && trendsData.insights.length > 0 ? (
+                  trendsData.insights.map((insight: string, idx: number) => (
+                    <li key={idx} className="text-sm text-slate-600 dark:text-slate-400 flex items-start gap-2">
+                      <span className="text-idus-500">•</span>
+                      {insight}
+                    </li>
+                  ))
+                ) : (
+                  <li className="text-sm text-slate-400">인사이트 데이터가 없습니다.</li>
+                )}
               </ul>
             </div>
           )}
@@ -514,52 +548,26 @@ export function UnifiedRevenueTab({
         </Card>
       )}
 
-      {/* 코호트 분석 */}
-      {activeSubTab === 'cohort' && (
-        <Card className="p-6 bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700">
-          <div className="flex items-center justify-between mb-4">
-            <div>
-              <h3 className="font-semibold text-slate-800 dark:text-slate-100">코호트 리텐션 분석</h3>
-              <p className="text-sm text-slate-500 dark:text-slate-400">월별 가입 코호트의 리텐션율</p>
-            </div>
-            <button className="flex items-center gap-2 px-3 py-1.5 text-sm text-slate-600 dark:text-slate-300 bg-slate-100 dark:bg-slate-700 rounded-lg hover:bg-slate-200 dark:hover:bg-slate-600 transition-colors">
-              <Icon icon={Download} size="xs" />
-              내보내기
-            </button>
+      {/* 상세 분석 안내 */}
+      <Card className="p-6 bg-slate-50 dark:bg-slate-800/50 border border-slate-200 dark:border-slate-700">
+        <div className="flex items-center justify-between">
+          <div>
+            <h3 className="font-semibold text-slate-800 dark:text-slate-100 mb-2">
+              더 자세한 매출 분석이 필요하신가요?
+            </h3>
+            <p className="text-sm text-slate-600 dark:text-slate-400">
+              코호트 분석, 상세 트렌드, 작가별 성과, 국가별 분석 등 상세한 매출 분석은 성과 분석 페이지에서 확인하실 수 있습니다.
+            </p>
           </div>
-          
-          {cohortHeatmapData.length > 0 ? (
-            <div className="h-80">
-              <EChartsHeatmap
-                data={cohortHeatmapData}
-                xLabels={['M0', 'M1', 'M2', 'M3', 'M4', 'M5', 'M6']}
-                yLabels={cohortData?.cohorts?.map((c: any) => c.month || c.cohort) || []}
-                height={300}
-                valueFormatter={(v) => `${v.toFixed(1)}%`}
-              />
-            </div>
-          ) : (
-            <div className="h-80 flex items-center justify-center text-slate-400">
-              코호트 데이터를 불러오는 중...
-            </div>
-          )}
-
-          {/* 코호트 인사이트 */}
-          {cohortData?.insights && (
-            <div className="mt-6 p-4 bg-slate-50 dark:bg-slate-700/50 rounded-xl">
-              <h4 className="font-medium text-slate-800 dark:text-slate-100 mb-2">코호트 인사이트</h4>
-              <ul className="space-y-2">
-                {cohortData.insights.map((insight: string, idx: number) => (
-                  <li key={idx} className="text-sm text-slate-600 dark:text-slate-400 flex items-start gap-2">
-                    <span className="text-idus-500">•</span>
-                    {insight}
-                  </li>
-                ))}
-              </ul>
-            </div>
-          )}
-        </Card>
-      )}
+          <button
+            onClick={() => router.push('/analytics')}
+            className="flex items-center gap-2 px-4 py-2 bg-idus-500 text-white rounded-lg hover:bg-idus-600 transition-colors text-sm font-medium whitespace-nowrap"
+          >
+            <span>성과 분석 페이지로</span>
+            <Icon icon={ArrowRight} size="xs" />
+          </button>
+        </div>
+      </Card>
     </div>
   )
 }

@@ -78,10 +78,11 @@ export function EChartsPieChart({
         : { bottom: 10, left: 'center' }
       ),
       type: 'scroll' as const,
-      itemWidth: 12,
-      itemHeight: 12,
+      itemWidth: 14,
+      itemHeight: 14,
       textStyle: {
         fontSize: 12,
+        fontWeight: 500,
       },
       formatter: (name: string) => {
         const item = data.find(d => d.name === name)
@@ -188,13 +189,23 @@ export function EChartsPieChart({
             },
           },
           itemStyle: {
-            borderRadius: 4,
+            borderRadius: 6,
             borderColor: '#fff',
-            borderWidth: 2,
+            borderWidth: 2.5,
+            shadowBlur: 4,
+            shadowColor: 'rgba(0, 0, 0, 0.1)',
           },
           animationType: 'scale',
           animationEasing: 'elasticOut',
           animationDelay: (idx: number) => idx * 50,
+          select: {
+            itemStyle: {
+              shadowBlur: 15,
+              shadowOffsetX: 2,
+              shadowOffsetY: 2,
+              shadowColor: 'rgba(0, 0, 0, 0.3)',
+            },
+          },
         },
       ],
     }

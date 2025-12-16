@@ -214,19 +214,19 @@ export default function UnreceivedPage() {
               <p className="text-xl lg:text-2xl font-bold text-slate-900 dark:text-slate-100">
                 {data.kpis.total.toLocaleString()} <span className="text-sm font-normal text-slate-500 dark:text-slate-400">개</span>
               </p>
-            </div>
+          </div>
             <div className="bg-slate-50 dark:bg-slate-800 rounded-xl p-4 border border-slate-200 dark:border-slate-700">
               <p className="text-xs lg:text-sm text-slate-500 dark:text-slate-400 mb-1 font-medium">관련 주문</p>
               <p className="text-xl lg:text-2xl font-bold text-slate-900 dark:text-slate-100">
                 {data.kpis.orders.toLocaleString()} <span className="text-sm font-normal text-slate-500 dark:text-slate-400">건</span>
               </p>
-            </div>
+          </div>
             <div className="bg-slate-50 dark:bg-slate-800 rounded-xl p-4 border border-slate-200 dark:border-slate-700">
               <p className="text-xs lg:text-sm text-slate-500 dark:text-slate-400 mb-1 font-medium">관련 작가</p>
               <p className="text-xl lg:text-2xl font-bold text-slate-900 dark:text-slate-100">
                 {data.kpis.artists.toLocaleString()} <span className="text-sm font-normal text-slate-500 dark:text-slate-400">명</span>
               </p>
-            </div>
+          </div>
             <div className={cn(
               'rounded-xl p-4 border',
               delayedCount > 0 
@@ -244,58 +244,58 @@ export default function UnreceivedPage() {
                 delayedCount > 0 ? 'text-red-700 dark:text-red-300' : 'text-slate-900 dark:text-slate-100'
               )}>
                 {delayedCount.toLocaleString()} <span className="text-sm font-normal">개</span>
-              </p>
-            </div>
+            </p>
           </div>
-          
+        </div>
+
           {/* 빠른 필터 (인라인) */}
           <div className="flex items-center gap-2 pt-4 border-t border-slate-200 dark:border-slate-700 flex-wrap">
             <span className="text-sm font-semibold text-slate-600 dark:text-slate-400 mr-2">빠른 필터:</span>
-            <button
-              onClick={() => setDelayFilter('all')}
+        <button
+          onClick={() => setDelayFilter('all')}
               className={cn(
                 'px-3 py-1.5 rounded-lg text-sm font-medium transition-all whitespace-nowrap',
-                delayFilter === 'all'
+            delayFilter === 'all'
                   ? 'bg-slate-900 dark:bg-slate-700 text-white shadow-sm'
                   : 'bg-slate-100 dark:bg-slate-800 text-slate-600 dark:text-slate-300 hover:bg-slate-200 dark:hover:bg-slate-700'
               )}
-            >
+        >
               전체 ({data.kpis.total})
-            </button>
-            <button
-              onClick={() => setDelayFilter('critical')}
+        </button>
+        <button
+          onClick={() => setDelayFilter('critical')}
               className={cn(
                 'px-3 py-1.5 rounded-lg text-sm font-medium transition-all whitespace-nowrap',
-                delayFilter === 'critical'
+            delayFilter === 'critical'
                   ? 'bg-red-600 text-white shadow-sm'
-                  : 'bg-red-50 dark:bg-red-900/30 text-red-600 dark:text-red-400 hover:bg-red-100 dark:hover:bg-red-900/50'
+              : 'bg-red-50 dark:bg-red-900/30 text-red-600 dark:text-red-400 hover:bg-red-100 dark:hover:bg-red-900/50'
               )}
-            >
-              14일+ ({criticalCount})
-            </button>
-            <button
-              onClick={() => setDelayFilter('delayed')}
+        >
+          14일+ ({criticalCount})
+        </button>
+        <button
+          onClick={() => setDelayFilter('delayed')}
               className={cn(
                 'px-3 py-1.5 rounded-lg text-sm font-medium transition-all whitespace-nowrap',
-                delayFilter === 'delayed'
+            delayFilter === 'delayed'
                   ? 'bg-orange-600 text-white shadow-sm'
-                  : 'bg-orange-50 dark:bg-orange-900/30 text-orange-600 dark:text-orange-400 hover:bg-orange-100 dark:hover:bg-orange-900/50'
+              : 'bg-orange-50 dark:bg-orange-900/30 text-orange-600 dark:text-orange-400 hover:bg-orange-100 dark:hover:bg-orange-900/50'
               )}
-            >
-              7일+ ({delayedCount})
-            </button>
-            <button
-              onClick={() => setDelayFilter('warning')}
+        >
+          7일+ ({delayedCount})
+        </button>
+        <button
+          onClick={() => setDelayFilter('warning')}
               className={cn(
                 'px-3 py-1.5 rounded-lg text-sm font-medium transition-all whitespace-nowrap',
-                delayFilter === 'warning'
+            delayFilter === 'warning'
                   ? 'bg-yellow-600 text-white shadow-sm'
-                  : 'bg-yellow-50 dark:bg-yellow-900/30 text-yellow-700 dark:text-yellow-400 hover:bg-yellow-100 dark:hover:bg-yellow-900/50'
+              : 'bg-yellow-50 dark:bg-yellow-900/30 text-yellow-700 dark:text-yellow-400 hover:bg-yellow-100 dark:hover:bg-yellow-900/50'
               )}
-            >
-              3-7일
-            </button>
-          </div>
+        >
+          3-7일
+        </button>
+      </div>
         </div>
       )}
 
@@ -308,47 +308,47 @@ export default function UnreceivedPage() {
         
         {/* 검색 및 드롭다운 (상단) */}
         <div className="grid grid-cols-1 md:grid-cols-3 gap-4 mb-4">
-          <div>
+            <div>
             <label className="block text-sm font-medium text-slate-700 dark:text-slate-300 mb-2">검색</label>
-            <input
-              type="text"
-              value={searchTerm}
-              onChange={(e) => setSearchTerm(e.target.value)}
-              placeholder="주문번호, 작가명, 작품명..."
+              <input
+                type="text"
+                value={searchTerm}
+                onChange={(e) => setSearchTerm(e.target.value)}
+                placeholder="주문번호, 작가명, 작품명..."
               className="w-full border border-slate-200 dark:border-slate-600 rounded-lg px-4 py-2.5 text-sm bg-white dark:bg-slate-800 text-slate-900 dark:text-slate-100 focus:ring-2 focus:ring-idus-500 focus:border-idus-500 transition-all"
-            />
-          </div>
-          <div>
+              />
+            </div>
+            <div>
             <label className="block text-sm font-medium text-slate-700 dark:text-slate-300 mb-2">지연 상태</label>
-            <select
-              value={delayFilter}
-              onChange={(e) => setDelayFilter(e.target.value)}
+              <select
+                value={delayFilter}
+                onChange={(e) => setDelayFilter(e.target.value)}
               className="w-full border border-slate-200 dark:border-slate-600 rounded-lg px-4 py-2.5 text-sm bg-white dark:bg-slate-800 text-slate-900 dark:text-slate-100 focus:ring-2 focus:ring-idus-500 focus:border-idus-500 transition-all"
-            >
-              <option value="all">전체</option>
-              <option value="critical">14일 이상</option>
-              <option value="delayed">7일 이상</option>
-              <option value="warning">3-7일</option>
-            </select>
-          </div>
-          <div>
+              >
+                <option value="all">전체</option>
+                <option value="critical">14일 이상</option>
+                <option value="delayed">7일 이상</option>
+                <option value="warning">3-7일</option>
+              </select>
+            </div>
+            <div>
             <label className="block text-sm font-medium text-slate-700 dark:text-slate-300 mb-2">주문 유형</label>
-            <select
-              value={bundleFilter}
-              onChange={(e) => setBundleFilter(e.target.value)}
+              <select
+                value={bundleFilter}
+                onChange={(e) => setBundleFilter(e.target.value)}
               className="w-full border border-slate-200 dark:border-slate-600 rounded-lg px-4 py-2.5 text-sm bg-white dark:bg-slate-800 text-slate-900 dark:text-slate-100 focus:ring-2 focus:ring-idus-500 focus:border-idus-500 transition-all"
-            >
-              <option value="all">전체</option>
-              <option value="bundle">묶음 주문</option>
-              <option value="single">단일 주문</option>
-            </select>
+              >
+                <option value="all">전체</option>
+                <option value="bundle">묶음 주문</option>
+                <option value="single">단일 주문</option>
+              </select>
+            </div>
           </div>
         </div>
-      </div>
 
       {/* 향상된 카드 스타일 테이블 (모바일 & 데스크톱 통합) */}
-      <div className="space-y-3">
-        {filteredItems.length === 0 ? (
+        <div className="space-y-3">
+          {filteredItems.length === 0 ? (
           <div className="bg-white dark:bg-slate-900 rounded-xl border border-slate-200 dark:border-slate-800 p-12 text-center">
             <div className="w-20 h-20 bg-slate-100 dark:bg-slate-800 rounded-full flex items-center justify-center mx-auto mb-4">
               <Icon icon={Package} size="xl" className="text-slate-400" />
@@ -369,40 +369,40 @@ export default function UnreceivedPage() {
             >
               필터 초기화
             </button>
-          </div>
-        ) : (
-          <>
-            {filteredItems.map((item: any, index: number) => (
-              <div
-                key={`${item.orderCode}-${index}`}
+            </div>
+          ) : (
+            <>
+              {filteredItems.map((item: any, index: number) => (
+                <div
+                  key={`${item.orderCode}-${index}`}
                 className={cn(
                   'bg-white dark:bg-slate-900 rounded-xl border-2 p-5 transition-all',
                   'hover:shadow-lg hover:-translate-y-0.5',
-                  item.daysElapsed >= 14
+                    item.daysElapsed >= 14
                     ? 'border-red-300 dark:border-red-800 bg-red-50/50 dark:bg-red-900/10'
-                    : item.daysElapsed >= 7
+                      : item.daysElapsed >= 7
                     ? 'border-orange-300 dark:border-orange-800 bg-orange-50/50 dark:bg-orange-900/10'
-                    : item.daysElapsed >= 3
+                      : item.daysElapsed >= 3
                     ? 'border-yellow-300 dark:border-yellow-800 bg-yellow-50/50 dark:bg-yellow-900/10'
                     : 'border-slate-200 dark:border-slate-800'
                 )}
-              >
+                >
                 {/* 카드 헤더: 주문번호 + 경과일 + 액션 */}
                 <div className="flex items-start justify-between mb-4">
                   <div className="flex-1">
                     <div className="flex items-center gap-3 mb-2 flex-wrap">
-                      <button
-                        onClick={() => openOrderDetailModal(item.orderCode)}
+                    <button
+                      onClick={() => openOrderDetailModal(item.orderCode)}
                         className="text-lg font-bold text-idus-500 hover:text-idus-600 hover:underline transition-colors"
-                      >
-                        {item.orderCode}
-                      </button>
-                      <DelayBadge days={item.daysElapsed} />
-                      {item.isBundle && (
+                    >
+                      {item.orderCode}
+                    </button>
+                    <DelayBadge days={item.daysElapsed} />
+                  {item.isBundle && (
                         <span className="px-2 py-1 bg-blue-100 dark:bg-blue-900/30 text-blue-700 dark:text-blue-400 rounded-full text-xs font-medium">
                           묶음 주문 ({item.allItems?.length || 0}개)
-                        </span>
-                      )}
+                    </span>
+                  )}
                     </div>
                     <p className="text-sm text-slate-500 dark:text-slate-400">
                       주문일: {item.orderDate}
@@ -423,16 +423,16 @@ export default function UnreceivedPage() {
                     </button>
                   </div>
                 </div>
-                
+              
                 {/* 작가명 + 작품명 */}
                 <div className="mb-3">
                   <p className="text-sm font-medium text-slate-600 dark:text-slate-400 mb-1">
                     {item.artistName}
-                  </p>
+                </p>
                   <p className="text-base font-semibold text-slate-900 dark:text-slate-100 line-clamp-2">
                     {item.productName}
-                  </p>
-                </div>
+                </p>
+              </div>
                 
                 {/* 메모 */}
                 {item.currentStatus && (
@@ -442,12 +442,12 @@ export default function UnreceivedPage() {
                       <p className="text-sm text-slate-600 dark:text-slate-400 line-clamp-2">
                         {item.currentStatus}
                       </p>
-                    </div>
-                  </div>
+                          </div>
+                        </div>
                 )}
-              </div>
+          </div>
             ))}
-            
+          
             {/* 카드뷰 푸터 */}
             <div className="px-4 py-3 bg-slate-50 dark:bg-slate-800 rounded-xl border border-slate-200 dark:border-slate-700 flex flex-col sm:flex-row items-start sm:items-center justify-between gap-2">
               <p className="text-sm text-slate-600 dark:text-slate-400">
@@ -458,8 +458,8 @@ export default function UnreceivedPage() {
               </p>
             </div>
           </>
-        )}
-      </div>
+          )}
+        </div>
 
       {/* 메모 수정 모달 */}
       {editingOrderCode && (

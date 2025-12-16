@@ -389,6 +389,7 @@ export default function BusinessBrainPage() {
   // v6.0: 기본 탭을 'home'으로 변경
   const [activeTab, setActiveTab] = useState(tabFromUrl || 'home')
   const [selectedPeriod, setSelectedPeriod] = useState<PeriodPreset>('30d')
+  const [countryFilter, setCountryFilter] = useState<string>('all')
   
   // v6.0: 키보드 단축키 (간소화)
   const [isShortcutHelpOpen, setIsShortcutHelpOpen] = useState(false)
@@ -707,7 +708,7 @@ export default function BusinessBrainPage() {
         </div>
       </FadeIn>
 
-      {/* 기간 선택 (해당 탭에서만 표시) */}
+      {/* 기간 및 국가 필터 (해당 탭에서만 표시) */}
       {periodEnabledTabs.includes(activeTab) && (
         <FadeIn delay={100}>
           <div className="flex items-center gap-4 p-4 bg-white dark:bg-slate-800 rounded-xl border border-slate-200 dark:border-slate-700">
@@ -730,6 +731,21 @@ export default function BusinessBrainPage() {
                   </button>
                 </Tooltip>
               ))}
+            </div>
+            <div className="flex items-center gap-2 ml-auto">
+              <span className="text-sm font-medium text-slate-600 dark:text-slate-400">국가:</span>
+              <select
+                value={countryFilter}
+                onChange={(e) => setCountryFilter(e.target.value)}
+                className="px-3 py-2 text-sm bg-white dark:bg-slate-700 border border-slate-200 dark:border-slate-600 rounded-lg text-slate-700 dark:text-slate-300 focus:ring-2 focus:ring-idus-500 focus:border-idus-500"
+              >
+                <option value="all">전체</option>
+                <option value="KR">한국</option>
+                <option value="US">미국</option>
+                <option value="JP">일본</option>
+                <option value="GB">영국</option>
+                <option value="CA">캐나다</option>
+              </select>
             </div>
           </div>
         </FadeIn>
@@ -818,7 +834,34 @@ export default function BusinessBrainPage() {
 
           {/* v6.0: 통합 작가 탭 */}
           {activeTab === 'artist' && (
-            <ArtistHealthTab data={artistHealthData} isLoading={artistHealthLoading} />
+            <div className="space-y-6">
+              {/* AI 인사이트 배너 */}
+              <FadeIn>
+                <Card className="p-4 bg-gradient-to-r from-purple-50 to-pink-50 dark:from-purple-900/20 dark:to-pink-900/20 border border-purple-200 dark:border-purple-800">
+                  <div className="flex items-center justify-between">
+                    <div className="flex items-center gap-3">
+                      <div className="w-10 h-10 rounded-xl bg-purple-100 dark:bg-purple-900/50 flex items-center justify-center">
+                        <Icon icon={Palette} size="md" className="text-purple-600 dark:text-purple-400" />
+                      </div>
+                      <div>
+                        <h3 className="font-semibold text-slate-800 dark:text-slate-100">AI 작가 인사이트</h3>
+                        <p className="text-sm text-slate-600 dark:text-slate-400">
+                          작가 건강도, 성과, 파레토 분석을 AI가 분석하여 핵심 인사이트를 제공합니다.
+                        </p>
+                      </div>
+                    </div>
+                    <button
+                      onClick={() => router.push('/artist-analytics')}
+                      className="flex items-center gap-2 px-4 py-2 bg-purple-600 text-white rounded-lg hover:bg-purple-700 transition-colors text-sm font-medium"
+                    >
+                      <span>상세 분석 보기</span>
+                      <Icon icon={ArrowRight} size="xs" />
+                    </button>
+                  </div>
+                </Card>
+              </FadeIn>
+              <ArtistHealthTab data={artistHealthData} isLoading={artistHealthLoading} />
+            </div>
           )}
 
           {/* v6.0: 통합 매출 탭 */}

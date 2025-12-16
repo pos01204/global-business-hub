@@ -460,11 +460,20 @@ export function UnifiedHome({
 
   // 인사이트 데이터 추출 - 다양한 데이터 구조 지원
   const insights = useMemo(() => {
-    const insightsList = comprehensiveData?.insights || 
-                         comprehensiveData?.data?.insights ||
-                         briefing?.insights ||
-                         briefing?.highlights?.map((h: string) => ({ message: h, type: 'info', priority: 'medium' })) ||
-                         []
+    let insightsList = comprehensiveData?.insights || 
+                       comprehensiveData?.data?.insights ||
+                       briefing?.insights ||
+                       []
+    
+    // highlights가 배열인 경우 변환
+    if (briefing?.highlights && Array.isArray(briefing.highlights)) {
+      const highlightsAsInsights = briefing.highlights.map((h: string) => ({ 
+        message: h, 
+        type: 'info', 
+        priority: 'medium' 
+      }))
+      insightsList = [...insightsList, ...highlightsAsInsights]
+    }
     
     if (!Array.isArray(insightsList) || insightsList.length === 0) return []
     
@@ -673,12 +682,33 @@ export function UnifiedHome({
               />
               
               <div className="grid grid-cols-2 gap-3 mt-6 w-full">
-                {healthScore?.dimensions?.map((dim: any, idx: number) => (
-                  <div key={idx} className="text-center p-2 bg-slate-50 dark:bg-slate-700/50 rounded-lg">
-                    <p className="text-xs text-slate-500 dark:text-slate-400 mb-1">{dim.name}</p>
-                    <p className="text-lg font-bold text-slate-800 dark:text-slate-100">{dim.score}</p>
-                  </div>
-                ))}
+                {Array.isArray(healthScore?.dimensions) && healthScore.dimensions.length > 0 ? (
+                  healthScore.dimensions.map((dim: any, idx: number) => (
+                    <div key={idx} className="text-center p-2 bg-slate-50 dark:bg-slate-700/50 rounded-lg">
+                      <p className="text-xs text-slate-500 dark:text-slate-400 mb-1">{dim.name}</p>
+                      <p className="text-lg font-bold text-slate-800 dark:text-slate-100">{dim.score}</p>
+                    </div>
+                  ))
+                ) : (
+                  <>
+                    <div className="text-center p-2 bg-slate-50 dark:bg-slate-700/50 rounded-lg">
+                      <p className="text-xs text-slate-500 dark:text-slate-400 mb-1">매출</p>
+                      <p className="text-lg font-bold text-slate-800 dark:text-slate-100">-</p>
+                    </div>
+                    <div className="text-center p-2 bg-slate-50 dark:bg-slate-700/50 rounded-lg">
+                      <p className="text-xs text-slate-500 dark:text-slate-400 mb-1">고객</p>
+                      <p className="text-lg font-bold text-slate-800 dark:text-slate-100">-</p>
+                    </div>
+                    <div className="text-center p-2 bg-slate-50 dark:bg-slate-700/50 rounded-lg">
+                      <p className="text-xs text-slate-500 dark:text-slate-400 mb-1">작가</p>
+                      <p className="text-lg font-bold text-slate-800 dark:text-slate-100">-</p>
+                    </div>
+                    <div className="text-center p-2 bg-slate-50 dark:bg-slate-700/50 rounded-lg">
+                      <p className="text-xs text-slate-500 dark:text-slate-400 mb-1">운영</p>
+                      <p className="text-lg font-bold text-slate-800 dark:text-slate-100">-</p>
+                    </div>
+                  </>
+                )}
               </div>
             </div>
           </Card>
