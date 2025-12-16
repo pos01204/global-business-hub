@@ -384,6 +384,23 @@ export function UnifiedCustomerTab({
     return segments.reduce((sum: number, seg: any) => sum + seg.count, 0)
   }, [segments])
 
+  // 전체 평균 구매가 계산 (세그먼트별 평균의 평균이 아닌, 전체 고객 기준)
+  const overallAvgPurchasePrice = useMemo(() => {
+    if (!rfmData || segments.length === 0) return 0
+    
+    // RFM 데이터에서 전체 총 매출과 총 고객 수 계산
+    const totalRevenue = segments.reduce((sum: number, seg: any) => {
+      const segData = Array.isArray(rfmData.segments) 
+        ? rfmData.segments.find((s: any) => (s.segment || s.name) === seg.name)
+        : null
+      return sum + (segData?.totalRevenue || segData?.avgMonetary * seg.count || seg.avgValue * seg.count || 0)
+    }, 0)
+    
+    const totalCustomers = segments.reduce((sum: number, seg: any) => sum + seg.count, 0)
+    
+    return totalCustomers > 0 ? totalRevenue / totalCustomers : 0
+  }, [rfmData, segments])
+
   if (isLoading) {
     return (
       <div className="space-y-6">
@@ -484,11 +501,7 @@ export function UnifiedCustomerTab({
               <div className="p-4 bg-slate-50 dark:bg-slate-700/50 rounded-xl text-center">
                 <p className="text-xs text-slate-500 mb-1">평균 구매가</p>
                 <p className="text-2xl font-bold text-purple-600">
-                  {formatCurrency(
-                    segments.length > 0 
-                      ? segments.reduce((sum: number, s: any) => sum + (s.avgValue || 0), 0) / segments.length
-                      : 0
-                  )}
+                  {formatCurrency(overallAvgPurchasePrice)}
                 </p>
               </div>
               <div className="p-4 bg-slate-50 dark:bg-slate-700/50 rounded-xl text-center">
