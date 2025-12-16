@@ -54,8 +54,6 @@ import {
   UnifiedReportTab,
   KeyboardShortcutHelp
 } from '@/components/business-brain'
-// v6.0: 키보드 단축키
-import { useTabShortcuts, useShortcutHelp } from '@/hooks/useKeyboardShortcuts'
 
 // 기간 프리셋 타입
 type PeriodPreset = '7d' | '30d' | '90d' | '180d' | '365d'
@@ -392,8 +390,9 @@ export default function BusinessBrainPage() {
   const [activeTab, setActiveTab] = useState(tabFromUrl || 'home')
   const [selectedPeriod, setSelectedPeriod] = useState<PeriodPreset>('30d')
   
-  // v6.0: 키보드 단축키
-  const { isOpen: isShortcutHelpOpen, close: closeShortcutHelp } = useShortcutHelp()
+  // v6.0: 키보드 단축키 (간소화)
+  const [isShortcutHelpOpen, setIsShortcutHelpOpen] = useState(false)
+  const closeShortcutHelp = useCallback(() => setIsShortcutHelpOpen(false), [])
 
   // URL 쿼리 파라미터 변경 시 탭 업데이트
   useEffect(() => {
@@ -408,8 +407,31 @@ export default function BusinessBrainPage() {
     router.push(`/business-brain?tab=${newTab}`, { scroll: false })
   }, [router])
 
-  // v6.0: 탭 네비게이션 단축키 활성화
-  useTabShortcuts(handleTabChange, ['home', 'customer', 'artist', 'revenue', 'insight', 'action', 'explorer', 'report'])
+  // v6.0: 탭 네비게이션 단축키 (간소화 - 숫자키로 탭 이동)
+  useEffect(() => {
+    const handleKeyDown = (e: KeyboardEvent) => {
+      // 입력 필드에서는 비활성화
+      if ((e.target as HTMLElement).tagName === 'INPUT' || (e.target as HTMLElement).tagName === 'TEXTAREA') return
+      
+      const tabMap: Record<string, string> = {
+        '1': 'home', '2': 'customer', '3': 'artist', '4': 'revenue',
+        '5': 'insight', '6': 'action', '7': 'explorer', '8': 'report'
+      }
+      
+      if (tabMap[e.key]) {
+        handleTabChange(tabMap[e.key])
+      }
+      
+      // Ctrl+/ 또는 ? 로 단축키 도움말 열기
+      if ((e.key === '/' && (e.ctrlKey || e.metaKey)) || (e.key === '?' && e.shiftKey)) {
+        e.preventDefault()
+        setIsShortcutHelpOpen((prev: boolean) => !prev)
+      }
+    }
+    
+    window.addEventListener('keydown', handleKeyDown)
+    return () => window.removeEventListener('keydown', handleKeyDown)
+  }, [handleTabChange])
 
   // 데이터 쿼리 (기간 기반)
   const { data: briefingData, isLoading: briefingLoading } = useQuery({
@@ -989,6 +1011,19 @@ export default function BusinessBrainPage() {
           )}
         </>
       )}
+
+      {/* v5.0: AI 자연어 질의 채팅 (플로팅) */}
+      <AIQueryChat 
+        onInsightClick={(data) => {
+          console.log('AI Insight Data:', data)
+        }}
+      />
+
+      {/* v6.0: 키보드 단축키 도움말 모달 */}
+      <KeyboardShortcutHelp 
+        isOpen={isShortcutHelpOpen} 
+        onClose={closeShortcutHelp} 
+      />
     </div>
   )
 }
@@ -5448,18 +5483,6 @@ function RepurchaseAnalysisTab({ data, isLoading, period }: { data: any; isLoadi
         </Card>
       </FadeIn>
 
-      {/* v5.0: AI 자연어 질의 채팅 (플로팅) */}
-      <AIQueryChat 
-        onInsightClick={(data) => {
-          console.log('AI Insight Data:', data)
-        }}
-      />
-
-      {/* v6.0: 키보드 단축키 도움말 모달 */}
-      <KeyboardShortcutHelp 
-        isOpen={isShortcutHelpOpen} 
-        onClose={closeShortcutHelp} 
-      />
     </div>
   )
 }
