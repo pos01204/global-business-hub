@@ -41,8 +41,21 @@ import { WhatIfSimulationTab } from './components/WhatIfSimulationTab'
 import { ReportGenerator } from './components/ReportGenerator'
 // v5.0: AI 자연어 질의 채팅
 import { AIQueryChat } from './components/AIQueryChat'
-// v5.0: 새 UX 뷰 컴포넌트
+// v5.0: 새 UX 뷰 컴포넌트 (레거시)
 import { CommandCenter, ActionHub, DeepDive } from '@/components/business-brain'
+// v6.0: 통합 탭 컴포넌트
+import { 
+  UnifiedHome, 
+  UnifiedCustomerTab, 
+  UnifiedRevenueTab, 
+  UnifiedInsightTab, 
+  UnifiedActionTab,
+  DataExplorer,
+  UnifiedReportTab,
+  KeyboardShortcutHelp
+} from '@/components/business-brain'
+// v6.0: 키보드 단축키
+import { useTabShortcuts, useShortcutHelp } from '@/hooks/useKeyboardShortcuts'
 
 // 기간 프리셋 타입
 type PeriodPreset = '7d' | '30d' | '90d' | '180d' | '365d'
@@ -375,8 +388,12 @@ export default function BusinessBrainPage() {
   const router = useRouter()
   const tabFromUrl = searchParams.get('tab')
   
-  const [activeTab, setActiveTab] = useState(tabFromUrl || 'overview')
+  // v6.0: 기본 탭을 'home'으로 변경
+  const [activeTab, setActiveTab] = useState(tabFromUrl || 'home')
   const [selectedPeriod, setSelectedPeriod] = useState<PeriodPreset>('30d')
+  
+  // v6.0: 키보드 단축키
+  const { isOpen: isShortcutHelpOpen, close: closeShortcutHelp } = useShortcutHelp()
 
   // URL 쿼리 파라미터 변경 시 탭 업데이트
   useEffect(() => {
@@ -386,10 +403,13 @@ export default function BusinessBrainPage() {
   }, [tabFromUrl])
 
   // 탭 변경 시 URL 업데이트
-  const handleTabChange = (newTab: string) => {
+  const handleTabChange = useCallback((newTab: string) => {
     setActiveTab(newTab)
     router.push(`/business-brain?tab=${newTab}`, { scroll: false })
-  }
+  }, [router])
+
+  // v6.0: 탭 네비게이션 단축키 활성화
+  useTabShortcuts(handleTabChange, ['home', 'customer', 'artist', 'revenue', 'insight', 'action', 'explorer', 'report'])
 
   // 데이터 쿼리 (기간 기반)
   const { data: briefingData, isLoading: briefingLoading } = useQuery({
@@ -415,7 +435,7 @@ export default function BusinessBrainPage() {
     queryFn: () => businessBrainApi.getTrends(selectedPeriod),
     staleTime: 5 * 60 * 1000,
     gcTime: 10 * 60 * 1000,
-    enabled: activeTab === 'trends',
+    enabled: activeTab === 'trends' || activeTab === 'revenue' || activeTab === 'home',
     retry: 2,
     retryDelay: (attemptIndex) => Math.min(1000 * 2 ** attemptIndex, 30000),
   })
@@ -460,21 +480,21 @@ export default function BusinessBrainPage() {
     queryKey: ['business-brain-rfm', selectedPeriod],
     queryFn: () => businessBrainApi.getAnalysisByPeriod('rfm', selectedPeriod),
     staleTime: 5 * 60 * 1000,
-    enabled: activeTab === 'rfm',
+    enabled: activeTab === 'rfm' || activeTab === 'customer',
   })
 
   const { data: paretoData, isLoading: paretoLoading } = useQuery({
     queryKey: ['business-brain-pareto', selectedPeriod],
     queryFn: () => businessBrainApi.getAnalysisByPeriod('pareto', selectedPeriod),
     staleTime: 5 * 60 * 1000,
-    enabled: activeTab === 'pareto',
+    enabled: activeTab === 'pareto' || activeTab === 'artist',
   })
 
   const { data: cohortData, isLoading: cohortLoading } = useQuery({
     queryKey: ['business-brain-cohort', selectedPeriod],
     queryFn: () => businessBrainApi.getAnalysisByPeriod('cohort', selectedPeriod),
     staleTime: 5 * 60 * 1000,
-    enabled: activeTab === 'cohort',
+    enabled: activeTab === 'cohort' || activeTab === 'revenue',
   })
 
   const { data: anomalyData, isLoading: anomalyLoading } = useQuery({
@@ -489,15 +509,15 @@ export default function BusinessBrainPage() {
     queryKey: ['business-brain-forecast', selectedPeriod],
     queryFn: () => businessBrainApi.getForecast(selectedPeriod === '7d' ? '30d' : selectedPeriod, 30),
     staleTime: 5 * 60 * 1000,
-    enabled: activeTab === 'forecast',
+    enabled: activeTab === 'forecast' || activeTab === 'revenue',
   })
 
-  // 종합 인사이트 (overview 탭에 통합)
+  // 종합 인사이트 (overview/home 탭에 통합)
   const { data: comprehensiveData, isLoading: comprehensiveLoading } = useQuery({
     queryKey: ['business-brain-comprehensive', selectedPeriod],
     queryFn: () => businessBrainApi.getComprehensiveAnalysis(selectedPeriod),
     staleTime: 5 * 60 * 1000,
-    enabled: activeTab === 'overview',
+    enabled: activeTab === 'overview' || activeTab === 'home',
   })
 
   // v4.1: 신규 유저 유치 분석
@@ -513,7 +533,7 @@ export default function BusinessBrainPage() {
       }
     },
     staleTime: 5 * 60 * 1000,
-    enabled: activeTab === 'new-users',
+    enabled: activeTab === 'new-users' || activeTab === 'customer',
   })
 
   // v4.1: 재구매율 향상 분석
@@ -529,7 +549,7 @@ export default function BusinessBrainPage() {
       }
     },
     staleTime: 5 * 60 * 1000,
-    enabled: activeTab === 'repurchase',
+    enabled: activeTab === 'repurchase' || activeTab === 'customer',
   })
 
   // 다중 기간 트렌드
@@ -545,7 +565,7 @@ export default function BusinessBrainPage() {
     queryKey: ['business-brain-churn', selectedPeriod],
     queryFn: () => businessBrainApi.getChurnPrediction(selectedPeriod === '7d' ? '90d' : selectedPeriod as any),
     staleTime: 5 * 60 * 1000,
-    enabled: activeTab === 'churn',
+    enabled: activeTab === 'churn' || activeTab === 'customer',
   })
 
   // v4.0: 작가 건강도
@@ -553,7 +573,7 @@ export default function BusinessBrainPage() {
     queryKey: ['business-brain-artist-health', selectedPeriod],
     queryFn: () => businessBrainApi.getArtistHealth(selectedPeriod === '7d' ? '90d' : selectedPeriod as any),
     staleTime: 5 * 60 * 1000,
-    enabled: activeTab === 'artist-health',
+    enabled: activeTab === 'artist-health' || activeTab === 'artist',
   })
 
   const briefing = briefingData?.briefing
@@ -565,70 +585,38 @@ export default function BusinessBrainPage() {
 
   const isLoading = briefingLoading || healthLoading
 
-  // 탭을 카테고리별로 그룹화 (v4.1 재구성) - useMemo로 최적화
+  // v6.0: 통합 탭 구조 (24개 → 8개)
   const tabGroups = useMemo(() => [
     {
       name: '개요',
       description: '비즈니스 현황 한눈에 보기',
       tabs: [
-        { id: 'overview', label: '대시보드', icon: BarChart3, description: '현황 평가 + 종합 인사이트' },
+        { id: 'home', label: '홈', icon: BarChart3, description: 'AI 브리핑 + KPI + 인사이트 + 권장 액션' },
       ]
     },
     {
-      name: '고객 분석',
-      description: '고객 세분화 및 이탈 예측',
+      name: '분석',
+      description: '핵심 비즈니스 분석',
       tabs: [
-        { id: 'rfm', label: 'RFM 세분화', icon: Users, description: '고객 세그먼트 분석' },
-        { id: 'churn', label: '이탈 예측', icon: AlertTriangle, description: '이탈 위험 고객 분석' },
-        { id: 'new-users', label: '신규 유저 유치', icon: Users, description: '신규 유저 획득 분석' },
-        { id: 'repurchase', label: '재구매율 향상', icon: Zap, description: '재구매 전환 분석' },
+        { id: 'customer', label: '고객', icon: Users, description: 'RFM + 이탈 예측 + 신규 유입 + 재구매' },
+        { id: 'artist', label: '작가', icon: Palette, description: '작가 건강도 + 파레토 분석' },
+        { id: 'revenue', label: '매출', icon: TrendingUp, description: '트렌드 + 예측 + 코호트' },
       ]
     },
     {
-      name: '작가 분석',
-      description: '작가 성과 및 건강도',
+      name: '인사이트 & 액션',
+      description: 'AI 인사이트 및 실행',
       tabs: [
-        { id: 'artist-health', label: '작가 건강도', icon: Palette, description: '작가별 건강도 점수' },
-        { id: 'pareto', label: '파레토 분석', icon: BarChart3, description: '작가 집중도 분석' },
+        { id: 'insight', label: '인사이트', icon: Lightbulb, description: '기회 + 리스크 + 전략 통합' },
+        { id: 'action', label: '액션', icon: Zap, description: '권장 액션 + What-if 시뮬레이션' },
       ]
     },
     {
-      name: '매출 분석',
-      description: '매출 트렌드 및 예측',
+      name: '도구',
+      description: '고급 분석 도구',
       tabs: [
-        { id: 'trends', label: '트렌드', icon: TrendingUp, description: '장기 트렌드 분석' },
-        { id: 'forecast', label: '매출 예측', icon: TrendingUp, description: '30일 매출 예측' },
-        { id: 'cohort', label: '코호트 분석', icon: TrendingUp, description: '월별 코호트 및 LTV' },
-      ]
-    },
-    {
-      name: '인사이트',
-      description: 'AI 기반 인사이트 및 전략',
-      tabs: [
-        { id: 'insights', label: '기회 발견', icon: Lightbulb, description: '자동 발견된 기회' },
-        { id: 'risks', label: '리스크', icon: AlertTriangle, description: '리스크 감지 및 대응' },
-        { id: 'strategy-analysis', label: '전략 분석', icon: Target, description: '시장 분석 및 성장 기회' },
-        { id: 'strategy', label: '전략 제안', icon: FileText, description: 'AI 전략 제안' },
-      ]
-    },
-    {
-      name: '고급 분석',
-      description: '심층 분석 도구',
-      tabs: [
-        { id: 'anomaly', label: '이상 탐지', icon: Search, description: '이상치 자동 감지' },
-        { id: 'multiperiod', label: '기간별 추이', icon: Calendar, description: '다중 기간 비교 분석' },
-        { id: 'deep-dive', label: '딥 다이브', icon: Search, description: '심층 데이터 탐색' },
-      ]
-    },
-    {
-      name: '액션',
-      description: '우선순위별 실행 계획',
-      tabs: [
-        { id: 'command-center', label: '커맨드 센터', icon: Target, description: '경영자 통합 대시보드' },
-        { id: 'action-hub', label: '액션 허브', icon: Zap, description: '추천 액션 관리 및 실행' },
-        { id: 'action-proposals', label: '액션 제안', icon: FileText, description: '우선순위별 액션 및 실행 계획' },
-        { id: 'what-if', label: 'What-if 시뮬레이션', icon: Zap, description: '시나리오 기반 예측 및 비교' },
-        { id: 'report', label: '리포트 생성', icon: FileText, description: '분석 결과 리포트 생성' },
+        { id: 'explorer', label: '탐색기', icon: Search, description: '데이터 심층 탐색' },
+        { id: 'report', label: '리포트', icon: FileText, description: '분석 결과 리포트 생성' },
       ]
     },
   ], [])
@@ -643,8 +631,8 @@ export default function BusinessBrainPage() {
     [tabGroups]
   )
 
-  // 기간 선택이 필요한 탭들
-  const periodEnabledTabs = ['overview', 'rfm', 'pareto', 'cohort', 'anomaly', 'forecast', 'trends', 'churn', 'artist-health', 'new-users', 'repurchase', 'strategy-analysis', 'action-proposals', 'what-if', 'command-center', 'action-hub', 'deep-dive']
+  // 기간 선택이 필요한 탭들 (v6.0 업데이트)
+  const periodEnabledTabs = ['home', 'customer', 'artist', 'revenue', 'insight', 'action', 'explorer', 'report']
 
   return (
     <div className="p-6 space-y-6 min-h-screen">
@@ -779,7 +767,86 @@ export default function BusinessBrainPage() {
         </FadeIn>
       ) : (
         <>
-          {/* 대시보드 탭 (현황 평가 + 종합 인사이트 통합) */}
+          {/* v6.0: 통합 홈 탭 */}
+          {activeTab === 'home' && (
+            <UnifiedHome
+              briefing={briefing}
+              healthScore={healthScore}
+              comprehensiveData={comprehensiveData}
+              isLoading={comprehensiveLoading || briefingLoading}
+              period={selectedPeriod}
+              onTabChange={handleTabChange}
+              onRefresh={() => {
+                // 데이터 새로고침 로직
+              }}
+            />
+          )}
+
+          {/* v6.0: 통합 고객 탭 */}
+          {activeTab === 'customer' && (
+            <UnifiedCustomerTab
+              rfmData={rfmData}
+              churnData={churnData}
+              newUserData={newUserData}
+              repurchaseData={repurchaseData}
+              isLoading={rfmLoading || churnLoading}
+              period={selectedPeriod}
+            />
+          )}
+
+          {/* v6.0: 통합 작가 탭 */}
+          {activeTab === 'artist' && (
+            <ArtistHealthTab data={artistHealthData} isLoading={artistHealthLoading} />
+          )}
+
+          {/* v6.0: 통합 매출 탭 */}
+          {activeTab === 'revenue' && (
+            <UnifiedRevenueTab
+              trendsData={trendsData}
+              forecastData={forecastData}
+              cohortData={cohortData}
+              multiPeriodData={multiPeriodData}
+              isLoading={trendsLoading || forecastLoading}
+              period={selectedPeriod}
+            />
+          )}
+
+          {/* v6.0: 통합 인사이트 탭 */}
+          {activeTab === 'insight' && (
+            <UnifiedInsightTab
+              insightsData={insightsData}
+              risksData={checksData}
+              strategyData={strategyAnalysisData}
+              isLoading={insightsLoading || checksLoading}
+              period={selectedPeriod}
+              onActionClick={(action) => {
+                console.log('Action clicked:', action)
+                handleTabChange('action')
+              }}
+            />
+          )}
+
+          {/* v6.0: 통합 액션 탭 */}
+          {activeTab === 'action' && (
+            <UnifiedActionTab
+              actionsData={actionProposalsData}
+              isLoading={actionProposalsLoading}
+              period={selectedPeriod}
+              onSimulationClick={() => handleTabChange('what-if')}
+            />
+          )}
+
+          {/* v6.0: 데이터 탐색기 */}
+          {activeTab === 'explorer' && (
+            <DataExplorer
+              customerCount={comprehensiveData?.summary?.customers || 892}
+              artistCount={comprehensiveData?.summary?.artists || 245}
+              productCount={1234}
+              countryCount={15}
+            />
+          )}
+
+          {/* 대시보드 탭 (현황 평가 + 종합 인사이트 통합) - 레거시 */}
           {activeTab === 'overview' && (
             <OverviewTab 
               briefing={briefing} 
@@ -823,9 +890,9 @@ export default function BusinessBrainPage() {
             />
           )}
 
-          {/* 리포트 생성 탭 (v4.3) */}
+          {/* v6.0: 통합 리포트 탭 */}
           {activeTab === 'report' && (
-            <ReportGenerator 
+            <UnifiedReportTab 
               period={selectedPeriod} 
               healthScore={healthScore}
               briefing={briefing}
@@ -5386,6 +5453,12 @@ function RepurchaseAnalysisTab({ data, isLoading, period }: { data: any; isLoadi
         onInsightClick={(data) => {
           console.log('AI Insight Data:', data)
         }}
+      />
+
+      {/* v6.0: 키보드 단축키 도움말 모달 */}
+      <KeyboardShortcutHelp 
+        isOpen={isShortcutHelpOpen} 
+        onClose={closeShortcutHelp} 
       />
     </div>
   )

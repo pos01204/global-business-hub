@@ -1,0 +1,500 @@
+'use client'
+
+import { useState, useMemo } from 'react'
+import { Card } from '@/components/ui/Card'
+import { Badge } from '@/components/ui/Badge'
+import { Icon } from '@/components/ui/Icon'
+import { 
+  TrendingUp, TrendingDown, DollarSign, BarChart3, 
+  Calendar, ArrowRight, Download, Target, Activity
+} from 'lucide-react'
+import { EChartsTrendChart, EChartsBarChart, EChartsHeatmap, EChartsForecast } from './charts'
+
+// 서브탭 타입
+type RevenueSubTab = 'overview' | 'trends' | 'forecast' | 'cohort'
+
+// 포맷팅 함수
+function formatCurrency(value: number): string {
+  if (value >= 1000000) {
+    return `$${(value / 1000000).toFixed(1)}M`
+  } else if (value >= 1000) {
+    return `$${(value / 1000).toFixed(1)}K`
+  }
+  return `$${value.toLocaleString(undefined, { maximumFractionDigits: 0 })}`
+}
+
+function formatPercent(value: number): string {
+  const sign = value >= 0 ? '+' : ''
+  return `${sign}${value.toFixed(1)}%`
+}
+
+// 서브탭 버튼 컴포넌트
+function SubTabButton({ 
+  active, 
+  onClick, 
+  icon, 
+  label 
+}: { 
+  active: boolean
+  onClick: () => void
+  icon: any
+  label: string
+}) {
+  return (
+    <button
+      onClick={onClick}
+      className={`
+        flex items-center gap-2 px-4 py-2.5 rounded-xl text-sm font-medium
+        transition-all duration-200
+        ${active 
+          ? 'bg-idus-500 text-white shadow-md' 
+          : 'bg-slate-100 dark:bg-slate-800 text-slate-600 dark:text-slate-400 hover:bg-slate-200 dark:hover:bg-slate-700'
+        }
+      `}
+    >
+      <Icon icon={icon} size="sm" />
+      <span>{label}</span>
+    </button>
+  )
+}
+
+// KPI 미니 카드
+function MiniKPICard({
+  label,
+  value,
+  change,
+  icon
+}: {
+  label: string
+  value: string
+  change?: number
+  icon: any
+}) {
+  const isPositive = (change ?? 0) >= 0
+  
+  return (
+    <div className="p-4 bg-slate-50 dark:bg-slate-700/50 rounded-xl">
+      <div className="flex items-center justify-between mb-2">
+        <Icon icon={icon} size="sm" className="text-slate-400" />
+        {change !== undefined && (
+          <span className={`text-xs font-medium flex items-center gap-1 ${
+            isPositive ? 'text-emerald-600' : 'text-red-600'
+          }`}>
+            <Icon icon={isPositive ? TrendingUp : TrendingDown} size="xs" />
+            {formatPercent(change)}
+          </span>
+        )}
+      </div>
+      <p className="text-xs text-slate-500 dark:text-slate-400 mb-1">{label}</p>
+      <p className="text-xl font-bold text-slate-800 dark:text-slate-100">{value}</p>
+    </div>
+  )
+}
+
+// 목표 달성률 게이지
+function GoalGauge({ current, target, label }: { current: number; target: number; label: string }) {
+  const percentage = Math.min((current / target) * 100, 100)
+  const isAchieved = current >= target
+  
+  return (
+    <div className="space-y-2">
+      <div className="flex items-center justify-between text-sm">
+        <span className="text-slate-600 dark:text-slate-400">{label}</span>
+        <span className={`font-medium ${isAchieved ? 'text-emerald-600' : 'text-slate-800 dark:text-slate-100'}`}>
+          {percentage.toFixed(0)}%
+        </span>
+      </div>
+      <div className="h-3 bg-slate-200 dark:bg-slate-700 rounded-full overflow-hidden">
+        <div 
+          className={`h-full rounded-full transition-all duration-1000 ${
+            isAchieved ? 'bg-emerald-500' : percentage >= 70 ? 'bg-amber-500' : 'bg-red-500'
+          }`}
+          style={{ width: `${percentage}%` }}
+        />
+      </div>
+      <div className="flex items-center justify-between text-xs text-slate-500">
+        <span>{formatCurrency(current)}</span>
+        <span>목표: {formatCurrency(target)}</span>
+      </div>
+    </div>
+  )
+}
+
+// 메인 통합 매출 탭 컴포넌트
+interface UnifiedRevenueTabProps {
+  trendsData: any
+  forecastData: any
+  cohortData: any
+  multiPeriodData: any
+  isLoading: boolean
+  period: string
+}
+
+export function UnifiedRevenueTab({
+  trendsData,
+  forecastData,
+  cohortData,
+  multiPeriodData,
+  isLoading
+}: UnifiedRevenueTabProps) {
+  const [activeSubTab, setActiveSubTab] = useState<RevenueSubTab>('overview')
+
+  // 트렌드 차트 데이터
+  const trendChartData = useMemo(() => {
+    if (!trendsData?.dailyTrends) return []
+    return trendsData.dailyTrends.map((item: any) => ({
+      date: item.date,
+      value: item.gmv || item.revenue || 0
+    }))
+  }, [trendsData])
+
+  // 요약 데이터
+  const summary = useMemo(() => {
+    if (!trendsData?.summary) return null
+    return {
+      totalGMV: trendsData.summary.totalGMV || trendsData.summary.gmv || 0,
+      totalOrders: trendsData.summary.totalOrders || trendsData.summary.orders || 0,
+      avgOrderValue: trendsData.summary.avgOrderValue || trendsData.summary.aov || 0,
+      gmvChange: trendsData.summary.gmvChange || 0,
+      ordersChange: trendsData.summary.ordersChange || 0,
+      aovChange: trendsData.summary.aovChange || 0
+    }
+  }, [trendsData])
+
+  // 예측 데이터
+  const forecastChartData = useMemo(() => {
+    if (!forecastData?.predictions) return []
+    return forecastData.predictions.map((item: any) => ({
+      date: item.date,
+      actual: item.actual,
+      predicted: item.predicted || item.forecast,
+      lower: item.lower || item.lowerBound,
+      upper: item.upper || item.upperBound
+    }))
+  }, [forecastData])
+
+  // 코호트 히트맵 데이터
+  const cohortHeatmapData = useMemo(() => {
+    if (!cohortData?.cohorts) return []
+    return cohortData.cohorts.flatMap((cohort: any, rowIdx: number) => 
+      (cohort.retentionRates || cohort.retention || []).map((rate: number, colIdx: number) => ({
+        x: colIdx,
+        y: rowIdx,
+        value: rate
+      }))
+    )
+  }, [cohortData])
+
+  if (isLoading) {
+    return (
+      <div className="space-y-6">
+        <div className="animate-pulse">
+          <div className="h-12 bg-slate-200 dark:bg-slate-700 rounded-xl mb-6" />
+          <div className="grid grid-cols-1 lg:grid-cols-4 gap-4 mb-6">
+            {[1, 2, 3, 4].map(i => (
+              <div key={i} className="h-28 bg-slate-200 dark:bg-slate-700 rounded-xl" />
+            ))}
+          </div>
+          <div className="h-80 bg-slate-200 dark:bg-slate-700 rounded-xl" />
+        </div>
+      </div>
+    )
+  }
+
+  return (
+    <div className="space-y-6">
+      {/* 서브탭 네비게이션 */}
+      <Card className="p-4 bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700">
+        <div className="flex items-center gap-2 overflow-x-auto pb-1">
+          <SubTabButton
+            active={activeSubTab === 'overview'}
+            onClick={() => setActiveSubTab('overview')}
+            icon={BarChart3}
+            label="전체 현황"
+          />
+          <SubTabButton
+            active={activeSubTab === 'trends'}
+            onClick={() => setActiveSubTab('trends')}
+            icon={TrendingUp}
+            label="트렌드 분석"
+          />
+          <SubTabButton
+            active={activeSubTab === 'forecast'}
+            onClick={() => setActiveSubTab('forecast')}
+            icon={Activity}
+            label="매출 예측"
+          />
+          <SubTabButton
+            active={activeSubTab === 'cohort'}
+            onClick={() => setActiveSubTab('cohort')}
+            icon={Calendar}
+            label="코호트 분석"
+          />
+        </div>
+      </Card>
+
+      {/* 전체 현황 */}
+      {activeSubTab === 'overview' && (
+        <>
+          {/* KPI 카드 */}
+          <div className="grid grid-cols-2 lg:grid-cols-4 gap-4">
+            <MiniKPICard
+              label="총 매출 (GMV)"
+              value={formatCurrency(summary?.totalGMV || 0)}
+              change={summary?.gmvChange}
+              icon={DollarSign}
+            />
+            <MiniKPICard
+              label="주문 수"
+              value={(summary?.totalOrders || 0).toLocaleString()}
+              change={summary?.ordersChange}
+              icon={BarChart3}
+            />
+            <MiniKPICard
+              label="평균 주문 금액"
+              value={formatCurrency(summary?.avgOrderValue || 0)}
+              change={summary?.aovChange}
+              icon={Target}
+            />
+            <MiniKPICard
+              label="일평균 매출"
+              value={formatCurrency((summary?.totalGMV || 0) / 30)}
+              icon={Calendar}
+            />
+          </div>
+
+          {/* 메인 차트 + 목표 달성 */}
+          <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
+            <Card className="lg:col-span-2 p-6 bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700">
+              <div className="flex items-center justify-between mb-4">
+                <h3 className="font-semibold text-slate-800 dark:text-slate-100">매출 추이</h3>
+                <button 
+                  onClick={() => setActiveSubTab('trends')}
+                  className="text-sm text-idus-600 hover:text-idus-700 font-medium flex items-center gap-1"
+                >
+                  상세 분석 <Icon icon={ArrowRight} size="xs" />
+                </button>
+              </div>
+              
+              {trendChartData.length > 0 ? (
+                <div className="h-64">
+                  <EChartsTrendChart
+                    series={[{
+                      name: '매출',
+                      data: trendChartData,
+                      type: 'area',
+                      color: '#FF6B35',
+                      showMovingAverage: true,
+                      maWindow: 7
+                    }]}
+                    height={240}
+                    showLegend={false}
+                    valueFormatter={(v) => formatCurrency(v)}
+                  />
+                </div>
+              ) : (
+                <div className="h-64 flex items-center justify-center text-slate-400">
+                  데이터를 불러오는 중...
+                </div>
+              )}
+            </Card>
+
+            <Card className="p-6 bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700">
+              <h3 className="font-semibold text-slate-800 dark:text-slate-100 mb-4">목표 달성률</h3>
+              <div className="space-y-6">
+                <GoalGauge 
+                  current={summary?.totalGMV || 0} 
+                  target={(summary?.totalGMV || 0) * 1.2} 
+                  label="월간 매출 목표" 
+                />
+                <GoalGauge 
+                  current={summary?.totalOrders || 0} 
+                  target={(summary?.totalOrders || 0) * 1.15} 
+                  label="월간 주문 목표" 
+                />
+                <GoalGauge 
+                  current={summary?.avgOrderValue || 0} 
+                  target={(summary?.avgOrderValue || 0) * 1.1} 
+                  label="AOV 목표" 
+                />
+              </div>
+            </Card>
+          </div>
+        </>
+      )}
+
+      {/* 트렌드 분석 */}
+      {activeSubTab === 'trends' && (
+        <Card className="p-6 bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700">
+          <div className="flex items-center justify-between mb-4">
+            <h3 className="font-semibold text-slate-800 dark:text-slate-100">상세 트렌드 분석</h3>
+            <button className="flex items-center gap-2 px-3 py-1.5 text-sm text-slate-600 dark:text-slate-300 bg-slate-100 dark:bg-slate-700 rounded-lg hover:bg-slate-200 dark:hover:bg-slate-600 transition-colors">
+              <Icon icon={Download} size="xs" />
+              데이터 내보내기
+            </button>
+          </div>
+          
+          {trendChartData.length > 0 ? (
+            <div className="h-96">
+              <EChartsTrendChart
+                series={[{
+                  name: '매출',
+                  data: trendChartData,
+                  type: 'area',
+                  color: '#FF6B35',
+                  showMovingAverage: true,
+                  maWindow: 7
+                }]}
+                height={360}
+                showLegend={false}
+                showDataZoom={true}
+                valueFormatter={(v) => formatCurrency(v)}
+              />
+            </div>
+          ) : (
+            <div className="h-96 flex items-center justify-center text-slate-400">
+              트렌드 데이터를 불러오는 중...
+            </div>
+          )}
+
+          {/* 트렌드 인사이트 */}
+          {trendsData?.insights && (
+            <div className="mt-6 p-4 bg-slate-50 dark:bg-slate-700/50 rounded-xl">
+              <h4 className="font-medium text-slate-800 dark:text-slate-100 mb-2">트렌드 인사이트</h4>
+              <ul className="space-y-2">
+                {trendsData.insights.map((insight: string, idx: number) => (
+                  <li key={idx} className="text-sm text-slate-600 dark:text-slate-400 flex items-start gap-2">
+                    <span className="text-idus-500">•</span>
+                    {insight}
+                  </li>
+                ))}
+              </ul>
+            </div>
+          )}
+        </Card>
+      )}
+
+      {/* 매출 예측 */}
+      {activeSubTab === 'forecast' && (
+        <Card className="p-6 bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700">
+          <div className="flex items-center justify-between mb-4">
+            <div>
+              <h3 className="font-semibold text-slate-800 dark:text-slate-100">30일 매출 예측</h3>
+              <p className="text-sm text-slate-500 dark:text-slate-400">앙상블 모델 기반 예측</p>
+            </div>
+            {forecastData?.accuracy && (
+              <Badge className="bg-emerald-100 text-emerald-700 dark:bg-emerald-900/30 dark:text-emerald-400">
+                정확도: {(forecastData.accuracy * 100).toFixed(1)}%
+              </Badge>
+            )}
+          </div>
+          
+          {forecastChartData.length > 0 ? (
+            <div className="h-80">
+              <EChartsForecast
+                historicalData={forecastChartData.filter((d: any) => d.actual !== undefined).map((d: any) => ({
+                  date: d.date,
+                  value: d.actual
+                }))}
+                predictions={forecastChartData.filter((d: any) => d.predicted !== undefined).map((d: any) => ({
+                  date: d.date,
+                  predicted: d.predicted,
+                  lower95: d.lower || d.predicted * 0.9,
+                  upper95: d.upper || d.predicted * 1.1
+                }))}
+                height={300}
+                valueFormatter={(v) => formatCurrency(v)}
+              />
+            </div>
+          ) : (
+            <div className="h-80 flex items-center justify-center text-slate-400">
+              예측 데이터를 불러오는 중...
+            </div>
+          )}
+
+          {/* 예측 요약 */}
+          {forecastData?.summary && (
+            <div className="mt-6 grid grid-cols-2 lg:grid-cols-4 gap-4">
+              <div className="p-4 bg-slate-50 dark:bg-slate-700/50 rounded-xl text-center">
+                <p className="text-xs text-slate-500 mb-1">예상 총 매출</p>
+                <p className="text-xl font-bold text-slate-800 dark:text-slate-100">
+                  {formatCurrency(forecastData.summary.totalPredicted || 0)}
+                </p>
+              </div>
+              <div className="p-4 bg-slate-50 dark:bg-slate-700/50 rounded-xl text-center">
+                <p className="text-xs text-slate-500 mb-1">예상 성장률</p>
+                <p className={`text-xl font-bold ${
+                  (forecastData.summary.growthRate || 0) >= 0 ? 'text-emerald-600' : 'text-red-600'
+                }`}>
+                  {formatPercent(forecastData.summary.growthRate || 0)}
+                </p>
+              </div>
+              <div className="p-4 bg-slate-50 dark:bg-slate-700/50 rounded-xl text-center">
+                <p className="text-xs text-slate-500 mb-1">최고 예상일</p>
+                <p className="text-xl font-bold text-slate-800 dark:text-slate-100">
+                  {forecastData.summary.peakDate || '-'}
+                </p>
+              </div>
+              <div className="p-4 bg-slate-50 dark:bg-slate-700/50 rounded-xl text-center">
+                <p className="text-xs text-slate-500 mb-1">신뢰 구간</p>
+                <p className="text-xl font-bold text-slate-800 dark:text-slate-100">
+                  95%
+                </p>
+              </div>
+            </div>
+          )}
+        </Card>
+      )}
+
+      {/* 코호트 분석 */}
+      {activeSubTab === 'cohort' && (
+        <Card className="p-6 bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700">
+          <div className="flex items-center justify-between mb-4">
+            <div>
+              <h3 className="font-semibold text-slate-800 dark:text-slate-100">코호트 리텐션 분석</h3>
+              <p className="text-sm text-slate-500 dark:text-slate-400">월별 가입 코호트의 리텐션율</p>
+            </div>
+            <button className="flex items-center gap-2 px-3 py-1.5 text-sm text-slate-600 dark:text-slate-300 bg-slate-100 dark:bg-slate-700 rounded-lg hover:bg-slate-200 dark:hover:bg-slate-600 transition-colors">
+              <Icon icon={Download} size="xs" />
+              내보내기
+            </button>
+          </div>
+          
+          {cohortHeatmapData.length > 0 ? (
+            <div className="h-80">
+              <EChartsHeatmap
+                data={cohortHeatmapData}
+                xLabels={['M0', 'M1', 'M2', 'M3', 'M4', 'M5', 'M6']}
+                yLabels={cohortData?.cohorts?.map((c: any) => c.month || c.cohort) || []}
+                height={300}
+                valueFormatter={(v) => `${v.toFixed(1)}%`}
+              />
+            </div>
+          ) : (
+            <div className="h-80 flex items-center justify-center text-slate-400">
+              코호트 데이터를 불러오는 중...
+            </div>
+          )}
+
+          {/* 코호트 인사이트 */}
+          {cohortData?.insights && (
+            <div className="mt-6 p-4 bg-slate-50 dark:bg-slate-700/50 rounded-xl">
+              <h4 className="font-medium text-slate-800 dark:text-slate-100 mb-2">코호트 인사이트</h4>
+              <ul className="space-y-2">
+                {cohortData.insights.map((insight: string, idx: number) => (
+                  <li key={idx} className="text-sm text-slate-600 dark:text-slate-400 flex items-start gap-2">
+                    <span className="text-idus-500">•</span>
+                    {insight}
+                  </li>
+                ))}
+              </ul>
+            </div>
+          )}
+        </Card>
+      )}
+    </div>
+  )
+}
+
+export default UnifiedRevenueTab
+

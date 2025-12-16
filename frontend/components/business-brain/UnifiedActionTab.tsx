@@ -1,0 +1,510 @@
+'use client'
+
+import { useState, useMemo } from 'react'
+import { Card } from '@/components/ui/Card'
+import { Badge } from '@/components/ui/Badge'
+import { Icon } from '@/components/ui/Icon'
+import { 
+  Zap, Play, Pause, CheckCircle, Clock, AlertTriangle,
+  ArrowRight, Filter, Download, RefreshCw, Target,
+  TrendingUp, DollarSign, Users, ChevronDown
+} from 'lucide-react'
+
+// 서브탭 타입
+type ActionSubTab = 'recommended' | 'in-progress' | 'completed' | 'simulation'
+
+// 액션 상태
+type ActionStatus = 'pending' | 'in-progress' | 'completed' | 'cancelled'
+
+// 액션 타입
+interface Action {
+  id: string
+  title: string
+  description: string
+  category: 'revenue' | 'customer' | 'artist' | 'operations'
+  priority: 'high' | 'medium' | 'low'
+  status: ActionStatus
+  expectedImpact: string
+  effort: 'low' | 'medium' | 'high'
+  dueDate?: string
+  progress?: number
+  metrics?: { label: string; value: string }[]
+}
+
+// 카테고리 설정
+const categoryConfig = {
+  revenue: { icon: DollarSign, color: 'text-emerald-500', bg: 'bg-emerald-100 dark:bg-emerald-900/30' },
+  customer: { icon: Users, color: 'text-blue-500', bg: 'bg-blue-100 dark:bg-blue-900/30' },
+  artist: { icon: Target, color: 'text-purple-500', bg: 'bg-purple-100 dark:bg-purple-900/30' },
+  operations: { icon: RefreshCw, color: 'text-amber-500', bg: 'bg-amber-100 dark:bg-amber-900/30' }
+}
+
+// 상태 설정
+const statusConfig = {
+  pending: { label: '대기', color: 'bg-slate-100 text-slate-700 dark:bg-slate-700 dark:text-slate-300' },
+  'in-progress': { label: '진행 중', color: 'bg-blue-100 text-blue-700 dark:bg-blue-900/50 dark:text-blue-400' },
+  completed: { label: '완료', color: 'bg-emerald-100 text-emerald-700 dark:bg-emerald-900/50 dark:text-emerald-400' },
+  cancelled: { label: '취소', color: 'bg-red-100 text-red-700 dark:bg-red-900/50 dark:text-red-400' }
+}
+
+// 우선순위 설정
+const priorityConfig = {
+  high: { label: '긴급', color: 'bg-red-100 text-red-700 dark:bg-red-900/50 dark:text-red-400' },
+  medium: { label: '중요', color: 'bg-amber-100 text-amber-700 dark:bg-amber-900/50 dark:text-amber-400' },
+  low: { label: '일반', color: 'bg-slate-100 text-slate-700 dark:bg-slate-700 dark:text-slate-300' }
+}
+
+// 노력도 설정
+const effortConfig = {
+  low: { label: '쉬움', color: 'text-emerald-600' },
+  medium: { label: '보통', color: 'text-amber-600' },
+  high: { label: '어려움', color: 'text-red-600' }
+}
+
+// 서브탭 버튼 컴포넌트
+function SubTabButton({ 
+  active, 
+  onClick, 
+  icon, 
+  label,
+  count
+}: { 
+  active: boolean
+  onClick: () => void
+  icon: any
+  label: string
+  count?: number
+}) {
+  return (
+    <button
+      onClick={onClick}
+      className={`
+        flex items-center gap-2 px-4 py-2.5 rounded-xl text-sm font-medium
+        transition-all duration-200
+        ${active 
+          ? 'bg-idus-500 text-white shadow-md' 
+          : 'bg-slate-100 dark:bg-slate-800 text-slate-600 dark:text-slate-400 hover:bg-slate-200 dark:hover:bg-slate-700'
+        }
+      `}
+    >
+      <Icon icon={icon} size="sm" />
+      <span>{label}</span>
+      {count !== undefined && count > 0 && (
+        <Badge className={active ? 'bg-white/20 text-white' : 'bg-slate-200 dark:bg-slate-700'}>
+          {count}
+        </Badge>
+      )}
+    </button>
+  )
+}
+
+// 액션 카드 컴포넌트
+function ActionCard({ 
+  action, 
+  onStart, 
+  onComplete,
+  onCancel
+}: { 
+  action: Action
+  onStart?: () => void
+  onComplete?: () => void
+  onCancel?: () => void
+}) {
+  const [isExpanded, setIsExpanded] = useState(false)
+  const category = categoryConfig[action.category]
+  const status = statusConfig[action.status]
+  const priority = priorityConfig[action.priority]
+  const effort = effortConfig[action.effort]
+  
+  return (
+    <Card className="overflow-hidden bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700">
+      <div 
+        className="p-5 cursor-pointer hover:bg-slate-50 dark:hover:bg-slate-800/50 transition-colors"
+        onClick={() => setIsExpanded(!isExpanded)}
+      >
+        <div className="flex items-start gap-4">
+          <div className={`w-12 h-12 rounded-xl ${category.bg} flex items-center justify-center`}>
+            <Icon icon={category.icon} size="lg" className={category.color} />
+          </div>
+          
+          <div className="flex-1 min-w-0">
+            <div className="flex items-center gap-2 mb-2 flex-wrap">
+              <h4 className="font-semibold text-slate-800 dark:text-slate-100">
+                {action.title}
+              </h4>
+              <Badge className={priority.color}>{priority.label}</Badge>
+              <Badge className={status.color}>{status.label}</Badge>
+            </div>
+            
+            <p className="text-sm text-slate-600 dark:text-slate-400 line-clamp-2">
+              {action.description}
+            </p>
+            
+            <div className="flex items-center gap-4 mt-3 text-sm">
+              <span className="text-slate-500">
+                예상 효과: <span className="font-medium text-slate-700 dark:text-slate-300">{action.expectedImpact}</span>
+              </span>
+              <span className={`font-medium ${effort.color}`}>
+                난이도: {effort.label}
+              </span>
+            </div>
+          </div>
+          
+          <Icon 
+            icon={ChevronDown} 
+            size="sm" 
+            className={`text-slate-400 transition-transform ${isExpanded ? 'rotate-180' : ''}`}
+          />
+        </div>
+        
+        {/* 진행률 표시 (진행 중인 경우) */}
+        {action.status === 'in-progress' && action.progress !== undefined && (
+          <div className="mt-4">
+            <div className="flex items-center justify-between text-xs mb-1">
+              <span className="text-slate-500">진행률</span>
+              <span className="font-medium text-slate-700 dark:text-slate-300">{action.progress}%</span>
+            </div>
+            <div className="h-2 bg-slate-200 dark:bg-slate-700 rounded-full overflow-hidden">
+              <div 
+                className="h-full bg-idus-500 rounded-full transition-all duration-500"
+                style={{ width: `${action.progress}%` }}
+              />
+            </div>
+          </div>
+        )}
+      </div>
+      
+      {/* 확장된 상세 정보 */}
+      {isExpanded && (
+        <div className="px-5 pb-5 pt-2 border-t border-slate-200 dark:border-slate-700 bg-slate-50 dark:bg-slate-800/50">
+          {/* 관련 지표 */}
+          {action.metrics && action.metrics.length > 0 && (
+            <div className="mb-4">
+              <p className="text-xs font-medium text-slate-500 uppercase mb-2">관련 지표</p>
+              <div className="grid grid-cols-2 lg:grid-cols-4 gap-3">
+                {action.metrics.map((metric, idx) => (
+                  <div key={idx} className="p-3 bg-white dark:bg-slate-800 rounded-lg border border-slate-200 dark:border-slate-700">
+                    <p className="text-xs text-slate-500 mb-1">{metric.label}</p>
+                    <p className="font-semibold text-slate-800 dark:text-slate-100">{metric.value}</p>
+                  </div>
+                ))}
+              </div>
+            </div>
+          )}
+          
+          {/* 마감일 */}
+          {action.dueDate && (
+            <div className="flex items-center gap-2 mb-4 text-sm">
+              <Icon icon={Clock} size="sm" className="text-slate-400" />
+              <span className="text-slate-600 dark:text-slate-400">
+                마감일: <span className="font-medium">{action.dueDate}</span>
+              </span>
+            </div>
+          )}
+          
+          {/* 액션 버튼 */}
+          <div className="flex items-center gap-2">
+            {action.status === 'pending' && onStart && (
+              <button 
+                onClick={(e) => { e.stopPropagation(); onStart(); }}
+                className="flex items-center gap-2 px-4 py-2 bg-idus-500 text-white rounded-lg hover:bg-idus-600 transition-colors text-sm font-medium"
+              >
+                <Icon icon={Play} size="xs" />
+                실행 시작
+              </button>
+            )}
+            {action.status === 'in-progress' && onComplete && (
+              <button 
+                onClick={(e) => { e.stopPropagation(); onComplete(); }}
+                className="flex items-center gap-2 px-4 py-2 bg-emerald-500 text-white rounded-lg hover:bg-emerald-600 transition-colors text-sm font-medium"
+              >
+                <Icon icon={CheckCircle} size="xs" />
+                완료 처리
+              </button>
+            )}
+            {(action.status === 'pending' || action.status === 'in-progress') && onCancel && (
+              <button 
+                onClick={(e) => { e.stopPropagation(); onCancel(); }}
+                className="flex items-center gap-2 px-4 py-2 bg-slate-100 dark:bg-slate-700 text-slate-700 dark:text-slate-300 rounded-lg hover:bg-slate-200 dark:hover:bg-slate-600 transition-colors text-sm font-medium"
+              >
+                취소
+              </button>
+            )}
+          </div>
+        </div>
+      )}
+    </Card>
+  )
+}
+
+// What-if 시뮬레이션 미니 카드
+function SimulationCard({ 
+  title, 
+  description, 
+  onClick 
+}: { 
+  title: string
+  description: string
+  onClick: () => void
+}) {
+  return (
+    <Card 
+      onClick={onClick}
+      className="p-5 bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700 cursor-pointer hover:shadow-md hover:border-idus-300 dark:hover:border-idus-700 transition-all"
+    >
+      <div className="flex items-start gap-4">
+        <div className="w-10 h-10 rounded-xl bg-purple-100 dark:bg-purple-900/30 flex items-center justify-center">
+          <Icon icon={TrendingUp} size="md" className="text-purple-600 dark:text-purple-400" />
+        </div>
+        <div className="flex-1">
+          <h4 className="font-semibold text-slate-800 dark:text-slate-100 mb-1">{title}</h4>
+          <p className="text-sm text-slate-600 dark:text-slate-400">{description}</p>
+        </div>
+        <Icon icon={ArrowRight} size="sm" className="text-slate-400" />
+      </div>
+    </Card>
+  )
+}
+
+// 메인 통합 액션 탭 컴포넌트
+interface UnifiedActionTabProps {
+  actionsData: any
+  isLoading: boolean
+  period: string
+  onActionStart?: (actionId: string) => void
+  onActionComplete?: (actionId: string) => void
+  onActionCancel?: (actionId: string) => void
+  onSimulationClick?: () => void
+}
+
+export function UnifiedActionTab({
+  actionsData,
+  isLoading,
+  onActionStart,
+  onActionComplete,
+  onActionCancel,
+  onSimulationClick
+}: UnifiedActionTabProps) {
+  const [activeSubTab, setActiveSubTab] = useState<ActionSubTab>('recommended')
+  const [categoryFilter, setCategoryFilter] = useState<string>('all')
+
+  // 액션 데이터 처리
+  const actions = useMemo(() => {
+    if (!actionsData?.actions && !actionsData?.recommendations) return []
+    
+    const rawActions = actionsData.actions || actionsData.recommendations || []
+    return rawActions.map((action: any, idx: number) => ({
+      id: action.id || `action-${idx}`,
+      title: action.title || action.action || '액션',
+      description: action.description || action.details || '',
+      category: action.category || 'operations',
+      priority: action.priority || 'medium',
+      status: action.status || 'pending',
+      expectedImpact: action.expectedImpact || action.impact || '분석 중',
+      effort: action.effort || 'medium',
+      dueDate: action.dueDate,
+      progress: action.progress,
+      metrics: action.metrics
+    })) as Action[]
+  }, [actionsData])
+
+  // 필터링된 액션
+  const filteredActions = useMemo(() => {
+    let filtered = actions
+
+    // 상태 필터
+    switch (activeSubTab) {
+      case 'recommended':
+        filtered = filtered.filter(a => a.status === 'pending')
+        break
+      case 'in-progress':
+        filtered = filtered.filter(a => a.status === 'in-progress')
+        break
+      case 'completed':
+        filtered = filtered.filter(a => a.status === 'completed')
+        break
+    }
+
+    // 카테고리 필터
+    if (categoryFilter !== 'all') {
+      filtered = filtered.filter(a => a.category === categoryFilter)
+    }
+
+    // 우선순위 순 정렬
+    return filtered.sort((a, b) => {
+      const priorityOrder = { high: 0, medium: 1, low: 2 }
+      return priorityOrder[a.priority] - priorityOrder[b.priority]
+    })
+  }, [actions, activeSubTab, categoryFilter])
+
+  // 카운트
+  const counts = useMemo(() => ({
+    recommended: actions.filter(a => a.status === 'pending').length,
+    inProgress: actions.filter(a => a.status === 'in-progress').length,
+    completed: actions.filter(a => a.status === 'completed').length
+  }), [actions])
+
+  if (isLoading) {
+    return (
+      <div className="space-y-6">
+        <div className="animate-pulse">
+          <div className="h-12 bg-slate-200 dark:bg-slate-700 rounded-xl mb-6" />
+          <div className="space-y-4">
+            {[1, 2, 3].map(i => (
+              <div key={i} className="h-32 bg-slate-200 dark:bg-slate-700 rounded-xl" />
+            ))}
+          </div>
+        </div>
+      </div>
+    )
+  }
+
+  return (
+    <div className="space-y-6">
+      {/* 서브탭 네비게이션 */}
+      <Card className="p-4 bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700">
+        <div className="flex items-center justify-between flex-wrap gap-4">
+          <div className="flex items-center gap-2 overflow-x-auto pb-1">
+            <SubTabButton
+              active={activeSubTab === 'recommended'}
+              onClick={() => setActiveSubTab('recommended')}
+              icon={Zap}
+              label="권장 액션"
+              count={counts.recommended}
+            />
+            <SubTabButton
+              active={activeSubTab === 'in-progress'}
+              onClick={() => setActiveSubTab('in-progress')}
+              icon={Play}
+              label="진행 중"
+              count={counts.inProgress}
+            />
+            <SubTabButton
+              active={activeSubTab === 'completed'}
+              onClick={() => setActiveSubTab('completed')}
+              icon={CheckCircle}
+              label="완료"
+              count={counts.completed}
+            />
+            <SubTabButton
+              active={activeSubTab === 'simulation'}
+              onClick={() => setActiveSubTab('simulation')}
+              icon={TrendingUp}
+              label="What-if 시뮬레이션"
+            />
+          </div>
+          
+          {activeSubTab !== 'simulation' && (
+            <select
+              value={categoryFilter}
+              onChange={(e) => setCategoryFilter(e.target.value)}
+              className="px-3 py-2 text-sm bg-slate-100 dark:bg-slate-700 border-0 rounded-lg text-slate-700 dark:text-slate-300"
+            >
+              <option value="all">전체 카테고리</option>
+              <option value="revenue">매출</option>
+              <option value="customer">고객</option>
+              <option value="artist">작가</option>
+              <option value="operations">운영</option>
+            </select>
+          )}
+        </div>
+      </Card>
+
+      {/* 요약 (권장 액션 탭에서만) */}
+      {activeSubTab === 'recommended' && counts.recommended > 0 && (
+        <Card className="p-4 bg-idus-50 dark:bg-idus-900/20 border border-idus-200 dark:border-idus-800">
+          <div className="flex items-center gap-3">
+            <Icon icon={Zap} size="md" className="text-idus-600 dark:text-idus-400" />
+            <p className="text-sm text-idus-700 dark:text-idus-300">
+              <strong>{counts.recommended}개</strong>의 권장 액션이 있습니다. 
+              우선순위가 높은 액션부터 실행하면 최대 효과를 얻을 수 있습니다.
+            </p>
+          </div>
+        </Card>
+      )}
+
+      {/* 액션 목록 */}
+      {activeSubTab !== 'simulation' && (
+        <div className="space-y-4">
+          {filteredActions.length > 0 ? (
+            filteredActions.map((action) => (
+              <ActionCard
+                key={action.id}
+                action={action}
+                onStart={onActionStart ? () => onActionStart(action.id) : undefined}
+                onComplete={onActionComplete ? () => onActionComplete(action.id) : undefined}
+                onCancel={onActionCancel ? () => onActionCancel(action.id) : undefined}
+              />
+            ))
+          ) : (
+            <Card className="p-12 bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700">
+              <div className="text-center">
+                <Icon icon={CheckCircle} size="xl" className="text-slate-300 mx-auto mb-4" />
+                <p className="text-slate-500 dark:text-slate-400">
+                  {activeSubTab === 'recommended' && '현재 권장 액션이 없습니다.'}
+                  {activeSubTab === 'in-progress' && '진행 중인 액션이 없습니다.'}
+                  {activeSubTab === 'completed' && '완료된 액션이 없습니다.'}
+                </p>
+              </div>
+            </Card>
+          )}
+        </div>
+      )}
+
+      {/* What-if 시뮬레이션 */}
+      {activeSubTab === 'simulation' && (
+        <div className="space-y-4">
+          <Card className="p-6 bg-gradient-to-br from-purple-50 to-indigo-50 dark:from-purple-900/20 dark:to-indigo-900/20 border border-purple-200 dark:border-purple-800">
+            <div className="flex items-start gap-4">
+              <div className="w-14 h-14 rounded-2xl bg-purple-100 dark:bg-purple-900/50 flex items-center justify-center">
+                <Icon icon={TrendingUp} size="xl" className="text-purple-600 dark:text-purple-400" />
+              </div>
+              <div className="flex-1">
+                <h3 className="text-lg font-semibold text-purple-900 dark:text-purple-100 mb-2">
+                  What-if 시뮬레이션
+                </h3>
+                <p className="text-sm text-purple-700 dark:text-purple-300 mb-4">
+                  다양한 시나리오를 시뮬레이션하여 비즈니스 의사결정에 도움을 받으세요.
+                  가격 변경, 마케팅 예산 조정 등의 영향을 미리 예측할 수 있습니다.
+                </p>
+                <button 
+                  onClick={onSimulationClick}
+                  className="flex items-center gap-2 px-4 py-2 bg-purple-600 text-white rounded-lg hover:bg-purple-700 transition-colors text-sm font-medium"
+                >
+                  시뮬레이션 시작
+                  <Icon icon={ArrowRight} size="xs" />
+                </button>
+              </div>
+            </div>
+          </Card>
+
+          <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
+            <SimulationCard
+              title="가격 변경 시뮬레이션"
+              description="상품 가격 변경이 매출과 주문량에 미치는 영향 분석"
+              onClick={() => onSimulationClick?.()}
+            />
+            <SimulationCard
+              title="마케팅 예산 시뮬레이션"
+              description="마케팅 예산 조정에 따른 신규 고객 획득 예측"
+              onClick={() => onSimulationClick?.()}
+            />
+            <SimulationCard
+              title="할인 캠페인 시뮬레이션"
+              description="할인율별 매출 및 수익 변화 예측"
+              onClick={() => onSimulationClick?.()}
+            />
+            <SimulationCard
+              title="재고 관리 시뮬레이션"
+              description="재고 수준 변경에 따른 비용 및 판매 영향 분석"
+              onClick={() => onSimulationClick?.()}
+            />
+          </div>
+        </div>
+      )}
+    </div>
+  )
+}
+
+export default UnifiedActionTab
+
