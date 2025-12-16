@@ -364,13 +364,36 @@ export function UnifiedReportTab({
         title: 'Business Brain 경영 분석 리포트',
         subtitle: `분석 기간: ${periodLabels[period] || period}`,
         date: new Date().toLocaleDateString('ko-KR'),
+        summary: {
+          keyMetrics: [
+            { label: '비즈니스 건강도', value: `${healthScore?.overall || 0}/100` },
+            { label: '분석 기간', value: periodLabels[period] || period },
+          ],
+          highlights: briefing?.highlights || ['데이터 분석 완료'],
+          concerns: briefing?.concerns || [],
+        },
         sections: selectedSections.map(sectionId => {
           const section = availableSections.find(s => s.id === sectionId)
           return {
             title: section?.name || sectionId,
             content: getSectionContent(sectionId)
           }
-        })
+        }),
+        insights: (insights || []).slice(0, 5).map((i: any) => ({
+          type: i.type === 'opportunity' ? 'positive' as const : 
+                i.type === 'risk' ? 'negative' as const : 'neutral' as const,
+          title: i.title || i.message?.slice(0, 50) || '인사이트',
+          description: i.description || i.message || '',
+          impact: i.impact,
+        })),
+        actions: (insights || []).filter((i: any) => i.action).slice(0, 3).map((i: any) => ({
+          priority: i.priority === 'high' ? 'high' as const : 
+                   i.priority === 'medium' ? 'medium' as const : 'low' as const,
+          action: i.action || '권장 액션',
+          expectedImpact: i.expectedImpact || '효과 분석 중',
+          timeline: i.timeline || '즉시',
+        })),
+        generatedBy: 'Business Brain AI',
       }
 
       await pdfGenerator.generateExecutiveReport(reportData)
