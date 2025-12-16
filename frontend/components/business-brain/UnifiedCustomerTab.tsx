@@ -356,11 +356,41 @@ export function UnifiedCustomerTab({
     })
   }, [rfmData])
 
-  // 이탈 위험 고객 목록 - 다양한 데이터 구조 지원
+  // RFM 세그먼트별 고객 맵 생성 (고객 ID → 세그먼트 정보)
+  const rfmCustomerMap = useMemo(() => {
+    const map = new Map<string, { segment: string; rfmScore: string; lastPurchase: string }>()
+    
+    if (rfmData?.segments && Array.isArray(rfmData.segments)) {
+      rfmData.segments.forEach((seg: any) => {
+        const segmentName = seg.name || seg.segment || seg.label || 'Unknown'
+        const customers = seg.customers || []
+        
+        if (Array.isArray(customers)) {
+          customers.forEach((customer: any) => {
+            const customerId = String(customer.userId || customer.customerId || customer.id || '')
+            if (customerId) {
+              map.set(customerId, {
+                segment: segmentName,
+                rfmScore: customer.rfmScore || customer.rfm_score || `${customer.r || 0}${customer.f || 0}${customer.m || 0}` || '-',
+                lastPurchase: customer.lastOrderDate 
+                  ? `${Math.floor((new Date().getTime() - new Date(customer.lastOrderDate).getTime()) / (1000 * 60 * 60 * 24))}일 전`
+                  : (customer.recencyDays ? `${customer.recencyDays}일 전` : '-')
+              })
+            }
+          })
+        }
+      })
+    }
+    
+    return map
+  }, [rfmData])
+
+  // 이탈 위험 고객 목록 - 다양한 데이터 구조 지원 + RFM 정보 매핑
   const churnRiskCustomers = useMemo(() => {
     const customerList = churnData?.atRiskCustomers || 
                          churnData?.data?.atRiskCustomers || 
                          churnData?.customers ||
+                         churnData?.highRisk?.concat(churnData?.mediumRisk || []) ||
                          churnData?.predictions?.filter((p: any) => p.churnProbability > 50) ||
                          []
     
@@ -373,15 +403,26 @@ export function UnifiedCustomerTab({
       ]
     }
     
-    return customerList.slice(0, 10).map((c: any) => ({
-      id: c.customerId || c.id || c.customer_id || `C-${Math.random().toString(36).substr(2, 4)}`,
-      segment: c.segment || c.rfmSegment || c.customerSegment || 'Unknown',
-      lastPurchase: c.lastPurchase || (c.daysSinceLastPurchase ? `${c.daysSinceLastPurchase}일 전` : '-'),
-      rfmScore: c.rfmScore || c.rfm_score || '-',
-      churnProbability: c.churnProbability || c.riskScore || c.churn_probability || 0,
-      recommendedAction: c.recommendedAction || c.action || c.recommendation || '쿠폰 발송'
-    }))
-  }, [churnData])
+    return customerList.slice(0, 10).map((c: any) => {
+      const customerId = String(c.customerId || c.id || c.customer_id || c.userId || c.user_id || '')
+      const rfmInfo = rfmCustomerMap.get(customerId)
+      
+      return {
+        id: customerId || `C-${Math.random().toString(36).substr(2, 4)}`,
+        segment: rfmInfo?.segment || c.segment || c.rfmSegment || c.customerSegment || 'Unknown',
+        lastPurchase: rfmInfo?.lastPurchase || 
+                     c.lastPurchase || 
+                     (c.recencyDays ? `${c.recencyDays}일 전` : 
+                      c.daysSinceLastPurchase ? `${c.daysSinceLastPurchase}일 전` : '-'),
+        rfmScore: rfmInfo?.rfmScore || 
+                 c.rfmScore || 
+                 c.rfm_score || 
+                 (c.rScore && c.fScore && c.mScore ? `${c.rScore}-${c.fScore}-${c.mScore}` : '-'),
+        churnProbability: c.churnProbability || c.riskScore || c.churn_probability || 0,
+        recommendedAction: c.recommendedAction || c.action || c.recommendation || '쿠폰 발송'
+      }
+    })
+  }, [churnData, rfmCustomerMap])
 
   // 파이 차트 데이터
   const pieChartData = useMemo(() => {

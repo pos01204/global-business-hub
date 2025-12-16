@@ -192,10 +192,25 @@ export function UnifiedRevenueTab({
     // 트렌드 데이터에서 합계 계산
     const totalFromTrends = trendChartData.reduce((sum, item) => sum + item.value, 0)
     
+    // timeSeries.dailyAggregation에서 주문 수 계산
+    const dailyData = trendsData?.timeSeries?.dailyAggregation || 
+                     trendsData?.data?.timeSeries?.dailyAggregation ||
+                     trendsData?.dailyTrends ||
+                     []
+    
+    const totalOrdersFromTrends = Array.isArray(dailyData) 
+      ? dailyData.reduce((sum: number, item: any) => sum + (item.orders || item.orderCount || 0), 0)
+      : 0
+    
+    // AOV 계산: GMV / 주문 수
+    const calculatedAOV = totalOrdersFromTrends > 0 
+      ? totalFromTrends / totalOrdersFromTrends 
+      : (summaryData.avgOrderValue || summaryData.aov || summaryData.averageOrderValue || 0)
+    
     return {
       totalGMV: summaryData.totalGMV || summaryData.gmv || summaryData.revenue || totalFromTrends || 0,
-      totalOrders: summaryData.totalOrders || summaryData.orders || summaryData.orderCount || 0,
-      avgOrderValue: summaryData.avgOrderValue || summaryData.aov || summaryData.averageOrderValue || 0,
+      totalOrders: summaryData.totalOrders || summaryData.orders || summaryData.orderCount || totalOrdersFromTrends || 0,
+      avgOrderValue: summaryData.avgOrderValue || summaryData.aov || summaryData.averageOrderValue || calculatedAOV || 0,
       gmvChange: summaryData.gmvChange || summaryData.revenueChange || 0,
       ordersChange: summaryData.ordersChange || 0,
       aovChange: summaryData.aovChange || 0
@@ -250,7 +265,13 @@ export function UnifiedRevenueTab({
           upper80: item.upper80 || (item.predicted ? item.predicted * 1.1 : 0)
         }))
       
-      return [...histData, ...predData]
+      // 날짜 순으로 정렬
+      const combined = [...histData, ...predData]
+      return combined.sort((a, b) => {
+        const dateA = a.date || ''
+        const dateB = b.date || ''
+        return dateA.localeCompare(dateB)
+      })
     }
     
     // predictions만 있는 경우 (historicalData가 없는 경우)
@@ -283,7 +304,13 @@ export function UnifiedRevenueTab({
           upper80: item.upper80 || (item.predicted ? item.predicted * 1.1 : 0)
         }))
       
-      return [...hist, ...predData]
+      // 날짜 순으로 정렬
+      const combined = [...hist, ...predData]
+      return combined.sort((a, b) => {
+        const dateA = a.date || ''
+        const dateB = b.date || ''
+        return dateA.localeCompare(dateB)
+      })
     }
     
     // 데이터가 없는 경우 기본 더미 데이터 제공
@@ -307,7 +334,13 @@ export function UnifiedRevenueTab({
         upper80: Math.round(predicted * 1.1)
       }
     })
-    return [...hist, ...future]
+    // 날짜 순으로 정렬
+    const combined = [...hist, ...future]
+    return combined.sort((a, b) => {
+      const dateA = a.date || ''
+      const dateB = b.date || ''
+      return dateA.localeCompare(dateB)
+    })
   }, [forecastData])
 
   // 코호트 히트맵 데이터 - 다양한 데이터 구조 지원
