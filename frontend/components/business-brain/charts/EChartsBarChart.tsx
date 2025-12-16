@@ -37,6 +37,7 @@ export interface EChartsBarChartProps {
   horizontal?: boolean
   showPareto?: boolean
   showLabels?: boolean
+  showLegend?: boolean
   stacked?: boolean
   valueFormatter?: (value: number) => string
   onBarClick?: (item: { name: string; value: number; seriesName?: string }) => void
@@ -53,6 +54,7 @@ export function EChartsBarChart({
   horizontal = false,
   showPareto = false,
   showLabels = false,
+  showLegend = true,
   stacked = false,
   valueFormatter = formatNumber,
   onBarClick,
@@ -168,10 +170,12 @@ export function EChartsBarChart({
             return html
           },
         },
-        legend: showPareto ? {
+        legend: showLegend ? (showPareto ? {
           data: [title || 'Value', '누적 비율'],
           bottom: 10,
-        } : undefined,
+        } : {
+          show: false,
+        }) : undefined,
         grid: {
           left: '3%',
           right: showPareto ? '8%' : '4%',
@@ -259,11 +263,11 @@ export function EChartsBarChart({
             type: 'shadow',
           },
         },
-        legend: {
+        legend: showLegend ? {
           data: series.map(s => s.name),
           bottom: 10,
           type: 'scroll',
-        },
+        } : { show: false },
         grid: {
           left: '3%',
           right: '4%',
@@ -296,7 +300,7 @@ export function EChartsBarChart({
     }
     
     return {}
-  }, [data, series, categories, title, subtitle, horizontal, showPareto, showLabels, stacked, valueFormatter])
+  }, [data, series, categories, title, subtitle, horizontal, showPareto, showLabels, showLegend, stacked, valueFormatter])
   
   const handleEvents = useMemo(() => ({
     click: (params: any) => {
