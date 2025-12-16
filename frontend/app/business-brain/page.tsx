@@ -16,7 +16,7 @@ import {
   Brain, BarChart3, Users, Palette, TrendingUp, Calendar,
   Lightbulb, AlertTriangle, Target, FileText, Search,
   Zap, CheckCircle, XCircle, Info, Circle, MessageCircle,
-  DollarSign, Activity,
+  DollarSign, Activity, ArrowRight,
   type LucideIcon
 } from 'lucide-react'
 // v4.2: 신뢰도 컴포넌트
