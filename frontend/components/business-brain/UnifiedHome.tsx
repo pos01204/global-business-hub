@@ -417,53 +417,84 @@ export function UnifiedHome({
 }: UnifiedHomeProps) {
   const router = useRouter()
 
-  // KPI 데이터 추출
+  // KPI 데이터 추출 - 다양한 데이터 구조 지원
   const kpiData = useMemo(() => {
-    if (!comprehensiveData?.summary) return null
-    const { summary, comparison } = comprehensiveData
+    // comprehensiveData 또는 briefing에서 데이터 추출
+    const summary = comprehensiveData?.summary || comprehensiveData?.data?.summary || briefing?.summary || {}
+    const comparison = comprehensiveData?.comparison || comprehensiveData?.data?.comparison || briefing?.comparison || {}
+    
+    // 다양한 키 이름 지원
+    const gmv = summary.gmv || summary.totalGMV || summary.revenue || summary.totalRevenue || 0
+    const orders = summary.orders || summary.totalOrders || summary.orderCount || 0
+    const customers = summary.customers || summary.activeCustomers || summary.customerCount || 0
+    const aov = summary.aov || summary.avgOrderValue || summary.averageOrderValue || (orders > 0 ? gmv / orders : 0)
+    
     return {
-      gmv: summary.gmv || 0,
-      gmvChange: comparison?.gmv?.change || 0,
-      orders: summary.orders || 0,
-      ordersChange: comparison?.orders?.change || 0,
-      customers: summary.customers || 0,
-      customersChange: comparison?.customers?.change || 0,
-      aov: summary.aov || 0,
-      aovChange: comparison?.aov?.change || 0
+      gmv,
+      gmvChange: comparison?.gmv?.change || comparison?.revenue?.change || summary.gmvChange || 0,
+      orders,
+      ordersChange: comparison?.orders?.change || summary.ordersChange || 0,
+      customers,
+      customersChange: comparison?.customers?.change || summary.customersChange || 0,
+      aov,
+      aovChange: comparison?.aov?.change || summary.aovChange || 0
     }
-  }, [comprehensiveData])
+  }, [comprehensiveData, briefing])
 
-  // 트렌드 데이터 추출
+  // 트렌드 데이터 추출 - 다양한 데이터 구조 지원
   const trendData = useMemo(() => {
-    if (!comprehensiveData?.trends) return []
-    return comprehensiveData.trends.slice(-14).map((item: any) => ({
-      date: item.date,
-      value: item.gmv || item.revenue || 0
+    // 여러 가능한 소스에서 트렌드 데이터 찾기
+    const trends = comprehensiveData?.trends || 
+                   comprehensiveData?.data?.trends || 
+                   comprehensiveData?.dailyTrends ||
+                   briefing?.trends ||
+                   []
+    
+    if (!Array.isArray(trends) || trends.length === 0) return []
+    
+    return trends.slice(-14).map((item: any) => ({
+      date: item.date || item.day || item.period,
+      value: item.gmv || item.revenue || item.value || item.amount || 0
     }))
-  }, [comprehensiveData])
+  }, [comprehensiveData, briefing])
 
-  // 인사이트 데이터 추출
+  // 인사이트 데이터 추출 - 다양한 데이터 구조 지원
   const insights = useMemo(() => {
-    if (!comprehensiveData?.insights) return []
-    return comprehensiveData.insights.slice(0, 4).map((insight: any) => ({
-      type: insight.priority === 'high' ? 'danger' : 
-            insight.priority === 'medium' ? 'warning' : 
-            insight.type === 'opportunity' ? 'success' : 'info',
-      title: insight.title || insight.message?.slice(0, 30) || '인사이트',
-      description: insight.description || insight.message || '',
-      action: insight.action
+    const insightsList = comprehensiveData?.insights || 
+                         comprehensiveData?.data?.insights ||
+                         briefing?.insights ||
+                         briefing?.highlights?.map((h: string) => ({ message: h, type: 'info', priority: 'medium' })) ||
+                         []
+    
+    if (!Array.isArray(insightsList) || insightsList.length === 0) return []
+    
+    return insightsList.slice(0, 4).map((insight: any) => ({
+      type: insight.severity === 'critical' || insight.priority === 'high' ? 'danger' : 
+            insight.severity === 'warning' || insight.priority === 'medium' ? 'warning' : 
+            insight.type === 'opportunity' || insight.type === 'positive' ? 'success' : 'info',
+      title: insight.title || insight.message?.slice(0, 30) || insight.name || '인사이트',
+      description: insight.description || insight.message || insight.detail || '',
+      action: insight.action || insight.recommendation
     }))
-  }, [comprehensiveData])
+  }, [comprehensiveData, briefing])
 
-  // 권장 액션 추출
+  // 권장 액션 추출 - 다양한 데이터 구조 지원
   const actions = useMemo(() => {
-    if (!comprehensiveData?.recommendations) return []
-    return comprehensiveData.recommendations.slice(0, 3).map((rec: any) => ({
-      title: rec.title || rec.action || '액션',
-      impact: rec.expectedImpact || rec.impact || '효과 분석 중',
-      effort: rec.effort || 'medium'
+    const actionsList = comprehensiveData?.recommendations || 
+                        comprehensiveData?.data?.recommendations ||
+                        comprehensiveData?.actions ||
+                        briefing?.recommendations ||
+                        briefing?.actions ||
+                        []
+    
+    if (!Array.isArray(actionsList) || actionsList.length === 0) return []
+    
+    return actionsList.slice(0, 3).map((rec: any) => ({
+      title: rec.title || rec.action || rec.name || rec.recommendation || '액션',
+      impact: rec.expectedImpact || rec.impact || rec.effect || '효과 분석 중',
+      effort: rec.effort || rec.difficulty || 'medium'
     }))
-  }, [comprehensiveData])
+  }, [comprehensiveData, briefing])
 
   // 스파크라인 데이터
   const sparklineData = useMemo(() => {
