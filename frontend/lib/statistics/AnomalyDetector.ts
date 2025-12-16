@@ -223,13 +223,16 @@ export class AnomalyDetector {
     })
 
     // 마지막 그룹 처리
-    if (currentGroup && currentGroup.scores.length >= this.config.minConsecutive!) {
-      groups.push({
-        startIndex: currentGroup.start,
-        endIndex: results.length - 1,
-        length: currentGroup.scores.length,
-        avgScore: currentGroup.scores.reduce((a, b) => a + b, 0) / currentGroup.scores.length,
-      })
+    if (currentGroup !== null) {
+      const group = currentGroup as { start: number; scores: number[] }
+      if (group.scores.length >= this.config.minConsecutive!) {
+        groups.push({
+          startIndex: group.start,
+          endIndex: results.length - 1,
+          length: group.scores.length,
+          avgScore: group.scores.reduce((a, b) => a + b, 0) / group.scores.length,
+        })
+      }
     }
 
     return { results, consecutiveGroups: groups }
