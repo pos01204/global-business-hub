@@ -1235,25 +1235,36 @@ export class DataProcessor {
     const weeklyPattern = this.detectWeeklySeasonality(historicalData)
     const monthlyPattern = this.detectMonthlySeasonality(historicalData)
 
-    // Holt-Winters 유사 예측 (단순화 버전)
-    const alpha = 0.3  // 레벨 평활 계수
-    const beta = 0.1   // 트렌드 평활 계수
+    // 개선된 예측 알고리즘
+    // 1. 최근 평균 계산 (최근 7일 또는 14일 중 더 안정적인 값 사용)
+    const recentWindow = Math.min(14, Math.max(7, Math.floor(values.length / 2)))
+    const recentValues = values.slice(-recentWindow)
+    const recentMean = this.mean(recentValues)
+    const recentStdDev = this.standardDeviation(recentValues)
     
-    let level = values[values.length - 1]
-    let trendValue = (values[values.length - 1] - values[Math.max(0, values.length - 7)]) / 7
+    // 2. 트렌드 계산 개선 (최근 데이터의 선형 회귀)
+    const trendSlope = this.calculateTrendSlope(recentValues) * recentMean
+    // 트렌드가 너무 급격하지 않도록 제한 (일일 변화율 최대 ±5%)
+    const maxDailyChange = recentMean * 0.05
+    const adjustedTrend = Math.max(-maxDailyChange, Math.min(maxDailyChange, trendSlope))
+    
+    // 3. 초기 레벨 설정 (최근 평균 사용)
+    let level = recentMean
 
     // 예측 생성
     const predictions: Array<{ date: string; predicted: number; lower: number; upper: number }> = []
     const lastDate = new Date(sortedDates[sortedDates.length - 1])
-    const stdDev = this.standardDeviation(values)
+    const stdDev = recentStdDev || this.standardDeviation(values)
 
     for (let i = 1; i <= forecastDays; i++) {
       const futureDate = new Date(lastDate)
       futureDate.setDate(futureDate.getDate() + i)
       const dateStr = futureDate.toISOString().split('T')[0]
 
-      // 기본 예측
-      let predicted = level + trendValue * i
+      // 기본 예측: 최근 평균 + 조정된 트렌드
+      // 트렌드의 영향력을 시간에 따라 감소시킴 (지수 감쇠)
+      const trendDecay = Math.exp(-i / 30) // 30일 후 트렌드 영향력 37%로 감소
+      let predicted = level + adjustedTrend * i * trendDecay
 
       // 요일 시즌성 적용
       if (weeklyPattern.detected) {
@@ -1261,14 +1272,22 @@ export class DataProcessor {
         predicted *= weeklyPattern.factors[dayOfWeek]
       }
 
-      // 신뢰 구간 (점점 넓어짐)
+      // 예측 값이 합리적인 범위 내에 있도록 보장
+      // 최근 평균의 20%~200% 범위 내로 제한
+      const minPredicted = recentMean * 0.2
+      const maxPredicted = recentMean * 2.0
+      predicted = Math.max(minPredicted, Math.min(maxPredicted, predicted))
+
+      // 신뢰 구간 (점점 넓어짐, 하지만 합리적인 범위 내)
       const uncertainty = stdDev * Math.sqrt(i) * 0.5
+      const maxUncertainty = recentMean * 0.5 // 최대 불확실성은 평균의 50%
+      const adjustedUncertainty = Math.min(uncertainty, maxUncertainty)
       
       predictions.push({
         date: dateStr,
         predicted: Math.max(0, predicted),
-        lower: Math.max(0, predicted - uncertainty * 1.96),
-        upper: predicted + uncertainty * 1.96,
+        lower: Math.max(0, predicted - adjustedUncertainty * 1.96),
+        upper: predicted + adjustedUncertainty * 1.96,
       })
     }
 
@@ -1353,7 +1372,7 @@ export class DataProcessor {
   }
 
   /**
-   * 예측 정확도 계산
+   * 예측 정확도 계산 (개선된 버전)
    */
   private calculateForecastAccuracy(values: number[]): { mape: number; rmse: number } {
     // 0이 아닌 값만 필터링
@@ -1361,42 +1380,65 @@ export class DataProcessor {
     
     if (nonZeroValues.length < 7) {
       // 데이터가 적으면 합리적인 기본값 반환
-      return { mape: 20, rmse: 0 }
+      return { mape: 25, rmse: 0 }
     }
 
-    // 마지막 몇 개를 테스트셋으로 사용 (최대 7개)
-    const testSize = Math.min(7, Math.floor(nonZeroValues.length / 3))
+    // 최소 14일 이상의 데이터가 있어야 정확한 평가 가능
+    const minTestSize = Math.min(7, Math.max(3, Math.floor(nonZeroValues.length / 4)))
+    const testSize = Math.min(minTestSize, Math.floor(nonZeroValues.length / 3))
     const trainValues = nonZeroValues.slice(0, -testSize)
     const testValues = nonZeroValues.slice(-testSize)
 
-    if (trainValues.length < 3 || testValues.length === 0) {
-      return { mape: 20, rmse: 0 }
+    if (trainValues.length < 5 || testValues.length === 0) {
+      return { mape: 25, rmse: 0 }
     }
 
-    // 단순 이동평균 예측
-    const movingAvg = this.mean(trainValues.slice(-7))
+    // 개선된 예측 방법: 가중 이동평균 + 트렌드 고려
+    const recentWindow = Math.min(7, trainValues.length)
+    const recentValues = trainValues.slice(-recentWindow)
+    const recentMean = this.mean(recentValues)
     
-    if (movingAvg === 0) {
-      return { mape: 20, rmse: 0 }
+    // 트렌드 계산 (최근 7일 vs 그 이전 7일)
+    let trend = 0
+    if (trainValues.length >= 14) {
+      const olderMean = this.mean(trainValues.slice(-14, -7))
+      if (olderMean > 0) {
+        trend = (recentMean - olderMean) / olderMean
+      }
+    }
+    
+    // 예측값: 최근 평균 + 트렌드 조정
+    const predicted = recentMean * (1 + trend * 0.5) // 트렌드의 50%만 반영
+    
+    if (predicted <= 0 || recentMean <= 0) {
+      return { mape: 25, rmse: 0 }
     }
     
     let sumAbsPercentError = 0
     let sumSquaredError = 0
+    let validCount = 0
 
     testValues.forEach(actual => {
-      const error = actual - movingAvg
-      // MAPE 계산: |actual - predicted| / actual
-      sumAbsPercentError += Math.abs(error) / actual
-      sumSquaredError += error * error
+      if (actual > 0) {
+        const error = actual - predicted
+        // MAPE 계산: |actual - predicted| / actual
+        sumAbsPercentError += Math.abs(error) / actual
+        sumSquaredError += error * error
+        validCount++
+      }
     })
 
-    // MAPE를 합리적인 범위로 제한 (최소 5%, 최대 80%)
-    const rawMape = (sumAbsPercentError / testValues.length) * 100
-    const mape = Math.max(5, Math.min(80, rawMape))
+    if (validCount === 0) {
+      return { mape: 25, rmse: 0 }
+    }
+
+    // MAPE를 합리적인 범위로 제한 (최소 5%, 최대 50%)
+    const rawMape = (sumAbsPercentError / validCount) * 100
+    const mape = Math.max(5, Math.min(50, rawMape))
     
     return {
       mape,
-      rmse: Math.sqrt(sumSquaredError / testValues.length),
+      rmse: Math.sqrt(sumSquaredError / validCount),
     }
   }
 

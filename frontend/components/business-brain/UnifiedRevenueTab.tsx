@@ -683,11 +683,32 @@ export function UnifiedRevenueTab({
               <h3 className="font-semibold text-slate-800 dark:text-slate-100">30일 매출 예측</h3>
               <p className="text-sm text-slate-500 dark:text-slate-400">앙상블 모델 기반 예측</p>
             </div>
-            {forecastData?.accuracy && (
-              <Badge className="bg-emerald-100 text-emerald-700 dark:bg-emerald-900/30 dark:text-emerald-400">
-                정확도: {(forecastData.accuracy * 100).toFixed(1)}%
-              </Badge>
-            )}
+            {(() => {
+              // accuracy가 객체인 경우 (mape, rmse)
+              let accuracyValue: number | null = null
+              if (forecastData?.accuracy) {
+                if (typeof forecastData.accuracy === 'object' && 'mape' in forecastData.accuracy) {
+                  // MAPE를 정확도로 변환 (100 - MAPE)
+                  accuracyValue = Math.max(0, Math.min(100, 100 - (forecastData.accuracy.mape || 0)))
+                } else if (typeof forecastData.accuracy === 'number') {
+                  accuracyValue = forecastData.accuracy
+                }
+              } else if (forecastData?.confidence !== undefined) {
+                // confidence 필드 사용
+                accuracyValue = typeof forecastData.confidence === 'number' 
+                  ? forecastData.confidence 
+                  : null
+              }
+              
+              if (accuracyValue !== null && !isNaN(accuracyValue)) {
+                return (
+                  <Badge className="bg-emerald-100 text-emerald-700 dark:bg-emerald-900/30 dark:text-emerald-400">
+                    정확도: {accuracyValue.toFixed(1)}%
+                  </Badge>
+                )
+              }
+              return null
+            })()}
           </div>
           
           {forecastChartData.length > 0 ? (
@@ -760,7 +781,21 @@ export function UnifiedRevenueTab({
                 <div className="p-4 bg-slate-50 dark:bg-slate-700/50 rounded-xl text-center">
                   <p className="text-xs text-slate-500 mb-1">신뢰 구간</p>
                   <p className="text-xl font-bold text-slate-800 dark:text-slate-100">
-                    {forecastData?.confidence ? `${Math.round(forecastData.confidence * 100)}%` : '95%'}
+                    {(() => {
+                      if (forecastData?.confidence !== undefined) {
+                        const conf = typeof forecastData.confidence === 'number' 
+                          ? forecastData.confidence 
+                          : 0.95
+                        return `${Math.round(conf * 100)}%`
+                      }
+                      // accuracy에서 confidence 계산
+                      if (forecastData?.accuracy && typeof forecastData.accuracy === 'object' && 'mape' in forecastData.accuracy) {
+                        const mape = forecastData.accuracy.mape || 0
+                        const confidence = Math.max(0, Math.min(100, 100 - mape))
+                        return `${Math.round(confidence)}%`
+                      }
+                      return '95%'
+                    })()}
                   </p>
                 </div>
               </div>
