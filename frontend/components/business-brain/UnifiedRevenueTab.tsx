@@ -142,6 +142,19 @@ export function UnifiedRevenueTab({
 
   // 트렌드 차트 데이터 - 다양한 데이터 구조 지원
   const trendChartData = useMemo(() => {
+    // timeSeries.dailyAggregation 구조 우선 확인
+    const dailyAggregation = trendsData?.timeSeries?.dailyAggregation ||
+                             trendsData?.dailyAggregation ||
+                             []
+    
+    if (Array.isArray(dailyAggregation) && dailyAggregation.length > 0) {
+      return dailyAggregation.map((item: any) => ({
+        date: item.date || item.day || item.period,
+        value: item.gmv || item.revenue || item.value || item.amount || 0
+      }))
+    }
+    
+    // 다른 소스에서 트렌드 데이터 찾기
     const trends = trendsData?.dailyTrends || 
                    trendsData?.data?.dailyTrends || 
                    trendsData?.trends ||

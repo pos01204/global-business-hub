@@ -317,16 +317,25 @@ export function UnifiedCustomerTab({
       const totalCustomers = segmentList.reduce((sum: number, s: any) => 
         sum + (s.count || s.customerCount || s.customers || 0), 0)
       
+      // avgMonetary 또는 avgOrderValue 또는 totalRevenue/count 계산
+      const avgValue = seg.avgMonetary || 
+                       seg.avgValue || 
+                       seg.averageOrderValue || 
+                       seg.avgOrderValue || 
+                       (seg.totalRevenue && count > 0 ? seg.totalRevenue / count : 0) ||
+                       (seg.revenue && count > 0 ? seg.revenue / count : 0) ||
+                       0
+      
       return {
         name: seg.name || seg.segment || seg.label || 'Unknown',
         count,
         percentage: seg.percentage || (totalCustomers > 0 ? (count / totalCustomers) * 100 : 0),
-        avgValue: seg.avgValue || seg.averageOrderValue || seg.avgOrderValue || seg.revenue / Math.max(count, 1) || 0,
+        avgValue,
         change: seg.change || seg.growth || seg.trend || 0,
         details: {
-          avgOrderValue: seg.avgOrderValue || seg.averageOrderValue || seg.aov || 0,
-          purchaseFrequency: seg.purchaseFrequency || seg.frequency || seg.orderFrequency || 0,
-          lastPurchase: seg.lastPurchase || seg.lastOrder || seg.daysSinceLastPurchase ? `${seg.daysSinceLastPurchase}일 전` : '정보 없음',
+          avgOrderValue: seg.avgMonetary || seg.avgOrderValue || seg.averageOrderValue || seg.aov || avgValue,
+          purchaseFrequency: seg.avgFrequency || seg.purchaseFrequency || seg.frequency || seg.orderFrequency || 0,
+          lastPurchase: seg.lastPurchase || seg.lastOrder || (seg.avgRecency ? `${Math.round(seg.avgRecency)}일 전` : seg.daysSinceLastPurchase ? `${seg.daysSinceLastPurchase}일 전` : '정보 없음'),
           churnRisk: seg.churnRisk || seg.riskScore || seg.churnProbability
         }
       }

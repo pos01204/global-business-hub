@@ -447,11 +447,23 @@ export function UnifiedHome({
 
   // 트렌드 데이터 추출 - 다양한 데이터 구조 지원
   const trendData = useMemo(() => {
-    // 여러 가능한 소스에서 트렌드 데이터 찾기
+    // timeSeries.dailyAggregation 구조 우선 확인
+    const dailyAggregation = trendsData?.timeSeries?.dailyAggregation ||
+                             trendsData?.dailyAggregation ||
+                             comprehensiveData?.timeSeries?.dailyAggregation ||
+                             []
+    
+    if (Array.isArray(dailyAggregation) && dailyAggregation.length > 0) {
+      return dailyAggregation.slice(-14).map((item: any) => ({
+        date: item.date || item.day || item.period || item.dateStr,
+        value: item.gmv || item.revenue || item.value || item.amount || item.total || 0
+      }))
+    }
+    
+    // 다른 소스에서 트렌드 데이터 찾기
     const trends = trendsData?.dailyTrends ||
                    trendsData?.data?.dailyTrends ||
                    trendsData?.trends ||
-                   trendsData?.timeSeries?.dailyAggregation ||
                    comprehensiveData?.trends || 
                    comprehensiveData?.data?.trends || 
                    comprehensiveData?.dailyTrends ||
@@ -468,6 +480,31 @@ export function UnifiedHome({
 
   // 인사이트 데이터 추출 - 다양한 데이터 구조 지원
   const insights = useMemo(() => {
+    // comprehensiveData에서 topInsights, risks, opportunities 추출
+    const topInsights = comprehensiveData?.topInsights || []
+    const risks = comprehensiveData?.risks || []
+    const opportunities = comprehensiveData?.opportunities || []
+    
+    // 각각을 인사이트 객체로 변환
+    const insightsFromComprehensive = [
+      ...topInsights.map((msg: string) => ({ 
+        message: msg, 
+        type: 'info', 
+        priority: 'medium' 
+      })),
+      ...risks.map((msg: string) => ({ 
+        message: msg, 
+        type: 'danger', 
+        priority: 'high' 
+      })),
+      ...opportunities.map((msg: string) => ({ 
+        message: msg, 
+        type: 'success', 
+        priority: 'medium' 
+      }))
+    ]
+    
+    // 다른 소스에서 인사이트 찾기
     let insightsList = insightsData?.insights ||
                        insightsData?.data?.insights ||
                        comprehensiveData?.insights || 
@@ -485,12 +522,16 @@ export function UnifiedHome({
       insightsList = [...insightsList, ...highlightsAsInsights]
     }
     
-    if (!Array.isArray(insightsList) || insightsList.length === 0) return []
+    // comprehensiveData 인사이트와 병합
+    const allInsights = [...insightsFromComprehensive, ...insightsList]
     
-    return insightsList.slice(0, 4).map((insight: any) => ({
-      type: insight.severity === 'critical' || insight.priority === 'high' ? 'danger' : 
+    if (!Array.isArray(allInsights) || allInsights.length === 0) return []
+    
+    return allInsights.slice(0, 4).map((insight: any) => ({
+      type: insight.type || 
+            (insight.severity === 'critical' || insight.priority === 'high' ? 'danger' : 
             insight.severity === 'warning' || insight.priority === 'medium' ? 'warning' : 
-            insight.type === 'opportunity' || insight.type === 'positive' ? 'success' : 'info',
+            insight.type === 'opportunity' || insight.type === 'positive' ? 'success' : 'info'),
       title: insight.title || insight.message?.slice(0, 30) || insight.name || '인사이트',
       description: insight.description || insight.message || insight.detail || '',
       action: insight.action || insight.recommendation
@@ -499,20 +540,45 @@ export function UnifiedHome({
 
   // 권장 액션 추출 - 다양한 데이터 구조 지원
   const actions = useMemo(() => {
-    const actionsList = comprehensiveData?.recommendations || 
-                        comprehensiveData?.data?.recommendations ||
+    // comprehensiveData에서 recommendations 추출 (문자열 배열)
+    const recommendations = comprehensiveData?.recommendations || []
+    
+    // 문자열 배열을 액션 객체로 변환
+    const actionsFromRecommendations = recommendations.map((rec: string) => ({
+      title: rec || '액션',
+      impact: '효과 분석 중',
+      effort: 'medium' as const
+    }))
+    
+    // 다른 소스에서 액션 찾기
+    const actionsList = comprehensiveData?.data?.recommendations ||
                         comprehensiveData?.actions ||
                         briefing?.recommendations ||
                         briefing?.actions ||
                         []
     
-    if (!Array.isArray(actionsList) || actionsList.length === 0) return []
+    // 객체 배열인 경우 그대로 사용
+    const actionsFromList = Array.isArray(actionsList) ? actionsList.map((rec: any) => {
+      if (typeof rec === 'string') {
+        return {
+          title: rec,
+          impact: '효과 분석 중',
+          effort: 'medium' as const
+        }
+      }
+      return {
+        title: rec.title || rec.action || rec.name || rec.recommendation || '액션',
+        impact: rec.expectedImpact || rec.impact || rec.effect || '효과 분석 중',
+        effort: rec.effort || rec.difficulty || 'medium'
+      }
+    }) : []
     
-    return actionsList.slice(0, 3).map((rec: any) => ({
-      title: rec.title || rec.action || rec.name || rec.recommendation || '액션',
-      impact: rec.expectedImpact || rec.impact || rec.effect || '효과 분석 중',
-      effort: rec.effort || rec.difficulty || 'medium'
-    }))
+    // 병합
+    const allActions = [...actionsFromRecommendations, ...actionsFromList]
+    
+    if (!Array.isArray(allActions) || allActions.length === 0) return []
+    
+    return allActions.slice(0, 3)
   }, [comprehensiveData, briefing])
 
   // 스파크라인 데이터

@@ -40,6 +40,14 @@ export function EChartsForecast({
 }: EChartsForecastProps) {
   
   const option = useMemo<EChartsOption>(() => {
+    // 안전성 체크
+    if (!Array.isArray(historicalData) || historicalData.length === 0) {
+      historicalData = []
+    }
+    if (!Array.isArray(predictions) || predictions.length === 0) {
+      predictions = []
+    }
+    
     // 날짜 배열 생성
     const historicalDates = historicalData.map(d => d.date)
     const predictionDates = predictions.map(p => p.date)
@@ -47,9 +55,10 @@ export function EChartsForecast({
     
     // 데이터 배열 생성
     const historicalValues = historicalData.map(d => d.value)
+    const lastHistoricalValue = historicalData.length > 0 ? historicalData[historicalData.length - 1]?.value : null
     const predictedValues = [
-      ...new Array(historicalData.length - 1).fill(null),
-      historicalData[historicalData.length - 1]?.value, // 연결점
+      ...new Array(Math.max(historicalData.length - 1, 0)).fill(null),
+      lastHistoricalValue, // 연결점
       ...predictions.map(p => p.predicted),
     ]
     
