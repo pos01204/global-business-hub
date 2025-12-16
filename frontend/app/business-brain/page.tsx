@@ -811,7 +811,9 @@ export default function BusinessBrainPage() {
               briefing={briefing}
               healthScore={healthScore}
               comprehensiveData={comprehensiveData}
-              isLoading={comprehensiveLoading || briefingLoading}
+              trendsData={trendsData}
+              insightsData={insightsData}
+              isLoading={comprehensiveLoading || briefingLoading || trendsLoading || insightsLoading}
               period={selectedPeriod}
               onTabChange={handleTabChange}
               onRefresh={() => {

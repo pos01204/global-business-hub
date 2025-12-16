@@ -400,6 +400,8 @@ interface UnifiedHomeProps {
   briefing: any
   healthScore: any
   comprehensiveData: any
+  trendsData?: any
+  insightsData?: any
   isLoading: boolean
   period: string
   onTabChange: (tabId: string) => void
@@ -410,6 +412,8 @@ export function UnifiedHome({
   briefing,
   healthScore,
   comprehensiveData,
+  trendsData,
+  insightsData,
   isLoading,
   period,
   onTabChange,
@@ -444,7 +448,11 @@ export function UnifiedHome({
   // 트렌드 데이터 추출 - 다양한 데이터 구조 지원
   const trendData = useMemo(() => {
     // 여러 가능한 소스에서 트렌드 데이터 찾기
-    const trends = comprehensiveData?.trends || 
+    const trends = trendsData?.dailyTrends ||
+                   trendsData?.data?.dailyTrends ||
+                   trendsData?.trends ||
+                   trendsData?.timeSeries?.dailyAggregation ||
+                   comprehensiveData?.trends || 
                    comprehensiveData?.data?.trends || 
                    comprehensiveData?.dailyTrends ||
                    briefing?.trends ||
@@ -453,14 +461,16 @@ export function UnifiedHome({
     if (!Array.isArray(trends) || trends.length === 0) return []
     
     return trends.slice(-14).map((item: any) => ({
-      date: item.date || item.day || item.period,
-      value: item.gmv || item.revenue || item.value || item.amount || 0
+      date: item.date || item.day || item.period || item.dateStr,
+      value: item.gmv || item.revenue || item.value || item.amount || item.total || 0
     }))
-  }, [comprehensiveData, briefing])
+  }, [comprehensiveData, briefing, trendsData])
 
   // 인사이트 데이터 추출 - 다양한 데이터 구조 지원
   const insights = useMemo(() => {
-    let insightsList = comprehensiveData?.insights || 
+    let insightsList = insightsData?.insights ||
+                       insightsData?.data?.insights ||
+                       comprehensiveData?.insights || 
                        comprehensiveData?.data?.insights ||
                        briefing?.insights ||
                        []
@@ -485,7 +495,7 @@ export function UnifiedHome({
       description: insight.description || insight.message || insight.detail || '',
       action: insight.action || insight.recommendation
     }))
-  }, [comprehensiveData, briefing])
+  }, [comprehensiveData, briefing, insightsData])
 
   // 권장 액션 추출 - 다양한 데이터 구조 지원
   const actions = useMemo(() => {

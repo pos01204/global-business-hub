@@ -473,27 +473,41 @@ export function UnifiedCustomerTab({
             <h3 className="font-semibold text-slate-800 dark:text-slate-100 mb-4">고객 인사이트</h3>
             <div className="grid grid-cols-2 lg:grid-cols-4 gap-4 mb-6">
               <div className="p-4 bg-slate-50 dark:bg-slate-700/50 rounded-xl text-center">
-                <p className="text-xs text-slate-500 mb-1">VIP 고객</p>
+                <p className="text-xs text-slate-500 mb-1">평균 구매가</p>
                 <p className="text-2xl font-bold text-purple-600">
-                  {segments.find((s: any) => s.name === 'VIP')?.count || 0}
+                  {formatCurrency(
+                    segments.length > 0 
+                      ? segments.reduce((sum: number, s: any) => sum + (s.avgValue || 0), 0) / segments.length
+                      : 0
+                  )}
                 </p>
               </div>
               <div className="p-4 bg-slate-50 dark:bg-slate-700/50 rounded-xl text-center">
                 <p className="text-xs text-slate-500 mb-1">이탈 위험</p>
                 <p className="text-2xl font-bold text-red-600">
-                  {churnData?.summary?.atRiskCount || 0}
+                  {churnData?.summary?.atRiskCount || 
+                   churnData?.summary?.highRiskCount || 
+                   churnData?.atRiskCount ||
+                   (Array.isArray(churnRiskCustomers) ? churnRiskCustomers.filter((c: any) => c.churnProbability >= 70).length : 0) || 0}
                 </p>
               </div>
               <div className="p-4 bg-slate-50 dark:bg-slate-700/50 rounded-xl text-center">
                 <p className="text-xs text-slate-500 mb-1">신규 고객</p>
                 <p className="text-2xl font-bold text-amber-600">
-                  {segments.find((s: any) => s.name === 'New')?.count || 0}
+                  {newUserData?.summary?.newCustomers || 
+                   (Array.isArray(newUserData?.newCustomers) ? newUserData.newCustomers.length : 0) ||
+                   segments.find((s: any) => s.name === 'New')?.count || 0}
                 </p>
               </div>
               <div className="p-4 bg-slate-50 dark:bg-slate-700/50 rounded-xl text-center">
                 <p className="text-xs text-slate-500 mb-1">재구매율</p>
                 <p className="text-2xl font-bold text-emerald-600">
-                  {repurchaseData?.overallRate?.toFixed(1) || 0}%
+                  {repurchaseData?.overallRate ? 
+                    `${repurchaseData.overallRate.toFixed(1)}%` :
+                   repurchaseData?.summary?.repurchaseRate ?
+                    `${repurchaseData.summary.repurchaseRate.toFixed(1)}%` :
+                   repurchaseData?.repurchaseRate ?
+                    `${repurchaseData.repurchaseRate.toFixed(1)}%` : '0%'}
                 </p>
               </div>
             </div>

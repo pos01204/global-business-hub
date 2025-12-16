@@ -105,10 +105,10 @@ export function EChartsPieChart({
               text: centerText,
               textAlign: 'center' as const,
               fill: '#1E293B',
-              fontSize: 24,
-              fontWeight: 700,
+              fontSize: 16,
+              fontWeight: 600,
             },
-            top: centerSubtext ? -15 : 0,
+            top: centerSubtext ? -10 : 0,
           } : null,
           centerSubtext ? {
             type: 'text' as const,

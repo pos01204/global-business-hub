@@ -189,12 +189,17 @@ export function UnifiedRevenueTab({
     const predictions = forecastData?.predictions || 
                         forecastData?.data?.predictions || 
                         forecastData?.forecast ||
+                        forecastData?.results ||
                         []
+    
+    const historical = forecastData?.historical ||
+                       forecastData?.data?.historical ||
+                       []
     
     if (!Array.isArray(predictions) || predictions.length === 0) {
       // 기본 더미 데이터 제공
       const today = new Date()
-      const historical = Array.from({ length: 14 }, (_, i) => {
+      const hist = Array.from({ length: 14 }, (_, i) => {
         const date = new Date(today)
         date.setDate(date.getDate() - (13 - i))
         const value = 12000 + Math.random() * 3000 + (i * 50)
@@ -208,19 +213,31 @@ export function UnifiedRevenueTab({
           date: date.toISOString().split('T')[0], 
           predicted: Math.round(predicted),
           lower: Math.round(predicted * 0.85),
-          upper: Math.round(predicted * 1.15)
+          upper: Math.round(predicted * 1.15),
+          lower80: Math.round(predicted * 0.9),
+          upper80: Math.round(predicted * 1.1)
         }
       })
-      return [...historical, ...future]
+      return [...hist, ...future]
     }
     
-    return predictions.map((item: any) => ({
+    // historical과 predictions를 합치기
+    const histData = Array.isArray(historical) ? historical.map((item: any) => ({
       date: item.date || item.day || item.period,
-      actual: item.actual || item.value,
-      predicted: item.predicted || item.forecast || item.prediction,
-      lower: item.lower || item.lowerBound || item.lower95 || item.confidenceLower,
-      upper: item.upper || item.upperBound || item.upper95 || item.confidenceUpper
+      actual: item.actual || item.value || item.gmv || item.revenue || 0
+    })) : []
+    
+    const predData = predictions.map((item: any) => ({
+      date: item.date || item.day || item.period,
+      actual: undefined, // 예측 데이터에는 actual이 없음
+      predicted: item.predicted || item.forecast || item.prediction || item.value || 0,
+      lower: item.lower || item.lowerBound || item.lower95 || item.confidenceLower || (item.predicted ? item.predicted * 0.85 : 0),
+      upper: item.upper || item.upperBound || item.upper95 || item.confidenceUpper || (item.predicted ? item.predicted * 1.15 : 0),
+      lower80: item.lower80 || item.lower80Bound || (item.predicted ? item.predicted * 0.9 : 0),
+      upper80: item.upper80 || item.upper80Bound || (item.predicted ? item.predicted * 1.1 : 0)
     }))
+    
+    return [...histData, ...predData]
   }, [forecastData])
 
   // 코호트 히트맵 데이터 - 다양한 데이터 구조 지원
@@ -492,17 +509,17 @@ export function UnifiedRevenueTab({
           {forecastChartData.length > 0 ? (
             <div className="h-80">
               <EChartsForecast
-                historicalData={forecastChartData.filter((d: any) => d.actual !== undefined).map((d: any) => ({
+                historicalData={forecastChartData.filter((d: any) => d.actual !== undefined && d.actual !== null).map((d: any) => ({
                   date: d.date,
                   value: d.actual
                 }))}
-                predictions={forecastChartData.filter((d: any) => d.predicted !== undefined).map((d: any) => ({
+                predictions={forecastChartData.filter((d: any) => d.predicted !== undefined && d.predicted !== null).map((d: any) => ({
                   date: d.date,
                   predicted: d.predicted,
-                  lower95: d.lower || d.predicted * 0.85,
-                  upper95: d.upper || d.predicted * 1.15,
-                  lower80: d.lower80 || d.predicted * 0.9,
-                  upper80: d.upper80 || d.predicted * 1.1
+                  lower95: d.lower || (d.predicted ? d.predicted * 0.85 : 0),
+                  upper95: d.upper || (d.predicted ? d.predicted * 1.15 : 0),
+                  lower80: d.lower80 || (d.predicted ? d.predicted * 0.9 : 0),
+                  upper80: d.upper80 || (d.predicted ? d.predicted * 1.1 : 0)
                 }))}
                 height={300}
                 valueFormatter={(v) => formatCurrency(v)}
