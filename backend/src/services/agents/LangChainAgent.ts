@@ -171,16 +171,15 @@ export class LangChainAgent {
   ): Promise<any> {
     const { entities, intent } = parsedQuery
 
+    // 기간 프리셋 변환
+    const periodPreset = this.toPeriodPreset(entities.period || '30d')
+
     switch (toolName) {
       case 'analyze_revenue_trend':
-        return await this.businessBrainAgent.analyzeLongTermTrends(
-          entities.period || '30d'
-        )
+        return await this.businessBrainAgent.analyzeLongTermTrends(periodPreset)
 
       case 'detect_anomalies':
-        return await this.businessBrainAgent.runAnomalyDetection(
-          'medium'
-        )
+        return await this.businessBrainAgent.runAnomalyDetection('medium')
 
       case 'analyze_customer_segment':
         if (intent === 'customer_analysis') {
@@ -194,10 +193,7 @@ export class LangChainAgent {
         return await this.businessBrainAgent.runRFMAnalysis()
 
       case 'forecast_metrics':
-        return await this.businessBrainAgent.runForecast(
-          entities.period || '90d',
-          30
-        )
+        return await this.businessBrainAgent.runForecast(periodPreset, 30)
 
       case 'analyze_pareto':
         return await this.businessBrainAgent.runParetoAnalysis()
@@ -227,12 +223,8 @@ export class LangChainAgent {
         return await this.businessBrainAgent.runCorrelationAnalysis()
 
       case 'run_whatif_simulation':
-        // 기본 시뮬레이션 시나리오
-        return await this.businessBrainAgent.runWhatIfSimulation({
-          name: '기본 시나리오',
-          type: 'price_change',
-          parameters: { priceChangePercent: 10 },
-        })
+        // What-if 시뮬레이션은 별도 API 사용
+        return { message: 'What-if 시뮬레이션은 /api/business-brain/what-if 엔드포인트를 사용해주세요.' }
 
       default:
         throw new Error(`알 수 없는 도구: ${toolName}`)
@@ -355,6 +347,17 @@ ${JSON.stringify(results, null, 2)}
     if (query.includes('clv') || query.includes('생애가치')) return 'clv'
     
     return 'rfm' // 기본값
+  }
+
+  /**
+   * 문자열을 PeriodPreset 타입으로 변환
+   */
+  private toPeriodPreset(period: string): '7d' | '30d' | '90d' | '180d' | '365d' {
+    const validPresets = ['7d', '30d', '90d', '180d', '365d'] as const
+    if (validPresets.includes(period as any)) {
+      return period as '7d' | '30d' | '90d' | '180d' | '365d'
+    }
+    return '30d' // 기본값
   }
 
   /**

@@ -12,7 +12,7 @@ export interface TimeSeriesPoint {
   value: number
 }
 
-export interface ForecastResult {
+export interface EnsembleForecastResult {
   predictions: Array<{
     date: string
     value: number
@@ -107,7 +107,7 @@ export class EnsembleForecastEngine {
   /**
    * 앙상블 예측 실행
    */
-  forecast(data: TimeSeriesPoint[], periods: number = 30): ForecastResult {
+  forecast(data: TimeSeriesPoint[], periods: number = 30): EnsembleForecastResult {
     const values = data.map(d => d.value)
     const lastDate = new Date(data[data.length - 1].date)
 

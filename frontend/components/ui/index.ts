@@ -54,6 +54,16 @@ export { EmptyState, EmptyStateInline, EmptyStateTable } from './EmptyState'
 // Analysis Loading
 export { AnalysisLoading, AnalysisSkeleton, ChartSkeleton } from './AnalysisLoading'
 
+// Animations
+export { 
+  FadeIn, 
+  AnimatedNumber, 
+  SlideIn, 
+  ScaleIn, 
+  Pulse, 
+  StaggerContainer 
+} from './animations'
+
 // KPICard
 export { KPICard } from './KPICard'
 export type { KPICardProps } from './KPICard'

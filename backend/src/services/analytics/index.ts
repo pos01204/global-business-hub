@@ -91,7 +91,7 @@ export {
 } from './AdvancedStatistics'
 export type {
   TimeSeriesPoint as AdvancedTimeSeriesPoint,
-  ForecastResult,
+  EnsembleForecastResult,
   ChangepointResult,
   CorrelationResult,
   AnomalyResult as AdvancedAnomalyResult
