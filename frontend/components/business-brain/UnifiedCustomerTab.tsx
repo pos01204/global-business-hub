@@ -751,25 +751,85 @@ export function UnifiedCustomerTab({
             <Card className="p-4 bg-red-50 dark:bg-red-900/20 border border-red-200 dark:border-red-800">
               <p className="text-xs text-red-600 dark:text-red-400 mb-1">고위험 고객</p>
               <p className="text-2xl font-bold text-red-700 dark:text-red-300">
-                {churnData?.summary?.highRiskCount || 0}
+                {(() => {
+                  // summary에서 직접 가져오기
+                  if (churnData?.summary?.highRiskCount !== undefined) {
+                    return churnData.summary.highRiskCount
+                  }
+                  // highRisk 배열 길이로 계산
+                  if (Array.isArray(churnData?.highRisk)) {
+                    return churnData.highRisk.length
+                  }
+                  // churnRiskCustomers에서 필터링
+                  const highRisk = Array.isArray(churnRiskCustomers) 
+                    ? churnRiskCustomers.filter((c: any) => (c.churnProbability || 0) >= 70).length
+                    : 0
+                  return highRisk
+                })()}
               </p>
             </Card>
             <Card className="p-4 bg-amber-50 dark:bg-amber-900/20 border border-amber-200 dark:border-amber-800">
               <p className="text-xs text-amber-600 dark:text-amber-400 mb-1">중위험 고객</p>
               <p className="text-2xl font-bold text-amber-700 dark:text-amber-300">
-                {churnData?.summary?.mediumRiskCount || 0}
+                {(() => {
+                  // summary에서 직접 가져오기
+                  if (churnData?.summary?.mediumRiskCount !== undefined) {
+                    return churnData.summary.mediumRiskCount
+                  }
+                  // mediumRisk 배열 길이로 계산
+                  if (Array.isArray(churnData?.mediumRisk)) {
+                    return churnData.mediumRisk.length
+                  }
+                  // churnRiskCustomers에서 필터링
+                  const mediumRisk = Array.isArray(churnRiskCustomers)
+                    ? churnRiskCustomers.filter((c: any) => {
+                        const prob = c.churnProbability || 0
+                        return prob >= 40 && prob < 70
+                      }).length
+                    : 0
+                  return mediumRisk
+                })()}
               </p>
             </Card>
             <Card className="p-4 bg-emerald-50 dark:bg-emerald-900/20 border border-emerald-200 dark:border-emerald-800">
               <p className="text-xs text-emerald-600 dark:text-emerald-400 mb-1">저위험 고객</p>
               <p className="text-2xl font-bold text-emerald-700 dark:text-emerald-300">
-                {churnData?.summary?.lowRiskCount || 0}
+                {(() => {
+                  // summary에서 직접 가져오기
+                  if (churnData?.summary?.lowRiskCount !== undefined) {
+                    return churnData.summary.lowRiskCount
+                  }
+                  // lowRisk 배열 길이로 계산
+                  if (Array.isArray(churnData?.lowRisk)) {
+                    return churnData.lowRisk.length
+                  }
+                  // churnRiskCustomers에서 필터링
+                  const lowRisk = Array.isArray(churnRiskCustomers)
+                    ? churnRiskCustomers.filter((c: any) => (c.churnProbability || 0) < 40).length
+                    : 0
+                  return lowRisk
+                })()}
               </p>
             </Card>
             <Card className="p-4 bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700">
               <p className="text-xs text-slate-600 dark:text-slate-400 mb-1">예상 손실 매출</p>
               <p className="text-2xl font-bold text-slate-800 dark:text-slate-100">
-                {formatCurrency(churnData?.summary?.potentialLoss || 0)}
+                {(() => {
+                  // summary에서 직접 가져오기 (원화 기준)
+                  if (churnData?.summary?.potentialRevenueLoss !== undefined) {
+                    return formatCurrency(churnData.summary.potentialRevenueLoss / USD_TO_KRW)
+                  }
+                  if (churnData?.summary?.potentialLoss !== undefined) {
+                    return formatCurrency(churnData.summary.potentialLoss / USD_TO_KRW)
+                  }
+                  // highRisk 고객의 totalAmount 합산 (원화 → USD 변환)
+                  if (Array.isArray(churnData?.highRisk)) {
+                    const totalLoss = churnData.highRisk.reduce((sum: number, c: any) => 
+                      sum + (c.totalAmount || 0), 0)
+                    return formatCurrency(totalLoss / USD_TO_KRW)
+                  }
+                  return formatCurrency(0)
+                })()}
               </p>
             </Card>
           </div>

@@ -183,44 +183,58 @@ export function UnifiedRevenueTab({
 }: UnifiedRevenueTabProps) {
   const [activeSubTab, setActiveSubTab] = useState<RevenueSubTab>('overview')
 
-  // 트렌드 차트 데이터 - 다양한 데이터 구조 지원
+  // 트렌드 차트 데이터 - 다양한 데이터 구조 지원 + 날짜 정렬 (홈 탭과 동일)
   const trendChartData = useMemo(() => {
     // timeSeries.dailyAggregation 구조 우선 확인
     const dailyAggregation = trendsData?.timeSeries?.dailyAggregation ||
                              trendsData?.dailyAggregation ||
                              []
     
+    let data: Array<{ date: string; value: number }> = []
+    
     if (Array.isArray(dailyAggregation) && dailyAggregation.length > 0) {
-      return dailyAggregation.map((item: any) => ({
+      data = dailyAggregation.map((item: any) => ({
         date: item.date || item.day || item.period,
         value: item.gmv || item.revenue || item.value || item.amount || 0
       }))
+    } else {
+      // 다른 소스에서 트렌드 데이터 찾기
+      const trends = trendsData?.dailyTrends || 
+                     trendsData?.data?.dailyTrends || 
+                     trendsData?.trends ||
+                     trendsData?.data?.trends ||
+                     []
+      
+      if (Array.isArray(trends) && trends.length > 0) {
+        data = trends.map((item: any) => ({
+          date: item.date || item.day || item.period,
+          value: item.gmv || item.revenue || item.value || item.amount || 0
+        }))
+      } else {
+        // 기본 더미 데이터 제공 (30일)
+        const today = new Date()
+        data = Array.from({ length: 30 }, (_, i) => {
+          const date = new Date(today)
+          date.setDate(date.getDate() - (29 - i))
+          return {
+            date: date.toISOString().split('T')[0],
+            value: Math.round(10000 + Math.random() * 5000 + (i * 100))
+          }
+        })
+      }
     }
     
-    // 다른 소스에서 트렌드 데이터 찾기
-    const trends = trendsData?.dailyTrends || 
-                   trendsData?.data?.dailyTrends || 
-                   trendsData?.trends ||
-                   trendsData?.data?.trends ||
-                   []
-    
-    if (!Array.isArray(trends) || trends.length === 0) {
-      // 기본 더미 데이터 제공 (30일)
-      const today = new Date()
-      return Array.from({ length: 30 }, (_, i) => {
-        const date = new Date(today)
-        date.setDate(date.getDate() - (29 - i))
-        return {
-          date: date.toISOString().split('T')[0],
-          value: Math.round(10000 + Math.random() * 5000 + (i * 100))
-        }
-      })
-    }
-    
-    return trends.map((item: any) => ({
-      date: item.date || item.day || item.period,
-      value: item.gmv || item.revenue || item.value || item.amount || 0
-    }))
+    // 날짜 순으로 정렬 (홈 탭과 동일한 로직)
+    return data.sort((a, b) => {
+      const dateA = parseDate(a.date || '')
+      const dateB = parseDate(b.date || '')
+      
+      if (!dateA && !dateB) return 0
+      if (!dateA) return 1
+      if (!dateB) return -1
+      
+      return dateA.getTime() - dateB.getTime()
+    })
   }, [trendsData])
 
   // 요약 데이터 - 다양한 데이터 구조 지원
@@ -273,26 +287,31 @@ export function UnifiedRevenueTab({
     // historicalData와 predictions가 모두 있는 경우
     if (Array.isArray(historicalData) && historicalData.length > 0 && 
         Array.isArray(predictions) && predictions.length > 0) {
-      // historicalData의 마지막 날짜 찾기
-      const histDates = historicalData
-        .map((item: any) => item.date || item.day || item.period)
-        .filter(Boolean)
-        .sort()
-      
-      const lastHistoricalDate = histDates.length > 0 ? histDates[histDates.length - 1] : null
-      
-      // historical 데이터 매핑
+      // historical 데이터 매핑 및 날짜 파싱
       const histData = historicalData.map((item: any) => ({
         date: item.date || item.day || item.period,
         actual: item.value || item.actual || item.gmv || item.revenue || 0
       }))
       
-      // predictions는 lastHistoricalDate 이후의 데이터만 포함
+      // historicalData의 마지막 날짜 찾기 (Date 객체로 비교)
+      const histDates = histData
+        .map(item => parseDate(item.date || ''))
+        .filter((d): d is Date => d !== null)
+        .sort((a, b) => a.getTime() - b.getTime())
+      
+      const lastHistoricalDate = histDates.length > 0 ? histDates[histDates.length - 1] : null
+      
+      // predictions는 lastHistoricalDate 이후의 데이터만 포함 (Date 객체로 비교)
       const predData = predictions
         .filter((item: any) => {
-          const predDate = item.date || item.day || item.period
-          if (!lastHistoricalDate || !predDate) return true // 날짜 정보가 없으면 포함
-          return predDate > lastHistoricalDate // 실제 데이터가 끝난 이후만
+          const predDateStr = item.date || item.day || item.period
+          if (!lastHistoricalDate || !predDateStr) return true // 날짜 정보가 없으면 포함
+          
+          const predDate = parseDate(predDateStr)
+          if (!predDate) return true // 파싱 실패 시 포함
+          
+          // 실제 데이터가 끝난 이후만 (하루 이상 차이)
+          return predDate.getTime() > lastHistoricalDate.getTime()
         })
         .map((item: any) => ({
           date: item.date || item.day || item.period,
