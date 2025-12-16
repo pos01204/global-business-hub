@@ -445,7 +445,33 @@ export function UnifiedHome({
     }
   }, [comprehensiveData, briefing])
 
-  // 트렌드 데이터 추출 - 다양한 데이터 구조 지원
+  // 날짜 파싱 및 정렬 함수 (다양한 날짜 형식 지원)
+  const parseDate = (dateStr: string): Date | null => {
+    if (!dateStr) return null
+    
+    // ISO 형식: "2025-12-16"
+    if (/^\d{4}-\d{2}-\d{2}/.test(dateStr)) {
+      return new Date(dateStr)
+    }
+    
+    // MM/DD 형식: "11/17", "12/2"
+    if (/^\d{1,2}\/\d{1,2}/.test(dateStr)) {
+      const [month, day] = dateStr.split('/').map(Number)
+      const currentYear = new Date().getFullYear()
+      return new Date(currentYear, month - 1, day)
+    }
+    
+    // YYYY/MM/DD 형식: "2025/12/16"
+    if (/^\d{4}\/\d{2}\/\d{2}/.test(dateStr)) {
+      return new Date(dateStr.replace(/\//g, '-'))
+    }
+    
+    // 기본 Date 생성자 시도
+    const parsed = new Date(dateStr)
+    return isNaN(parsed.getTime()) ? null : parsed
+  }
+
+  // 트렌드 데이터 추출 - 다양한 데이터 구조 지원 + 날짜 정렬 + 원화 변환
   const trendData = useMemo(() => {
     // timeSeries.dailyAggregation 구조 우선 확인
     const dailyAggregation = trendsData?.timeSeries?.dailyAggregation ||
@@ -453,29 +479,45 @@ export function UnifiedHome({
                              comprehensiveData?.timeSeries?.dailyAggregation ||
                              []
     
+    let data: Array<{ date: string; value: number }> = []
+    
     if (Array.isArray(dailyAggregation) && dailyAggregation.length > 0) {
-      return dailyAggregation.slice(-14).map((item: any) => ({
+      data = dailyAggregation.slice(-14).map((item: any) => ({
         date: item.date || item.day || item.period || item.dateStr,
-        value: item.gmv || item.revenue || item.value || item.amount || item.total || 0
+        // USD 값을 원화로 변환
+        value: (item.gmv || item.revenue || item.value || item.amount || item.total || 0) * USD_TO_KRW
       }))
+    } else {
+      // 다른 소스에서 트렌드 데이터 찾기
+      const trends = trendsData?.dailyTrends ||
+                     trendsData?.data?.dailyTrends ||
+                     trendsData?.trends ||
+                     comprehensiveData?.trends || 
+                     comprehensiveData?.data?.trends || 
+                     comprehensiveData?.dailyTrends ||
+                     briefing?.trends ||
+                     []
+      
+      if (Array.isArray(trends) && trends.length > 0) {
+        data = trends.slice(-14).map((item: any) => ({
+          date: item.date || item.day || item.period || item.dateStr,
+          // USD 값을 원화로 변환
+          value: (item.gmv || item.revenue || item.value || item.amount || item.total || 0) * USD_TO_KRW
+        }))
+      }
     }
     
-    // 다른 소스에서 트렌드 데이터 찾기
-    const trends = trendsData?.dailyTrends ||
-                   trendsData?.data?.dailyTrends ||
-                   trendsData?.trends ||
-                   comprehensiveData?.trends || 
-                   comprehensiveData?.data?.trends || 
-                   comprehensiveData?.dailyTrends ||
-                   briefing?.trends ||
-                   []
-    
-    if (!Array.isArray(trends) || trends.length === 0) return []
-    
-    return trends.slice(-14).map((item: any) => ({
-      date: item.date || item.day || item.period || item.dateStr,
-      value: item.gmv || item.revenue || item.value || item.amount || item.total || 0
-    }))
+    // 날짜 순으로 정렬
+    return data.sort((a, b) => {
+      const dateA = parseDate(a.date || '')
+      const dateB = parseDate(b.date || '')
+      
+      if (!dateA && !dateB) return 0
+      if (!dateA) return 1
+      if (!dateB) return -1
+      
+      return dateA.getTime() - dateB.getTime()
+    })
   }, [comprehensiveData, briefing, trendsData])
 
   // 인사이트 데이터 추출 - 다양한 데이터 구조 지원
@@ -663,7 +705,7 @@ export function UnifiedHome({
         <KPICard
           icon={DollarSign}
           label="총 매출 (GMV)"
-          value={kpiData ? formatCurrency(kpiData.gmv) : '$0'}
+          value={kpiData ? formatCurrency(kpiData.gmv, 'KRW') : '₩0'}
           change={kpiData?.gmvChange}
           sparklineData={sparklineData}
           onClick={() => onTabChange('revenue')}
@@ -726,7 +768,7 @@ export function UnifiedHome({
                   }]}
                   height={180}
                   showLegend={false}
-                  valueFormatter={(v) => formatCurrency(v)}
+                  valueFormatter={(v) => formatCurrency(v, 'KRW')}
                 />
               </div>
             ) : (

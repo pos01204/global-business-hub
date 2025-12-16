@@ -387,10 +387,13 @@ export function UnifiedCustomerTab({
 
   // 이탈 위험 고객 목록 - 다양한 데이터 구조 지원 + RFM 정보 매핑
   const churnRiskCustomers = useMemo(() => {
+    // churn-risk API 구조: highRisk, mediumRisk 배열
+    const highRisk = churnData?.highRisk || churnData?.data?.highRisk || []
+    const mediumRisk = churnData?.mediumRisk || churnData?.data?.mediumRisk || []
     const customerList = churnData?.atRiskCustomers || 
                          churnData?.data?.atRiskCustomers || 
                          churnData?.customers ||
-                         churnData?.highRisk?.concat(churnData?.mediumRisk || []) ||
+                         [...highRisk, ...mediumRisk] ||
                          churnData?.predictions?.filter((p: any) => p.churnProbability > 50) ||
                          []
     
@@ -404,22 +407,50 @@ export function UnifiedCustomerTab({
     }
     
     return customerList.slice(0, 10).map((c: any) => {
-      const customerId = String(c.customerId || c.id || c.customer_id || c.userId || c.user_id || '')
+      // userId를 문자열로 변환 (rfmCustomerMap과 매칭)
+      const customerId = String(c.userId || c.user_id || c.customerId || c.id || c.customer_id || '')
       const rfmInfo = rfmCustomerMap.get(customerId)
+      
+      // lastOrderDate를 "N일 전" 형식으로 변환
+      let lastPurchase = '-'
+      if (c.lastOrderDate) {
+        try {
+          const lastDate = new Date(c.lastOrderDate)
+          const daysAgo = Math.floor((new Date().getTime() - lastDate.getTime()) / (1000 * 60 * 60 * 24))
+          lastPurchase = `${daysAgo}일 전`
+        } catch (e) {
+          // 날짜 파싱 실패 시 recencyDays 사용
+          lastPurchase = c.recencyDays ? `${c.recencyDays}일 전` : '-'
+        }
+      } else if (c.recencyDays !== undefined) {
+        lastPurchase = `${c.recencyDays}일 전`
+      } else if (c.daysSinceLastPurchase !== undefined) {
+        lastPurchase = `${c.daysSinceLastPurchase}일 전`
+      }
+      
+      // RFM 점수 계산 (frequency와 totalAmount 기반 추정)
+      let rfmScore = '-'
+      if (rfmInfo?.rfmScore && rfmInfo.rfmScore !== '-') {
+        rfmScore = rfmInfo.rfmScore
+      } else if (c.rfmScore || c.rfm_score) {
+        rfmScore = c.rfmScore || c.rfm_score
+      } else if (c.rScore !== undefined && c.fScore !== undefined && c.mScore !== undefined) {
+        rfmScore = `${c.rScore}-${c.fScore}-${c.mScore}`
+      } else if (c.frequency !== undefined && c.totalAmount !== undefined) {
+        // frequency와 totalAmount로 간단한 RFM 점수 추정
+        const fScore = c.frequency >= 5 ? 5 : c.frequency >= 3 ? 4 : c.frequency >= 2 ? 3 : c.frequency >= 1 ? 2 : 1
+        const mScore = c.totalAmount >= 500000 ? 5 : c.totalAmount >= 300000 ? 4 : c.totalAmount >= 200000 ? 3 : c.totalAmount >= 100000 ? 2 : 1
+        const rScore = c.recencyDays <= 7 ? 5 : c.recencyDays <= 14 ? 4 : c.recencyDays <= 30 ? 3 : c.recencyDays <= 60 ? 2 : 1
+        rfmScore = `${rScore}-${fScore}-${mScore}`
+      }
       
       return {
         id: customerId || `C-${Math.random().toString(36).substr(2, 4)}`,
-        segment: rfmInfo?.segment || c.segment || c.rfmSegment || c.customerSegment || 'Unknown',
-        lastPurchase: rfmInfo?.lastPurchase || 
-                     c.lastPurchase || 
-                     (c.recencyDays ? `${c.recencyDays}일 전` : 
-                      c.daysSinceLastPurchase ? `${c.daysSinceLastPurchase}일 전` : '-'),
-        rfmScore: rfmInfo?.rfmScore || 
-                 c.rfmScore || 
-                 c.rfm_score || 
-                 (c.rScore && c.fScore && c.mScore ? `${c.rScore}-${c.fScore}-${c.mScore}` : '-'),
+        segment: rfmInfo?.segment || c.segment || c.rfmSegment || c.customerSegment || c.currentSegment || 'Unknown',
+        lastPurchase: rfmInfo?.lastPurchase || lastPurchase,
+        rfmScore,
         churnProbability: c.churnProbability || c.riskScore || c.churn_probability || 0,
-        recommendedAction: c.recommendedAction || c.action || c.recommendation || '쿠폰 발송'
+        recommendedAction: c.recommendedAction || c.action || c.recommendation || (c.riskScore >= 70 ? '긴급 쿠폰 발송' : '쿠폰 발송')
       }
     })
   }, [churnData, rfmCustomerMap])

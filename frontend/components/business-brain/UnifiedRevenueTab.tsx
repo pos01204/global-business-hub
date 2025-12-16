@@ -27,6 +27,44 @@ function formatCurrency(value: number): string {
   return `₩${krwValue.toLocaleString()}`
 }
 
+// 날짜 파싱 및 정렬 함수 (다양한 날짜 형식 지원)
+function parseDate(dateStr: string): Date | null {
+  if (!dateStr) return null
+  
+  // ISO 형식: "2025-12-16"
+  if (/^\d{4}-\d{2}-\d{2}/.test(dateStr)) {
+    return new Date(dateStr)
+  }
+  
+  // MM/DD 형식: "11/17", "12/2"
+  if (/^\d{1,2}\/\d{1,2}/.test(dateStr)) {
+    const [month, day] = dateStr.split('/').map(Number)
+    const currentYear = new Date().getFullYear()
+    return new Date(currentYear, month - 1, day)
+  }
+  
+  // YYYY/MM/DD 형식: "2025/12/16"
+  if (/^\d{4}\/\d{2}\/\d{2}/.test(dateStr)) {
+    return new Date(dateStr.replace(/\//g, '-'))
+  }
+  
+  // 기본 Date 생성자 시도
+  const parsed = new Date(dateStr)
+  return isNaN(parsed.getTime()) ? null : parsed
+}
+
+// 날짜 정렬 함수
+function sortByDate(a: { date: string }, b: { date: string }): number {
+  const dateA = parseDate(a.date || '')
+  const dateB = parseDate(b.date || '')
+  
+  if (!dateA && !dateB) return 0
+  if (!dateA) return 1
+  if (!dateB) return -1
+  
+  return dateA.getTime() - dateB.getTime()
+}
+
 function formatPercent(value: number): string {
   const sign = value >= 0 ? '+' : ''
   return `${sign}${value.toFixed(1)}%`
@@ -265,13 +303,9 @@ export function UnifiedRevenueTab({
           upper80: item.upper80 || (item.predicted ? item.predicted * 1.1 : 0)
         }))
       
-      // 날짜 순으로 정렬
+      // 날짜 순으로 정렬 (다양한 날짜 형식 지원)
       const combined = [...histData, ...predData]
-      return combined.sort((a, b) => {
-        const dateA = a.date || ''
-        const dateB = b.date || ''
-        return dateA.localeCompare(dateB)
-      })
+      return combined.sort(sortByDate)
     }
     
     // predictions만 있는 경우 (historicalData가 없는 경우)
@@ -304,13 +338,9 @@ export function UnifiedRevenueTab({
           upper80: item.upper80 || (item.predicted ? item.predicted * 1.1 : 0)
         }))
       
-      // 날짜 순으로 정렬
+      // 날짜 순으로 정렬 (다양한 날짜 형식 지원)
       const combined = [...hist, ...predData]
-      return combined.sort((a, b) => {
-        const dateA = a.date || ''
-        const dateB = b.date || ''
-        return dateA.localeCompare(dateB)
-      })
+      return combined.sort(sortByDate)
     }
     
     // 데이터가 없는 경우 기본 더미 데이터 제공
@@ -334,13 +364,9 @@ export function UnifiedRevenueTab({
         upper80: Math.round(predicted * 1.1)
       }
     })
-    // 날짜 순으로 정렬
+    // 날짜 순으로 정렬 (다양한 날짜 형식 지원)
     const combined = [...hist, ...future]
-    return combined.sort((a, b) => {
-      const dateA = a.date || ''
-      const dateB = b.date || ''
-      return dateA.localeCompare(dateB)
-    })
+    return combined.sort(sortByDate)
   }, [forecastData])
 
   // 코호트 히트맵 데이터 - 다양한 데이터 구조 지원
