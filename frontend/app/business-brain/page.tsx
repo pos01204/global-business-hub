@@ -39,6 +39,10 @@ import { statisticsEngine } from '@/lib/statistics/StatisticsEngine'
 import { WhatIfSimulationTab } from './components/WhatIfSimulationTab'
 // v4.3: 리포트 생성 컴포넌트
 import { ReportGenerator } from './components/ReportGenerator'
+// v5.0: AI 자연어 질의 채팅
+import { AIQueryChat } from './components/AIQueryChat'
+// v5.0: 새 UX 뷰 컴포넌트
+import { CommandCenter, ActionHub, DeepDive } from '@/components/business-brain'
 
 // 기간 프리셋 타입
 type PeriodPreset = '7d' | '30d' | '90d' | '180d' | '365d'
@@ -613,12 +617,15 @@ export default function BusinessBrainPage() {
       tabs: [
         { id: 'anomaly', label: '이상 탐지', icon: Search, description: '이상치 자동 감지' },
         { id: 'multiperiod', label: '기간별 추이', icon: Calendar, description: '다중 기간 비교 분석' },
+        { id: 'deep-dive', label: '딥 다이브', icon: Search, description: '심층 데이터 탐색' },
       ]
     },
     {
       name: '액션',
       description: '우선순위별 실행 계획',
       tabs: [
+        { id: 'command-center', label: '커맨드 센터', icon: Target, description: '경영자 통합 대시보드' },
+        { id: 'action-hub', label: '액션 허브', icon: Zap, description: '추천 액션 관리 및 실행' },
         { id: 'action-proposals', label: '액션 제안', icon: FileText, description: '우선순위별 액션 및 실행 계획' },
         { id: 'what-if', label: 'What-if 시뮬레이션', icon: Zap, description: '시나리오 기반 예측 및 비교' },
         { id: 'report', label: '리포트 생성', icon: FileText, description: '분석 결과 리포트 생성' },
@@ -637,7 +644,7 @@ export default function BusinessBrainPage() {
   )
 
   // 기간 선택이 필요한 탭들
-  const periodEnabledTabs = ['overview', 'rfm', 'pareto', 'cohort', 'anomaly', 'forecast', 'trends', 'churn', 'artist-health', 'new-users', 'repurchase', 'strategy-analysis', 'action-proposals', 'what-if']
+  const periodEnabledTabs = ['overview', 'rfm', 'pareto', 'cohort', 'anomaly', 'forecast', 'trends', 'churn', 'artist-health', 'new-users', 'repurchase', 'strategy-analysis', 'action-proposals', 'what-if', 'command-center', 'action-hub', 'deep-dive']
 
   return (
     <div className="p-6 space-y-6 min-h-screen">
@@ -818,7 +825,45 @@ export default function BusinessBrainPage() {
 
           {/* 리포트 생성 탭 (v4.3) */}
           {activeTab === 'report' && (
-            <ReportGenerator period={selectedPeriod} />
+            <ReportGenerator 
+              period={selectedPeriod} 
+              healthScore={healthScore}
+              briefing={briefing}
+              insights={insights}
+            />
+          )}
+
+          {/* v5.0: 커맨드 센터 탭 */}
+          {activeTab === 'command-center' && (
+            <CommandCenter
+              isLoading={isLoading}
+              onKPIClick={(kpiId) => {
+                console.log('KPI clicked:', kpiId)
+                // 관련 탭으로 이동
+                if (kpiId === 'gmv') handleTabChange('trends')
+                else if (kpiId === 'customers') handleTabChange('rfm')
+              }}
+              onAlertClick={(alertId) => {
+                console.log('Alert clicked:', alertId)
+              }}
+            />
+          )}
+
+          {/* v5.0: 액션 허브 탭 */}
+          {activeTab === 'action-hub' && (
+            <ActionHub
+              isLoading={insightsLoading}
+              onActionComplete={(actionId) => {
+                console.log('Action completed:', actionId)
+              }}
+            />
+          )}
+
+          {/* v5.0: 딥 다이브 탭 */}
+          {activeTab === 'deep-dive' && (
+            <DeepDive
+              isLoading={false}
+            />
           )}
 
           {/* 전략 제안 탭 */}
@@ -5335,6 +5380,13 @@ function RepurchaseAnalysisTab({ data, isLoading, period }: { data: any; isLoadi
           )}
         </Card>
       </FadeIn>
+
+      {/* v5.0: AI 자연어 질의 채팅 (플로팅) */}
+      <AIQueryChat 
+        onInsightClick={(data) => {
+          console.log('AI Insight Data:', data)
+        }}
+      />
     </div>
   )
 }
