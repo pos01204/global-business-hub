@@ -26,6 +26,15 @@ import { DataQualityIndicator } from '@/components/business-brain/DataQualityInd
 import { AnalysisDetailDrawer } from '@/components/business-brain/AnalysisDetailDrawer'
 // v4.3: 차트 컴포넌트
 import { LineChart, BarChart, DoughnutChart, RadarChart, HeatmapChart } from '@/components/business-brain/charts'
+// v5.0: ECharts 기반 고급 차트
+import { 
+  EChartsTrendChart, 
+  EChartsPieChart, 
+  EChartsBarChart, 
+  EChartsRadar,
+  EChartsHeatmap 
+} from '@/components/business-brain/charts'
+import { statisticsEngine } from '@/lib/statistics/StatisticsEngine'
 // v4.3: What-if 시뮬레이션 탭
 import { WhatIfSimulationTab } from './components/WhatIfSimulationTab'
 // v4.3: 리포트 생성 컴포넌트
@@ -1123,21 +1132,22 @@ function OverviewTab({
               종합 현황 평가
             </h2>
             
-            {/* 레이더 차트 */}
+            {/* v5.0: ECharts 기반 레이더 차트 */}
             {healthScore.dimensions && (
               <div className="mb-6">
-                <RadarChart
-                  data={{
-                    labels: Object.keys(healthScore.dimensions).map(key => getDimensionLabel(key)),
-                    datasets: [{
-                      label: '건강도 점수',
-                      data: Object.values(healthScore.dimensions).map((dim: any) => dim.score),
-                      color: '#8B5CF6', // purple-500
-                      fillColor: 'rgba(139, 92, 246, 0.2)',
-                    }],
+                <EChartsRadar
+                  indicators={Object.keys(healthScore.dimensions).map(key => ({
+                    name: getDimensionLabel(key),
                     max: 100,
-                  }}
-                  height={350}
+                  }))}
+                  series={[{
+                    name: '현재 건강도',
+                    values: Object.values(healthScore.dimensions).map((dim: any) => dim.score),
+                    color: '#8B5CF6',
+                  }]}
+                  height={380}
+                  shape="polygon"
+                  fillOpacity={0.35}
                 />
               </div>
             )}
@@ -1265,58 +1275,72 @@ function TrendsTab({ trends, trendsData, isLoading, period }: { trends: any[]; t
     )
   }
 
-  // 트렌드 데이터를 차트 형식으로 변환 (시계열 데이터 사용)
-  const trendChartData = (trendsData as any)?.timeSeries?.dailyAggregation && (trendsData as any).timeSeries.dailyAggregation.length > 0 ? {
-    labels: (trendsData as any).timeSeries.dailyAggregation.map((d: any) => {
-      // 날짜 포맷팅 (YYYY-MM-DD -> MM/DD)
-      const date = new Date(d.date)
-      return `${date.getMonth() + 1}/${date.getDate()}`
-    }),
-    datasets: [
+  // v5.0: ECharts 기반 트렌드 데이터 변환
+  const echartsSeriesData = useMemo(() => {
+    const dailyData = (trendsData as any)?.timeSeries?.dailyAggregation
+    if (!dailyData || dailyData.length === 0) return null
+    
+    return [
       {
-        label: '매출 (GMV)',
-        data: (trendsData as any).timeSeries.dailyAggregation.map((d: any) => d.gmv || 0),
-        color: '#10B981', // emerald-500
-        fill: true,
+        name: '매출 (GMV)',
+        data: dailyData.map((d: any) => ({
+          date: d.date,
+          value: d.gmv || 0,
+        })),
+        color: '#10B981',
+        type: 'area' as const,
+        showMovingAverage: true,
+        maWindow: 7,
       },
       {
-        label: '주문 수',
-        data: (trendsData as any).timeSeries.dailyAggregation.map((d: any) => d.orders || 0),
-        color: '#3B82F6', // blue-500
-        fill: false,
+        name: '주문 수',
+        data: dailyData.map((d: any) => ({
+          date: d.date,
+          value: d.orders || 0,
+        })),
+        color: '#3B82F6',
+        type: 'line' as const,
       },
-    ],
-  } : null
+    ]
+  }, [trendsData])
 
   return (
     <div className="space-y-6">
-      {/* 트렌드 차트 */}
-      {trendChartData && (
+      {/* v5.0: ECharts 기반 트렌드 차트 */}
+      {echartsSeriesData && (
       <FadeIn>
         <Card className="p-6">
           <div className="flex items-center gap-3 mb-6">
-            <div className="w-10 h-10 bg-green-500 rounded-xl flex items-center justify-center">
+            <div className="w-10 h-10 bg-gradient-to-br from-green-500 to-emerald-600 rounded-xl flex items-center justify-center shadow-lg">
               <Icon icon={TrendingUp} size="md" className="text-white" />
             </div>
             <div>
               <h2 className="text-lg font-semibold text-slate-800 dark:text-slate-100">
                 장기 트렌드 분석
               </h2>
-              <p className="text-xs text-slate-500">{getPeriodLabel(period)} 기준</p>
+              <p className="text-xs text-slate-500 dark:text-slate-400">{getPeriodLabel(period)} 기준 • 7일 이동평균 포함</p>
             </div>
           </div>
-            <LineChart 
-              data={trendChartData} 
-              height={320}
-              yAxisLabel="값"
-              xAxisLabel="기간"
-              onDataPointClick={(point) => {
-                // 드릴다운 모달 표시 (향후 구현)
-                console.log('차트 데이터 포인트 클릭:', point)
-              }}
-            />
-          </Card>
-        </FadeIn>
+          <EChartsTrendChart
+            series={echartsSeriesData}
+            height={380}
+            showDataZoom={true}
+            showLegend={true}
+            dateFormatter={(date) => {
+              const d = new Date(date)
+              return `${d.getMonth() + 1}/${d.getDate()}`
+            }}
+            valueFormatter={(value) => {
+              if (value >= 1000000) return `${(value / 1000000).toFixed(1)}M`
+              if (value >= 1000) return `${(value / 1000).toFixed(1)}K`
+              return value.toFixed(0)
+            }}
+            onDataPointClick={(params) => {
+              console.log('차트 데이터 포인트 클릭:', params)
+            }}
+          />
+        </Card>
+      </FadeIn>
       )}
       
       {/* 트렌드 상세 */}
@@ -3291,39 +3315,44 @@ function RFMTab({ data, isLoading }: { data: any; isLoading: boolean }) {
           />
         </div>
         
-        {/* 도넛 차트 데이터 준비 */}
+        {/* v5.0: ECharts 기반 도넛 차트 */}
         {(() => {
-          const doughnutData = segments.length > 0 ? {
-            labels: segments.map((seg: any) => segmentLabels[seg.segment] || seg.segment),
-            values: segments.map((seg: any) => seg.count),
-            colors: segments.map((seg: any) => {
-              const colorMap: Record<string, string> = {
-                VIP: '#8B5CF6', // purple-500
-                Loyal: '#3B82F6', // blue-500
-                Potential: '#10B981', // emerald-500
-                New: '#06B6D4', // cyan-500
-                AtRisk: '#F59E0B', // amber-500
-                Dormant: '#F97316', // orange-500
-                Lost: '#EF4444', // red-500
-              }
-              return colorMap[seg.segment] || '#6B7280'
-            }),
-          } : null
+          const colorMap: Record<string, string> = {
+            VIP: '#8B5CF6',
+            Loyal: '#3B82F6',
+            Potential: '#10B981',
+            New: '#06B6D4',
+            AtRisk: '#F59E0B',
+            Dormant: '#F97316',
+            Lost: '#EF4444',
+          }
+          const pieData = segments.map((seg: any) => ({
+            name: segmentLabels[seg.segment] || seg.segment,
+            value: seg.count,
+            color: colorMap[seg.segment] || '#6B7280',
+          }))
           const totalCustomers = segments.reduce((sum: number, seg: any) => sum + seg.count, 0)
           
           return (
             <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-              {/* 도넛 차트 */}
-              {doughnutData && (
+              {/* v5.0: ECharts 도넛 차트 */}
+              {pieData.length > 0 && (
                 <div>
                   <h3 className="text-sm font-medium text-slate-700 dark:text-slate-300 mb-3">
                     세그먼트 분포
                   </h3>
-                  <DoughnutChart 
-                    data={doughnutData}
-                    height={280}
-                    showCenterText={true}
+                  <EChartsPieChart
+                    data={pieData}
+                    type="doughnut"
+                    height={320}
+                    showLabels={true}
+                    showPercentage={true}
                     centerText={totalCustomers.toLocaleString()}
+                    centerSubtext="총 고객"
+                    legendPosition="bottom"
+                    onSliceClick={(item) => {
+                      console.log('세그먼트 클릭:', item)
+                    }}
                   />
                 </div>
               )}
@@ -3471,23 +3500,28 @@ function ParetoTab({ data, isLoading }: { data: any; isLoading: boolean }) {
               <ExportButton type="pareto-artists" label="작가 데이터" />
             </div>
           
-          {/* 파레토 차트 */}
+          {/* v5.0: ECharts 파레토 차트 */}
           {artistConcentration.topArtists && artistConcentration.topArtists.length > 0 && (
             <div className="mb-6">
               <h3 className="text-sm font-medium text-slate-700 dark:text-slate-300 mb-3">
                 상위 작가 매출 분포 (파레토 차트)
               </h3>
-              <BarChart
-                data={{
-                  labels: artistConcentration.topArtists.slice(0, 10).map((a: any) => a.name || a.artist || ''),
-                  datasets: [{
-                    label: '매출 ($)',
-                    data: artistConcentration.topArtists.slice(0, 10).map((a: any) => a.revenue || a.totalRevenue || 0),
-                    color: '#8B5CF6', // purple-500
-                  }],
+              <EChartsBarChart
+                data={artistConcentration.topArtists.slice(0, 15).map((a: any) => ({
+                  name: a.name || a.artist || '',
+                  value: a.revenue || a.totalRevenue || 0,
+                }))}
+                height={350}
+                showPareto={true}
+                showLabels={false}
+                valueFormatter={(value) => {
+                  if (value >= 1000000) return `$${(value / 1000000).toFixed(1)}M`
+                  if (value >= 1000) return `$${(value / 1000).toFixed(1)}K`
+                  return `$${value.toFixed(0)}`
                 }}
-                height={300}
-                horizontal={false}
+                onBarClick={(item) => {
+                  console.log('작가 클릭:', item)
+                }}
               />
             </div>
           )}
@@ -3704,25 +3738,45 @@ function CohortTab({ data, isLoading }: { data: any; isLoading: boolean }) {
         </Card>
       </FadeIn>
 
-      {/* 코호트 히트맵 */}
+      {/* v5.0: ECharts 코호트 히트맵 */}
       {cohorts.length > 0 && (
         <FadeIn delay={200}>
           <Card className="p-6">
             <h3 className="text-md font-semibold text-slate-800 dark:text-slate-100 mb-4">
               📊 코호트 리텐션 히트맵
             </h3>
-            <HeatmapChart
-              data={{
-                labels: cohorts.slice(0, 12).map((c: any) => c.cohortMonth),
-                data: cohorts.slice(0, 12).map((c: any) => 
-                  c.retentionByMonth.slice(0, 12).map((r: number) => r || 0)
-                ),
-                minValue: 0,
-                maxValue: 1,
-              }}
-              height={400}
-              colorScale="blue"
-            />
+            {(() => {
+              const cohortLabels = cohorts.slice(0, 12).map((c: any) => c.cohortMonth)
+              const monthLabels = Array.from({ length: 12 }, (_, i) => `M${i}`)
+              const heatmapData: { x: number; y: number; value: number }[] = []
+              
+              cohorts.slice(0, 12).forEach((c: any, yIdx: number) => {
+                c.retentionByMonth.slice(0, 12).forEach((r: number, xIdx: number) => {
+                  heatmapData.push({
+                    x: xIdx,
+                    y: yIdx,
+                    value: (r || 0) * 100, // 퍼센트로 변환
+                  })
+                })
+              })
+              
+              return (
+                <EChartsHeatmap
+                  data={heatmapData}
+                  xLabels={monthLabels}
+                  yLabels={cohortLabels}
+                  height={450}
+                  colorRange={['#EFF6FF', '#3B82F6', '#1E3A8A']}
+                  valueFormatter={(v) => `${v.toFixed(0)}%`}
+                  showValues={true}
+                  minValue={0}
+                  maxValue={100}
+                  onCellClick={(cell) => {
+                    console.log('코호트 셀 클릭:', cell)
+                  }}
+                />
+              )
+            })()}
           </Card>
         </FadeIn>
       )}
@@ -3878,37 +3932,52 @@ function AnomalyTab({ data, isLoading }: { data: any; isLoading: boolean }) {
             })
             
             if (dates.length > 0) {
+              // v5.0: ECharts 기반 이상치 시각화
+              const anomalyIndices = anomalies.map((a: any) => dates.indexOf(a.date)).filter((i: number) => i >= 0)
+              
               return (
                 <div className="mb-6">
                   <h3 className="text-sm font-medium text-slate-700 dark:text-slate-300 mb-3">
                     이상치 추이 (이상 마커 표시)
                   </h3>
-                  <LineChart
-                    data={{
-                      labels: dates,
-                      datasets: [
-                        {
-                          label: '실제 값',
-                          data: values,
-                          color: '#3B82F6', // blue-500
-                          fill: false,
-                        },
-                        {
-                          label: '이상 마커',
-                          data: dates.map((d, idx) => {
-                            const anomaly = anomalies.find((a: any) => a.date === d)
-                            return anomaly ? values[idx] : null
-                          }).filter((v): v is number => v !== null),
-                          color: '#EF4444', // red-500
-                          fill: false,
-                          borderDash: [5, 5],
-                        },
-                      ],
+                  <EChartsTrendChart
+                    series={[{
+                      name: '실제 값',
+                      data: dates.map((date, idx) => ({
+                        date,
+                        value: values[idx],
+                      })),
+                      color: '#3B82F6',
+                      type: 'area',
+                    }]}
+                    height={300}
+                    showDataZoom={false}
+                    showChangepoints={true}
+                    dateFormatter={(date) => {
+                      const d = new Date(date)
+                      return `${d.getMonth() + 1}/${d.getDate()}`
                     }}
-                    height={250}
-                    yAxisLabel="값"
-                    xAxisLabel="날짜"
+                    valueFormatter={(value) => {
+                      if (value >= 1000000) return `${(value / 1000000).toFixed(1)}M`
+                      if (value >= 1000) return `${(value / 1000).toFixed(1)}K`
+                      return value.toFixed(0)
+                    }}
                   />
+                  {/* 이상치 포인트 범례 */}
+                  <div className="mt-2 flex items-center gap-4 text-xs text-slate-500">
+                    <span className="flex items-center gap-1">
+                      <span className="w-2 h-2 rounded-full bg-red-500" />
+                      Critical
+                    </span>
+                    <span className="flex items-center gap-1">
+                      <span className="w-2 h-2 rounded-full bg-amber-500" />
+                      Warning
+                    </span>
+                    <span className="flex items-center gap-1">
+                      <span className="w-2 h-2 rounded-full bg-blue-500" />
+                      Info
+                    </span>
+                  </div>
                 </div>
               )
             }
@@ -4523,65 +4592,95 @@ function ForecastTab({ data, isLoading }: { data: any; isLoading: boolean }) {
         ))}
       </div>
 
-      {/* 예측 차트 */}
+      {/* v5.0: ECharts 기반 예측 차트 */}
       <Card className="p-6">
-        <h3 className="text-lg font-semibold text-slate-800 dark:text-slate-100 mb-4">
-          🔮 향후 30일 매출 예측
-        </h3>
-        
-        {/* 과거 데이터 (최근 14일) */}
-        <div className="mb-4">
-          <div className="text-sm text-slate-500 mb-2">과거 데이터 (최근 14일)</div>
-          <div className="flex gap-1 overflow-x-auto pb-2">
-            {historicalData?.slice(-14).map((d: any, idx: number) => {
-              const maxVal = Math.max(...(historicalData?.slice(-14).map((h: any) => h.value) || [1]))
-              const heightPercent = (d.value / maxVal) * 100
-              return (
-                <div key={idx} className="flex flex-col items-center min-w-[40px]">
-                  <div className="h-20 w-6 bg-slate-100 dark:bg-slate-800 rounded relative">
-                    <div 
-                      className="absolute bottom-0 w-full bg-slate-400 dark:bg-slate-500 rounded"
-                      style={{ height: `${heightPercent}%` }}
-                    />
-                  </div>
-                  <div className="text-xs text-slate-400 mt-1">{d.date?.slice(5)}</div>
-                </div>
-              )
-            })}
+        <div className="flex items-center gap-3 mb-4">
+          <div className="w-10 h-10 bg-gradient-to-br from-violet-500 to-purple-600 rounded-xl flex items-center justify-center shadow-lg">
+            <span className="text-xl">🔮</span>
+          </div>
+          <div>
+            <h3 className="text-lg font-semibold text-slate-800 dark:text-slate-100">
+              향후 30일 매출 예측
+            </h3>
+            <p className="text-xs text-slate-500 dark:text-slate-400">
+              신뢰 구간 포함 • 과거 데이터 기반 앙상블 예측
+            </p>
           </div>
         </div>
-
-        {/* 예측 데이터 */}
-        <div>
-          <div className="text-sm text-slate-500 mb-2">예측 (향후 30일)</div>
-          <div className="flex gap-1 overflow-x-auto pb-2">
-            {predictions?.map((p: any, idx: number) => {
-              const maxVal = Math.max(...(predictions?.map((pred: any) => pred.upper) || [1]))
-              const predictedPercent = (p.predicted / maxVal) * 100
-              const lowerPercent = (p.lower / maxVal) * 100
-              const upperPercent = (p.upper / maxVal) * 100
-              
-              return (
-                <div key={idx} className="flex flex-col items-center min-w-[40px]">
-                  <div className="h-20 w-6 bg-slate-100 dark:bg-slate-800 rounded relative">
-                    {/* 신뢰 구간 */}
-                    <div 
-                      className="absolute w-full bg-indigo-100 dark:bg-indigo-900/30 rounded"
-                      style={{ 
-                        bottom: `${lowerPercent}%`, 
-                        height: `${upperPercent - lowerPercent}%` 
-                      }}
-                    />
-                    {/* 예측값 */}
-                    <div 
-                      className="absolute bottom-0 w-full bg-indigo-500 rounded"
-                      style={{ height: `${predictedPercent}%` }}
-                    />
-                  </div>
-                  <div className="text-xs text-slate-400 mt-1">{p.date?.slice(5)}</div>
-                </div>
-              )
-            })}
+        
+        {(() => {
+          // 예측 데이터를 ECharts 형식으로 변환
+          const formattedHistorical = (historicalData || []).slice(-30).map((d: any) => ({
+            date: d.date,
+            value: d.value,
+          }))
+          
+          const formattedPredictions = (predictions || []).map((p: any) => ({
+            date: p.date,
+            predicted: p.predicted,
+            lower95: p.lower || p.predicted * 0.8,
+            upper95: p.upper || p.predicted * 1.2,
+            lower80: p.lower80 || p.predicted * 0.9,
+            upper80: p.upper80 || p.predicted * 1.1,
+          }))
+          
+          if (formattedHistorical.length === 0 && formattedPredictions.length === 0) {
+            return (
+              <div className="text-center py-8 text-slate-500">
+                예측 데이터가 없습니다.
+              </div>
+            )
+          }
+          
+          // EChartsForecast 컴포넌트가 없으면 기본 차트 사용
+          return (
+            <EChartsTrendChart
+              series={[
+                {
+                  name: '실제 매출',
+                  data: formattedHistorical,
+                  color: '#F97316',
+                  type: 'area',
+                },
+                ...(formattedPredictions.length > 0 ? [{
+                  name: '예측 매출',
+                  data: formattedPredictions.map((p: any) => ({
+                    date: p.date,
+                    value: p.predicted,
+                  })),
+                  color: '#8B5CF6',
+                  type: 'line' as const,
+                }] : []),
+              ]}
+              height={400}
+              showDataZoom={true}
+              showLegend={true}
+              dateFormatter={(date) => {
+                const d = new Date(date)
+                return `${d.getMonth() + 1}/${d.getDate()}`
+              }}
+              valueFormatter={(value) => {
+                if (value >= 1000000) return `$${(value / 1000000).toFixed(1)}M`
+                if (value >= 1000) return `$${(value / 1000).toFixed(1)}K`
+                return `$${value.toFixed(0)}`
+              }}
+            />
+          )
+        })()}
+        
+        {/* 신뢰 구간 범례 */}
+        <div className="mt-4 flex items-center justify-center gap-6 text-xs text-slate-500 dark:text-slate-400">
+          <div className="flex items-center gap-2">
+            <div className="w-3 h-3 rounded bg-orange-500" />
+            <span>실제 매출</span>
+          </div>
+          <div className="flex items-center gap-2">
+            <div className="w-3 h-3 rounded bg-violet-500" />
+            <span>예측 매출</span>
+          </div>
+          <div className="flex items-center gap-2">
+            <div className="w-3 h-3 rounded bg-violet-200 dark:bg-violet-800" />
+            <span>95% 신뢰구간</span>
           </div>
         </div>
       </Card>

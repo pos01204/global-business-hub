@@ -78,6 +78,25 @@ export type {
   ReportData
 } from './ReportGenerator'
 
+// v5.0: 고급 통계 분석
+export {
+  EnsembleForecastEngine,
+  ChangepointDetector,
+  AnomalyDetector,
+  CorrelationAnalyzer,
+  ensembleForecastEngine,
+  changepointDetector,
+  anomalyDetector,
+  correlationAnalyzer
+} from './AdvancedStatistics'
+export type {
+  TimeSeriesPoint as AdvancedTimeSeriesPoint,
+  ForecastResult,
+  ChangepointResult,
+  CorrelationResult,
+  AnomalyResult as AdvancedAnomalyResult
+} from './AdvancedStatistics'
+
 // Types
 export * from './types'
 export * from './DataProcessor'

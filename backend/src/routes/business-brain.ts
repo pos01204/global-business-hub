@@ -1238,4 +1238,295 @@ router.post('/report/generate', async (req, res) => {
   }
 })
 
+// ==================== v5.0 고급 AI 분석 API ====================
+
+import { langChainAgent } from '../services/agents/LangChainAgent'
+import { 
+  ensembleForecastEngine, 
+  changepointDetector, 
+  anomalyDetector, 
+  correlationAnalyzer 
+} from '../services/analytics/AdvancedStatistics'
+
+/**
+ * POST /api/business-brain/ai/query
+ * AI 자연어 쿼리 처리 (v5.0)
+ */
+router.post('/ai/query', async (req, res) => {
+  try {
+    const { query, context } = req.body
+    
+    if (!query) {
+      return res.status(400).json({
+        success: false,
+        error: '질문이 필요합니다.',
+      })
+    }
+
+    console.log(`[BusinessBrain] AI 쿼리 요청: "${query}"`)
+    
+    const response = await langChainAgent.processQuery(query)
+    
+    res.json({
+      success: response.success,
+      response: response.response,
+      data: response.data,
+      parsedQuery: response.parsedQuery,
+      toolsUsed: response.toolsUsed,
+      suggestions: response.suggestions,
+      processedAt: new Date().toISOString(),
+    })
+  } catch (error: any) {
+    console.error('[BusinessBrain] AI 쿼리 오류:', error)
+    res.status(500).json({
+      success: false,
+      error: error.message || 'AI 쿼리 처리 중 오류가 발생했습니다.',
+    })
+  }
+})
+
+/**
+ * POST /api/business-brain/ai/reset
+ * AI 대화 컨텍스트 초기화 (v5.0)
+ */
+router.post('/ai/reset', async (_req, res) => {
+  try {
+    langChainAgent.resetContext()
+    
+    res.json({
+      success: true,
+      message: '대화 컨텍스트가 초기화되었습니다.',
+    })
+  } catch (error: any) {
+    res.status(500).json({
+      success: false,
+      error: error.message,
+    })
+  }
+})
+
+/**
+ * POST /api/business-brain/advanced/forecast
+ * 앙상블 예측 (v5.0)
+ */
+router.post('/advanced/forecast', async (req, res) => {
+  try {
+    const { data, periods = 30 } = req.body
+    
+    if (!data || !Array.isArray(data)) {
+      return res.status(400).json({
+        success: false,
+        error: '시계열 데이터 배열이 필요합니다.',
+      })
+    }
+
+    console.log(`[BusinessBrain] 앙상블 예측 요청: ${data.length}개 데이터 포인트, ${periods}일 예측`)
+    
+    const result = ensembleForecastEngine.forecast(data, periods)
+    
+    res.json({
+      success: true,
+      ...result,
+      generatedAt: new Date().toISOString(),
+    })
+  } catch (error: any) {
+    console.error('[BusinessBrain] 앙상블 예측 오류:', error)
+    res.status(500).json({
+      success: false,
+      error: error.message || '앙상블 예측 중 오류가 발생했습니다.',
+    })
+  }
+})
+
+/**
+ * POST /api/business-brain/advanced/changepoint
+ * 변화점 탐지 (v5.0)
+ */
+router.post('/advanced/changepoint', async (req, res) => {
+  try {
+    const { data, threshold = 2 } = req.body
+    
+    if (!data || !Array.isArray(data)) {
+      return res.status(400).json({
+        success: false,
+        error: '시계열 데이터 배열이 필요합니다.',
+      })
+    }
+
+    console.log(`[BusinessBrain] 변화점 탐지 요청: ${data.length}개 데이터 포인트`)
+    
+    const result = changepointDetector.detect(data, threshold)
+    
+    res.json({
+      success: true,
+      ...result,
+      generatedAt: new Date().toISOString(),
+    })
+  } catch (error: any) {
+    console.error('[BusinessBrain] 변화점 탐지 오류:', error)
+    res.status(500).json({
+      success: false,
+      error: error.message || '변화점 탐지 중 오류가 발생했습니다.',
+    })
+  }
+})
+
+/**
+ * POST /api/business-brain/advanced/anomaly
+ * 고급 이상치 탐지 (v5.0)
+ */
+router.post('/advanced/anomaly', async (req, res) => {
+  try {
+    const { data, sensitivity = 'medium' } = req.body
+    
+    if (!data || !Array.isArray(data)) {
+      return res.status(400).json({
+        success: false,
+        error: '시계열 데이터 배열이 필요합니다.',
+      })
+    }
+
+    console.log(`[BusinessBrain] 고급 이상치 탐지 요청: ${data.length}개 데이터 포인트, 민감도: ${sensitivity}`)
+    
+    const result = anomalyDetector.detect(data, sensitivity)
+    
+    res.json({
+      success: true,
+      ...result,
+      generatedAt: new Date().toISOString(),
+    })
+  } catch (error: any) {
+    console.error('[BusinessBrain] 고급 이상치 탐지 오류:', error)
+    res.status(500).json({
+      success: false,
+      error: error.message || '이상치 탐지 중 오류가 발생했습니다.',
+    })
+  }
+})
+
+/**
+ * POST /api/business-brain/advanced/correlation
+ * 다변량 상관관계 분석 (v5.0)
+ */
+router.post('/advanced/correlation', async (req, res) => {
+  try {
+    const { datasets, significanceLevel = 0.05 } = req.body
+    
+    if (!datasets || !Array.isArray(datasets) || datasets.length < 2) {
+      return res.status(400).json({
+        success: false,
+        error: '최소 2개 이상의 데이터셋이 필요합니다.',
+      })
+    }
+
+    console.log(`[BusinessBrain] 상관관계 분석 요청: ${datasets.length}개 변수`)
+    
+    const result = correlationAnalyzer.analyze(datasets, significanceLevel)
+    
+    res.json({
+      success: true,
+      ...result,
+      generatedAt: new Date().toISOString(),
+    })
+  } catch (error: any) {
+    console.error('[BusinessBrain] 상관관계 분석 오류:', error)
+    res.status(500).json({
+      success: false,
+      error: error.message || '상관관계 분석 중 오류가 발생했습니다.',
+    })
+  }
+})
+
+/**
+ * GET /api/business-brain/advanced/comprehensive
+ * 종합 고급 분석 (모든 분석 통합) (v5.0)
+ */
+router.get('/advanced/comprehensive', async (req, res) => {
+  try {
+    const { period = '90d' } = req.query
+    
+    console.log(`[BusinessBrain] 종합 고급 분석 요청 (${period})`)
+    
+    const agent = new BusinessBrainAgent()
+    
+    // 병렬로 여러 분석 실행
+    const [
+      briefing,
+      healthScore,
+      trends,
+      anomalies,
+      forecast,
+      rfm,
+      pareto,
+    ] = await Promise.all([
+      agent.generateExecutiveBriefing(period as any),
+      agent.calculateHealthScore(period as any),
+      agent.analyzeLongTermTrends(period as any),
+      agent.runAnomalyDetection('medium'),
+      agent.runForecast(period as any, 30),
+      agent.runRFMAnalysis(),
+      agent.runParetoAnalysis(),
+    ])
+    
+    res.json({
+      success: true,
+      briefing,
+      healthScore,
+      trends,
+      anomalies,
+      forecast,
+      rfm,
+      pareto,
+      period,
+      generatedAt: new Date().toISOString(),
+    })
+  } catch (error: any) {
+    console.error('[BusinessBrain] 종합 고급 분석 오류:', error)
+    res.status(500).json({
+      success: false,
+      error: error.message || '종합 분석 중 오류가 발생했습니다.',
+    })
+  }
+})
+
+/**
+ * GET /api/business-brain/ai/help
+ * AI 도움말 (v5.0)
+ */
+router.get('/ai/help', async (_req, res) => {
+  try {
+    res.json({
+      success: true,
+      help: {
+        description: 'Business Brain AI는 자연어로 비즈니스 데이터를 분석할 수 있습니다.',
+        exampleQueries: [
+          '최근 30일 매출 분석해줘',
+          '이번 달 고객 세그먼트 분석',
+          '매출 이상치 탐지해줘',
+          '다음 달 매출 예측',
+          '전월 대비 성과 비교',
+          '상위 작가 파레토 분석',
+          '비즈니스 건강도 점검',
+          '오늘의 브리핑 보여줘',
+        ],
+        capabilities: [
+          '매출 트렌드 분석',
+          '이상치 탐지',
+          '고객 세그먼트 분석 (RFM, 코호트)',
+          '앙상블 예측',
+          '기간 비교 분석',
+          '파레토 분석',
+          '상관관계 분석',
+          'What-if 시뮬레이션',
+        ],
+      },
+    })
+  } catch (error: any) {
+    res.status(500).json({
+      success: false,
+      error: error.message,
+    })
+  }
+})
+
 export default router

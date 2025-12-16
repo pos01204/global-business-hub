@@ -1,91 +1,215 @@
+/**
+ * EmptyState - 빈 상태 디자인 컴포넌트
+ * 데이터가 없거나 결과가 없을 때 표시
+ */
+
 'use client'
 
-import React from 'react'
-import { Button } from './Button'
+import { ReactNode } from 'react'
+import { cn } from '@/lib/utils'
+import { Icon } from '@/components/ui/Icon'
+import { 
+  Search, FileQuestion, Database, AlertCircle,
+  Inbox, FolderOpen, BarChart3, Users, Package
+} from 'lucide-react'
 
-export interface EmptyStateProps {
-  icon?: React.ReactNode
-  title: string
+type EmptyStateVariant = 
+  | 'default' 
+  | 'search' 
+  | 'data' 
+  | 'error' 
+  | 'filter' 
+  | 'chart'
+  | 'customer'
+  | 'product'
+
+interface EmptyStateProps {
+  variant?: EmptyStateVariant
+  title?: string
   description?: string
+  icon?: ReactNode
   action?: {
     label: string
     onClick: () => void
-    variant?: 'primary' | 'secondary' | 'outline'
   }
   secondaryAction?: {
     label: string
     onClick: () => void
   }
-  size?: 'sm' | 'md' | 'lg'
   className?: string
+  size?: 'sm' | 'md' | 'lg'
 }
 
-export const EmptyState: React.FC<EmptyStateProps> = ({
-  icon,
+// 변형별 기본값
+const variantDefaults: Record<EmptyStateVariant, {
+  icon: typeof Search
+  title: string
+  description: string
+  emoji: string
+  gradient: string
+}> = {
+  default: {
+    icon: Inbox,
+    title: '데이터가 없습니다',
+    description: '표시할 데이터가 없습니다. 나중에 다시 확인해주세요.',
+    emoji: '📭',
+    gradient: 'from-slate-100 to-slate-200 dark:from-slate-800 dark:to-slate-700',
+  },
+  search: {
+    icon: Search,
+    title: '검색 결과가 없습니다',
+    description: '검색어를 변경하거나 필터를 조정해보세요.',
+    emoji: '🔍',
+    gradient: 'from-blue-50 to-indigo-50 dark:from-blue-900/20 dark:to-indigo-900/20',
+  },
+  data: {
+    icon: Database,
+    title: '데이터를 불러올 수 없습니다',
+    description: '데이터 로딩 중 문제가 발생했습니다. 새로고침을 시도해주세요.',
+    emoji: '💾',
+    gradient: 'from-purple-50 to-violet-50 dark:from-purple-900/20 dark:to-violet-900/20',
+  },
+  error: {
+    icon: AlertCircle,
+    title: '오류가 발생했습니다',
+    description: '요청을 처리하는 중 문제가 발생했습니다.',
+    emoji: '⚠️',
+    gradient: 'from-red-50 to-orange-50 dark:from-red-900/20 dark:to-orange-900/20',
+  },
+  filter: {
+    icon: FolderOpen,
+    title: '필터 결과가 없습니다',
+    description: '현재 필터 조건에 맞는 항목이 없습니다. 필터를 조정해보세요.',
+    emoji: '📂',
+    gradient: 'from-amber-50 to-yellow-50 dark:from-amber-900/20 dark:to-yellow-900/20',
+  },
+  chart: {
+    icon: BarChart3,
+    title: '차트 데이터가 없습니다',
+    description: '선택한 기간에 표시할 데이터가 없습니다.',
+    emoji: '📊',
+    gradient: 'from-emerald-50 to-teal-50 dark:from-emerald-900/20 dark:to-teal-900/20',
+  },
+  customer: {
+    icon: Users,
+    title: '고객 데이터가 없습니다',
+    description: '해당 조건의 고객이 없습니다.',
+    emoji: '👥',
+    gradient: 'from-cyan-50 to-sky-50 dark:from-cyan-900/20 dark:to-sky-900/20',
+  },
+  product: {
+    icon: Package,
+    title: '상품 데이터가 없습니다',
+    description: '해당 조건의 상품이 없습니다.',
+    emoji: '📦',
+    gradient: 'from-pink-50 to-rose-50 dark:from-pink-900/20 dark:to-rose-900/20',
+  },
+}
+
+// 크기별 스타일
+const sizeStyles = {
+  sm: {
+    container: 'py-8 px-4',
+    iconBox: 'w-12 h-12',
+    emoji: 'text-2xl',
+    title: 'text-base',
+    description: 'text-xs',
+    button: 'px-3 py-1.5 text-xs',
+  },
+  md: {
+    container: 'py-12 px-6',
+    iconBox: 'w-16 h-16',
+    emoji: 'text-4xl',
+    title: 'text-lg',
+    description: 'text-sm',
+    button: 'px-4 py-2 text-sm',
+  },
+  lg: {
+    container: 'py-16 px-8',
+    iconBox: 'w-20 h-20',
+    emoji: 'text-5xl',
+    title: 'text-xl',
+    description: 'text-base',
+    button: 'px-5 py-2.5 text-base',
+  },
+}
+
+export function EmptyState({
+  variant = 'default',
   title,
   description,
+  icon,
   action,
   secondaryAction,
+  className,
   size = 'md',
-  className = '',
-}) => {
-  const sizes = {
-    sm: {
-      container: 'py-8',
-      icon: 'w-12 h-12 text-3xl',
-      title: 'text-base',
-      description: 'text-sm',
-    },
-    md: {
-      container: 'py-12',
-      icon: 'w-16 h-16 text-4xl',
-      title: 'text-lg',
-      description: 'text-sm',
-    },
-    lg: {
-      container: 'py-16',
-      icon: 'w-20 h-20 text-5xl',
-      title: 'text-xl',
-      description: 'text-base',
-    },
-  }
-
-  const defaultIcon = (
-    <svg className="w-full h-full text-slate-300" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M20 13V6a2 2 0 00-2-2H6a2 2 0 00-2 2v7m16 0v5a2 2 0 01-2 2H6a2 2 0 01-2-2v-5m16 0h-2.586a1 1 0 00-.707.293l-2.414 2.414a1 1 0 01-.707.293h-3.172a1 1 0 01-.707-.293l-2.414-2.414A1 1 0 006.586 13H4" />
-    </svg>
-  )
+}: EmptyStateProps) {
+  const defaults = variantDefaults[variant]
+  const styles = sizeStyles[size]
+  const IconComponent = defaults.icon
 
   return (
-    <div className={`flex flex-col items-center justify-center text-center ${sizes[size].container} ${className}`}>
-      <div className={`${sizes[size].icon} mb-4 flex items-center justify-center rounded-full bg-slate-50 dark:bg-slate-800`}>
-        {icon || defaultIcon}
+    <div className={cn(
+      'flex flex-col items-center justify-center text-center',
+      `bg-gradient-to-br ${defaults.gradient}`,
+      'rounded-xl',
+      styles.container,
+      className
+    )}>
+      {/* 아이콘/이모지 */}
+      <div className={cn(
+        'rounded-full flex items-center justify-center mb-4',
+        'bg-white dark:bg-slate-800 shadow-sm',
+        styles.iconBox
+      )}>
+        {icon || (
+          <span className={styles.emoji}>{defaults.emoji}</span>
+        )}
       </div>
-      <h3 className={`font-semibold text-slate-900 dark:text-slate-100 ${sizes[size].title}`}>
-        {title}
+
+      {/* 제목 */}
+      <h3 className={cn(
+        'font-semibold text-slate-800 dark:text-slate-100 mb-2',
+        styles.title
+      )}>
+        {title || defaults.title}
       </h3>
-      {description && (
-        <p className={`mt-2 text-slate-500 dark:text-slate-400 max-w-sm ${sizes[size].description}`}>
-          {description}
-        </p>
-      )}
+
+      {/* 설명 */}
+      <p className={cn(
+        'text-slate-500 dark:text-slate-400 max-w-md mb-4',
+        styles.description
+      )}>
+        {description || defaults.description}
+      </p>
+
+      {/* 액션 버튼 */}
       {(action || secondaryAction) && (
-        <div className="mt-6 flex items-center gap-3">
+        <div className="flex items-center gap-3">
           {action && (
-            <Button
-              variant={action.variant || 'primary'}
+            <button
               onClick={action.onClick}
+              className={cn(
+                'bg-indigo-600 text-white rounded-lg font-medium',
+                'hover:bg-indigo-700 transition-colors',
+                styles.button
+              )}
             >
               {action.label}
-            </Button>
+            </button>
           )}
           {secondaryAction && (
-            <Button
-              variant="ghost"
+            <button
               onClick={secondaryAction.onClick}
+              className={cn(
+                'bg-white dark:bg-slate-800 text-slate-700 dark:text-slate-300 rounded-lg font-medium',
+                'border border-slate-200 dark:border-slate-700',
+                'hover:bg-slate-50 dark:hover:bg-slate-700 transition-colors',
+                styles.button
+              )}
             >
               {secondaryAction.label}
-            </Button>
+            </button>
           )}
         </div>
       )}
@@ -93,35 +217,55 @@ export const EmptyState: React.FC<EmptyStateProps> = ({
   )
 }
 
-// 프리셋 빈 상태 컴포넌트들
-export const NoDataState: React.FC<{ onRetry?: () => void }> = ({ onRetry }) => (
-  <EmptyState
-    icon={<span>📊</span>}
-    title="데이터가 없습니다"
-    description="조건을 변경하여 다시 검색해보세요"
-    action={onRetry ? { label: '다시 시도', onClick: onRetry } : undefined}
-  />
-)
+// 인라인 빈 상태 (작은 영역용)
+export function EmptyStateInline({
+  message = '데이터가 없습니다',
+  icon,
+  className,
+}: {
+  message?: string
+  icon?: ReactNode
+  className?: string
+}) {
+  return (
+    <div className={cn(
+      'flex items-center justify-center gap-2 py-4 text-slate-500 dark:text-slate-400',
+      className
+    )}>
+      {icon || <Icon icon={Inbox} size="sm" />}
+      <span className="text-sm">{message}</span>
+    </div>
+  )
+}
 
-export const NoSearchResultState: React.FC<{ onClear?: () => void }> = ({ onClear }) => (
-  <EmptyState
-    icon={<span>🔍</span>}
-    title="검색 결과가 없습니다"
-    description="다른 검색어로 시도해보세요"
-    action={onClear ? { label: '검색 초기화', onClick: onClear, variant: 'outline' } : undefined}
-  />
-)
-
-export const ErrorState: React.FC<{ onRetry?: () => void; message?: string }> = ({ 
-  onRetry, 
-  message = '데이터를 불러오는 중 오류가 발생했습니다' 
-}) => (
-  <EmptyState
-    icon={<span>⚠️</span>}
-    title="오류가 발생했습니다"
-    description={message}
-    action={onRetry ? { label: '다시 시도', onClick: onRetry } : undefined}
-  />
-)
+// 테이블 빈 상태
+export function EmptyStateTable({
+  colSpan,
+  message = '데이터가 없습니다',
+  description,
+  action,
+}: {
+  colSpan: number
+  message?: string
+  description?: string
+  action?: {
+    label: string
+    onClick: () => void
+  }
+}) {
+  return (
+    <tr>
+      <td colSpan={colSpan} className="py-12">
+        <EmptyState
+          variant="default"
+          title={message}
+          description={description}
+          action={action}
+          size="sm"
+        />
+      </td>
+    </tr>
+  )
+}
 
 export default EmptyState
