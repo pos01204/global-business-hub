@@ -28,7 +28,6 @@ function safeDivide(numerator: number, denominator: number, defaultValue: number
 
 const DAY_NAMES = ['일', '월', '화', '수', '목', '금', '토']
 const DAY_NAMES_EN = ['Sunday', 'Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday']
-const MONTH_NAMES = ['1월', '2월', '3월', '4월', '5월', '6월', '7월', '8월', '9월', '10월', '11월', '12월']
 
 // GMV 필드 추출 (다양한 필드명 대응)
 function getGmvValue(order: any): number {

@@ -1,9 +1,9 @@
 'use client'
 
 import { useQuery } from '@tanstack/react-query'
-import { useState, useMemo } from 'react'
+import { useState } from 'react'
 import { orderPatternsApi } from '@/lib/api'
-import { formatCurrency, formatNumber, formatPercent } from '@/lib/formatters'
+import { formatCurrency, formatNumber } from '@/lib/formatters'
 import { EnhancedLoadingPage, EmptyState } from '@/components/ui'
 import { Icon } from '@/components/ui/Icon'
 import { Tooltip } from '@/components/ui/Tooltip'
@@ -13,7 +13,7 @@ import {
   ArrowUpRight, ArrowDownRight, Info, Target, Zap,
   AlertTriangle, CheckCircle, Activity, Scale
 } from 'lucide-react'
-import { addDays, format, subDays } from 'date-fns'
+import { addDays, format } from 'date-fns'
 import {
   Chart as ChartJS,
   CategoryScale,
@@ -26,7 +26,7 @@ import {
   Legend,
   ArcElement,
 } from 'chart.js'
-import { Bar, Line, Doughnut } from 'react-chartjs-2'
+import { Bar, Line, Doughnut, Chart } from 'react-chartjs-2'
 
 ChartJS.register(
   CategoryScale,
@@ -403,7 +403,8 @@ export default function OrderPatternsPage() {
                 </div>
                 <div className="h-64">
                   {monthly && monthly.length > 0 && (
-                    <Bar
+                    <Chart
+                      type="bar"
                       data={{
                         labels: monthly.map(d => d.month),
                         datasets: [
