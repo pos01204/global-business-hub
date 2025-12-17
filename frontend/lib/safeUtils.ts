@@ -136,7 +136,7 @@ export const safeGet = <T>(
  * safeSum([])               // 0
  */
 export const safeSum = (arr: (number | null | undefined)[]): number => {
-  return safeArray(arr).reduce((acc, val) => acc + safeNumber(val), 0)
+  return safeArray(arr).reduce((acc: number, val) => acc + safeNumber(val), 0)
 }
 
 /**
