@@ -28,10 +28,10 @@ function safeDivide(numerator: number, denominator: number, defaultValue: number
 }
 
 /**
- * NPS 계산 (5점 만점 기준)
- * Promoters: 5점
- * Passives: 4점
- * Detractors: 1~3점
+ * NPS 계산 (10점 만점 기준 - Raw Data 형식)
+ * Promoters: 9-10점
+ * Passives: 7-8점
+ * Detractors: 1-6점
  */
 function calculateNPS(reviews: any[]): {
   score: number
@@ -66,22 +66,24 @@ function calculateNPS(reviews: any[]): {
   
   reviews.forEach((review: any) => {
     const rating = safeNumber(review.rating || review.score, 0)
-    if (rating < 1 || rating > 5) return
+    if (rating < 1 || rating > 10) return
     
     totalRating += rating
     
-    if (rating === 5) {
+    // 10점 만점 기준 NPS 분류
+    if (rating >= 9) {
       promoters++
-    } else if (rating === 4) {
+    } else if (rating >= 7) {
       passives++
     } else {
       detractors++
     }
   })
   
-  const promotersPct = (promoters / total) * 100
-  const passivesPct = (passives / total) * 100
-  const detractorsPct = (detractors / total) * 100
+  const validTotal = promoters + passives + detractors
+  const promotersPct = validTotal > 0 ? (promoters / validTotal) * 100 : 0
+  const passivesPct = validTotal > 0 ? (passives / validTotal) * 100 : 0
+  const detractorsPct = validTotal > 0 ? (detractors / validTotal) * 100 : 0
   
   return {
     score: Math.round(promotersPct - detractorsPct),
@@ -91,8 +93,8 @@ function calculateNPS(reviews: any[]): {
     passivesPct,
     detractors,
     detractorsPct,
-    total,
-    avgRating: totalRating / total
+    total: validTotal,
+    avgRating: validTotal > 0 ? totalRating / validTotal : 0
   }
 }
 
@@ -134,7 +136,7 @@ router.get('/nps', async (req: Request, res: Response) => {
     // 기간 필터링
     const filteredReviews = reviewData.filter((review: any) => {
       try {
-        const dateField = review.created_at || review.review_date || review.date
+        const dateField = review.dt || review.created_at || review.review_date || review.date
         if (!dateField) return false
         const reviewDate = new Date(dateField)
         return reviewDate >= start && reviewDate <= end
@@ -180,7 +182,7 @@ router.get('/nps', async (req: Request, res: Response) => {
       
       const prevReviews = reviewData.filter((review: any) => {
         try {
-          const dateField = review.created_at || review.review_date || review.date
+          const dateField = review.dt || review.created_at || review.review_date || review.date
           if (!dateField) return false
           const reviewDate = new Date(dateField)
           return reviewDate >= prevStart && reviewDate <= prevEnd
@@ -314,7 +316,7 @@ router.get('/by-country', async (req: Request, res: Response) => {
     
     reviewData.forEach((review: any) => {
       try {
-        const dateField = review.created_at || review.review_date || review.date
+        const dateField = review.dt || review.created_at || review.review_date || review.date
         if (!dateField) return
         const reviewDate = new Date(dateField)
         if (reviewDate < start || reviewDate > end) return
@@ -407,7 +409,7 @@ router.get('/by-artist', async (req: Request, res: Response) => {
     
     reviewData.forEach((review: any) => {
       try {
-        const dateField = review.created_at || review.review_date || review.date
+        const dateField = review.dt || review.created_at || review.review_date || review.date
         if (!dateField) return
         const reviewDate = new Date(dateField)
         if (reviewDate < start || reviewDate > end) return
@@ -501,7 +503,7 @@ router.get('/rating-distribution', async (req: Request, res: Response) => {
     
     reviewData.forEach((review: any) => {
       try {
-        const dateField = review.created_at || review.review_date || review.date
+        const dateField = review.dt || review.created_at || review.review_date || review.date
         if (!dateField) return
         const reviewDate = new Date(dateField)
         if (reviewDate < start || reviewDate > end) return
@@ -573,7 +575,7 @@ router.get('/insights', async (req: Request, res: Response) => {
     // 기간 필터링
     const filteredReviews = reviewData.filter((review: any) => {
       try {
-        const dateField = review.created_at || review.review_date || review.date
+        const dateField = review.dt || review.created_at || review.review_date || review.date
         if (!dateField) return false
         const reviewDate = new Date(dateField)
         return reviewDate >= start && reviewDate <= end

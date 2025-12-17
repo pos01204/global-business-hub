@@ -79,11 +79,11 @@ export default function Customer360Page() {
   const [selectedUserId, setSelectedUserId] = useState<string | null>(null)
   const [activeTab, setActiveTab] = useState<'overview' | 'orders' | 'reviews'>('overview')
 
-  // 검색 쿼리
+  // 검색 쿼리 (user_id 기준 - 가장 고유한 값)
   const { data: searchResults, isLoading: searchLoading } = useQuery({
     queryKey: ['customer-search', searchQuery],
-    queryFn: () => customer360Api.search(searchQuery, 'email', 10),
-    enabled: searchQuery.length >= 2,
+    queryFn: () => customer360Api.search(searchQuery, 'userId', 10),
+    enabled: searchQuery.length >= 1,
   })
 
   // 고객 상세 쿼리
@@ -123,7 +123,7 @@ export default function Customer360Page() {
             <Icon icon={Search} size="md" className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400" />
             <input
               type="text"
-              placeholder="이메일 또는 이름으로 검색..."
+              placeholder="고객 ID (user_id)로 검색..."
               value={searchQuery}
               onChange={(e) => setSearchQuery(e.target.value)}
               className="w-full pl-10 pr-4 py-3 border border-slate-200 dark:border-slate-700 rounded-xl text-sm bg-white dark:bg-slate-800 focus:outline-none focus:ring-2 focus:ring-blue-500"
@@ -152,10 +152,10 @@ export default function Customer360Page() {
                   </div>
                   <div className="flex-1 min-w-0">
                     <p className="text-sm font-medium text-slate-800 dark:text-slate-100 truncate">
-                      {result.email}
+                      ID: {result.userId}
                     </p>
                     <p className="text-xs text-slate-500 truncate">
-                      {result.name || 'N/A'} · {result.country || 'N/A'}
+                      {result.email || 'N/A'} · {result.country || 'N/A'}
                     </p>
                   </div>
                   <Icon icon={ChevronRight} size="sm" className="text-slate-400" />

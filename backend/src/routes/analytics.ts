@@ -83,15 +83,31 @@ router.get('/', async (req, res) => {
     }
 
     // 기간 필터링
-    const days = { '7d': 7, '30d': 30, '90d': 90, '365d': 365 }[dateRange] || 30;
-    const endDate = new Date(now);
-    const startDate = new Date(now.getTime() - days * 24 * 60 * 60 * 1000);
-    startDate.setHours(0, 0, 0, 0);
-    endDate.setHours(23, 59, 59, 999);
+    // 'yesterday': 전일 기준 (대시보드용 - Raw Data는 전일까지 갱신됨)
+    let startDate: Date;
+    let endDate: Date;
+    let periodDays: number;
+    
+    if (dateRange === 'yesterday' || dateRange === '1d') {
+      // 전일 데이터만 (Raw Data가 11:00 KST에 갱신되므로 전일 기준이 정확함)
+      const yesterday = new Date(now);
+      yesterday.setDate(yesterday.getDate() - 1);
+      startDate = new Date(yesterday);
+      startDate.setHours(0, 0, 0, 0);
+      endDate = new Date(yesterday);
+      endDate.setHours(23, 59, 59, 999);
+      periodDays = 1;
+    } else {
+      periodDays = { '7d': 7, '30d': 30, '90d': 90, '365d': 365 }[dateRange] || 30;
+      endDate = new Date(now);
+      startDate = new Date(now.getTime() - periodDays * 24 * 60 * 60 * 1000);
+      startDate.setHours(0, 0, 0, 0);
+      endDate.setHours(23, 59, 59, 999);
+    }
 
     const prevEndDate = new Date(startDate.getTime() - 1);
     prevEndDate.setHours(23, 59, 59, 999);
-    const prevStartDate = new Date(prevEndDate.getTime() - days * 24 * 60 * 60 * 1000 + 1);
+    const prevStartDate = new Date(prevEndDate.getTime() - periodDays * 24 * 60 * 60 * 1000 + 1);
     prevStartDate.setHours(0, 0, 0, 0);
 
     const filterByDate = (data: any[], start: Date, end: Date) => {

@@ -185,37 +185,92 @@ router.get('/trend', async (req: Request, res: Response) => {
       })
     }
     
-    // DB에서 일별 쿠폰 지표 조회
-    const result = await db.query(`
-      SELECT 
-        ${aggregation === 'monthly' ? "TO_CHAR(date, 'YYYY-MM') as period" : 'date as period'},
-        SUM(issued_count) as total_issued,
-        SUM(used_count) as total_used,
-        SUM(total_discount_usd) as total_discount,
-        SUM(total_gmv_usd) as total_gmv,
-        AVG(conversion_rate) as avg_conversion,
-        AVG(roi) as avg_roi
-      FROM daily_coupon_metrics
-      WHERE date BETWEEN $1 AND $2
-      GROUP BY ${aggregation === 'monthly' ? "TO_CHAR(date, 'YYYY-MM')" : 'date'}
-      ORDER BY period
-    `, [startDate, endDate])
+    let trendData: any[] = []
     
-    const trendData = result.rows.map((row: any) => ({
-      period: row.period,
-      issued: parseInt(row.total_issued) || 0,
-      used: parseInt(row.total_used) || 0,
-      conversionRate: (parseFloat(row.avg_conversion) * 100).toFixed(2),
-      discount: parseFloat(row.total_discount) || 0,
-      gmv: parseFloat(row.total_gmv) || 0,
-      roi: parseFloat(row.avg_roi)?.toFixed(2) || 0
-    }))
+    // 1. 먼저 DB에서 조회 시도
+    try {
+      const result = await db.query(`
+        SELECT 
+          ${aggregation === 'monthly' ? "TO_CHAR(date, 'YYYY-MM') as period" : 'date as period'},
+          SUM(issued_count) as total_issued,
+          SUM(used_count) as total_used,
+          SUM(total_discount_usd) as total_discount,
+          SUM(total_gmv_usd) as total_gmv,
+          AVG(conversion_rate) as avg_conversion,
+          AVG(roi) as avg_roi
+        FROM daily_coupon_metrics
+        WHERE date BETWEEN $1 AND $2
+        GROUP BY ${aggregation === 'monthly' ? "TO_CHAR(date, 'YYYY-MM')" : 'date'}
+        ORDER BY period
+      `, [startDate, endDate])
+      
+      trendData = result.rows.map((row: any) => ({
+        period: row.period,
+        issued: parseInt(row.total_issued) || 0,
+        used: parseInt(row.total_used) || 0,
+        conversionRate: (parseFloat(row.avg_conversion) * 100).toFixed(2),
+        discount: parseFloat(row.total_discount) || 0,
+        gmv: parseFloat(row.total_gmv) || 0,
+        roi: parseFloat(row.avg_roi)?.toFixed(2) || 0
+      }))
+    } catch (dbError) {
+      console.warn('[CouponAnalytics] DB query failed, falling back to raw data:', dbError)
+    }
+    
+    // 2. DB에 데이터가 없으면 Raw Data에서 직접 집계
+    if (trendData.length === 0) {
+      try {
+        const couponData = await sheetsService.getSheetDataAsJson('coupon', false)
+        const start = new Date(startDate as string)
+        const end = new Date(endDate as string)
+        end.setHours(23, 59, 59, 999)
+        
+        // 월별 집계
+        const monthlyStats: Record<string, { issued: number; used: number; discount: number; gmv: number }> = {}
+        
+        couponData.forEach((coupon: any) => {
+          try {
+            const fromDate = coupon.from_datetime ? new Date(coupon.from_datetime) : null
+            if (!fromDate) return
+            if (fromDate < start || fromDate > end) return
+            
+            const monthKey = `${fromDate.getFullYear()}-${String(fromDate.getMonth() + 1).padStart(2, '0')}`
+            
+            if (!monthlyStats[monthKey]) {
+              monthlyStats[monthKey] = { issued: 0, used: 0, discount: 0, gmv: 0 }
+            }
+            
+            monthlyStats[monthKey].issued += safeNumber(coupon.issue_count)
+            monthlyStats[monthKey].used += safeNumber(coupon.used_count)
+            monthlyStats[monthKey].discount += safeNumber(coupon.discount_amount)
+            monthlyStats[monthKey].gmv += safeNumber(coupon.total_gmv)
+          } catch {}
+        })
+        
+        trendData = Object.entries(monthlyStats)
+          .map(([period, stats]) => ({
+            period,
+            issued: stats.issued,
+            used: stats.used,
+            conversionRate: (safeDivide(stats.used, stats.issued) * 100).toFixed(2),
+            discount: stats.discount,
+            gmv: stats.gmv,
+            roi: safeDivide(stats.gmv, stats.discount).toFixed(2)
+          }))
+          .sort((a, b) => a.period.localeCompare(b.period))
+          
+        console.log(`[CouponAnalytics] Trend generated from raw data: ${trendData.length} months`)
+      } catch (rawError) {
+        console.error('[CouponAnalytics] Raw data fallback failed:', rawError)
+      }
+    }
     
     res.json({
       success: true,
       data: {
         aggregation,
-        trend: trendData
+        trend: trendData,
+        source: trendData.length > 0 ? (trendData[0].period?.includes('-') ? 'raw' : 'db') : 'empty'
       }
     })
   } catch (error: any) {
@@ -420,39 +475,68 @@ router.get('/top-performers', async (req: Request, res: Response) => {
     const end = new Date(endDate as string)
     end.setHours(23, 59, 59, 999)
     
-    // 기간 필터링 및 지표 계산
-    const couponsWithMetrics = couponData
-      .filter((coupon: any) => {
-        try {
-          const fromDate = coupon.from_datetime ? new Date(coupon.from_datetime) : null
-          const toDate = coupon.to_datetime ? new Date(coupon.to_datetime) : null
-          if (!fromDate || !toDate) return false
-          return (fromDate <= end && toDate >= start)
-        } catch {
-          return false
-        }
-      })
-      .map((coupon: any) => {
-        const issued = safeNumber(coupon.issue_count)
-        const used = safeNumber(coupon.used_count)
-        const discount = safeNumber(coupon.discount_amount)
-        const gmv = safeNumber(coupon.total_gmv)
+    // 기간 필터링 및 같은 이름의 쿠폰 통합
+    // (같은 이름의 쿠폰은 매일 발행되더라도 하나의 캠페인으로 집계)
+    const couponsByName: Record<string, {
+      couponName: string
+      discountType: string
+      couponType: string
+      country: string
+      ids: string[]
+      issued: number
+      used: number
+      discount: number
+      gmv: number
+    }> = {}
+    
+    couponData.forEach((coupon: any) => {
+      try {
+        const fromDate = coupon.from_datetime ? new Date(coupon.from_datetime) : null
+        const toDate = coupon.to_datetime ? new Date(coupon.to_datetime) : null
+        if (!fromDate || !toDate) return
+        if (!(fromDate <= end && toDate >= start)) return
         
-        return {
-          couponId: coupon.coupon_id,
-          couponName: coupon.coupon_name || coupon.title || `쿠폰 ${coupon.coupon_id}`,
-          discountType: coupon.discount_type,
-          couponType: coupon.coupon_type,
-          country: coupon.coupon_country,
-          issued,
-          used,
-          conversionRate: safeDivide(used, issued) * 100,
-          discount,
-          gmv,
-          roi: safeDivide(gmv, discount)
+        const couponName = coupon.coupon_name || coupon.title || `쿠폰 ${coupon.coupon_id}`
+        
+        if (!couponsByName[couponName]) {
+          couponsByName[couponName] = {
+            couponName,
+            discountType: coupon.discount_type,
+            couponType: coupon.coupon_type,
+            country: coupon.coupon_country,
+            ids: [],
+            issued: 0,
+            used: 0,
+            discount: 0,
+            gmv: 0
+          }
         }
-      })
-      .filter((c: any) => c.issued > 0) // 발급된 쿠폰만
+        
+        couponsByName[couponName].ids.push(coupon.coupon_id)
+        couponsByName[couponName].issued += safeNumber(coupon.issue_count)
+        couponsByName[couponName].used += safeNumber(coupon.used_count)
+        couponsByName[couponName].discount += safeNumber(coupon.discount_amount)
+        couponsByName[couponName].gmv += safeNumber(coupon.total_gmv)
+      } catch {}
+    })
+    
+    // 통합된 쿠폰 지표 계산
+    const couponsWithMetrics = Object.values(couponsByName)
+      .map((coupon) => ({
+        couponId: coupon.ids.length === 1 ? coupon.ids[0] : `${coupon.ids.length}개 통합`,
+        couponName: coupon.couponName,
+        discountType: coupon.discountType,
+        couponType: coupon.couponType,
+        country: coupon.country,
+        issued: coupon.issued,
+        used: coupon.used,
+        conversionRate: safeDivide(coupon.used, coupon.issued) * 100,
+        discount: coupon.discount,
+        gmv: coupon.gmv,
+        roi: safeDivide(coupon.gmv, coupon.discount),
+        instances: coupon.ids.length // 같은 이름의 쿠폰이 몇 개 있는지
+      }))
+      .filter((c) => c.issued > 0) // 발급된 쿠폰만
     
     const limitNum = parseInt(limit as string) || 10
     

@@ -225,11 +225,11 @@ export default function ReviewAnalyticsPage() {
               </div>
             </div>
 
-            {/* NPS 분류 */}
+            {/* NPS 분류 (10점 만점 기준) */}
             <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
               <NPSBreakdownCard
                 title="Promoters"
-                subtitle="5점"
+                subtitle="9~10점"
                 count={nps?.breakdown?.promoters?.count || 0}
                 percentage={nps?.breakdown?.promoters?.percentage || '0'}
                 icon={ThumbsUp}
@@ -237,7 +237,7 @@ export default function ReviewAnalyticsPage() {
               />
               <NPSBreakdownCard
                 title="Passives"
-                subtitle="4점"
+                subtitle="7~8점"
                 count={nps?.breakdown?.passives?.count || 0}
                 percentage={nps?.breakdown?.passives?.percentage || '0'}
                 icon={Minus}
@@ -245,7 +245,7 @@ export default function ReviewAnalyticsPage() {
               />
               <NPSBreakdownCard
                 title="Detractors"
-                subtitle="1~3점"
+                subtitle="1~6점"
                 count={nps?.breakdown?.detractors?.count || 0}
                 percentage={nps?.breakdown?.detractors?.percentage || '0'}
                 icon={ThumbsDown}

@@ -37,6 +37,8 @@ import {
   compareGroups,
   assessDataQuality,
 } from '../analytics'
+import GoogleSheetsService from '../googleSheets'
+import { sheetsConfig, SHEET_NAMES } from '../../config/sheets'
 
 // 환율 상수 (USD → KRW)
 const USD_TO_KRW = 1350
@@ -2604,5 +2606,289 @@ export class BusinessBrainAgent extends BaseAgent {
     }
 
     return enhancedInput
+  }
+
+  /**
+   * 쿠폰 분석 데이터 조회 (Business Brain용)
+   */
+  async getCouponAnalytics(startDate: Date, endDate: Date): Promise<{
+    summary: {
+      totalCoupons: number
+      activeCoupons: number
+      totalIssued: number
+      totalUsed: number
+      overallConversionRate: number
+      totalDiscount: number
+      totalGmv: number
+      roi: number
+    }
+    topPerformers: Array<{ couponId: string; name: string; conversionRate: number; roi: number; gmv: number }>
+    worstPerformers: Array<{ couponId: string; name: string; conversionRate: number; roi: number; gmv: number; issue?: string }>
+    byType: Record<string, { count: number; avgConversion: number; avgRoi: number }>
+    byCountry: Record<string, { issued: number; used: number; conversion: number; gmv: number }>
+  }> {
+    try {
+      const sheetsService = new GoogleSheetsService(sheetsConfig)
+      const couponData = await sheetsService.getSheetDataAsJson('coupon', false)
+      
+      const start = new Date(startDate)
+      start.setHours(0, 0, 0, 0)
+      const end = new Date(endDate)
+      end.setHours(23, 59, 59, 999)
+      
+      // 기간 내 쿠폰 필터링 (같은 이름 통합)
+      const couponsByName: Record<string, any> = {}
+      
+      couponData.forEach((coupon: any) => {
+        try {
+          const fromDate = coupon.from_datetime ? new Date(coupon.from_datetime) : null
+          const toDate = coupon.to_datetime ? new Date(coupon.to_datetime) : null
+          if (!fromDate || !toDate) return
+          if (!(fromDate <= end && toDate >= start)) return
+          
+          const name = coupon.coupon_name || coupon.title || `쿠폰 ${coupon.coupon_id}`
+          if (!couponsByName[name]) {
+            couponsByName[name] = {
+              couponId: coupon.coupon_id,
+              name,
+              discountType: coupon.discount_type,
+              country: coupon.coupon_country,
+              issued: 0,
+              used: 0,
+              discount: 0,
+              gmv: 0,
+            }
+          }
+          couponsByName[name].issued += Number(coupon.issue_count) || 0
+          couponsByName[name].used += Number(coupon.used_count) || 0
+          couponsByName[name].discount += Number(coupon.discount_amount) || 0
+          couponsByName[name].gmv += Number(coupon.total_gmv) || 0
+        } catch {}
+      })
+      
+      const coupons = Object.values(couponsByName)
+      const activeCoupons = coupons.filter((c: any) => c.issued > 0)
+      
+      // 집계
+      let totalIssued = 0, totalUsed = 0, totalDiscount = 0, totalGmv = 0
+      const byType: Record<string, { count: number; totalConversion: number; totalRoi: number }> = {}
+      const byCountry: Record<string, { issued: number; used: number; gmv: number }> = {}
+      
+      coupons.forEach((c: any) => {
+        totalIssued += c.issued
+        totalUsed += c.used
+        totalDiscount += c.discount
+        totalGmv += c.gmv
+        
+        const type = (c.discountType || 'OTHER').toUpperCase()
+        if (!byType[type]) byType[type] = { count: 0, totalConversion: 0, totalRoi: 0 }
+        byType[type].count++
+        if (c.issued > 0) byType[type].totalConversion += c.used / c.issued
+        if (c.discount > 0) byType[type].totalRoi += c.gmv / c.discount
+        
+        const country = (c.country || 'OTHER').toUpperCase()
+        if (!byCountry[country]) byCountry[country] = { issued: 0, used: 0, gmv: 0 }
+        byCountry[country].issued += c.issued
+        byCountry[country].used += c.used
+        byCountry[country].gmv += c.gmv
+      })
+      
+      // 정렬
+      const sortedByConversion = [...coupons]
+        .map((c: any) => ({
+          couponId: c.couponId,
+          name: c.name,
+          conversionRate: c.issued > 0 ? c.used / c.issued : 0,
+          roi: c.discount > 0 ? c.gmv / c.discount : 0,
+          gmv: c.gmv * USD_TO_KRW,
+        }))
+        .filter(c => c.conversionRate > 0)
+        .sort((a, b) => b.conversionRate - a.conversionRate)
+      
+      const sortedByWorst = [...coupons]
+        .map((c: any) => ({
+          couponId: c.couponId,
+          name: c.name,
+          conversionRate: c.issued > 0 ? c.used / c.issued : 0,
+          roi: c.discount > 0 ? c.gmv / c.discount : 0,
+          gmv: c.gmv * USD_TO_KRW,
+          issue: c.issued > 100 && c.used < 5 ? '홍보 부족' : c.roi < 1 ? 'ROI 낮음' : undefined,
+        }))
+        .filter(c => c.conversionRate < 0.1 && c.conversionRate > 0)
+        .sort((a, b) => a.conversionRate - b.conversionRate)
+      
+      return {
+        summary: {
+          totalCoupons: coupons.length,
+          activeCoupons: activeCoupons.length,
+          totalIssued,
+          totalUsed,
+          overallConversionRate: totalIssued > 0 ? totalUsed / totalIssued : 0,
+          totalDiscount: totalDiscount * USD_TO_KRW,
+          totalGmv: totalGmv * USD_TO_KRW,
+          roi: totalDiscount > 0 ? totalGmv / totalDiscount : 0,
+        },
+        topPerformers: sortedByConversion.slice(0, 5),
+        worstPerformers: sortedByWorst.slice(0, 5),
+        byType: Object.fromEntries(
+          Object.entries(byType).map(([type, data]) => [
+            type,
+            {
+              count: data.count,
+              avgConversion: data.count > 0 ? data.totalConversion / data.count : 0,
+              avgRoi: data.count > 0 ? data.totalRoi / data.count : 0,
+            },
+          ])
+        ),
+        byCountry: Object.fromEntries(
+          Object.entries(byCountry).map(([country, data]) => [
+            country,
+            {
+              ...data,
+              conversion: data.issued > 0 ? data.used / data.issued : 0,
+              gmv: data.gmv * USD_TO_KRW,
+            },
+          ])
+        ),
+      }
+    } catch (error) {
+      console.error('[BusinessBrainAgent] 쿠폰 분석 실패:', error)
+      return {
+        summary: { totalCoupons: 0, activeCoupons: 0, totalIssued: 0, totalUsed: 0, overallConversionRate: 0, totalDiscount: 0, totalGmv: 0, roi: 0 },
+        topPerformers: [],
+        worstPerformers: [],
+        byType: {},
+        byCountry: {},
+      }
+    }
+  }
+
+  /**
+   * 리뷰 분석 데이터 조회 (Business Brain용)
+   */
+  async getReviewAnalytics(startDate: Date, endDate: Date): Promise<{
+    nps: {
+      score: number
+      promoters: { count: number; pct: number }
+      passives: { count: number; pct: number }
+      detractors: { count: number; pct: number }
+    }
+    ratingDistribution: Record<string, number>
+    avgRating: number
+    totalReviews: number
+    byCountry: Record<string, { count: number; avgRating: number; nps: number }>
+    topArtists: Array<{ name: string; reviewCount: number; avgRating: number; nps: number }>
+    concerningArtists: Array<{ name: string; reviewCount: number; avgRating: number; nps: number; issue?: string }>
+  }> {
+    try {
+      const sheetsService = new GoogleSheetsService(sheetsConfig)
+      const reviewData = await sheetsService.getSheetDataAsJson(SHEET_NAMES.REVIEW, false)
+      
+      const start = new Date(startDate)
+      start.setHours(0, 0, 0, 0)
+      const end = new Date(endDate)
+      end.setHours(23, 59, 59, 999)
+      
+      // 기간 내 리뷰 필터링
+      const filteredReviews = reviewData.filter((review: any) => {
+        try {
+          const dateField = review.dt || review.created_at || review.review_date || review.date
+          if (!dateField) return false
+          const reviewDate = new Date(dateField)
+          return reviewDate >= start && reviewDate <= end
+        } catch {
+          return false
+        }
+      })
+      
+      // NPS 계산 (10점 만점)
+      let totalRating = 0
+      let promoters = 0, passives = 0, detractors = 0
+      const ratingDist: Record<string, number> = {}
+      const byCountry: Record<string, { ratings: number[]; count: number }> = {}
+      const byArtist: Record<string, { ratings: number[]; name: string }> = {}
+      
+      filteredReviews.forEach((review: any) => {
+        const rating = Number(review.rating || review.score) || 0
+        if (rating < 1 || rating > 10) return
+        
+        totalRating += rating
+        ratingDist[rating.toString()] = (ratingDist[rating.toString()] || 0) + 1
+        
+        if (rating >= 9) promoters++
+        else if (rating >= 7) passives++
+        else detractors++
+        
+        const country = (review.country || 'N/A').toUpperCase()
+        if (!byCountry[country]) byCountry[country] = { ratings: [], count: 0 }
+        byCountry[country].ratings.push(rating)
+        byCountry[country].count++
+        
+        const artistName = review.artist_name || 'N/A'
+        if (!byArtist[artistName]) byArtist[artistName] = { ratings: [], name: artistName }
+        byArtist[artistName].ratings.push(rating)
+      })
+      
+      const validTotal = promoters + passives + detractors
+      const npsScore = validTotal > 0 ? Math.round((promoters / validTotal - detractors / validTotal) * 100) : 0
+      
+      // 국가별 NPS
+      const countryStats = Object.fromEntries(
+        Object.entries(byCountry).map(([country, data]) => {
+          const avgRating = data.ratings.length > 0 ? data.ratings.reduce((a, b) => a + b, 0) / data.ratings.length : 0
+          const p = data.ratings.filter(r => r >= 9).length
+          const d = data.ratings.filter(r => r < 7).length
+          const nps = data.count > 0 ? Math.round((p / data.count - d / data.count) * 100) : 0
+          return [country, { count: data.count, avgRating: Math.round(avgRating * 100) / 100, nps }]
+        })
+      )
+      
+      // 작가별 NPS
+      const artistStats = Object.values(byArtist)
+        .map((data: any) => {
+          const avgRating = data.ratings.length > 0 ? data.ratings.reduce((a: number, b: number) => a + b, 0) / data.ratings.length : 0
+          const p = data.ratings.filter((r: number) => r >= 9).length
+          const d = data.ratings.filter((r: number) => r < 7).length
+          const nps = data.ratings.length > 0 ? Math.round((p / data.ratings.length - d / data.ratings.length) * 100) : 0
+          return { name: data.name, reviewCount: data.ratings.length, avgRating: Math.round(avgRating * 100) / 100, nps }
+        })
+        .filter(a => a.reviewCount >= 3)
+      
+      const topArtists = [...artistStats].sort((a, b) => b.nps - a.nps).slice(0, 5)
+      const concerningArtists = [...artistStats]
+        .filter(a => a.avgRating < 7)
+        .map(a => ({
+          ...a,
+          issue: a.avgRating < 5 ? '품질 이슈 심각' : a.nps < 0 ? '불만 고객 다수' : '평점 낮음',
+        }))
+        .sort((a, b) => a.avgRating - b.avgRating)
+        .slice(0, 5)
+      
+      return {
+        nps: {
+          score: npsScore,
+          promoters: { count: promoters, pct: validTotal > 0 ? Math.round(promoters / validTotal * 100) : 0 },
+          passives: { count: passives, pct: validTotal > 0 ? Math.round(passives / validTotal * 100) : 0 },
+          detractors: { count: detractors, pct: validTotal > 0 ? Math.round(detractors / validTotal * 100) : 0 },
+        },
+        ratingDistribution: ratingDist,
+        avgRating: validTotal > 0 ? Math.round(totalRating / validTotal * 100) / 100 : 0,
+        totalReviews: validTotal,
+        byCountry: countryStats,
+        topArtists,
+        concerningArtists,
+      }
+    } catch (error) {
+      console.error('[BusinessBrainAgent] 리뷰 분석 실패:', error)
+      return {
+        nps: { score: 0, promoters: { count: 0, pct: 0 }, passives: { count: 0, pct: 0 }, detractors: { count: 0, pct: 0 } },
+        ratingDistribution: {},
+        avgRating: 0,
+        totalReviews: 0,
+        byCountry: {},
+        topArtists: [],
+        concerningArtists: [],
+      }
+    }
   }
 }

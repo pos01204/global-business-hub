@@ -8,8 +8,8 @@ import { EnhancedLoadingPage, Card, EmptyState } from '@/components/ui'
 import { Icon } from '@/components/ui/Icon'
 import { EnhancedBarChart, EnhancedLineChart } from '@/components/charts'
 import {
-  BarChart3, TrendingUp, Calendar, Clock, Globe,
-  ShoppingBag, DollarSign, ArrowUp, ArrowDown
+  BarChart3, TrendingUp, Calendar, Globe,
+  ShoppingBag, DollarSign
 } from 'lucide-react'
 import { addDays, format } from 'date-fns'
 
@@ -26,12 +26,7 @@ interface DayData {
   avgOrderValue: number
 }
 
-interface HourData {
-  hour: number
-  label: string
-  orders: number
-  gmv: number
-}
+// 시간대별 분석은 Raw Data에 시간 정보가 없어 제외됨
 
 interface MonthData {
   month: string
@@ -65,10 +60,11 @@ export default function OrderPatternsPage() {
     queryFn: () => orderPatternsApi.getByDay(startDate, endDate),
   })
 
-  const { data: byHourData, isLoading: loadingByHour, error: errorByHour } = useQuery({
-    queryKey: ['order-patterns-by-hour', startDate, endDate],
-    queryFn: () => orderPatternsApi.getByHour(startDate, endDate),
-  })
+  // 시간대별 분석은 Raw Data에 시간 정보가 없어 제외됨
+  // const { data: byHourData, isLoading: loadingByHour, error: errorByHour } = useQuery({
+  //   queryKey: ['order-patterns-by-hour', startDate, endDate],
+  //   queryFn: () => orderPatternsApi.getByHour(startDate, endDate),
+  // })
 
   const { data: byCountryData, isLoading: loadingByCountry, error: errorByCountry } = useQuery({
     queryKey: ['order-patterns-by-country', startDate, endDate],
@@ -80,8 +76,8 @@ export default function OrderPatternsPage() {
     queryFn: () => orderPatternsApi.getMonthlyTrend(startDate, endDate),
   })
 
-  const isLoading = loadingSummary || loadingByDay || loadingByHour || loadingByCountry || loadingMonthly
-  const hasError = errorSummary || errorByDay || errorByHour || errorByCountry || errorMonthly
+  const isLoading = loadingSummary || loadingByDay || loadingByCountry || loadingMonthly
+  const hasError = errorSummary || errorByDay || errorByCountry || errorMonthly
 
   if (isLoading) {
     return <EnhancedLoadingPage message="주문 패턴 데이터를 분석 중..." variant="default" size="lg" />
@@ -101,19 +97,12 @@ export default function OrderPatternsPage() {
 
   const summary = summaryData?.data?.summary
   const byDay = byDayData?.data?.byDay as DayData[] | undefined
-  const byHour = byHourData?.data?.byHour as HourData[] | undefined
   const byCountry = byCountryData?.data?.byCountry
   const monthly = monthlyData?.data?.trend as MonthData[] | undefined
 
   // Recharts 형식 차트 데이터 준비
   const dayChartData = byDay?.map(d => ({
     name: d.dayName,
-    orders: d.orders,
-    gmv: d.gmv,
-  })) || []
-
-  const hourChartData = byHour?.map(d => ({
-    name: d.label,
     orders: d.orders,
     gmv: d.gmv,
   })) || []
@@ -199,50 +188,28 @@ export default function OrderPatternsPage() {
             color="amber"
           />
           <SummaryCard
-            title="피크 시간"
-            value={summary?.peakHour?.label || '-'}
-            suffix={`(${summary?.peakHour?.orders || 0}건)`}
-            icon={Clock}
+            title="평균 주문액"
+            value={formatCurrency(summary?.avgOrderValue || 0)}
+            icon={TrendingUp}
             color="rose"
           />
         </div>
 
-        {/* 차트 그리드 */}
-        <div className="grid grid-cols-1 lg:grid-cols-2 gap-6 mb-6">
-          {/* 요일별 패턴 */}
-          <div className="bg-white dark:bg-slate-900 rounded-2xl border border-slate-200 dark:border-slate-800 p-6 shadow-sm">
-            <div className="flex items-center gap-2 mb-4">
-              <Icon icon={Calendar} size="md" className="text-indigo-500" />
-              <h3 className="text-lg font-semibold text-slate-800 dark:text-slate-100">요일별 주문 패턴</h3>
-            </div>
-            <div className="h-64">
-              <EnhancedBarChart 
-                data={dayChartData} 
-                dataKeys="orders"
-                xAxisKey="name"
-                names="주문 수"
-                colors="#6366f1"
-                height={256}
-              />
-            </div>
+        {/* 요일별 패턴 */}
+        <div className="bg-white dark:bg-slate-900 rounded-2xl border border-slate-200 dark:border-slate-800 p-6 shadow-sm mb-6">
+          <div className="flex items-center gap-2 mb-4">
+            <Icon icon={Calendar} size="md" className="text-indigo-500" />
+            <h3 className="text-lg font-semibold text-slate-800 dark:text-slate-100">요일별 주문 패턴</h3>
           </div>
-
-          {/* 시간대별 패턴 */}
-          <div className="bg-white dark:bg-slate-900 rounded-2xl border border-slate-200 dark:border-slate-800 p-6 shadow-sm">
-            <div className="flex items-center gap-2 mb-4">
-              <Icon icon={Clock} size="md" className="text-emerald-500" />
-              <h3 className="text-lg font-semibold text-slate-800 dark:text-slate-100">시간대별 주문 패턴</h3>
-            </div>
-            <div className="h-64">
-              <EnhancedBarChart 
-                data={hourChartData} 
-                dataKeys="orders"
-                xAxisKey="name"
-                names="주문 수"
-                colors="#10b981"
-                height={256}
-              />
-            </div>
+          <div className="h-64">
+            <EnhancedBarChart 
+              data={dayChartData} 
+              dataKeys="orders"
+              xAxisKey="name"
+              names="주문 수"
+              colors="#6366f1"
+              height={256}
+            />
           </div>
         </div>
 
@@ -289,8 +256,8 @@ export default function OrderPatternsPage() {
             <h3 className="text-lg font-semibold text-indigo-800 dark:text-indigo-200 mb-3">💡 자동 인사이트</h3>
             <ul className="space-y-2 text-sm text-indigo-700 dark:text-indigo-300">
               <li>• <strong>{summary.peakDay?.dayName}요일</strong>이 가장 주문이 많습니다. 이 요일에 프로모션을 집중하면 효과적입니다.</li>
-              <li>• <strong>{summary.peakHour?.label}</strong>가 피크 시간대입니다. 이 시간에 푸시 알림이나 광고를 집중 배치하세요.</li>
               <li>• 평균 주문액은 <strong>{formatCurrency(summary.avgOrderValue)}</strong>입니다.</li>
+              <li>• 총 {summary.totalOrders || 0}건의 주문, {formatCurrency(summary.totalGmv || 0)} GMV를 분석했습니다.</li>
             </ul>
           </div>
         )}

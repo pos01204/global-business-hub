@@ -1491,7 +1491,7 @@ router.get('/advanced/comprehensive', async (req, res) => {
 
 /**
  * GET /api/business-brain/coupon-insights
- * 쿠폰 인사이트 (Phase 4)
+ * 쿠폰 인사이트 (Phase 4) - 실제 데이터 기반
  * Query: period (7d, 30d, 90d, 180d, 365d)
  */
 router.get('/coupon-insights', async (req, res) => {
@@ -1499,56 +1499,65 @@ router.get('/coupon-insights', async (req, res) => {
     const { period = '30d' } = req.query
     console.log(`[BusinessBrain] 쿠폰 인사이트 요청 (${period})`)
     
-    // 쿠폰 데이터 분석 (간소화된 버전)
+    // 기간 계산
+    const periodDays: Record<string, number> = { '7d': 7, '30d': 30, '90d': 90, '180d': 180, '365d': 365 }
+    const days = periodDays[period as string] || 30
+    const endDate = new Date()
+    const startDate = new Date(endDate.getTime() - days * 24 * 60 * 60 * 1000)
+    
+    // 실제 쿠폰 데이터 분석
+    const agent = new BusinessBrainAgent()
+    const couponData = await agent.getCouponAnalytics(startDate, endDate)
+    
+    // 인사이트 생성
+    const recommendations: any[] = []
+    
+    if (couponData.summary.overallConversionRate > 0.3) {
+      recommendations.push({
+        type: 'positive',
+        title: '높은 쿠폰 전환율',
+        description: `현재 쿠폰 전환율이 ${(couponData.summary.overallConversionRate * 100).toFixed(1)}%로 양호합니다.`,
+        impact: 'high',
+      })
+    }
+    
+    if (couponData.topPerformers.length > 0) {
+      const best = couponData.topPerformers[0]
+      recommendations.push({
+        type: 'optimization',
+        title: `${best.name} 쿠폰 확대 권장`,
+        description: `해당 쿠폰이 전환율 ${(best.conversionRate * 100).toFixed(1)}%로 가장 높은 성과를 보입니다. 발행량 확대를 권장합니다.`,
+        impact: 'high',
+        expectedRoi: best.roi,
+      })
+    }
+    
+    if (couponData.worstPerformers.length > 0) {
+      const worst = couponData.worstPerformers[0]
+      recommendations.push({
+        type: 'warning',
+        title: `${worst.name} 쿠폰 검토 필요`,
+        description: `전환율이 ${(worst.conversionRate * 100).toFixed(1)}%로 낮습니다. 타겟 고객 재검토 또는 조건 변경이 필요합니다.`,
+        impact: 'medium',
+      })
+    }
+    
+    // 유형별 비교 인사이트
+    if (couponData.byType.RATE && couponData.byType.FIXED) {
+      const rateBetter = couponData.byType.RATE.avgConversion > couponData.byType.FIXED.avgConversion
+      recommendations.push({
+        type: 'insight',
+        title: '정률 vs 정액 할인 분석',
+        description: rateBetter 
+          ? `정률 할인이 정액 할인보다 전환율이 ${((couponData.byType.RATE.avgConversion - couponData.byType.FIXED.avgConversion) * 100).toFixed(1)}%p 높습니다.`
+          : `정액 할인이 정률 할인보다 전환율이 ${((couponData.byType.FIXED.avgConversion - couponData.byType.RATE.avgConversion) * 100).toFixed(1)}%p 높습니다.`,
+        impact: 'medium',
+      })
+    }
+    
     const insights = {
-      summary: {
-        totalCoupons: 45,
-        activeCoupons: 28,
-        totalIssued: 15420,
-        totalUsed: 3856,
-        overallConversionRate: 0.25,
-        totalDiscount: 28500000, // KRW
-        totalGmv: 285000000, // KRW
-        roi: 10.0,
-      },
-      topPerformers: [
-        { couponId: 101, name: '첫 구매 10% 할인', conversionRate: 0.45, roi: 12.5, gmv: 45000000 },
-        { couponId: 105, name: '친구 초대 5000원', conversionRate: 0.38, roi: 8.2, gmv: 32000000 },
-        { couponId: 103, name: '주말 특가 15%', conversionRate: 0.32, roi: 7.1, gmv: 28000000 },
-      ],
-      worstPerformers: [
-        { couponId: 201, name: '여름 한정 5% 할인', conversionRate: 0.02, roi: 0.8, gmv: 1200000, issue: '홍보 부족' },
-        { couponId: 203, name: '신규 작가 응원', conversionRate: 0.05, roi: 1.2, gmv: 2400000, issue: '타겟 미스매치' },
-      ],
-      byType: {
-        RATE: { count: 25, avgConversion: 0.28, avgRoi: 8.5 },
-        FIXED: { count: 20, avgConversion: 0.22, avgRoi: 6.8 },
-      },
-      byCountry: {
-        JP: { issued: 8500, used: 2140, conversion: 0.252, gmv: 165000000 },
-        EN: { issued: 6920, used: 1716, conversion: 0.248, gmv: 120000000 },
-      },
-      recommendations: [
-        {
-          type: 'optimization',
-          title: '첫 구매 쿠폰 확대',
-          description: '첫 구매 10% 할인 쿠폰이 가장 높은 전환율(45%)과 ROI(12.5x)를 보입니다. 발행량을 20% 늘리는 것을 권장합니다.',
-          impact: 'high',
-          expectedRoi: 2.5,
-        },
-        {
-          type: 'warning',
-          title: '저성과 쿠폰 검토',
-          description: '여름 한정 5% 할인 쿠폰의 전환율이 2%로 매우 낮습니다. 홍보 채널 재검토 또는 쿠폰 조건 변경이 필요합니다.',
-          impact: 'medium',
-        },
-        {
-          type: 'insight',
-          title: '정률 vs 정액 할인',
-          description: '정률 할인 쿠폰이 정액 할인보다 전환율(+27%)과 ROI(+25%)가 높습니다. 신규 캠페인에서 정률 할인 우선 적용을 권장합니다.',
-          impact: 'medium',
-        },
-      ],
+      ...couponData,
+      recommendations,
     }
     
     res.json({
@@ -1568,7 +1577,7 @@ router.get('/coupon-insights', async (req, res) => {
 
 /**
  * GET /api/business-brain/review-insights
- * 리뷰 인사이트 (Phase 4)
+ * 리뷰 인사이트 (Phase 4) - 실제 데이터 기반
  * Query: period (7d, 30d, 90d, 180d, 365d)
  */
 router.get('/review-insights', async (req, res) => {
@@ -1576,69 +1585,79 @@ router.get('/review-insights', async (req, res) => {
     const { period = '30d' } = req.query
     console.log(`[BusinessBrain] 리뷰 인사이트 요청 (${period})`)
     
-    // 리뷰 데이터 분석 (간소화된 버전)
-    const insights = {
-      nps: {
-        score: 42,
-        promoters: { count: 156, pct: 52 },
-        passives: { count: 90, pct: 30 },
-        detractors: { count: 54, pct: 18 },
-        change: { score: +5, period: 'vs 이전 기간' },
-      },
-      ratingDistribution: {
-        rating5: 156,
-        rating4: 90,
-        rating3: 32,
-        rating2: 14,
-        rating1: 8,
-        avgRating: 4.26,
-      },
-      byCountry: {
-        JP: { count: 180, avgRating: 4.35, nps: 48 },
-        EN: { count: 120, avgRating: 4.12, nps: 35 },
-      },
-      topArtists: [
-        { name: '김작가', reviewCount: 45, avgRating: 4.8, nps: 72 },
-        { name: '이작가', reviewCount: 38, avgRating: 4.6, nps: 58 },
-        { name: '박작가', reviewCount: 32, avgRating: 4.5, nps: 52 },
-      ],
-      concerningArtists: [
-        { name: '최작가', reviewCount: 12, avgRating: 3.2, nps: -15, issue: '배송 지연 불만' },
-        { name: '정작가', reviewCount: 8, avgRating: 3.5, nps: -8, issue: '상품 품질 이슈' },
-      ],
-      sentimentTrends: {
-        positive: ['품질 좋음', '빠른 배송', '친절한 응대', '가격 만족'],
-        negative: ['배송 지연', '포장 상태', '사이즈 불일치', '응답 지연'],
-      },
-      recommendations: [
-        {
-          type: 'positive',
-          title: 'NPS 상승 추세',
-          description: 'NPS가 이전 기간 대비 5점 상승했습니다. 고객 만족도 개선 노력이 효과를 보이고 있습니다.',
-          impact: 'high',
-        },
-        {
-          type: 'warning',
-          title: '저평점 작가 관리 필요',
-          description: '최작가, 정작가의 평점이 3.5점 이하입니다. 개별 면담 및 개선 계획 수립이 필요합니다.',
-          impact: 'medium',
-          actionItems: ['작가 면담 일정 수립', '불만 사항 상세 분석', '개선 목표 설정'],
-        },
-        {
+    // 기간 계산
+    const periodDays: Record<string, number> = { '7d': 7, '30d': 30, '90d': 90, '180d': 180, '365d': 365 }
+    const days = periodDays[period as string] || 30
+    const endDate = new Date()
+    const startDate = new Date(endDate.getTime() - days * 24 * 60 * 60 * 1000)
+    
+    // 실제 리뷰 데이터 분석
+    const agent = new BusinessBrainAgent()
+    const reviewData = await agent.getReviewAnalytics(startDate, endDate)
+    
+    // 인사이트 생성
+    const recommendations: any[] = []
+    
+    // NPS 기반 인사이트
+    if (reviewData.nps.score >= 50) {
+      recommendations.push({
+        type: 'positive',
+        title: '우수한 NPS 점수',
+        description: `현재 NPS가 ${reviewData.nps.score}점으로 우수한 수준입니다. 고객 만족도가 높습니다.`,
+        impact: 'high',
+      })
+    } else if (reviewData.nps.score < 0) {
+      recommendations.push({
+        type: 'warning',
+        title: 'NPS 개선 필요',
+        description: `NPS가 ${reviewData.nps.score}점으로 개선이 필요합니다. Detractor 비율을 줄이기 위한 조치가 필요합니다.`,
+        impact: 'high',
+        actionItems: ['불만 사항 분석', 'CS 품질 개선', '배송 프로세스 검토'],
+      })
+    }
+    
+    // Promoter 활용 인사이트
+    if (reviewData.nps.promoters.count > 0) {
+      recommendations.push({
+        type: 'opportunity',
+        title: '추천 고객(Promoter) 활용',
+        description: `${reviewData.nps.promoters.count}명의 추천 고객을 대상으로 리퍼럴 프로그램 운영을 권장합니다.`,
+        impact: 'high',
+        expectedValue: `월 ${Math.round(reviewData.nps.promoters.count * 0.15)}~${Math.round(reviewData.nps.promoters.count * 0.2)}명 신규 고객 예상`,
+      })
+    }
+    
+    // 저평점 작가 관리
+    if (reviewData.concerningArtists && reviewData.concerningArtists.length > 0) {
+      const artistNames = reviewData.concerningArtists.slice(0, 3).map((a: any) => a.name).join(', ')
+      recommendations.push({
+        type: 'warning',
+        title: '저평점 작가 관리 필요',
+        description: `${artistNames} 등의 평점이 낮습니다. 개별 면담 및 개선 계획 수립이 필요합니다.`,
+        impact: 'medium',
+        actionItems: ['작가 면담 일정 수립', '불만 사항 상세 분석', '개선 목표 설정'],
+      })
+    }
+    
+    // 국가별 NPS 차이 인사이트
+    if (reviewData.byCountry.JP && reviewData.byCountry.EN) {
+      const diff = Math.abs(reviewData.byCountry.JP.nps - reviewData.byCountry.EN.nps)
+      if (diff > 10) {
+        const better = reviewData.byCountry.JP.nps > reviewData.byCountry.EN.nps ? 'JP' : 'EN'
+        const worse = better === 'JP' ? 'EN' : 'JP'
+        recommendations.push({
           type: 'insight',
           title: '국가별 NPS 차이',
-          description: '일본(JP) 고객의 NPS가 영어권(EN)보다 13점 높습니다. 영어권 고객 경험 개선에 집중이 필요합니다.',
+          description: `${better === 'JP' ? '일본' : '영어권'} 고객의 NPS가 ${diff}점 더 높습니다. ${worse === 'JP' ? '일본' : '영어권'} 고객 경험 개선에 집중이 필요합니다.`,
           impact: 'medium',
-          actionItems: ['영어권 불만 사항 분석', '현지화 개선', 'CS 응대 품질 향상'],
-        },
-        {
-          type: 'opportunity',
-          title: '추천 고객 활용',
-          description: '156명의 추천 고객(Promoter)을 대상으로 리퍼럴 프로그램을 운영하면 신규 고객 유치에 효과적입니다.',
-          impact: 'high',
-          expectedValue: '월 20~30명 신규 고객 예상',
-        },
-      ],
+          actionItems: ['해당 지역 불만 사항 분석', '현지화 개선', 'CS 응대 품질 향상'],
+        })
+      }
+    }
+    
+    const insights = {
+      ...reviewData,
+      recommendations,
     }
     
     res.json({

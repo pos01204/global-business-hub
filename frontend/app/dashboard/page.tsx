@@ -86,10 +86,10 @@ export default function DashboardPage() {
     staleTime: 5 * 60 * 1000,
   })
 
-  // 통합 대시보드 뷰: 성과 분석 요약
+  // 통합 대시보드 뷰: 성과 분석 요약 (전일 기준 - Raw Data는 전일까지 갱신)
   const { data: analyticsSummaryData } = useQuery({
     queryKey: ['analytics-summary-dashboard'],
-    queryFn: () => analyticsApi.getData('1d', 'all'),
+    queryFn: () => analyticsApi.getData('yesterday', 'all'),
     staleTime: 2 * 60 * 1000,
   })
 
@@ -217,7 +217,7 @@ export default function DashboardPage() {
               </div>
               <div>
                 <h3 className="font-bold text-slate-800 dark:text-slate-100">성과 분석 요약</h3>
-                <p className="text-xs text-slate-500 dark:text-slate-400">일일 운영 현황</p>
+                <p className="text-xs text-slate-500 dark:text-slate-400">전일 운영 현황</p>
               </div>
             </div>
             <Link 
@@ -228,21 +228,21 @@ export default function DashboardPage() {
             </Link>
           </div>
 
-              {/* 오늘의 핵심 지표 */}
+              {/* 전일 핵심 지표 (Raw Data는 매일 11:00 KST에 전일까지 갱신됨) */}
               {analyticsSummaryData && (
                 <div className="space-y-3">
                   <div className="grid grid-cols-2 gap-3">
-                    <Tooltip content="오늘 발생한 총 상품 거래액">
+                    <Tooltip content="전일 발생한 총 상품 거래액 (Raw Data 기준)">
                       <div className="bg-white/60 dark:bg-slate-800/60 rounded-lg p-3 backdrop-blur-sm border border-slate-200 dark:border-slate-700">
-                        <div className="text-xs text-slate-500 dark:text-slate-400 mb-1">오늘 GMV</div>
+                        <div className="text-xs text-slate-500 dark:text-slate-400 mb-1">전일 GMV</div>
                         <div className="text-lg font-bold text-slate-800 dark:text-slate-200">
                           {formatCurrency(analyticsSummaryData.summary?.gmv || 0)}
                         </div>
                       </div>
                     </Tooltip>
-                    <Tooltip content="오늘 발생한 총 주문 건수">
+                    <Tooltip content="전일 발생한 총 주문 건수 (Raw Data 기준)">
                       <div className="bg-white/60 dark:bg-slate-800/60 rounded-lg p-3 backdrop-blur-sm border border-slate-200 dark:border-slate-700">
-                        <div className="text-xs text-slate-500 dark:text-slate-400 mb-1">오늘 주문</div>
+                        <div className="text-xs text-slate-500 dark:text-slate-400 mb-1">전일 주문</div>
                         <div className="text-lg font-bold text-slate-800 dark:text-slate-200">
                           {analyticsSummaryData.summary?.orders || 0}건
                         </div>

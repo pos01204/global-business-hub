@@ -201,13 +201,25 @@ export default function LogisticsPage() {
   // 필터 옵션 생성
   const { countries, statuses, stats } = useMemo(() => {
     if (!data || !Array.isArray(data)) {
-      return { countries: [], statuses: [], stats: { total: 0, byStatus: {} as Record<string, number>, byCountry: {} as Record<string, number> } }
+      return { 
+        countries: [], 
+        statuses: [], 
+        stats: { 
+          total: 0, 
+          byStatus: {} as Record<string, number>, 
+          byCountry: {} as Record<string, number>,
+          internationalShipping: 0, // 국제 배송중 (국제 송장번호가 있는 건)
+          pendingTracking: 0, // 송장 입력 대기
+        } 
+      }
     }
 
     const countrySet = new Set<string>()
     const statusSet = new Set<string>()
     const byStatus: Record<string, number> = {}
     const byCountry: Record<string, number> = {}
+    let internationalShipping = 0
+    let pendingTracking = 0
 
     data.forEach((order: LogisticsOrder) => {
       if (order.country) {
@@ -218,12 +230,32 @@ export default function LogisticsPage() {
         statusSet.add(order.logisticsStatus)
         byStatus[order.logisticsStatus] = (byStatus[order.logisticsStatus] || 0) + 1
       }
+      
+      // 국제 배송중: 국제송장번호가 있는 경우
+      if (order.internationalTracking && 
+          order.internationalTracking.number && 
+          order.internationalTracking.number !== 'N/A' &&
+          order.internationalTracking.number.trim() !== '') {
+        internationalShipping++
+      }
+      
+      // 송장 입력 대기: 상태에 '송장' 포함 또는 '결제 완료'인 경우
+      const status = (order.logisticsStatus || '').toLowerCase()
+      if (status.includes('송장') || status.includes('결제 완료') || status === '결제완료') {
+        pendingTracking++
+      }
     })
 
     return {
       countries: ['모든 국가', ...Array.from(countrySet).sort()],
       statuses: ['모든 상태', ...Array.from(statusSet).sort()],
-      stats: { total: data.length, byStatus, byCountry },
+      stats: { 
+        total: data.length, 
+        byStatus, 
+        byCountry, 
+        internationalShipping,
+        pendingTracking,
+      },
     }
   }, [data])
 
@@ -309,13 +341,13 @@ export default function LogisticsPage() {
           <div className="bg-orange-50 dark:bg-orange-900/20 rounded-xl p-4 border border-orange-200 dark:border-orange-800">
             <p className="text-xs lg:text-sm text-orange-600 dark:text-orange-400 mb-1 font-medium">송장 입력 대기</p>
             <p className="text-xl lg:text-2xl font-bold text-orange-700 dark:text-orange-300">
-              {Object.entries(stats.byStatus).filter(([k]) => k.includes('송장')).reduce((a, [, v]) => a + v, 0)} <span className="text-sm font-normal">건</span>
+              {stats.pendingTracking} <span className="text-sm font-normal">건</span>
             </p>
           </div>
           <div className="bg-purple-50 dark:bg-purple-900/20 rounded-xl p-4 border border-purple-200 dark:border-purple-800">
             <p className="text-xs lg:text-sm text-purple-600 dark:text-purple-400 mb-1 font-medium">국제 배송중</p>
             <p className="text-xl lg:text-2xl font-bold text-purple-700 dark:text-purple-300">
-              {Object.entries(stats.byStatus).filter(([k]) => k.includes('배송')).reduce((a, [, v]) => a + v, 0)} <span className="text-sm font-normal">건</span>
+              {stats.internationalShipping} <span className="text-sm font-normal">건</span>
             </p>
           </div>
           <div className="bg-slate-50 dark:bg-slate-800 rounded-xl p-4 border border-slate-200 dark:border-slate-700">

@@ -177,9 +177,12 @@ router.get('/main', async (req, res) => {
       data.forEach((row) => {
         if (row.order_code) {
           orderCodes.add(row.order_code);
-          // '배송 완료' 상태인 경우 완료로 카운트
-          const status = (row.logistics || '').trim();
-          if (status === '배송 완료' || status === '배달 완료') {
+          // 배송 완료 상태 체크 (다양한 표기 대응)
+          const status = (row.logistics || '').trim().toLowerCase();
+          // '배송완료', '배송 완료', '배달 완료', '배달완료' 등 모두 대응
+          if (status.includes('배송완료') || status.includes('배송 완료') || 
+              status.includes('배달완료') || status.includes('배달 완료') ||
+              status === 'delivered' || status === 'completed') {
             completedOrderCodes.add(row.order_code);
           }
         }

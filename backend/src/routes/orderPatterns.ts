@@ -417,11 +417,9 @@ router.get('/summary', async (req: Request, res: Response) => {
     const end = new Date(endDate as string)
     end.setHours(23, 59, 59, 999)
     
-    // 집계
+    // 집계 (시간대 분석 제외 - Raw Data에 시간 정보 없음)
     const dayStats: Record<number, number> = {}
-    const hourStats: Record<number, number> = {}
     for (let i = 0; i < 7; i++) dayStats[i] = 0
-    for (let i = 0; i < 24; i++) hourStats[i] = 0
     
     const orderCodes = new Set<string>()
     let totalGmv = 0
@@ -435,18 +433,15 @@ router.get('/summary', async (req: Request, res: Response) => {
         if (!orderCodes.has(orderCode)) {
           orderCodes.add(orderCode)
           dayStats[orderDate.getDay()]++
-          hourStats[orderDate.getHours()]++
         }
         
         totalGmv += safeNumber(order.total_gmv) * CURRENCY.USD_TO_KRW
       } catch {}
     })
     
-    // 피크 찾기
+    // 피크 요일 찾기
     const peakDay = Object.entries(dayStats).reduce((max, [day, count]) => 
       count > max.count ? { day: parseInt(day), count } : max, { day: 0, count: 0 })
-    const peakHour = Object.entries(hourStats).reduce((max, [hour, count]) => 
-      count > max.count ? { hour: parseInt(hour), count } : max, { hour: 0, count: 0 })
     
     res.json({
       success: true,
@@ -461,11 +456,7 @@ router.get('/summary', async (req: Request, res: Response) => {
             dayName: DAY_NAMES[peakDay.day],
             orders: peakDay.count,
           },
-          peakHour: {
-            hour: peakHour.hour,
-            label: `${peakHour.hour}시`,
-            orders: peakHour.count,
-          },
+          // 시간대 분석은 Raw Data에 시간 정보가 없어 제외됨
         }
       }
     })
