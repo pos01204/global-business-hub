@@ -217,105 +217,105 @@ export default function OrderPatternsPage() {
   const selectedDays = Math.round((dateRange.to.getTime() - dateRange.from.getTime()) / (1000 * 60 * 60 * 24))
 
   return (
-    <div className="min-h-screen bg-gradient-to-br from-slate-50 via-white to-slate-100 dark:from-slate-950 dark:via-slate-900 dark:to-slate-950">
-      <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
-        {/* 헤더 */}
-        <div className="mb-8">
-          <div className="flex items-center gap-3 mb-2">
-            <div className="w-12 h-12 bg-gradient-to-br from-violet-500 to-purple-600 rounded-xl flex items-center justify-center shadow-lg">
-              <Icon icon={BarChart3} size="xl" className="text-white" />
-            </div>
-            <div>
-              <h1 className="text-2xl font-bold text-slate-800 dark:text-slate-100">주문 패턴 분석</h1>
-              <p className="text-sm text-slate-500 dark:text-slate-400">요일별, 월별, 국가별 다차원 주문 패턴 분석</p>
-            </div>
+    <div className="animate-fade-in">
+      {/* 페이지 헤더 - idus 브랜드 스타일 */}
+      <div className="relative bg-idus-500 dark:bg-orange-900/70 rounded-2xl p-4 lg:p-6 mb-6 overflow-hidden shadow-lg dark:shadow-none">
+        <div className="absolute top-0 right-0 w-64 h-64 bg-white/10 dark:bg-white/5 rounded-full -translate-y-1/2 translate-x-1/2"></div>
+        <div className="flex items-center gap-4">
+          <div className="w-12 h-12 lg:w-14 lg:h-14 bg-white/20 dark:bg-white/10 backdrop-blur rounded-xl flex items-center justify-center shadow-lg dark:shadow-none">
+            <Icon icon={BarChart3} size="xl" className="text-white" />
+          </div>
+          <div>
+            <h1 className="text-xl lg:text-2xl font-extrabold text-white tracking-tight">주문 패턴 분석</h1>
+            <p className="text-idus-100 dark:text-orange-200/80 text-xs lg:text-sm font-medium">요일별, 월별, 국가별 다차원 주문 패턴 분석</p>
           </div>
         </div>
+      </div>
 
-        {/* 날짜 필터 & 빠른 선택 */}
-        <div className="mb-6 flex flex-wrap items-center gap-4">
-          <div className="flex items-center gap-2">
-            <label className="text-sm font-medium text-slate-600 dark:text-slate-400">기간:</label>
-            <input
-              type="date"
-              value={startDate}
-              onChange={(e) => setDateRange({ ...dateRange, from: new Date(e.target.value) })}
-              className="px-3 py-2 border border-slate-200 dark:border-slate-700 rounded-lg text-sm bg-white dark:bg-slate-800 text-slate-800 dark:text-slate-200"
-            />
-            <span className="text-slate-400">~</span>
-            <input
-              type="date"
-              value={endDate}
-              onChange={(e) => setDateRange({ ...dateRange, to: new Date(e.target.value) })}
-              className="px-3 py-2 border border-slate-200 dark:border-slate-700 rounded-lg text-sm bg-white dark:bg-slate-800 text-slate-800 dark:text-slate-200"
-            />
-          </div>
-          <div className="flex gap-2">
-            {periodOptions.map((option) => (
-              <button
-                key={option.days}
-                onClick={() => setDateRange({ from: addDays(new Date(), -option.days), to: new Date() })}
-                className={`px-3 py-1.5 text-sm rounded-lg transition-colors ${
-                  selectedDays === option.days
-                    ? 'bg-violet-500 text-white'
-                    : 'bg-white dark:bg-slate-800 text-slate-600 dark:text-slate-300 border border-slate-200 dark:border-slate-700 hover:bg-slate-50 dark:hover:bg-slate-700'
-                }`}
-              >
-                {option.label}
-              </button>
-            ))}
+      {/* 날짜 필터 & 빠른 선택 */}
+      <div className="mb-6 flex flex-wrap items-center gap-4">
+        <div className="flex items-center gap-2">
+          <label className="text-sm font-medium text-slate-600 dark:text-slate-400">기간:</label>
+          <input
+            type="date"
+            value={startDate}
+            onChange={(e) => setDateRange({ ...dateRange, from: new Date(e.target.value) })}
+            className="px-3 py-2 border border-slate-200 dark:border-slate-700 rounded-lg text-sm bg-white dark:bg-slate-800 text-slate-800 dark:text-slate-200"
+          />
+          <span className="text-slate-400">~</span>
+          <input
+            type="date"
+            value={endDate}
+            onChange={(e) => setDateRange({ ...dateRange, to: new Date(e.target.value) })}
+            className="px-3 py-2 border border-slate-200 dark:border-slate-700 rounded-lg text-sm bg-white dark:bg-slate-800 text-slate-800 dark:text-slate-200"
+          />
+        </div>
+        <div className="flex gap-2">
+          {periodOptions.map((option) => (
+            <button
+              key={option.days}
+              onClick={() => setDateRange({ from: addDays(new Date(), -option.days), to: new Date() })}
+              className={`px-3 py-1.5 text-sm rounded-lg transition-colors ${
+                selectedDays === option.days
+                  ? 'bg-idus-500 text-white'
+                  : 'bg-white dark:bg-slate-800 text-slate-600 dark:text-slate-300 border border-slate-200 dark:border-slate-700 hover:bg-slate-50 dark:hover:bg-slate-700'
+              }`}
+            >
+              {option.label}
+            </button>
+          ))}
+        </div>
+      </div>
+
+      {/* 핵심 요약 배너 */}
+      {summary && (
+        <div className="mb-6 bg-white dark:bg-slate-900 rounded-xl border border-slate-200 dark:border-slate-800 p-4 shadow-sm">
+          <div className="flex flex-wrap items-center gap-6 text-sm">
+            <span className="text-slate-600 dark:text-slate-400">
+              분석 기간: <strong className="text-slate-800 dark:text-slate-200">{format(dateRange.from, 'yyyy.MM.dd')} ~ {format(dateRange.to, 'yyyy.MM.dd')}</strong> ({selectedDays}일)
+            </span>
+            <span className="text-slate-600 dark:text-slate-400">
+              총 주문: <strong className="text-idus-600 dark:text-idus-400">{summary.totalOrders.toLocaleString()}건</strong>
+            </span>
+            <span className="text-slate-600 dark:text-slate-400">
+              총 GMV: <strong className="text-emerald-600 dark:text-emerald-400">{formatCurrency(summary.totalGmv)}</strong>
+            </span>
+            <span className="text-slate-600 dark:text-slate-400">
+              피크 요일: <strong className="text-amber-600 dark:text-amber-400">{summary.peakDay.dayName}요일</strong>
+            </span>
+            {comparison && (
+              <span className={`flex items-center gap-1 ${comparison.changes.gmv >= 0 ? 'text-emerald-600' : 'text-red-500'}`}>
+                <Icon icon={comparison.changes.gmv >= 0 ? ArrowUpRight : ArrowDownRight} size="sm" />
+                {comparison.changes.gmv >= 0 ? '+' : ''}{comparison.changes.gmv.toFixed(1)}% vs 전기간
+              </span>
+            )}
           </div>
         </div>
+      )}
 
-        {/* 핵심 요약 배너 */}
-        {summary && (
-          <div className="mb-6 bg-gradient-to-r from-violet-50 to-purple-50 dark:from-violet-900/20 dark:to-purple-900/20 rounded-xl p-4 border border-violet-100 dark:border-violet-800">
-            <div className="flex flex-wrap items-center gap-6 text-sm">
-              <span className="text-slate-600 dark:text-slate-400">
-                분석 기간: <strong className="text-slate-800 dark:text-slate-200">{format(dateRange.from, 'yyyy.MM.dd')} ~ {format(dateRange.to, 'yyyy.MM.dd')}</strong> ({selectedDays}일)
-              </span>
-              <span className="text-slate-600 dark:text-slate-400">
-                총 주문: <strong className="text-violet-600 dark:text-violet-400">{summary.totalOrders.toLocaleString()}건</strong>
-              </span>
-              <span className="text-slate-600 dark:text-slate-400">
-                총 GMV: <strong className="text-emerald-600 dark:text-emerald-400">{formatCurrency(summary.totalGmv)}</strong>
-              </span>
-              <span className="text-slate-600 dark:text-slate-400">
-                피크 요일: <strong className="text-amber-600 dark:text-amber-400">{summary.peakDay.dayName}요일</strong>
-              </span>
-              {comparison && (
-                <span className={`flex items-center gap-1 ${comparison.changes.gmv >= 0 ? 'text-emerald-600' : 'text-red-500'}`}>
-                  <Icon icon={comparison.changes.gmv >= 0 ? ArrowUpRight : ArrowDownRight} size="sm" />
-                  {comparison.changes.gmv >= 0 ? '+' : ''}{comparison.changes.gmv.toFixed(1)}% vs 전기간
-                </span>
-              )}
-            </div>
-          </div>
-        )}
-
-        {/* 탭 네비게이션 */}
-        <div className="mb-6 border-b border-slate-200 dark:border-slate-700">
-          <nav className="flex gap-4">
-            {tabs.map((tab) => (
-              <button
-                key={tab.id}
-                onClick={() => setActiveTab(tab.id as any)}
-                className={`flex items-center gap-2 px-4 py-3 text-sm font-medium border-b-2 transition-colors ${
-                  activeTab === tab.id
-                    ? 'border-violet-500 text-violet-600 dark:text-violet-400'
-                    : 'border-transparent text-slate-500 hover:text-slate-700 dark:text-slate-400'
-                }`}
-              >
-                <Icon icon={tab.icon} size="sm" />
-                {tab.label}
-              </button>
-            ))}
-          </nav>
+      {/* 탭 네비게이션 */}
+      <div className="mb-6">
+        <div className="flex gap-2">
+          {tabs.map((tab) => (
+            <button
+              key={tab.id}
+              onClick={() => setActiveTab(tab.id as any)}
+              className={`flex items-center gap-2 px-4 py-3 rounded-xl text-sm font-medium transition-all ${
+                activeTab === tab.id
+                  ? 'bg-idus-500 text-white shadow-sm'
+                  : 'bg-slate-100 dark:bg-slate-800 text-slate-600 dark:text-slate-400 hover:bg-slate-200 dark:hover:bg-slate-700'
+              }`}
+            >
+              <Icon icon={tab.icon} size="sm" />
+              {tab.label}
+            </button>
+          ))}
         </div>
+      </div>
 
-        {/* 개요 탭 */}
-        {activeTab === 'overview' && (
-          <div className="space-y-6">
+      {/* 개요 탭 */}
+      {activeTab === 'overview' && (
+        <div className="space-y-6">
             {/* KPI 카드 */}
             <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-5 gap-4">
               <KPICard
@@ -525,15 +525,15 @@ export default function OrderPatternsPage() {
 
             {/* 핵심 인사이트 미리보기 */}
             {insights && insights.length > 0 && (
-              <div className="bg-gradient-to-r from-violet-50 to-purple-50 dark:from-violet-900/20 dark:to-purple-900/20 rounded-2xl p-6 border border-violet-100 dark:border-violet-800">
+              <div className="bg-white dark:bg-slate-900 rounded-2xl border border-slate-200 dark:border-slate-800 p-6 shadow-sm">
                 <div className="flex items-center justify-between mb-4">
                   <div className="flex items-center gap-2">
                     <Icon icon={Lightbulb} size="md" className="text-amber-500" />
-                    <h3 className="text-lg font-semibold text-violet-800 dark:text-violet-200">💡 핵심 인사이트</h3>
+                    <h3 className="text-lg font-semibold text-slate-800 dark:text-slate-100">💡 핵심 인사이트</h3>
                   </div>
                   <button 
                     onClick={() => setActiveTab('insights')}
-                    className="text-sm text-violet-600 dark:text-violet-400 hover:underline"
+                    className="text-sm text-idus-600 dark:text-idus-400 hover:underline"
                   >
                     전체 보기 →
                   </button>
@@ -548,8 +548,8 @@ export default function OrderPatternsPage() {
           </div>
         )}
 
-        {/* 트렌드 탭 */}
-        {activeTab === 'trend' && (
+      {/* 트렌드 탭 */}
+      {activeTab === 'trend' && (
           <div className="space-y-6">
             {/* 월별 상세 트렌드 */}
             <div className="bg-white dark:bg-slate-900 rounded-2xl border border-slate-200 dark:border-slate-800 p-6 shadow-sm">
@@ -634,8 +634,8 @@ export default function OrderPatternsPage() {
           </div>
         )}
 
-        {/* 비교 분석 탭 */}
-        {activeTab === 'comparison' && (
+      {/* 비교 분석 탭 */}
+      {activeTab === 'comparison' && (
           <div className="space-y-6">
             {/* 전기간 대비 */}
             {comparison && (
@@ -687,8 +687,8 @@ export default function OrderPatternsPage() {
           </div>
         )}
 
-        {/* 인사이트 탭 */}
-        {activeTab === 'insights' && (
+      {/* 인사이트 탭 */}
+      {activeTab === 'insights' && (
           <div className="space-y-4">
             {insights && insights.length > 0 ? (
               insights.map((insight, idx) => (
@@ -703,9 +703,8 @@ export default function OrderPatternsPage() {
             {loadingInsights && (
               <div className="text-center py-8 text-slate-400">인사이트 생성 중...</div>
             )}
-          </div>
-        )}
-      </div>
+        </div>
+      )}
     </div>
   )
 }
