@@ -1790,14 +1790,14 @@ export const reviewAnalyticsApi = {
   },
 }
 
-// ==================== 주문 패턴 분석 API ====================
+// ==================== 주문 패턴 분석 API (개선 버전) ====================
 export const orderPatternsApi = {
   /**
-   * 패턴 요약
+   * 패턴 요약 (전기간 대비 변화율 포함)
    */
-  getSummary: async (startDate: string, endDate: string) => {
+  getSummary: async (startDate: string, endDate: string, includeComparison: boolean = true) => {
     const response = await api.get('/api/order-patterns/summary', {
-      params: { startDate, endDate },
+      params: { startDate, endDate, includeComparison: includeComparison.toString() },
     })
     return response.data
   },
@@ -1813,7 +1813,7 @@ export const orderPatternsApi = {
   },
 
   /**
-   * 시간대별 패턴
+   * 시간대별 패턴 (Raw Data에 시간 정보 없어 제한적)
    */
   getByHour: async (startDate: string, endDate: string) => {
     const response = await api.get('/api/order-patterns/by-hour', {
@@ -1837,6 +1837,36 @@ export const orderPatternsApi = {
    */
   getMonthlyTrend: async (startDate: string, endDate: string) => {
     const response = await api.get('/api/order-patterns/monthly-trend', {
+      params: { startDate, endDate },
+    })
+    return response.data
+  },
+
+  /**
+   * 히트맵 데이터 (요일 x 월별)
+   */
+  getHeatmap: async (startDate: string, endDate: string, metric: 'orders' | 'gmv' | 'aov' = 'orders') => {
+    const response = await api.get('/api/order-patterns/heatmap', {
+      params: { startDate, endDate, metric },
+    })
+    return response.data
+  },
+
+  /**
+   * 자동 인사이트
+   */
+  getInsights: async (startDate: string, endDate: string) => {
+    const response = await api.get('/api/order-patterns/insights', {
+      params: { startDate, endDate },
+    })
+    return response.data
+  },
+
+  /**
+   * 국가별 상세 비교
+   */
+  getCountryDetail: async (startDate: string, endDate: string) => {
+    const response = await api.get('/api/order-patterns/country-detail', {
       params: { startDate, endDate },
     })
     return response.data
