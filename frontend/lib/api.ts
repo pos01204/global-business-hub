@@ -1687,6 +1687,16 @@ export const couponAnalyticsApi = {
   },
 
   /**
+   * 쿠폰 유형별 분석 (Coupon_type: idus, CRM, Sodam 등)
+   */
+  getByCouponType: async (startDate: string, endDate: string) => {
+    const response = await api.get('/api/coupon-analytics/by-coupon-type', {
+      params: { startDate, endDate },
+    })
+    return response.data
+  },
+
+  /**
    * TOP 성과 쿠폰
    */
   getTopPerformers: async (startDate: string, endDate: string, limit: number = 10) => {

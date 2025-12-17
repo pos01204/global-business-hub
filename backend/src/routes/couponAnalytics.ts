@@ -362,6 +362,86 @@ router.get('/by-type', async (req: Request, res: Response) => {
 })
 
 /**
+ * 쿠폰 유형별 분석 (Coupon_type: idus, CRM, Sodam 등)
+ * GET /api/coupon-analytics/by-coupon-type?startDate=2024-01-01&endDate=2024-12-17
+ */
+router.get('/by-coupon-type', async (req: Request, res: Response) => {
+  try {
+    const { startDate, endDate } = req.query
+    
+    if (!startDate || !endDate) {
+      return res.status(400).json({
+        success: false,
+        error: 'startDate와 endDate가 필요합니다.'
+      })
+    }
+    
+    // 쿠폰 데이터 로드
+    let couponData: any[] = []
+    try {
+      couponData = await sheetsService.getSheetDataAsJson('coupon', false)
+    } catch (error) {
+      return res.status(404).json({
+        success: false,
+        error: '쿠폰 데이터를 찾을 수 없습니다.'
+      })
+    }
+    
+    const start = new Date(startDate as string)
+    const end = new Date(endDate as string)
+    end.setHours(23, 59, 59, 999)
+    
+    // 유형별 집계
+    const byCouponType: Record<string, any> = {}
+    
+    couponData.forEach((coupon: any) => {
+      try {
+        const fromDate = coupon.from_datetime ? new Date(coupon.from_datetime) : null
+        const toDate = coupon.to_datetime ? new Date(coupon.to_datetime) : null
+        if (!fromDate || !toDate) return
+        if (!(fromDate <= end && toDate >= start)) return
+        
+        const couponType = (coupon.Coupon_type || coupon.coupon_type || '기타').toUpperCase()
+        
+        if (!byCouponType[couponType]) {
+          byCouponType[couponType] = { count: 0, issued: 0, used: 0, discount: 0, gmv: 0, issueLimit: 0 }
+        }
+        
+        byCouponType[couponType].count++
+        byCouponType[couponType].issued += safeNumber(coupon.issue_count)
+        byCouponType[couponType].used += safeNumber(coupon.used_count)
+        byCouponType[couponType].discount += safeNumber(coupon.discount_amount)
+        byCouponType[couponType].gmv += safeNumber(coupon.total_gmv)
+        byCouponType[couponType].issueLimit += safeNumber(coupon.issue_limit)
+      } catch {}
+    })
+    
+    // 전환율 및 ROI 계산
+    Object.keys(byCouponType).forEach(type => {
+      const data = byCouponType[type]
+      data.conversionRate = safeDivide(data.used, data.issued) * 100
+      data.roi = safeDivide(data.gmv, data.discount)
+      data.issueRate = safeDivide(data.issued, data.issueLimit) * 100
+    })
+    
+    res.json({
+      success: true,
+      data: {
+        period: { startDate, endDate },
+        byCouponType
+      }
+    })
+  } catch (error: any) {
+    console.error('[CouponAnalytics] By-coupon-type failed:', error)
+    res.status(500).json({
+      success: false,
+      error: '유형별 쿠폰 분석 중 오류가 발생했습니다.',
+      details: error.message
+    })
+  }
+})
+
+/**
  * 쿠폰 국가별 분석
  * GET /api/coupon-analytics/by-country?startDate=2024-01-01&endDate=2024-12-17
  */

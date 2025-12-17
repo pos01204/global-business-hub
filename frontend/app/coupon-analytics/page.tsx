@@ -10,8 +10,10 @@ import { Tooltip } from '@/components/ui/Tooltip'
 import {
   Ticket, TrendingUp, TrendingDown, DollarSign, Users,
   BarChart3, PieChart, AlertTriangle, Lightbulb, Award,
-  Target, Percent, ArrowUpRight, ArrowDownRight, Info
+  Target, Percent, ArrowUpRight, ArrowDownRight, Info,
+  Calendar
 } from 'lucide-react'
+import { addDays, format } from 'date-fns'
 import {
   Chart as ChartJS,
   CategoryScale,
@@ -24,7 +26,7 @@ import {
   Legend,
   ArcElement,
 } from 'chart.js'
-import { Bar, Doughnut, Line } from 'react-chartjs-2'
+import { Bar, Doughnut, Line, Chart } from 'react-chartjs-2'
 
 ChartJS.register(
   CategoryScale,
@@ -83,9 +85,25 @@ export default function CouponAnalyticsPage() {
   const today = new Date()
   const thirtyDaysAgo = new Date(today.getTime() - 30 * 24 * 60 * 60 * 1000)
   
-  const [startDate, setStartDate] = useState(thirtyDaysAgo.toISOString().split('T')[0])
-  const [endDate, setEndDate] = useState(today.toISOString().split('T')[0])
+  const [dateRange, setDateRange] = useState({
+    from: thirtyDaysAgo,
+    to: today,
+  })
   const [activeTab, setActiveTab] = useState<'overview' | 'trend' | 'comparison' | 'insights'>('overview')
+
+  const startDate = format(dateRange.from, 'yyyy-MM-dd')
+  const endDate = format(dateRange.to, 'yyyy-MM-dd')
+  
+  // 기간 선택 옵션
+  const periodOptions = [
+    { label: '7일', days: 7 },
+    { label: '30일', days: 30 },
+    { label: '90일', days: 90 },
+    { label: '180일', days: 180 },
+    { label: '1년', days: 365 },
+  ]
+  
+  const selectedDays = Math.round((dateRange.to.getTime() - dateRange.from.getTime()) / (1000 * 60 * 60 * 24))
 
   // API 쿼리
   const { data: summaryData, isLoading: summaryLoading } = useQuery({
@@ -103,6 +121,12 @@ export default function CouponAnalyticsPage() {
     queryFn: () => couponAnalyticsApi.getByCountry(startDate, endDate),
   })
 
+  const { data: byCouponTypeData, isLoading: couponTypeLoading } = useQuery({
+    queryKey: ['coupon-by-coupon-type', startDate, endDate],
+    queryFn: () => couponAnalyticsApi.getByCouponType(startDate, endDate),
+    enabled: activeTab === 'comparison',
+  })
+
   const { data: topPerformersData, isLoading: topLoading } = useQuery({
     queryKey: ['coupon-top-performers', startDate, endDate],
     queryFn: () => couponAnalyticsApi.getTopPerformers(startDate, endDate, 10),
@@ -118,7 +142,13 @@ export default function CouponAnalyticsPage() {
     queryFn: () => couponAnalyticsApi.getInsights(startDate, endDate),
   })
 
-  const isLoading = summaryLoading || typeLoading || countryLoading || topLoading || failuresLoading || insightsLoading
+  const { data: trendData, isLoading: trendLoading } = useQuery({
+    queryKey: ['coupon-trend', startDate, endDate],
+    queryFn: () => couponAnalyticsApi.getTrend(startDate, endDate, 'monthly'),
+    enabled: activeTab === 'trend' || activeTab === 'overview',
+  })
+
+  const isLoading = summaryLoading || typeLoading || countryLoading || topLoading || failuresLoading || insightsLoading || trendLoading || couponTypeLoading
 
   if (isLoading) {
     return <EnhancedLoadingPage message="쿠폰 분석 데이터를 불러오는 중..." variant="default" size="lg" />
@@ -128,82 +158,132 @@ export default function CouponAnalyticsPage() {
   const comparison = summaryData?.data?.comparison
   const byType = byTypeData?.data?.byType as CouponByType | undefined
   const byCountry = byCountryData?.data?.byCountry
+  const byCouponType = byCouponTypeData?.data?.byCouponType
   const topPerformers = topPerformersData?.data?.topPerformers
   const failures = failuresData?.data?.failures
   const insights = insightsData?.data?.insights as Insight[] | undefined
 
   return (
-    <div className="min-h-screen bg-gradient-to-br from-slate-50 via-white to-slate-100 dark:from-slate-950 dark:via-slate-900 dark:to-slate-950">
-      <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
-        {/* 헤더 */}
-        <div className="mb-8">
-          <div className="flex items-center gap-3 mb-2">
-            <div className="w-12 h-12 bg-gradient-to-br from-violet-500 to-purple-600 rounded-xl flex items-center justify-center shadow-lg">
-              <Icon icon={Ticket} size="xl" className="text-white" />
-            </div>
-            <div>
-              <h1 className="text-2xl font-bold text-slate-800 dark:text-slate-100">쿠폰 효과 분석</h1>
-              <p className="text-sm text-slate-500 dark:text-slate-400">쿠폰 성과 및 ROI 분석</p>
-            </div>
+    <div className="animate-fade-in">
+      {/* 페이지 헤더 - idus 브랜드 스타일 */}
+      <div className="relative bg-idus-500 dark:bg-orange-900/70 rounded-2xl p-4 lg:p-6 mb-6 overflow-hidden shadow-lg dark:shadow-none">
+        <div className="absolute top-0 right-0 w-64 h-64 bg-white/10 dark:bg-white/5 rounded-full -translate-y-1/2 translate-x-1/2"></div>
+        <div className="flex items-center gap-4">
+          <div className="w-12 h-12 lg:w-14 lg:h-14 bg-white/20 dark:bg-white/10 backdrop-blur rounded-xl flex items-center justify-center shadow-lg dark:shadow-none">
+            <Icon icon={Ticket} size="xl" className="text-white" />
+          </div>
+          <div>
+            <h1 className="text-xl lg:text-2xl font-extrabold text-white tracking-tight">쿠폰 효과 분석</h1>
+            <p className="text-idus-100 dark:text-orange-200/80 text-xs lg:text-sm font-medium">쿠폰 성과 및 ROI 분석</p>
           </div>
         </div>
+      </div>
 
-        {/* 날짜 필터 */}
-        <div className="mb-6 flex flex-wrap items-center gap-4">
-          <div className="flex items-center gap-2">
-            <label className="text-sm font-medium text-slate-600 dark:text-slate-400">기간:</label>
-            <input
-              type="date"
-              value={startDate}
-              onChange={(e) => setStartDate(e.target.value)}
-              className="px-3 py-2 border border-slate-200 dark:border-slate-700 rounded-lg text-sm bg-white dark:bg-slate-800"
-            />
-            <span className="text-slate-400">~</span>
-            <input
-              type="date"
-              value={endDate}
-              onChange={(e) => setEndDate(e.target.value)}
-              className="px-3 py-2 border border-slate-200 dark:border-slate-700 rounded-lg text-sm bg-white dark:bg-slate-800"
-            />
+      {/* 날짜 필터 & 빠른 선택 */}
+      <div className="mb-6 flex flex-wrap items-center gap-4">
+        <div className="flex items-center gap-2">
+          <label className="text-sm font-medium text-slate-600 dark:text-slate-400">기간:</label>
+          <input
+            type="date"
+            value={startDate}
+            onChange={(e) => setDateRange({ ...dateRange, from: new Date(e.target.value) })}
+            className="px-3 py-2 border border-slate-200 dark:border-slate-700 rounded-lg text-sm bg-white dark:bg-slate-800 text-slate-800 dark:text-slate-200"
+          />
+          <span className="text-slate-400">~</span>
+          <input
+            type="date"
+            value={endDate}
+            onChange={(e) => setDateRange({ ...dateRange, to: new Date(e.target.value) })}
+            className="px-3 py-2 border border-slate-200 dark:border-slate-700 rounded-lg text-sm bg-white dark:bg-slate-800 text-slate-800 dark:text-slate-200"
+          />
+        </div>
+        <div className="flex gap-2">
+          {periodOptions.map((option) => (
+            <button
+              key={option.days}
+              onClick={() => setDateRange({ from: addDays(new Date(), -option.days), to: new Date() })}
+              className={`px-3 py-1.5 text-sm rounded-lg transition-colors ${
+                selectedDays === option.days
+                  ? 'bg-idus-500 text-white'
+                  : 'bg-white dark:bg-slate-800 text-slate-600 dark:text-slate-300 border border-slate-200 dark:border-slate-700 hover:bg-slate-50 dark:hover:bg-slate-700'
+              }`}
+            >
+              {option.label}
+            </button>
+          ))}
+        </div>
+      </div>
+
+      {/* 핵심 요약 배너 */}
+      {summary && (
+        <div className="mb-6 bg-white dark:bg-slate-900 rounded-xl border border-slate-200 dark:border-slate-800 p-4 shadow-sm">
+          <div className="flex flex-wrap items-center gap-6 text-sm">
+            <span className="text-slate-600 dark:text-slate-400">
+              분석 기간: <strong className="text-slate-800 dark:text-slate-200">{format(dateRange.from, 'yyyy.MM.dd')} ~ {format(dateRange.to, 'yyyy.MM.dd')}</strong> ({selectedDays}일)
+            </span>
+            <span className="text-slate-600 dark:text-slate-400">
+              총 쿠폰: <strong className="text-idus-600 dark:text-idus-400">{summary.totalCoupons}개</strong>
+            </span>
+            <span className="text-slate-600 dark:text-slate-400">
+              총 GMV: <strong className="text-emerald-600 dark:text-emerald-400">{formatCurrency(summary.totalGmvKrw)}</strong>
+            </span>
+            <span className="text-slate-600 dark:text-slate-400">
+              전환율: <strong className="text-violet-600 dark:text-violet-400">{summary.conversionRate}%</strong>
+            </span>
+            {comparison && (
+              <span className={`flex items-center gap-1 ${comparison.changes.gmv >= 0 ? 'text-emerald-600' : 'text-red-500'}`}>
+                <Icon icon={comparison.changes.gmv >= 0 ? ArrowUpRight : ArrowDownRight} size="sm" />
+                {comparison.changes.gmv >= 0 ? '+' : ''}{comparison.changes.gmv.toFixed(1)}% vs 전기간
+              </span>
+            )}
           </div>
         </div>
+      )}
 
-        {/* 탭 네비게이션 */}
-        <div className="mb-6 border-b border-slate-200 dark:border-slate-700">
-          <nav className="flex gap-4">
-            {[
-              { id: 'overview', label: '개요', icon: BarChart3 },
-              { id: 'trend', label: '트렌드', icon: TrendingUp },
-              { id: 'comparison', label: '비교 분석', icon: PieChart },
-              { id: 'insights', label: '인사이트', icon: Lightbulb },
-            ].map((tab) => (
-              <button
-                key={tab.id}
-                onClick={() => setActiveTab(tab.id as any)}
-                className={`flex items-center gap-2 px-4 py-3 text-sm font-medium border-b-2 transition-colors ${
-                  activeTab === tab.id
-                    ? 'border-violet-500 text-violet-600 dark:text-violet-400'
-                    : 'border-transparent text-slate-500 hover:text-slate-700 dark:text-slate-400'
-                }`}
-              >
-                <Icon icon={tab.icon} size="sm" />
-                {tab.label}
-              </button>
-            ))}
-          </nav>
+      {/* 탭 네비게이션 */}
+      <div className="mb-6">
+        <div className="flex gap-2">
+          {[
+            { id: 'overview', label: '개요', icon: BarChart3 },
+            { id: 'trend', label: '트렌드', icon: TrendingUp },
+            { id: 'comparison', label: '비교 분석', icon: PieChart },
+            { id: 'insights', label: '인사이트', icon: Lightbulb },
+          ].map((tab) => (
+            <button
+              key={tab.id}
+              onClick={() => setActiveTab(tab.id as any)}
+              className={`flex items-center gap-2 px-4 py-3 rounded-xl text-sm font-medium transition-all ${
+                activeTab === tab.id
+                  ? 'bg-idus-500 text-white shadow-sm'
+                  : 'bg-slate-100 dark:bg-slate-800 text-slate-600 dark:text-slate-400 hover:bg-slate-200 dark:hover:bg-slate-700'
+              }`}
+            >
+              <Icon icon={tab.icon} size="sm" />
+              {tab.label}
+            </button>
+          ))}
         </div>
+      </div>
 
         {/* 개요 탭 */}
         {activeTab === 'overview' && (
           <div className="space-y-6">
             {/* KPI 카드 */}
-            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
+            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-5 gap-4">
               <KPICard
                 title="총 쿠폰 수"
                 value={summary?.totalCoupons || 0}
                 suffix="개"
                 icon={Ticket}
                 color="violet"
+              />
+              <KPICard
+                title="총 발급"
+                value={(summary?.totalIssued || 0).toLocaleString()}
+                suffix="건"
+                icon={Users}
+                color="indigo"
+                change={comparison?.changes?.issued}
               />
               <KPICard
                 title="전환율"
@@ -248,16 +328,25 @@ export default function CouponAnalyticsPage() {
                       {(summary?.totalUsed || 0).toLocaleString()}건
                     </span>
                   </div>
-                  <div className="w-full bg-slate-200 dark:bg-slate-700 rounded-full h-3">
+                  <div className="w-full bg-slate-200 dark:bg-slate-700 rounded-full h-3 mb-2">
                     <div
                       className="bg-gradient-to-r from-violet-500 to-purple-600 h-3 rounded-full transition-all"
                       style={{ width: `${Math.min(parseFloat(summary?.conversionRate || '0'), 100)}%` }}
                     />
                   </div>
+                  <div className="text-xs text-slate-500 mb-4">전환율: {summary?.conversionRate || '0'}%</div>
                   <div className="flex justify-between items-center">
                     <span className="text-slate-600 dark:text-slate-400">총 할인 금액</span>
                     <span className="font-semibold text-red-500">
                       -{formatCurrency(summary?.totalDiscountKrw || 0)}
+                    </span>
+                  </div>
+                  <div className="flex justify-between items-center mt-2">
+                    <span className="text-slate-600 dark:text-slate-400">평균 할인율</span>
+                    <span className="font-semibold text-slate-800 dark:text-slate-100">
+                      {summary?.totalDiscountKrw && summary?.totalGmvKrw
+                        ? ((summary.totalDiscountKrw / summary.totalGmvKrw) * 100).toFixed(1)
+                        : '0'}%
                     </span>
                   </div>
                 </div>
@@ -345,10 +434,11 @@ export default function CouponAnalyticsPage() {
 
         {/* 비교 분석 탭 */}
         {activeTab === 'comparison' && (
-          <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-            {/* 유형별 비교 */}
-            <div className="bg-white dark:bg-slate-900 rounded-2xl border border-slate-200 dark:border-slate-800 p-6 shadow-sm">
-              <h3 className="text-lg font-semibold text-slate-800 dark:text-slate-100 mb-4">할인 유형별 비교</h3>
+          <div className="space-y-6">
+            <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+              {/* 할인 유형별 비교 */}
+              <div className="bg-white dark:bg-slate-900 rounded-2xl border border-slate-200 dark:border-slate-800 p-6 shadow-sm">
+                <h3 className="text-lg font-semibold text-slate-800 dark:text-slate-100 mb-4">할인 유형별 비교</h3>
               {byType && (
                 <div className="h-64">
                   <Doughnut
@@ -434,7 +524,206 @@ export default function CouponAnalyticsPage() {
                   <p className="text-lg font-bold text-emerald-600">{byCountry?.EN?.conversionRate?.toFixed(1) || 0}%</p>
                 </div>
               </div>
+              </div>
             </div>
+
+            {/* 쿠폰 유형별 비교 (idus, CRM, Sodam) */}
+            {byCouponType && Object.keys(byCouponType).length > 0 && (
+              <div className="bg-white dark:bg-slate-900 rounded-2xl border border-slate-200 dark:border-slate-800 p-6 shadow-sm">
+                <div className="flex items-center gap-2 mb-4">
+                  <Icon icon={Ticket} size="md" className="text-idus-500" />
+                  <h3 className="text-lg font-semibold text-slate-800 dark:text-slate-100">쿠폰 유형별 비교</h3>
+                </div>
+                <div className="h-64 mb-4">
+                  <Bar
+                    data={{
+                      labels: Object.keys(byCouponType),
+                      datasets: [
+                        {
+                          label: '발급',
+                          data: Object.values(byCouponType).map((d: any) => d.issued),
+                          backgroundColor: '#8b5cf6',
+                        },
+                        {
+                          label: '사용',
+                          data: Object.values(byCouponType).map((d: any) => d.used),
+                          backgroundColor: '#10b981',
+                        },
+                        {
+                          label: 'GMV (만원)',
+                          data: Object.values(byCouponType).map((d: any) => Math.round((d.gmv * 1350) / 10000)),
+                          backgroundColor: '#3b82f6',
+                        }
+                      ]
+                    }}
+                    options={{
+                      responsive: true,
+                      maintainAspectRatio: false,
+                      plugins: { legend: { position: 'bottom' } },
+                      scales: { y: { beginAtZero: true } }
+                    }}
+                  />
+                </div>
+                <div className="grid grid-cols-2 md:grid-cols-3 gap-4">
+                  {Object.entries(byCouponType).map(([type, data]: [string, any]) => (
+                    <div key={type} className="text-center p-3 bg-slate-50 dark:bg-slate-800/50 rounded-lg">
+                      <p className="text-xs text-slate-500 mb-1">{type}</p>
+                      <p className="text-sm font-bold text-slate-800 dark:text-slate-100 mb-2">
+                        전환율: <span className="text-emerald-600">{data.conversionRate.toFixed(1)}%</span>
+                      </p>
+                      <p className="text-xs text-slate-600 dark:text-slate-400">
+                        발급률: {data.issueRate.toFixed(1)}% | ROI: {data.roi.toFixed(1)}x
+                      </p>
+                    </div>
+                  ))}
+                </div>
+              </div>
+            )}
+          </div>
+        )}
+
+        {/* 트렌드 탭 */}
+        {activeTab === 'trend' && (
+          <div className="space-y-6">
+            {/* 월별 트렌드 차트 */}
+            {trendData?.data?.trend && trendData.data.trend.length > 0 ? (
+              <>
+                <div className="bg-white dark:bg-slate-900 rounded-2xl border border-slate-200 dark:border-slate-800 p-6 shadow-sm">
+                  <div className="flex items-center gap-2 mb-4">
+                    <Icon icon={TrendingUp} size="md" className="text-emerald-500" />
+                    <h3 className="text-lg font-semibold text-slate-800 dark:text-slate-100">월별 발급/사용 트렌드</h3>
+                  </div>
+                  <div className="h-80">
+                    <Line
+                      data={{
+                        labels: trendData.data.trend.map((d: any) => d.period),
+                        datasets: [
+                          {
+                            label: '발급',
+                            data: trendData.data.trend.map((d: any) => d.issued),
+                            borderColor: '#8b5cf6',
+                            backgroundColor: 'rgba(139, 92, 246, 0.1)',
+                            fill: true,
+                            tension: 0.4,
+                            yAxisID: 'y',
+                          },
+                          {
+                            label: '사용',
+                            data: trendData.data.trend.map((d: any) => d.used),
+                            borderColor: '#10b981',
+                            backgroundColor: 'rgba(16, 185, 129, 0.1)',
+                            fill: true,
+                            tension: 0.4,
+                            yAxisID: 'y',
+                          }
+                        ]
+                      }}
+                      options={{
+                        responsive: true,
+                        maintainAspectRatio: false,
+                        plugins: { legend: { position: 'bottom' } },
+                        scales: {
+                          y: {
+                            beginAtZero: true,
+                            title: { display: true, text: '건수' }
+                          }
+                        }
+                      }}
+                    />
+                  </div>
+                </div>
+
+                <div className="bg-white dark:bg-slate-900 rounded-2xl border border-slate-200 dark:border-slate-800 p-6 shadow-sm">
+                  <div className="flex items-center gap-2 mb-4">
+                    <Icon icon={DollarSign} size="md" className="text-blue-500" />
+                    <h3 className="text-lg font-semibold text-slate-800 dark:text-slate-100">월별 GMV & ROI 트렌드</h3>
+                  </div>
+                  <div className="h-80">
+                    <Line
+                      data={{
+                        labels: trendData.data.trend.map((d: any) => d.period),
+                        datasets: [
+                          {
+                            label: 'GMV (만원)',
+                            data: trendData.data.trend.map((d: any) => Math.round((d.gmv * 1350) / 10000)),
+                            borderColor: '#3b82f6',
+                            backgroundColor: 'rgba(59, 130, 246, 0.1)',
+                            fill: true,
+                            tension: 0.4,
+                            yAxisID: 'y',
+                          },
+                          {
+                            label: 'ROI',
+                            data: trendData.data.trend.map((d: any) => parseFloat(d.roi) || 0),
+                            borderColor: '#f59e0b',
+                            backgroundColor: 'rgba(245, 158, 11, 0.1)',
+                            fill: true,
+                            tension: 0.4,
+                            yAxisID: 'y1',
+                          }
+                        ]
+                      }}
+                      options={{
+                        responsive: true,
+                        maintainAspectRatio: false,
+                        plugins: { legend: { position: 'bottom' } },
+                        scales: {
+                          y: {
+                            beginAtZero: true,
+                            position: 'left',
+                            title: { display: true, text: 'GMV (만원)' }
+                          },
+                          y1: {
+                            beginAtZero: true,
+                            position: 'right',
+                            title: { display: true, text: 'ROI' },
+                            grid: { drawOnChartArea: false }
+                          }
+                        }
+                      }}
+                    />
+                  </div>
+                </div>
+
+                {/* 월별 상세 데이터 테이블 */}
+                <div className="bg-white dark:bg-slate-900 rounded-2xl border border-slate-200 dark:border-slate-800 p-6 shadow-sm">
+                  <h3 className="text-lg font-semibold text-slate-800 dark:text-slate-100 mb-4">월별 상세 데이터</h3>
+                  <div className="overflow-x-auto">
+                    <table className="w-full">
+                      <thead>
+                        <tr className="border-b border-slate-200 dark:border-slate-700">
+                          <th className="text-left py-3 px-4 text-sm font-medium text-slate-500">월</th>
+                          <th className="text-right py-3 px-4 text-sm font-medium text-slate-500">발급</th>
+                          <th className="text-right py-3 px-4 text-sm font-medium text-slate-500">사용</th>
+                          <th className="text-right py-3 px-4 text-sm font-medium text-slate-500">전환율</th>
+                          <th className="text-right py-3 px-4 text-sm font-medium text-slate-500">GMV</th>
+                          <th className="text-right py-3 px-4 text-sm font-medium text-slate-500">ROI</th>
+                        </tr>
+                      </thead>
+                      <tbody>
+                        {trendData.data.trend.map((month: any, idx: number) => (
+                          <tr key={month.period} className="border-b border-slate-100 dark:border-slate-800 last:border-0">
+                            <td className="py-3 px-4 text-sm font-medium text-slate-800 dark:text-slate-100">{month.period}</td>
+                            <td className="py-3 px-4 text-sm text-right text-slate-600 dark:text-slate-400">{month.issued.toLocaleString()}건</td>
+                            <td className="py-3 px-4 text-sm text-right text-slate-600 dark:text-slate-400">{month.used.toLocaleString()}건</td>
+                            <td className="py-3 px-4 text-sm text-right text-emerald-600 dark:text-emerald-400 font-medium">{parseFloat(month.conversionRate).toFixed(2)}%</td>
+                            <td className="py-3 px-4 text-sm text-right font-medium text-slate-800 dark:text-slate-100">{formatCurrency((month.gmv * 1350))}</td>
+                            <td className="py-3 px-4 text-sm text-right text-amber-600 dark:text-amber-400 font-medium">{parseFloat(month.roi).toFixed(2)}x</td>
+                          </tr>
+                        ))}
+                      </tbody>
+                    </table>
+                  </div>
+                </div>
+              </>
+            ) : (
+              <div className="bg-white dark:bg-slate-900 rounded-2xl border border-slate-200 dark:border-slate-800 p-6 shadow-sm">
+                <div className="text-center py-12">
+                  <Icon icon={TrendingUp} size="xl" className="mx-auto mb-4 opacity-50 text-slate-400" />
+                  <p className="text-sm text-slate-500">트렌드 데이터가 없습니다.</p>
+                </div>
+              </div>
+            )}
           </div>
         )}
 
@@ -453,15 +742,6 @@ export default function CouponAnalyticsPage() {
             )}
           </div>
         )}
-
-        {/* 트렌드 탭 (간단히) */}
-        {activeTab === 'trend' && (
-          <div className="bg-white dark:bg-slate-900 rounded-2xl border border-slate-200 dark:border-slate-800 p-6 shadow-sm">
-            <h3 className="text-lg font-semibold text-slate-800 dark:text-slate-100 mb-4">월별 트렌드</h3>
-            <p className="text-sm text-slate-500">트렌드 데이터는 일별 집계 데이터(Phase 2)가 축적된 후 표시됩니다.</p>
-          </div>
-        )}
-      </div>
     </div>
   )
 }
@@ -483,7 +763,7 @@ function KPICard({
   value: string | number
   suffix?: string
   icon: any
-  color: 'violet' | 'emerald' | 'blue' | 'amber' | 'red'
+  color: 'violet' | 'emerald' | 'blue' | 'amber' | 'red' | 'indigo'
   change?: number
   tooltip?: string
 }) {
@@ -493,6 +773,7 @@ function KPICard({
     blue: 'from-blue-500 to-indigo-600',
     amber: 'from-amber-500 to-orange-600',
     red: 'from-red-500 to-rose-600',
+    indigo: 'from-indigo-500 to-indigo-600',
   }
 
   return (
