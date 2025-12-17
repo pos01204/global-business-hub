@@ -37,6 +37,9 @@ import adminRoutes from './routes/admin';
 import metricsRoutes from './routes/metrics';
 import couponAnalyticsRoutes from './routes/couponAnalytics';
 import reviewAnalyticsRoutes from './routes/reviewAnalytics';
+import customer360Routes from './routes/customer360';
+import orderPatternsRoutes from './routes/orderPatterns';
+import predictionsRoutes from './routes/predictions';
 import { startScheduler } from './jobs/dailyAggregation';
 
 // .env 파일 로드 (backend 폴더 기준)
@@ -137,6 +140,18 @@ console.log('[Server] Coupon Analytics 라우터 등록 완료: /api/coupon-anal
 
 app.use('/api/review-analytics', reviewAnalyticsRoutes);
 console.log('[Server] Review Analytics 라우터 등록 완료: /api/review-analytics');
+
+// Phase 4: 고객 360° 뷰 API
+app.use('/api/customer-360', customer360Routes);
+console.log('[Server] Customer 360 라우터 등록 완료: /api/customer-360');
+
+// Phase 4: 주문 패턴 분석 API
+app.use('/api/order-patterns', orderPatternsRoutes);
+console.log('[Server] Order Patterns 라우터 등록 완료: /api/order-patterns');
+
+// Phase 5: 예측/자동화 API (인터페이스 준비)
+app.use('/api/predictions', predictionsRoutes);
+console.log('[Server] Predictions 라우터 등록 완료: /api/predictions');
 
 app.get('/api', (req, res) => {
   res.json({ message: 'Global Business Hub API' });

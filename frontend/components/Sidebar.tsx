@@ -12,17 +12,24 @@ interface NavItem {
   href: string
   label: string
   icon: string
-  badge?: number
+  badge?: number | string
   external?: boolean
 }
 
-interface NavGroup {
+// 네비게이션 구조 (Phase 4: 허브 구조 지원)
+interface NavSubGroup {
   title: string
+  isHub?: boolean
   items: NavItem[]
 }
 
-// 심플한 네비게이션 구조
-const navGroups: NavGroup[] = [
+interface ExtendedNavGroup {
+  title: string
+  items?: NavItem[]
+  subGroups?: NavSubGroup[]
+}
+
+const navGroups: ExtendedNavGroup[] = [
   {
     title: '홈',
     items: [
@@ -48,13 +55,32 @@ const navGroups: NavGroup[] = [
   },
   {
     title: '분석',
-    items: [
-      { href: '/analytics', label: '성과 분석', icon: '📈' },
-      { href: '/customer-analytics', label: '고객 분석', icon: '👥' },
-      { href: '/artist-analytics', label: '작가 분석', icon: '👨‍🎨' },
-      { href: '/cost-analysis', label: '비용 & 손익', icon: '💰' },
-      { href: '/coupon-analytics', label: '쿠폰 효과 분석', icon: '🎫' },
-      { href: '/review-analytics', label: '리뷰 분석', icon: '⭐' },
+    subGroups: [
+      {
+        title: '📈 성과 분석 허브',
+        isHub: true,
+        items: [
+          { href: '/analytics', label: '성과 분석', icon: '📈' },
+          { href: '/order-patterns', label: '주문 패턴 분석', icon: '📊', badge: 'NEW' },
+          { href: '/coupon-analytics', label: '쿠폰 효과 분석', icon: '🎫' },
+        ],
+      },
+      {
+        title: '👥 고객 분석 허브',
+        isHub: true,
+        items: [
+          { href: '/customer-analytics', label: '고객 분석', icon: '👥' },
+          { href: '/customer-360', label: '고객 360° 뷰', icon: '🔄', badge: 'NEW' },
+          { href: '/review-analytics', label: '리뷰 분석', icon: '⭐' },
+        ],
+      },
+      {
+        title: '기타',
+        items: [
+          { href: '/artist-analytics', label: '작가 분석', icon: '👨‍🎨' },
+          { href: '/cost-analysis', label: '비용 & 손익', icon: '💰' },
+        ],
+      },
     ],
   },
   {
@@ -78,6 +104,58 @@ const navGroups: NavGroup[] = [
     ],
   },
 ]
+
+// 네비게이션 아이템 컴포넌트
+function NavItemComponent({ 
+  item, 
+  pathname, 
+  isCollapsed 
+}: { 
+  item: NavItem
+  pathname: string | null
+  isCollapsed: boolean 
+}) {
+  const isActive = pathname === item.href || pathname?.startsWith(item.href + '/')
+  
+  return (
+    <li>
+      <Link
+        href={item.href}
+        className={`
+          relative flex items-center gap-3 px-3 py-2.5 rounded-lg
+          transition-all duration-200
+          ${isActive
+            ? 'bg-orange-50 dark:bg-orange-900/20 text-[#F78C3A] font-medium before:absolute before:left-0 before:top-1/2 before:-translate-y-1/2 before:w-1 before:h-6 before:bg-[#F78C3A] before:rounded-r-full'
+            : 'text-slate-600 dark:text-slate-400 hover:bg-slate-50 dark:hover:bg-slate-800 hover:text-slate-900 dark:hover:text-slate-200'
+          }
+        `}
+      >
+        <span className="text-base flex-shrink-0">{item.icon}</span>
+        {!isCollapsed && (
+          <>
+            <span className={`flex-1 text-sm ${isActive ? 'font-medium' : ''}`}>
+              {item.label}
+            </span>
+            {item.external && (
+              <svg className="w-3.5 h-3.5 text-slate-400 dark:text-slate-500" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M10 6H6a2 2 0 00-2 2v10a2 2 0 002 2h10a2 2 0 002-2v-4M14 4h6m0 0v6m0-6L10 14" />
+              </svg>
+            )}
+            {item.badge && (
+              <span className={`text-[10px] font-semibold px-1.5 py-0.5 rounded-full ${
+                item.badge === 'NEW' 
+                  ? 'bg-violet-100 text-violet-600 dark:bg-violet-900/30 dark:text-violet-400'
+                  : 'bg-red-500 text-white'
+              }`}>
+                {item.badge}
+              </span>
+            )}
+          </>
+        )}
+      </Link>
+    </li>
+  )
+}
 
 export default function Sidebar() {
   const pathname = usePathname()
@@ -147,45 +225,34 @@ export default function Sidebar() {
                   </h2>
                 )}
                 
-                <ul className="space-y-0.5">
-                  {group.items.map((item) => {
-                    const isActive = pathname === item.href || pathname?.startsWith(item.href + '/')
-                    return (
-                      <li key={item.href}>
-                        <Link
-                          href={item.href}
-                          className={`
-                            relative flex items-center gap-3 px-3 py-2.5 rounded-lg
-                            transition-all duration-200
-                            ${isActive
-                              ? 'bg-orange-50 dark:bg-orange-900/20 text-[#F78C3A] font-medium before:absolute before:left-0 before:top-1/2 before:-translate-y-1/2 before:w-1 before:h-6 before:bg-[#F78C3A] before:rounded-r-full'
-                              : 'text-slate-600 dark:text-slate-400 hover:bg-slate-50 dark:hover:bg-slate-800 hover:text-slate-900 dark:hover:text-slate-200'
-                            }
-                          `}
-                        >
-                          <span className="text-base flex-shrink-0">{item.icon}</span>
-                          {!isCollapsed && (
-                            <>
-                              <span className={`flex-1 text-sm ${isActive ? 'font-medium' : ''}`}>
-                                {item.label}
-                              </span>
-                              {item.external && (
-                                <svg className="w-3.5 h-3.5 text-slate-400 dark:text-slate-500" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M10 6H6a2 2 0 00-2 2v10a2 2 0 002 2h10a2 2 0 002-2v-4M14 4h6m0 0v6m0-6L10 14" />
-                                </svg>
-                              )}
-                              {item.badge && (
-                                <span className="bg-red-500 text-white text-xs font-medium px-1.5 py-0.5 rounded-full">
-                                  {item.badge}
-                                </span>
-                              )}
-                            </>
-                          )}
-                        </Link>
-                      </li>
-                    )
-                  })}
-                </ul>
+                {/* 일반 아이템 렌더링 */}
+                {group.items && (
+                  <ul className="space-y-0.5">
+                    {group.items.map((item) => (
+                      <NavItemComponent key={item.href} item={item} pathname={pathname} isCollapsed={isCollapsed} />
+                    ))}
+                  </ul>
+                )}
+                
+                {/* 서브그룹(허브) 렌더링 */}
+                {group.subGroups && group.subGroups.map((subGroup, subIndex) => (
+                  <div key={subGroup.title} className={subIndex > 0 ? 'mt-3' : ''}>
+                    {!isCollapsed && (
+                      <h3 className={`px-3 mb-1.5 text-[10px] font-medium tracking-wide ${
+                        subGroup.isHub 
+                          ? 'text-violet-500 dark:text-violet-400' 
+                          : 'text-slate-400 dark:text-slate-500'
+                      }`}>
+                        {subGroup.title}
+                      </h3>
+                    )}
+                    <ul className="space-y-0.5">
+                      {subGroup.items.map((item) => (
+                        <NavItemComponent key={item.href} item={item} pathname={pathname} isCollapsed={isCollapsed} />
+                      ))}
+                    </ul>
+                  </div>
+                ))}
               </div>
             ))}
           </nav>

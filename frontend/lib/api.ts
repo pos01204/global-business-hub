@@ -151,6 +151,14 @@ export const analyticsApi = {
     })
     return response.data
   },
+
+  // 요약 (허브용)
+  getSummary: async (startDate: string, endDate: string) => {
+    const response = await api.get('/api/analytics/summary', {
+      params: { startDate, endDate },
+    })
+    return response.data
+  },
 }
 
 // 통합 검색 API
@@ -971,6 +979,14 @@ export const calendarApi = {
 
 // 고객 분석 API
 export const customerAnalyticsApi = {
+  // 요약 (허브용)
+  getSummary: async (startDate: string, endDate: string) => {
+    const response = await api.get('/api/customer-analytics/summary', {
+      params: { startDate, endDate },
+    })
+    return response.data
+  },
+
   // RFM 세그먼테이션
   getRFM: async () => {
     const response = await api.get('/api/customer-analytics/rfm')
@@ -1445,6 +1461,28 @@ export const businessBrainApi = {
     })
     return response.data
   },
+
+  // ==================== Phase 4: 쿠폰/리뷰 인사이트 API ====================
+
+  // 쿠폰 인사이트
+  getCouponInsights: async (
+    period: '7d' | '30d' | '90d' | '180d' | '365d' = '30d'
+  ) => {
+    const response = await api.get('/api/business-brain/coupon-insights', {
+      params: { period },
+    })
+    return response.data
+  },
+
+  // 리뷰 인사이트
+  getReviewInsights: async (
+    period: '7d' | '30d' | '90d' | '180d' | '365d' = '30d'
+  ) => {
+    const response = await api.get('/api/business-brain/review-insights', {
+      params: { period },
+    })
+    return response.data
+  },
 }
 
 // ==================== 관리자 API ====================
@@ -1484,6 +1522,85 @@ export const adminApi = {
     const response = await api.get('/api/admin/batch-logs', {
       params: { limit },
     })
+    return response.data
+  },
+}
+
+// ==================== Phase 5: 예측 API ====================
+export const predictionsApi = {
+  /**
+   * 고객 이탈 예측 목록 조회
+   */
+  getChurnPredictions: async (params?: { limit?: number; riskLevel?: string }) => {
+    const response = await api.get('/api/predictions/churn', { params })
+    return response.data
+  },
+
+  /**
+   * GMV 예측 조회
+   * @param horizon - 예측 기간 (일 단위, 기본 30일)
+   */
+  getGmvForecast: async (horizon: number = 30) => {
+    const response = await api.get('/api/predictions/gmv', {
+      params: { horizon },
+    })
+    return response.data
+  },
+
+  /**
+   * 특정 고객 LTV 예측
+   */
+  getCustomerLtv: async (customerId: string) => {
+    const response = await api.get(`/api/predictions/ltv/${customerId}`)
+    return response.data
+  },
+
+  /**
+   * 고객별 추천 목록 조회
+   */
+  getRecommendations: async (customerId: string, type?: 'product' | 'coupon' | 'action' | 'all') => {
+    const response = await api.get(`/api/predictions/recommendations/${customerId}`, {
+      params: { type: type || 'all' },
+    })
+    return response.data
+  },
+
+  /**
+   * 자동화 규칙 목록 조회
+   */
+  getAutomationRules: async () => {
+    const response = await api.get('/api/predictions/automation/rules')
+    return response.data
+  },
+
+  /**
+   * 자동화 규칙 생성
+   */
+  createAutomationRule: async (rule: {
+    ruleName: string
+    ruleType: string
+    triggerConditions: Record<string, any>
+    actionType: string
+    actionParams: Record<string, any>
+    targetSegment?: string
+  }) => {
+    const response = await api.post('/api/predictions/automation/rules', rule)
+    return response.data
+  },
+
+  /**
+   * 사용 가능한 예측 모델 목록
+   */
+  getModels: async () => {
+    const response = await api.get('/api/predictions/models')
+    return response.data
+  },
+
+  /**
+   * 예측 시스템 상태 확인
+   */
+  getHealth: async () => {
+    const response = await api.get('/api/predictions/health')
     return response.data
   },
 }
@@ -1669,6 +1786,88 @@ export const reviewAnalyticsApi = {
     const response = await api.get('/api/review-analytics/insights', {
       params: { startDate, endDate },
     })
+    return response.data
+  },
+}
+
+// ==================== 주문 패턴 분석 API ====================
+export const orderPatternsApi = {
+  /**
+   * 패턴 요약
+   */
+  getSummary: async (startDate: string, endDate: string) => {
+    const response = await api.get('/api/order-patterns/summary', {
+      params: { startDate, endDate },
+    })
+    return response.data
+  },
+
+  /**
+   * 요일별 패턴
+   */
+  getByDay: async (startDate: string, endDate: string) => {
+    const response = await api.get('/api/order-patterns/by-day', {
+      params: { startDate, endDate },
+    })
+    return response.data
+  },
+
+  /**
+   * 시간대별 패턴
+   */
+  getByHour: async (startDate: string, endDate: string) => {
+    const response = await api.get('/api/order-patterns/by-hour', {
+      params: { startDate, endDate },
+    })
+    return response.data
+  },
+
+  /**
+   * 국가별 패턴
+   */
+  getByCountry: async (startDate: string, endDate: string) => {
+    const response = await api.get('/api/order-patterns/by-country', {
+      params: { startDate, endDate },
+    })
+    return response.data
+  },
+
+  /**
+   * 월별 트렌드
+   */
+  getMonthlyTrend: async (startDate: string, endDate: string) => {
+    const response = await api.get('/api/order-patterns/monthly-trend', {
+      params: { startDate, endDate },
+    })
+    return response.data
+  },
+}
+
+// ==================== 고객 360° 뷰 API ====================
+export const customer360Api = {
+  /**
+   * 고객 검색
+   */
+  search: async (query: string, type: string = 'email', limit: number = 20) => {
+    const response = await api.get('/api/customer-360/search', {
+      params: { q: query, type, limit },
+    })
+    return response.data
+  },
+
+  /**
+   * 고객 360° 뷰 조회
+   */
+  getCustomer: async (userId: string) => {
+    const response = await api.get(`/api/customer-360/${userId}`)
+    return response.data
+  },
+
+  /**
+   * 세그먼트 요약
+   */
+  getSegmentsSummary: async () => {
+    const response = await api.get('/api/customer-360/segments/summary')
     return response.data
   },
 }

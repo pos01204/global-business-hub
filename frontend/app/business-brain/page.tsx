@@ -593,6 +593,22 @@ export default function BusinessBrainPage() {
     enabled: activeTab === 'artist-health' || activeTab === 'artist',
   })
 
+  // Phase 4: 쿠폰 인사이트
+  const { data: couponInsightsData, isLoading: couponInsightsLoading } = useQuery({
+    queryKey: ['business-brain-coupon-insights', selectedPeriod],
+    queryFn: () => businessBrainApi.getCouponInsights(selectedPeriod),
+    staleTime: 5 * 60 * 1000,
+    enabled: activeTab === 'coupon',
+  })
+
+  // Phase 4: 리뷰 인사이트
+  const { data: reviewInsightsData, isLoading: reviewInsightsLoading } = useQuery({
+    queryKey: ['business-brain-review-insights', selectedPeriod],
+    queryFn: () => businessBrainApi.getReviewInsights(selectedPeriod),
+    staleTime: 5 * 60 * 1000,
+    enabled: activeTab === 'review',
+  })
+
   const briefing = briefingData?.briefing
   const healthScore = healthData?.score
   const insights = insightsData?.insights || []
@@ -602,7 +618,7 @@ export default function BusinessBrainPage() {
 
   const isLoading = briefingLoading || healthLoading
 
-  // v6.0: 통합 탭 구조 (24개 → 8개)
+  // v6.0: 통합 탭 구조 (Phase 4: 쿠폰/리뷰 탭 추가)
   const tabGroups = useMemo(() => [
     {
       name: '개요',
@@ -618,6 +634,8 @@ export default function BusinessBrainPage() {
         { id: 'customer', label: '고객', icon: Users, description: 'RFM + 이탈 예측 + 신규 유입 + 재구매' },
         { id: 'artist', label: '작가', icon: Palette, description: '작가 건강도 + 파레토 분석' },
         { id: 'revenue', label: '매출', icon: TrendingUp, description: '트렌드 + 예측 + 코호트' },
+        { id: 'coupon', label: '쿠폰', icon: Target, description: '쿠폰 성과 + ROI + 전환율 분석' },
+        { id: 'review', label: '리뷰', icon: MessageCircle, description: 'NPS + 평점 + 작가별 리뷰 분석' },
       ]
     },
     {
@@ -648,8 +666,8 @@ export default function BusinessBrainPage() {
     [tabGroups]
   )
 
-  // 기간 선택이 필요한 탭들 (v6.0 업데이트)
-  const periodEnabledTabs = ['home', 'customer', 'artist', 'revenue', 'insight', 'action', 'explorer', 'report']
+  // 기간 선택이 필요한 탭들 (Phase 4: 쿠폰/리뷰 탭 추가)
+  const periodEnabledTabs = ['home', 'customer', 'artist', 'revenue', 'coupon', 'review', 'insight', 'action', 'explorer', 'report']
 
   return (
     <div className="p-6 space-y-6 min-h-screen">
@@ -897,6 +915,24 @@ export default function BusinessBrainPage() {
             />
           )}
 
+          {/* Phase 4: 쿠폰 인사이트 탭 */}
+          {activeTab === 'coupon' && (
+            <CouponInsightsTab
+              data={couponInsightsData}
+              isLoading={couponInsightsLoading}
+              period={selectedPeriod}
+            />
+          )}
+
+          {/* Phase 4: 리뷰 인사이트 탭 */}
+          {activeTab === 'review' && (
+            <ReviewInsightsTab
+              data={reviewInsightsData}
+              isLoading={reviewInsightsLoading}
+              period={selectedPeriod}
+            />
+          )}
+
           {/* v6.0: 데이터 탐색기 */}
           {activeTab === 'explorer' && (
             <DataExplorer
@@ -1077,6 +1113,312 @@ function getPeriodLabel(period: string): string {
     '365d': '최근 1년',
   }
   return labels[period] || period
+}
+
+// Phase 4: 쿠폰 인사이트 탭
+function CouponInsightsTab({ data, isLoading, period }: { data: any; isLoading: boolean; period: string }) {
+  if (isLoading) {
+    return (
+      <div className="flex items-center justify-center h-64">
+        <Spinner size="lg" />
+      </div>
+    )
+  }
+
+  const insights = data?.insights
+  if (!insights) {
+    return (
+      <Card className="p-8 text-center">
+        <Icon icon={Target} size="xl" className="text-slate-400 mx-auto mb-4" />
+        <p className="text-slate-500">쿠폰 인사이트 데이터를 불러올 수 없습니다.</p>
+      </Card>
+    )
+  }
+
+  return (
+    <div className="space-y-6">
+      {/* 요약 KPI */}
+      <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
+        <Card className="p-4">
+          <p className="text-xs text-slate-500 mb-1">총 발행</p>
+          <p className="text-2xl font-bold text-slate-800 dark:text-slate-100">{insights.summary?.totalIssued?.toLocaleString() || 0}</p>
+        </Card>
+        <Card className="p-4">
+          <p className="text-xs text-slate-500 mb-1">총 사용</p>
+          <p className="text-2xl font-bold text-slate-800 dark:text-slate-100">{insights.summary?.totalUsed?.toLocaleString() || 0}</p>
+        </Card>
+        <Card className="p-4">
+          <p className="text-xs text-slate-500 mb-1">전환율</p>
+          <p className="text-2xl font-bold text-emerald-600">{((insights.summary?.overallConversionRate || 0) * 100).toFixed(1)}%</p>
+        </Card>
+        <Card className="p-4">
+          <p className="text-xs text-slate-500 mb-1">ROI</p>
+          <p className="text-2xl font-bold text-violet-600">{insights.summary?.roi?.toFixed(1) || 0}x</p>
+        </Card>
+      </div>
+
+      {/* TOP 성과 쿠폰 */}
+      <Card className="p-6">
+        <h3 className="text-lg font-semibold text-slate-800 dark:text-slate-100 mb-4 flex items-center gap-2">
+          <Icon icon={TrendingUp} size="md" className="text-emerald-500" />
+          TOP 성과 쿠폰
+        </h3>
+        <div className="space-y-3">
+          {insights.topPerformers?.map((coupon: any, idx: number) => (
+            <div key={idx} className="flex items-center justify-between p-3 bg-emerald-50 dark:bg-emerald-900/20 rounded-lg">
+              <div>
+                <p className="font-medium text-slate-800 dark:text-slate-100">{coupon.name}</p>
+                <p className="text-xs text-slate-500">전환율 {(coupon.conversionRate * 100).toFixed(1)}%</p>
+              </div>
+              <div className="text-right">
+                <p className="font-semibold text-emerald-600">ROI {coupon.roi?.toFixed(1)}x</p>
+                <p className="text-xs text-slate-500">GMV ₩{(coupon.gmv / 10000).toFixed(0)}만</p>
+              </div>
+            </div>
+          ))}
+        </div>
+      </Card>
+
+      {/* 저성과 쿠폰 경고 */}
+      {insights.worstPerformers?.length > 0 && (
+        <Card className="p-6 border-amber-200 bg-amber-50 dark:bg-amber-900/20">
+          <h3 className="text-lg font-semibold text-amber-700 dark:text-amber-400 mb-4 flex items-center gap-2">
+            <Icon icon={AlertTriangle} size="md" />
+            저성과 쿠폰 경고
+          </h3>
+          <div className="space-y-3">
+            {insights.worstPerformers?.map((coupon: any, idx: number) => (
+              <div key={idx} className="flex items-center justify-between p-3 bg-white dark:bg-slate-800 rounded-lg">
+                <div>
+                  <p className="font-medium text-slate-800 dark:text-slate-100">{coupon.name}</p>
+                  <p className="text-xs text-amber-600">{coupon.issue}</p>
+                </div>
+                <div className="text-right">
+                  <p className="font-semibold text-amber-600">전환율 {(coupon.conversionRate * 100).toFixed(1)}%</p>
+                </div>
+              </div>
+            ))}
+          </div>
+        </Card>
+      )}
+
+      {/* AI 권장 사항 */}
+      <Card className="p-6">
+        <h3 className="text-lg font-semibold text-slate-800 dark:text-slate-100 mb-4 flex items-center gap-2">
+          <Icon icon={Lightbulb} size="md" className="text-amber-500" />
+          AI 권장 사항
+        </h3>
+        <div className="space-y-4">
+          {insights.recommendations?.map((rec: any, idx: number) => (
+            <div key={idx} className={`p-4 rounded-lg border ${
+              rec.type === 'optimization' ? 'bg-emerald-50 border-emerald-200 dark:bg-emerald-900/20' :
+              rec.type === 'warning' ? 'bg-amber-50 border-amber-200 dark:bg-amber-900/20' :
+              'bg-blue-50 border-blue-200 dark:bg-blue-900/20'
+            }`}>
+              <div className="flex items-start gap-3">
+                <Badge color={rec.impact === 'high' ? 'green' : rec.impact === 'medium' ? 'yellow' : 'gray'}>
+                  {rec.impact === 'high' ? '높음' : rec.impact === 'medium' ? '중간' : '낮음'}
+                </Badge>
+                <div>
+                  <p className="font-medium text-slate-800 dark:text-slate-100">{rec.title}</p>
+                  <p className="text-sm text-slate-600 dark:text-slate-400 mt-1">{rec.description}</p>
+                </div>
+              </div>
+            </div>
+          ))}
+        </div>
+      </Card>
+    </div>
+  )
+}
+
+// Phase 4: 리뷰 인사이트 탭
+function ReviewInsightsTab({ data, isLoading, period }: { data: any; isLoading: boolean; period: string }) {
+  if (isLoading) {
+    return (
+      <div className="flex items-center justify-center h-64">
+        <Spinner size="lg" />
+      </div>
+    )
+  }
+
+  const insights = data?.insights
+  if (!insights) {
+    return (
+      <Card className="p-8 text-center">
+        <Icon icon={MessageCircle} size="xl" className="text-slate-400 mx-auto mb-4" />
+        <p className="text-slate-500">리뷰 인사이트 데이터를 불러올 수 없습니다.</p>
+      </Card>
+    )
+  }
+
+  const nps = insights.nps
+  const getNPSColor = (score: number) => {
+    if (score >= 50) return 'text-emerald-500'
+    if (score >= 0) return 'text-amber-500'
+    return 'text-red-500'
+  }
+
+  return (
+    <div className="space-y-6">
+      {/* NPS 점수 */}
+      <Card className="p-6">
+        <h3 className="text-lg font-semibold text-slate-800 dark:text-slate-100 mb-4">NPS (Net Promoter Score)</h3>
+        <div className="flex flex-col md:flex-row items-center gap-8">
+          <div className="text-center">
+            <div className={`text-6xl font-bold ${getNPSColor(nps?.score || 0)}`}>
+              {nps?.score || 0}
+            </div>
+            <p className="text-sm text-slate-500 mt-2">NPS 점수</p>
+            {nps?.change && (
+              <p className={`text-xs ${nps.change.score >= 0 ? 'text-emerald-500' : 'text-red-500'}`}>
+                {nps.change.score >= 0 ? '+' : ''}{nps.change.score} {nps.change.period}
+              </p>
+            )}
+          </div>
+          <div className="flex-1 grid grid-cols-3 gap-4 w-full">
+            <div className="text-center p-4 bg-emerald-50 dark:bg-emerald-900/20 rounded-xl">
+              <p className="text-2xl font-bold text-emerald-600">{nps?.promoters?.count || 0}</p>
+              <p className="text-xs text-slate-500">추천 ({nps?.promoters?.pct || 0}%)</p>
+            </div>
+            <div className="text-center p-4 bg-amber-50 dark:bg-amber-900/20 rounded-xl">
+              <p className="text-2xl font-bold text-amber-600">{nps?.passives?.count || 0}</p>
+              <p className="text-xs text-slate-500">중립 ({nps?.passives?.pct || 0}%)</p>
+            </div>
+            <div className="text-center p-4 bg-red-50 dark:bg-red-900/20 rounded-xl">
+              <p className="text-2xl font-bold text-red-600">{nps?.detractors?.count || 0}</p>
+              <p className="text-xs text-slate-500">비추천 ({nps?.detractors?.pct || 0}%)</p>
+            </div>
+          </div>
+        </div>
+      </Card>
+
+      {/* 평점 분포 */}
+      <Card className="p-6">
+        <h3 className="text-lg font-semibold text-slate-800 dark:text-slate-100 mb-4">평점 분포</h3>
+        <div className="flex items-center gap-4 mb-4">
+          <p className="text-3xl font-bold text-slate-800 dark:text-slate-100">
+            {insights.ratingDistribution?.avgRating?.toFixed(2) || 0}
+          </p>
+          <div className="flex gap-0.5">
+            {[1, 2, 3, 4, 5].map((star) => (
+              <Icon
+                key={star}
+                icon={Activity}
+                size="sm"
+                className={star <= Math.round(insights.ratingDistribution?.avgRating || 0) ? 'text-amber-400' : 'text-slate-300'}
+              />
+            ))}
+          </div>
+        </div>
+        <div className="space-y-2">
+          {[5, 4, 3, 2, 1].map((rating) => {
+            const count = insights.ratingDistribution?.[`rating${rating}`] || 0
+            const total = Object.keys(insights.ratingDistribution || {})
+              .filter(k => k.startsWith('rating'))
+              .reduce((sum, k) => sum + (insights.ratingDistribution[k] || 0), 0)
+            const pct = total > 0 ? (count / total) * 100 : 0
+            return (
+              <div key={rating} className="flex items-center gap-2">
+                <span className="w-8 text-sm text-slate-600">{rating}점</span>
+                <div className="flex-1 h-4 bg-slate-100 dark:bg-slate-700 rounded-full overflow-hidden">
+                  <div
+                    className={`h-full ${rating >= 4 ? 'bg-emerald-500' : rating === 3 ? 'bg-amber-500' : 'bg-red-500'}`}
+                    style={{ width: `${pct}%` }}
+                  />
+                </div>
+                <span className="w-12 text-sm text-slate-500 text-right">{count}</span>
+              </div>
+            )
+          })}
+        </div>
+      </Card>
+
+      {/* TOP 작가 */}
+      <Card className="p-6">
+        <h3 className="text-lg font-semibold text-slate-800 dark:text-slate-100 mb-4 flex items-center gap-2">
+          <Icon icon={Users} size="md" className="text-blue-500" />
+          TOP 평점 작가
+        </h3>
+        <div className="space-y-3">
+          {insights.topArtists?.map((artist: any, idx: number) => (
+            <div key={idx} className="flex items-center justify-between p-3 bg-blue-50 dark:bg-blue-900/20 rounded-lg">
+              <div>
+                <p className="font-medium text-slate-800 dark:text-slate-100">{artist.name}</p>
+                <p className="text-xs text-slate-500">리뷰 {artist.reviewCount}개</p>
+              </div>
+              <div className="text-right">
+                <p className="font-semibold text-blue-600">평점 {artist.avgRating?.toFixed(1)}</p>
+                <p className="text-xs text-slate-500">NPS {artist.nps}</p>
+              </div>
+            </div>
+          ))}
+        </div>
+      </Card>
+
+      {/* 주의 필요 작가 */}
+      {insights.concerningArtists?.length > 0 && (
+        <Card className="p-6 border-red-200 bg-red-50 dark:bg-red-900/20">
+          <h3 className="text-lg font-semibold text-red-700 dark:text-red-400 mb-4 flex items-center gap-2">
+            <Icon icon={AlertTriangle} size="md" />
+            주의 필요 작가
+          </h3>
+          <div className="space-y-3">
+            {insights.concerningArtists?.map((artist: any, idx: number) => (
+              <div key={idx} className="flex items-center justify-between p-3 bg-white dark:bg-slate-800 rounded-lg">
+                <div>
+                  <p className="font-medium text-slate-800 dark:text-slate-100">{artist.name}</p>
+                  <p className="text-xs text-red-600">{artist.issue}</p>
+                </div>
+                <div className="text-right">
+                  <p className="font-semibold text-red-600">평점 {artist.avgRating?.toFixed(1)}</p>
+                  <p className="text-xs text-slate-500">NPS {artist.nps}</p>
+                </div>
+              </div>
+            ))}
+          </div>
+        </Card>
+      )}
+
+      {/* AI 권장 사항 */}
+      <Card className="p-6">
+        <h3 className="text-lg font-semibold text-slate-800 dark:text-slate-100 mb-4 flex items-center gap-2">
+          <Icon icon={Lightbulb} size="md" className="text-amber-500" />
+          AI 권장 사항
+        </h3>
+        <div className="space-y-4">
+          {insights.recommendations?.map((rec: any, idx: number) => (
+            <div key={idx} className={`p-4 rounded-lg border ${
+              rec.type === 'positive' ? 'bg-emerald-50 border-emerald-200 dark:bg-emerald-900/20' :
+              rec.type === 'warning' ? 'bg-amber-50 border-amber-200 dark:bg-amber-900/20' :
+              rec.type === 'opportunity' ? 'bg-violet-50 border-violet-200 dark:bg-violet-900/20' :
+              'bg-blue-50 border-blue-200 dark:bg-blue-900/20'
+            }`}>
+              <div className="flex items-start gap-3">
+                <Badge color={rec.impact === 'high' ? 'green' : rec.impact === 'medium' ? 'yellow' : 'gray'}>
+                  {rec.impact === 'high' ? '높음' : rec.impact === 'medium' ? '중간' : '낮음'}
+                </Badge>
+                <div>
+                  <p className="font-medium text-slate-800 dark:text-slate-100">{rec.title}</p>
+                  <p className="text-sm text-slate-600 dark:text-slate-400 mt-1">{rec.description}</p>
+                  {rec.actionItems && (
+                    <ul className="mt-2 text-sm text-slate-500 list-disc list-inside">
+                      {rec.actionItems.map((item: string, i: number) => (
+                        <li key={i}>{item}</li>
+                      ))}
+                    </ul>
+                  )}
+                  {rec.expectedValue && (
+                    <p className="mt-2 text-sm text-violet-600 font-medium">{rec.expectedValue}</p>
+                  )}
+                </div>
+              </div>
+            </div>
+          ))}
+        </div>
+      </Card>
+    </div>
+  )
 }
 
 // 현황 평가 탭

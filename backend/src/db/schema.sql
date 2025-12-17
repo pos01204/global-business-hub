@@ -407,10 +407,203 @@ CREATE TRIGGER update_analytics_order_patterns_updated_at
     EXECUTE FUNCTION update_updated_at_column();
 
 -- ============================================================
+-- Phase 5: 예측 및 자동화 테이블 (L3+)
+-- ============================================================
+-- 용도: ML 예측 결과, 추천, 자동화 규칙 저장
+-- 주의: 실제 ML 모델 구현은 향후 Phase에서 진행
+-- ============================================================
+
+-- 5.1 예측 결과 테이블 (predictions)
+-- 용도: 이탈 예측, GMV 예측, LTV 예측 등 ML 모델 결과 저장
+CREATE TABLE IF NOT EXISTS predictions (
+  id SERIAL PRIMARY KEY,
+  prediction_type VARCHAR(50) NOT NULL,     -- 'churn', 'gmv', 'ltv', 'demand'
+  entity_type VARCHAR(50) NOT NULL,         -- 'customer', 'artist', 'product', 'overall'
+  entity_id VARCHAR(100),                   -- 개별 엔티티 ID (nullable for overall)
+  
+  -- 예측 값
+  predicted_value DECIMAL(15,4),            -- 예측된 값
+  confidence DECIMAL(5,4),                  -- 예측 신뢰도 (0~1)
+  
+  -- 예측 상세
+  prediction_date DATE NOT NULL,            -- 예측 생성일
+  target_date DATE,                         -- 예측 대상 날짜 (GMV 예측 등)
+  horizon_days INT,                         -- 예측 기간 (일 단위)
+  
+  -- 모델 정보
+  model_version VARCHAR(50),                -- 모델 버전
+  model_type VARCHAR(50),                   -- 'ensemble', 'xgboost', 'arima', 'prophet'
+  features_used JSONB,                      -- 사용된 피처 목록
+  
+  -- 예측 분류 (이탈 예측용)
+  risk_level VARCHAR(20),                   -- 'high', 'medium', 'low'
+  risk_score DECIMAL(5,4),                  -- 위험 점수 (0~1)
+  
+  -- 예측 근거
+  top_factors JSONB,                        -- 주요 영향 요인 [{ factor, importance, value }]
+  explanation TEXT,                         -- 자연어 설명
+  
+  -- 메타데이터
+  created_at TIMESTAMP DEFAULT NOW(),
+  updated_at TIMESTAMP DEFAULT NOW(),
+  is_active BOOLEAN DEFAULT TRUE
+);
+
+-- 인덱스
+CREATE INDEX IF NOT EXISTS idx_predictions_type ON predictions(prediction_type);
+CREATE INDEX IF NOT EXISTS idx_predictions_entity ON predictions(entity_type, entity_id);
+CREATE INDEX IF NOT EXISTS idx_predictions_date ON predictions(prediction_date);
+CREATE INDEX IF NOT EXISTS idx_predictions_risk ON predictions(risk_level);
+
+-- 5.2 추천 테이블 (recommendations)
+-- 용도: 고객별 상품 추천, 쿠폰 추천, 액션 추천 등
+CREATE TABLE IF NOT EXISTS recommendations (
+  id SERIAL PRIMARY KEY,
+  recommendation_type VARCHAR(50) NOT NULL, -- 'product', 'coupon', 'action', 'artist'
+  target_type VARCHAR(50) NOT NULL,         -- 'customer', 'segment', 'all'
+  target_id VARCHAR(100),                   -- 대상 ID (고객 ID, 세그먼트 명 등)
+  
+  -- 추천 내용
+  recommended_items JSONB NOT NULL,         -- [{ item_id, score, reason }]
+  strategy VARCHAR(100),                    -- 추천 전략 (collaborative, content-based, hybrid)
+  
+  -- 추천 상세
+  recommendation_date DATE NOT NULL,        -- 추천 생성일
+  valid_until DATE,                         -- 유효 기간
+  priority INT DEFAULT 0,                   -- 우선순위
+  
+  -- 성과 추적
+  impressions INT DEFAULT 0,                -- 노출 수
+  clicks INT DEFAULT 0,                     -- 클릭 수
+  conversions INT DEFAULT 0,                -- 전환 수
+  revenue_attributed DECIMAL(15,2) DEFAULT 0, -- 기여 매출
+  
+  -- 모델 정보
+  model_version VARCHAR(50),
+  confidence DECIMAL(5,4),
+  
+  -- 메타데이터
+  created_at TIMESTAMP DEFAULT NOW(),
+  updated_at TIMESTAMP DEFAULT NOW(),
+  is_active BOOLEAN DEFAULT TRUE
+);
+
+-- 인덱스
+CREATE INDEX IF NOT EXISTS idx_recommendations_type ON recommendations(recommendation_type);
+CREATE INDEX IF NOT EXISTS idx_recommendations_target ON recommendations(target_type, target_id);
+CREATE INDEX IF NOT EXISTS idx_recommendations_date ON recommendations(recommendation_date);
+CREATE INDEX IF NOT EXISTS idx_recommendations_active ON recommendations(is_active);
+
+-- 5.3 자동화 규칙 테이블 (automation_rules)
+-- 용도: 자동 쿠폰 발송, 알림, 액션 트리거 등
+CREATE TABLE IF NOT EXISTS automation_rules (
+  id SERIAL PRIMARY KEY,
+  rule_name VARCHAR(200) NOT NULL,          -- 규칙 이름
+  rule_type VARCHAR(50) NOT NULL,           -- 'coupon_trigger', 'alert', 'notification', 'action'
+  
+  -- 트리거 조건
+  trigger_conditions JSONB NOT NULL,        -- { metric, operator, threshold, segment }
+  trigger_schedule VARCHAR(50),             -- cron 표현식 (예: '0 9 * * *')
+  
+  -- 실행 액션
+  action_type VARCHAR(50) NOT NULL,         -- 'send_coupon', 'send_email', 'create_task', 'api_call'
+  action_params JSONB NOT NULL,             -- 액션 파라미터
+  
+  -- 대상
+  target_segment VARCHAR(100),              -- 대상 세그먼트
+  target_query TEXT,                        -- 대상 쿼리 (고급)
+  
+  -- 제한
+  max_executions_per_day INT DEFAULT 1,     -- 일일 최대 실행 횟수
+  cooldown_hours INT DEFAULT 24,            -- 재실행 대기 시간
+  budget_limit DECIMAL(15,2),               -- 예산 제한 (쿠폰 발송 등)
+  
+  -- 상태
+  is_enabled BOOLEAN DEFAULT FALSE,         -- 활성화 여부
+  last_executed_at TIMESTAMP,               -- 마지막 실행 시간
+  execution_count INT DEFAULT 0,            -- 총 실행 횟수
+  
+  -- 성과 추적
+  total_affected_users INT DEFAULT 0,       -- 영향 받은 사용자 수
+  total_revenue_impact DECIMAL(15,2) DEFAULT 0, -- 매출 영향
+  
+  -- 메타데이터
+  created_by VARCHAR(100),                  -- 생성자
+  created_at TIMESTAMP DEFAULT NOW(),
+  updated_at TIMESTAMP DEFAULT NOW()
+);
+
+-- 인덱스
+CREATE INDEX IF NOT EXISTS idx_automation_rules_type ON automation_rules(rule_type);
+CREATE INDEX IF NOT EXISTS idx_automation_rules_enabled ON automation_rules(is_enabled);
+CREATE INDEX IF NOT EXISTS idx_automation_rules_schedule ON automation_rules(trigger_schedule);
+
+-- 5.4 자동화 실행 로그 테이블 (automation_logs)
+-- 용도: 자동화 규칙 실행 이력 추적
+CREATE TABLE IF NOT EXISTS automation_logs (
+  id SERIAL PRIMARY KEY,
+  rule_id INT REFERENCES automation_rules(id),
+  
+  -- 실행 정보
+  executed_at TIMESTAMP NOT NULL DEFAULT NOW(),
+  execution_status VARCHAR(20) NOT NULL,    -- 'success', 'failed', 'partial'
+  
+  -- 결과
+  affected_count INT DEFAULT 0,             -- 영향 받은 대상 수
+  result_summary JSONB,                     -- 실행 결과 요약
+  error_message TEXT,                       -- 오류 메시지 (실패 시)
+  
+  -- 성과 (추후 업데이트)
+  tracked_conversions INT DEFAULT 0,
+  tracked_revenue DECIMAL(15,2) DEFAULT 0
+);
+
+-- 인덱스
+CREATE INDEX IF NOT EXISTS idx_automation_logs_rule ON automation_logs(rule_id);
+CREATE INDEX IF NOT EXISTS idx_automation_logs_date ON automation_logs(executed_at);
+CREATE INDEX IF NOT EXISTS idx_automation_logs_status ON automation_logs(execution_status);
+
+-- 트리거 (Phase 5 테이블)
+DROP TRIGGER IF EXISTS update_predictions_updated_at ON predictions;
+CREATE TRIGGER update_predictions_updated_at
+    BEFORE UPDATE ON predictions
+    FOR EACH ROW
+    EXECUTE FUNCTION update_updated_at_column();
+
+DROP TRIGGER IF EXISTS update_recommendations_updated_at ON recommendations;
+CREATE TRIGGER update_recommendations_updated_at
+    BEFORE UPDATE ON recommendations
+    FOR EACH ROW
+    EXECUTE FUNCTION update_updated_at_column();
+
+DROP TRIGGER IF EXISTS update_automation_rules_updated_at ON automation_rules;
+CREATE TRIGGER update_automation_rules_updated_at
+    BEFORE UPDATE ON automation_rules
+    FOR EACH ROW
+    EXECUTE FUNCTION update_updated_at_column();
+
+-- ============================================================
 -- 초기 데이터 (선택사항)
 -- ============================================================
 
 -- 테스트용 더미 데이터 (필요 시 주석 해제)
 -- INSERT INTO daily_metrics (date, order_count, total_gmv_krw) 
 -- VALUES ('2024-12-16', 100, 15000000);
+
+-- 예시 자동화 규칙 (이탈 위험 고객 쿠폰 발송)
+-- INSERT INTO automation_rules (
+--   rule_name, rule_type, 
+--   trigger_conditions, trigger_schedule,
+--   action_type, action_params,
+--   target_segment, is_enabled
+-- ) VALUES (
+--   '이탈 위험 고객 쿠폰 발송',
+--   'coupon_trigger',
+--   '{"metric": "churn_risk", "operator": ">=", "threshold": 0.7}',
+--   '0 9 * * *',
+--   'send_coupon',
+--   '{"coupon_type": "retention", "discount_rate": 15, "valid_days": 7}',
+--   'high_risk_churn',
+--   false
+-- );
 
