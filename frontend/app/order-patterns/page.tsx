@@ -4,7 +4,7 @@ import { useQuery } from '@tanstack/react-query'
 import { useState } from 'react'
 import { orderPatternsApi } from '@/lib/api'
 import { formatCurrency, formatNumber } from '@/lib/formatters'
-import { EnhancedLoadingPage, EnhancedErrorPage } from '@/components/ui'
+import { EnhancedLoadingPage, Card, EmptyState } from '@/components/ui'
 import { Icon } from '@/components/ui/Icon'
 import { EnhancedBarChart, EnhancedLineChart } from '@/components/charts'
 import {
@@ -88,7 +88,15 @@ export default function OrderPatternsPage() {
   }
 
   if (hasError) {
-    return <EnhancedErrorPage message="주문 패턴 데이터를 불러오는 중 오류가 발생했습니다." />
+    return (
+      <div className="flex items-center justify-center min-h-[400px]">
+        <EmptyState
+          title="데이터 로드 실패"
+          description="주문 패턴 데이터를 불러오는 중 오류가 발생했습니다."
+          icon="⚠️"
+        />
+      </div>
+    )
   }
 
   const summary = summaryData?.data?.summary
@@ -97,80 +105,30 @@ export default function OrderPatternsPage() {
   const byCountry = byCountryData?.data?.byCountry
   const monthly = monthlyData?.data?.trend as MonthData[] | undefined
 
-  // 차트 데이터 준비
-  const dayChartData = {
-    labels: byDay?.map(d => d.dayName) || [],
-    datasets: [
-      {
-        label: '주문 수',
-        data: byDay?.map(d => d.orders) || [],
-        backgroundColor: 'rgba(99, 102, 241, 0.8)',
-        borderColor: 'rgb(99, 102, 241)',
-        borderWidth: 1,
-        borderRadius: 4,
-      },
-    ],
-  }
+  // Recharts 형식 차트 데이터 준비
+  const dayChartData = byDay?.map(d => ({
+    name: d.dayName,
+    orders: d.orders,
+    gmv: d.gmv,
+  })) || []
 
-  const hourChartData = {
-    labels: byHour?.map(d => d.label) || [],
-    datasets: [
-      {
-        label: '주문 수',
-        data: byHour?.map(d => d.orders) || [],
-        backgroundColor: 'rgba(16, 185, 129, 0.8)',
-        borderColor: 'rgb(16, 185, 129)',
-        borderWidth: 1,
-        borderRadius: 4,
-      },
-    ],
-  }
+  const hourChartData = byHour?.map(d => ({
+    name: d.label,
+    orders: d.orders,
+    gmv: d.gmv,
+  })) || []
 
-  const countryChartData = {
-    labels: ['일', '월', '화', '수', '목', '금', '토'],
-    datasets: [
-      {
-        label: '일본 (JP)',
-        data: byCountry?.JP?.map((d: any) => d.orders) || [],
-        backgroundColor: 'rgba(239, 68, 68, 0.7)',
-        borderColor: 'rgb(239, 68, 68)',
-        borderWidth: 1,
-        borderRadius: 4,
-      },
-      {
-        label: '영어권 (EN)',
-        data: byCountry?.EN?.map((d: any) => d.orders) || [],
-        backgroundColor: 'rgba(59, 130, 246, 0.7)',
-        borderColor: 'rgb(59, 130, 246)',
-        borderWidth: 1,
-        borderRadius: 4,
-      },
-    ],
-  }
+  const countryChartData = ['일', '월', '화', '수', '목', '금', '토'].map((day, idx) => ({
+    name: day,
+    JP: byCountry?.JP?.[idx]?.orders || 0,
+    EN: byCountry?.EN?.[idx]?.orders || 0,
+  }))
 
-  const monthlyChartData = {
-    labels: monthly?.map(d => d.month) || [],
-    datasets: [
-      {
-        label: 'GMV',
-        data: monthly?.map(d => d.gmv) || [],
-        borderColor: 'rgb(99, 102, 241)',
-        backgroundColor: 'rgba(99, 102, 241, 0.1)',
-        fill: true,
-        tension: 0.4,
-        yAxisID: 'y',
-      },
-      {
-        label: '주문 수',
-        data: monthly?.map(d => d.orders) || [],
-        borderColor: 'rgb(16, 185, 129)',
-        backgroundColor: 'transparent',
-        borderDash: [5, 5],
-        tension: 0.4,
-        yAxisID: 'y1',
-      },
-    ],
-  }
+  const monthlyChartData = monthly?.map(d => ({
+    name: d.month,
+    gmv: d.gmv,
+    orders: d.orders,
+  })) || []
 
   return (
     <div className="min-h-screen bg-gradient-to-br from-slate-50 via-white to-slate-100 dark:from-slate-950 dark:via-slate-900 dark:to-slate-950">
@@ -258,22 +216,14 @@ export default function OrderPatternsPage() {
               <h3 className="text-lg font-semibold text-slate-800 dark:text-slate-100">요일별 주문 패턴</h3>
             </div>
             <div className="h-64">
-              <EnhancedBarChart data={dayChartData} options={{
-                responsive: true,
-                maintainAspectRatio: false,
-                plugins: {
-                  legend: { display: false },
-                },
-                scales: {
-                  y: {
-                    beginAtZero: true,
-                    grid: { color: 'rgba(0,0,0,0.05)' },
-                  },
-                  x: {
-                    grid: { display: false },
-                  },
-                },
-              }} />
+              <EnhancedBarChart 
+                data={dayChartData} 
+                dataKeys="orders"
+                xAxisKey="name"
+                names="주문 수"
+                colors="#6366f1"
+                height={256}
+              />
             </div>
           </div>
 
@@ -284,27 +234,14 @@ export default function OrderPatternsPage() {
               <h3 className="text-lg font-semibold text-slate-800 dark:text-slate-100">시간대별 주문 패턴</h3>
             </div>
             <div className="h-64">
-              <EnhancedBarChart data={hourChartData} options={{
-                responsive: true,
-                maintainAspectRatio: false,
-                plugins: {
-                  legend: { display: false },
-                },
-                scales: {
-                  y: {
-                    beginAtZero: true,
-                    grid: { color: 'rgba(0,0,0,0.05)' },
-                  },
-                  x: {
-                    grid: { display: false },
-                    ticks: {
-                      callback: function(value: any, index: number) {
-                        return index % 3 === 0 ? `${index}시` : ''
-                      }
-                    }
-                  },
-                },
-              }} />
+              <EnhancedBarChart 
+                data={hourChartData} 
+                dataKeys="orders"
+                xAxisKey="name"
+                names="주문 수"
+                colors="#10b981"
+                height={256}
+              />
             </div>
           </div>
         </div>
@@ -316,24 +253,14 @@ export default function OrderPatternsPage() {
             <h3 className="text-lg font-semibold text-slate-800 dark:text-slate-100">국가별 요일 패턴 비교</h3>
           </div>
           <div className="h-72">
-            <EnhancedBarChart data={countryChartData} options={{
-              responsive: true,
-              maintainAspectRatio: false,
-              plugins: {
-                legend: {
-                  position: 'top' as const,
-                },
-              },
-              scales: {
-                y: {
-                  beginAtZero: true,
-                  grid: { color: 'rgba(0,0,0,0.05)' },
-                },
-                x: {
-                  grid: { display: false },
-                },
-              },
-            }} />
+            <EnhancedBarChart 
+              data={countryChartData} 
+              dataKeys={['JP', 'EN']}
+              xAxisKey="name"
+              names={['일본 (JP)', '영어권 (EN)']}
+              colors={['#ef4444', '#3b82f6']}
+              height={288}
+            />
           </div>
         </div>
 
@@ -341,49 +268,18 @@ export default function OrderPatternsPage() {
         <div className="bg-white dark:bg-slate-900 rounded-2xl border border-slate-200 dark:border-slate-800 p-6 shadow-sm">
           <div className="flex items-center gap-2 mb-4">
             <Icon icon={TrendingUp} size="md" className="text-violet-500" />
-            <h3 className="text-lg font-semibold text-slate-800 dark:text-slate-100">월별 GMV 및 주문 트렌드</h3>
+            <h3 className="text-lg font-semibold text-slate-800 dark:text-slate-100">월별 GMV 트렌드</h3>
           </div>
           <div className="h-72">
-            <EnhancedLineChart data={monthlyChartData} options={{
-              responsive: true,
-              maintainAspectRatio: false,
-              interaction: {
-                mode: 'index' as const,
-                intersect: false,
-              },
-              plugins: {
-                legend: {
-                  position: 'top' as const,
-                },
-              },
-              scales: {
-                y: {
-                  type: 'linear' as const,
-                  display: true,
-                  position: 'left' as const,
-                  title: {
-                    display: true,
-                    text: 'GMV (₩)',
-                  },
-                  grid: { color: 'rgba(0,0,0,0.05)' },
-                },
-                y1: {
-                  type: 'linear' as const,
-                  display: true,
-                  position: 'right' as const,
-                  title: {
-                    display: true,
-                    text: '주문 수',
-                  },
-                  grid: {
-                    drawOnChartArea: false,
-                  },
-                },
-                x: {
-                  grid: { display: false },
-                },
-              },
-            }} />
+            <EnhancedLineChart 
+              data={monthlyChartData} 
+              dataKey="gmv"
+              xAxisKey="name"
+              name="GMV"
+              color="#6366f1"
+              showArea={true}
+              height={288}
+            />
           </div>
         </div>
 

@@ -114,7 +114,7 @@ export function PredictionCard({
         </div>
         {confidence !== undefined && (
           <Tooltip content={`예측 신뢰도: ${(confidence * 100).toFixed(0)}%`}>
-            <Badge color={confidence >= 0.8 ? 'green' : confidence >= 0.6 ? 'yellow' : 'red'}>
+            <Badge variant={confidence >= 0.8 ? 'success' : confidence >= 0.6 ? 'warning' : 'danger'}>
               {(confidence * 100).toFixed(0)}%
             </Badge>
           </Tooltip>
@@ -157,9 +157,9 @@ export function ChurnPredictionCard({
   onAction,
 }: ChurnPredictionCardProps) {
   const riskColors = {
-    high: { bg: 'bg-red-50 dark:bg-red-900/20', border: 'border-red-200', text: 'text-red-600', badge: 'red' as const },
-    medium: { bg: 'bg-amber-50 dark:bg-amber-900/20', border: 'border-amber-200', text: 'text-amber-600', badge: 'yellow' as const },
-    low: { bg: 'bg-emerald-50 dark:bg-emerald-900/20', border: 'border-emerald-200', text: 'text-emerald-600', badge: 'green' as const },
+    high: { bg: 'bg-red-50 dark:bg-red-900/20', border: 'border-red-200', text: 'text-red-600', variant: 'danger' as const },
+    medium: { bg: 'bg-amber-50 dark:bg-amber-900/20', border: 'border-amber-200', text: 'text-amber-600', variant: 'warning' as const },
+    low: { bg: 'bg-emerald-50 dark:bg-emerald-900/20', border: 'border-emerald-200', text: 'text-emerald-600', variant: 'success' as const },
   }
 
   const colors = riskColors[riskLevel]
@@ -176,7 +176,7 @@ export function ChurnPredictionCard({
             {customerEmail || customerId}
           </p>
         </div>
-        <Badge color={colors.badge}>
+        <Badge variant={colors.variant}>
           {riskLevel === 'high' ? '고위험' : riskLevel === 'medium' ? '중위험' : '저위험'}
         </Badge>
       </div>
@@ -255,7 +255,7 @@ export function GmvForecastCard({
           <h4 className="font-medium text-slate-800 dark:text-slate-100">GMV 예측</h4>
           <p className="text-xs text-slate-500">{date}</p>
         </div>
-        <Badge color={confidence >= 0.8 ? 'green' : confidence >= 0.6 ? 'yellow' : 'red'}>
+        <Badge variant={confidence >= 0.8 ? 'success' : confidence >= 0.6 ? 'warning' : 'danger'}>
           신뢰도 {(confidence * 100).toFixed(0)}%
         </Badge>
       </div>
@@ -310,7 +310,7 @@ export function LtvPredictionCard({
           <h4 className="font-medium text-slate-800 dark:text-slate-100">LTV 예측</h4>
           <p className="text-xs text-slate-500">{customerId}</p>
         </div>
-        <Badge color="purple">{segment}</Badge>
+        <Badge variant="primary">{segment}</Badge>
       </div>
 
       <div className="mb-3">
@@ -361,10 +361,10 @@ export function ModelStatusCard({
   description,
 }: ModelStatusCardProps) {
   const statusConfig = {
-    active: { color: 'green', label: '활성', icon: CheckCircle },
-    training: { color: 'yellow', label: '학습 중', icon: Info },
-    placeholder: { color: 'gray', label: '준비 중', icon: HelpCircle },
-    error: { color: 'red', label: '오류', icon: AlertTriangle },
+    active: { variant: 'success' as const, label: '활성', icon: CheckCircle },
+    training: { variant: 'warning' as const, label: '학습 중', icon: Info },
+    placeholder: { variant: 'default' as const, label: '준비 중', icon: HelpCircle },
+    error: { variant: 'danger' as const, label: '오류', icon: AlertTriangle },
   }
 
   const config = statusConfig[status]
@@ -376,7 +376,7 @@ export function ModelStatusCard({
           <h4 className="font-medium text-slate-800 dark:text-slate-100">{modelName}</h4>
           <p className="text-xs text-slate-500">{modelType}</p>
         </div>
-        <Badge color={config.color as any}>
+        <Badge variant={config.variant}>
           <Icon icon={config.icon} size="xs" className="mr-1" />
           {config.label}
         </Badge>

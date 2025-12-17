@@ -1216,7 +1216,7 @@ function CouponInsightsTab({ data, isLoading, period }: { data: any; isLoading: 
               'bg-blue-50 border-blue-200 dark:bg-blue-900/20'
             }`}>
               <div className="flex items-start gap-3">
-                <Badge color={rec.impact === 'high' ? 'green' : rec.impact === 'medium' ? 'yellow' : 'gray'}>
+                <Badge variant={rec.impact === 'high' ? 'success' : rec.impact === 'medium' ? 'warning' : 'default'}>
                   {rec.impact === 'high' ? '높음' : rec.impact === 'medium' ? '중간' : '낮음'}
                 </Badge>
                 <div>
@@ -1395,7 +1395,7 @@ function ReviewInsightsTab({ data, isLoading, period }: { data: any; isLoading: 
               'bg-blue-50 border-blue-200 dark:bg-blue-900/20'
             }`}>
               <div className="flex items-start gap-3">
-                <Badge color={rec.impact === 'high' ? 'green' : rec.impact === 'medium' ? 'yellow' : 'gray'}>
+                <Badge variant={rec.impact === 'high' ? 'success' : rec.impact === 'medium' ? 'warning' : 'default'}>
                   {rec.impact === 'high' ? '높음' : rec.impact === 'medium' ? '중간' : '낮음'}
                 </Badge>
                 <div>

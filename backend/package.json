@@ -24,6 +24,7 @@
     "@langchain/core": "^0.3.0",
     "@langchain/openai": "^0.3.0",
     "axios": "^1.6.2",
+    "date-fns": "^3.6.0",
     "cheerio": "^1.0.0-rc.12",
     "cors": "^2.8.5",
     "csv-parse": "^5.5.0",
