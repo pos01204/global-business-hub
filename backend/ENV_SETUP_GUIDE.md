@@ -9,16 +9,56 @@
 backend/.env
 ```
 
-## 📝 파일 내용
+## 📝 파일 내용 (Phase 2 업데이트)
 
 `.env` 파일에 다음 내용을 입력하세요:
 
 ```env
+# ============================================================
+# 서버 설정
+# ============================================================
+PORT=3001
+NODE_ENV=development
+FRONTEND_URL=http://localhost:3000
+
+# ============================================================
+# Google Sheets API (필수)
+# ============================================================
 GOOGLE_SHEETS_SPREADSHEET_ID=여기에_스프레드시트_ID_입력
 GOOGLE_SHEETS_CLIENT_EMAIL=여기에_서비스_계정_이메일_입력
 GOOGLE_SHEETS_PRIVATE_KEY="-----BEGIN PRIVATE KEY-----\n여기에_개인키_전체_입력\n-----END PRIVATE KEY-----\n"
 
-PORT=3001
+# ============================================================
+# PostgreSQL 데이터베이스 (Phase 2 - 필수)
+# ============================================================
+DB_HOST=localhost
+DB_PORT=5432
+DB_NAME=global_business_hub
+DB_USER=postgres
+DB_PASSWORD=여기에_DB_비밀번호_입력
+
+# 연결 풀 설정 (선택)
+DB_POOL_MAX=10
+
+# ============================================================
+# 배치 Job 설정 (Phase 2)
+# ============================================================
+# 배치 Job 활성화 (DB_HOST 설정 시 자동 활성화)
+ENABLE_BATCH_JOBS=true
+
+# ============================================================
+# AI/LLM API 키 (선택)
+# ============================================================
+OPENAI_API_KEY=sk-여기에_OpenAI_API_키_입력
+GEMINI_API_KEY=여기에_Gemini_API_키_입력
+
+# ============================================================
+# 외부 서비스 (선택)
+# ============================================================
+SLACK_SIGNING_SECRET=여기에_Slack_시크릿_입력
+SLACK_BOT_TOKEN=xoxb-여기에_Slack_봇_토큰_입력
+NOTION_API_KEY=secret_여기에_Notion_API_키_입력
+RESEND_API_KEY=re_여기에_Resend_API_키_입력
 ```
 
 ## 🔍 각 값 찾는 방법
@@ -68,6 +108,91 @@ Google Cloud Console에서 다운로드한 JSON 파일을 열어서:
 ```env
 GOOGLE_SHEETS_PRIVATE_KEY="-----BEGIN PRIVATE KEY-----\nMIIEvQIBADANBgkqhkiG9w0BAQEFAASCBKcwggSjAgEAAoIBAQC1234567890abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ1234567890abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ1234567890abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ1234567890abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ1234567890abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ\n-----END PRIVATE KEY-----\n"
 ```
+
+---
+
+## 🐘 PostgreSQL 데이터베이스 설정 (Phase 2)
+
+### 1. PostgreSQL 설치
+
+**Windows:**
+- [PostgreSQL 공식 다운로드](https://www.postgresql.org/download/windows/)에서 설치
+- 설치 시 비밀번호를 기억해 두세요
+
+**macOS:**
+```bash
+brew install postgresql@15
+brew services start postgresql@15
+```
+
+**Linux (Ubuntu/Debian):**
+```bash
+sudo apt update
+sudo apt install postgresql postgresql-contrib
+sudo systemctl start postgresql
+```
+
+### 2. 데이터베이스 생성
+
+```bash
+# PostgreSQL 접속
+psql -U postgres
+
+# 데이터베이스 생성
+CREATE DATABASE global_business_hub;
+
+# 확인
+\l
+
+# 종료
+\q
+```
+
+### 3. 스키마 적용
+
+```bash
+# backend 폴더에서 실행
+cd backend
+psql -U postgres -d global_business_hub -f src/db/schema.sql
+```
+
+### 4. 연결 테스트
+
+서버 시작 후 다음 API로 DB 연결 상태 확인:
+```bash
+curl http://localhost:3001/api/admin/db-status
+```
+
+정상 응답:
+```json
+{
+  "success": true,
+  "connected": true,
+  "serverTime": "2024-12-17T12:00:00.000Z"
+}
+```
+
+### 5. 과거 데이터 백필 (선택)
+
+DB 설정 완료 후 과거 데이터를 집계하려면:
+
+```bash
+cd backend
+
+# 최근 90일 데이터 백필
+npx ts-node src/scripts/backfill.ts 2024-09-18 2024-12-16
+
+# 특정 기간만 백필
+npx ts-node src/scripts/backfill.ts 2024-12-01 2024-12-16
+
+# Dry-run (실제 저장 없이 확인)
+npx ts-node src/scripts/backfill.ts 2024-12-01 2024-12-16 --dry-run
+
+# 백필 후 검증
+npx ts-node src/scripts/backfill.ts 2024-12-01 2024-12-16 --verify
+```
+
+---
 
 ## ✅ 확인 방법
 

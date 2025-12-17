@@ -1,6 +1,7 @@
 import { Router } from 'express';
 import GoogleSheetsService from '../services/googleSheets';
 import { sheetsConfig, SHEET_NAMES } from '../config/sheets';
+import { CURRENCY } from '../config/constants';
 
 const router = Router();
 const sheetsService = new GoogleSheetsService(sheetsConfig);
@@ -69,6 +70,16 @@ router.get('/main', async (req, res) => {
       });
     }
 
+    // users 데이터 로드 (신규 고객 수 계산용 - Phase 1 Task 1.5)
+    let usersData: any[] = [];
+    try {
+      usersData = await sheetsService.getSheetDataAsJson(SHEET_NAMES.USERS, false);
+      console.log(`[Dashboard] Users 데이터 로드 완료: ${usersData.length}건`);
+    } catch (error: any) {
+      console.warn('[Dashboard] Users 데이터 로드 실패 (신규 고객 수 계산 불가):', error.message);
+      // users 데이터 없어도 계속 진행
+    }
+
     // 날짜 필터링
     const start = new Date(validStartDate);
     start.setHours(0, 0, 0, 0);
@@ -98,8 +109,8 @@ router.get('/main', async (req, res) => {
 
     const previousPeriodData = filterDataByDate(logisticsData, prevStart, prevEnd);
 
-    // KPI 계산
-    const USD_TO_KRW_RATE = 1350.0;
+    // KPI 계산 - 환율 상수 사용 (Phase 1 표준화)
+    const USD_TO_KRW_RATE = CURRENCY.USD_TO_KRW;
     const cleanAndParseFloat = (value: any): number => {
       if (typeof value === 'number') return value;
       if (typeof value === 'string') return parseFloat(value.replace(/,/g, '')) || 0;
@@ -136,6 +147,51 @@ router.get('/main', async (req, res) => {
       if (current > 0) return Infinity;
       return 0;
     };
+
+    // ==================== 신규 고객 수 계산 (Phase 1 Task 1.5) ====================
+    const filterUsersByDate = (data: any[], startDate: Date, endDate: Date) => {
+      return data.filter((row) => {
+        try {
+          if (!row || !row.CREATED_AT) return false;
+          const createdAt = new Date(row.CREATED_AT);
+          return createdAt >= startDate && createdAt <= endDate;
+        } catch (e) {
+          return false;
+        }
+      });
+    };
+
+    const newCustomersCurrent = usersData.length > 0 
+      ? filterUsersByDate(usersData, start, end).length 
+      : 0;
+    const newCustomersPrevious = usersData.length > 0 
+      ? filterUsersByDate(usersData, prevStart, prevEnd).length 
+      : 0;
+
+    // ==================== 배송 완료율 계산 (Phase 1 Task 1.5) ====================
+    // 현재 기간 배송 완료율 계산
+    const calculateDeliveryRate = (data: any[]) => {
+      const orderCodes = new Set<string>();
+      const completedOrderCodes = new Set<string>();
+
+      data.forEach((row) => {
+        if (row.order_code) {
+          orderCodes.add(row.order_code);
+          // '배송 완료' 상태인 경우 완료로 카운트
+          const status = (row.logistics || '').trim();
+          if (status === '배송 완료' || status === '배달 완료') {
+            completedOrderCodes.add(row.order_code);
+          }
+        }
+      });
+
+      const totalOrders = orderCodes.size;
+      const completedOrders = completedOrderCodes.size;
+      return totalOrders > 0 ? (completedOrders / totalOrders) * 100 : 0;
+    };
+
+    const deliveryRateCurrent = calculateDeliveryRate(currentPeriodData);
+    const deliveryRatePrevious = calculateDeliveryRate(previousPeriodData);
 
     // 미입고 현황 (현재 시점 기준)
     const UNRECEIVED_THRESHOLD_DAYS = 7;
@@ -280,6 +336,16 @@ router.get('/main', async (req, res) => {
         itemCount: {
           value: kpisCurrent.itemCount,
           change: getChange(kpisCurrent.itemCount, kpisPrevious.itemCount),
+        },
+        // Phase 1 Task 1.5: 신규 고객 수 (실제 데이터)
+        newCustomers: {
+          value: newCustomersCurrent,
+          change: getChange(newCustomersCurrent, newCustomersPrevious),
+        },
+        // Phase 1 Task 1.5: 배송 완료율 (실제 데이터)
+        deliveryRate: {
+          value: deliveryRateCurrent,
+          change: deliveryRateCurrent - deliveryRatePrevious, // 포인트 변화
         },
       },
       trend: trendChartData,

@@ -33,6 +33,11 @@ import calendarRoutes from './routes/calendarRoutes';
 import artistAnalyticsRoutes from './routes/artist-analytics';
 import businessBrainRoutes from './routes/business-brain';
 import notionRoutes from './routes/notion';
+import adminRoutes from './routes/admin';
+import metricsRoutes from './routes/metrics';
+import couponAnalyticsRoutes from './routes/couponAnalytics';
+import reviewAnalyticsRoutes from './routes/reviewAnalytics';
+import { startScheduler } from './jobs/dailyAggregation';
 
 // .env 파일 로드 (backend 폴더 기준)
 let envPath: string;
@@ -118,11 +123,34 @@ console.log('[Server] Business Brain 라우터 등록 완료: /api/business-brai
 app.use('/api/notion', notionRoutes);
 console.log('[Server] Notion 라우터 등록 완료: /api/notion');
 
+// Phase 2: 관리자 API (수동 집계 트리거, 배치 Job 관리)
+app.use('/api/admin', adminRoutes);
+console.log('[Server] Admin 라우터 등록 완료: /api/admin');
+
+// Phase 2: 집계 데이터 조회 API (1차 가공 데이터)
+app.use('/api/metrics', metricsRoutes);
+console.log('[Server] Metrics 라우터 등록 완료: /api/metrics');
+
+// Phase 3: 2차 가공 분석 API
+app.use('/api/coupon-analytics', couponAnalyticsRoutes);
+console.log('[Server] Coupon Analytics 라우터 등록 완료: /api/coupon-analytics');
+
+app.use('/api/review-analytics', reviewAnalyticsRoutes);
+console.log('[Server] Review Analytics 라우터 등록 완료: /api/review-analytics');
+
 app.get('/api', (req, res) => {
   res.json({ message: 'Global Business Hub API' });
 });
 
 app.listen(PORT, () => {
   console.log(`🚀 Server is running on http://localhost:${PORT}`);
+  
+  // Phase 2: 배치 Job 스케줄러 시작 (DB 연결 시에만)
+  if (process.env.DB_HOST) {
+    startScheduler();
+    console.log('[Server] 배치 Job 스케줄러 시작됨 (12:00 KST)');
+  } else {
+    console.log('[Server] DB 환경 변수 미설정 - 배치 Job 스케줄러 비활성화');
+  }
 });
 

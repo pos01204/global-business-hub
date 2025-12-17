@@ -6,6 +6,8 @@ import { settlementApi } from '@/lib/api'
 import { Icon } from '@/components/ui/Icon'
 import { EnhancedLoadingPage } from '@/components/ui'
 import { DollarSign, Calendar, Truck, TrendingUp, RefreshCw } from 'lucide-react'
+// ✅ 공통 유틸리티 import (Phase 1 표준화)
+import { formatCurrency } from '@/lib/formatters'
 
 // 탭 타입
 type SettlementTab = 'upload' | 'list' | 'country' | 'carrier' | 'weight' | 'trend' | 'validate' | 'crossValidate' | 'simulate'
@@ -157,25 +159,7 @@ export default function SettlementPage() {
     }
   }, [uploadMutation])
 
-  // 금액 포맷 (null/undefined/NaN 안전 처리)
-  const formatCurrency = (value: number | string | null | undefined) => {
-    // null, undefined 체크
-    if (value === null || value === undefined) {
-      return '₩0'
-    }
-    // 문자열인 경우 숫자로 변환 (쉼표 제거)
-    let numValue: number
-    if (typeof value === 'string') {
-      numValue = parseFloat(value.replace(/[,\s]/g, ''))
-    } else {
-      numValue = value
-    }
-    // NaN 또는 유한하지 않은 숫자 체크
-    if (isNaN(numValue) || !isFinite(numValue)) {
-      return '₩0'
-    }
-    return `₩${Math.round(numValue).toLocaleString()}`
-  }
+  // ✅ formatCurrency는 @/lib/formatters에서 import (Phase 1 표준화)
 
   return (
     <div className="animate-fade-in">

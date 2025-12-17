@@ -24,6 +24,8 @@ import {
   FileText,
   GitBranch
 } from 'lucide-react'
+// ✅ 공통 비즈니스 규칙 import (Phase 1 표준화)
+import { LOGISTICS_CRITICAL_DAYS } from '@/config/businessRules'
 
 interface CriticalOrder {
   orderCode: string
@@ -66,40 +68,41 @@ interface ControlTowerData {
   bundleAnalysis?: BundleAnalysis
 }
 
+// ✅ criticalDays는 @/config/businessRules에서 가져옴 (Phase 1 표준화)
 const STAGE_META = {
   unreceived: { 
     icon: Package, 
     link: '/unreceived', 
     color: 'amber',
-    criticalDays: 7,
+    criticalDays: LOGISTICS_CRITICAL_DAYS.unreceived,
     action: '작가 연락 필요',
   },
   artistShipping: { 
     icon: Truck, 
     link: '/logistics?status=작가 발송',
     color: 'blue',
-    criticalDays: 5,
+    criticalDays: LOGISTICS_CRITICAL_DAYS.artistShipping,
     action: '택배사 확인',
   },
   awaitingInspection: { 
     icon: Search, 
     link: '/logistics?status=검수 대기',
     color: 'purple',
-    criticalDays: 2,
+    criticalDays: LOGISTICS_CRITICAL_DAYS.awaitingInspection,
     action: '물류사 확인',
   },
   inspectionComplete: { 
     icon: CheckCircle, 
     link: '/logistics?status=검수 완료',
     color: 'green',
-    criticalDays: 3,
+    criticalDays: LOGISTICS_CRITICAL_DAYS.inspectionComplete,
     action: '출고 확인',
   },
   internationalShipping: { 
     icon: Activity, 
     link: '/logistics?status=국제배송 시작',
     color: 'indigo',
-    criticalDays: 14,
+    criticalDays: LOGISTICS_CRITICAL_DAYS.internationalShipping,
     action: '배송 추적',
   },
 }

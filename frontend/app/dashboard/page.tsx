@@ -17,6 +17,8 @@ import {
   FileText, Activity, Calendar, TrendingUp, Lightbulb,
   Circle, AlertCircle
 } from 'lucide-react'
+// ✅ 공통 유틸리티 import (Phase 1 표준화)
+import { formatCurrency, formatChange } from '@/lib/formatters'
 
 export default function DashboardPage() {
   const [startDate, setStartDate] = useState<string>('')
@@ -108,19 +110,7 @@ export default function DashboardPage() {
     // 쿼리 자동 재실행됨
   }
 
-  const formatCurrency = (value: number | null | undefined): string => {
-    if (value === null || value === undefined || isNaN(value)) {
-      return '₩0'
-    }
-    return `₩${Math.round(value).toLocaleString()}`
-  }
-
-  const formatChange = (change: number) => {
-    if (change === Infinity) return 'New'
-    if (isNaN(change) || !isFinite(change)) return '-'
-    const sign = change >= 0 ? '+' : ''
-    return `${sign}${(change * 100).toFixed(1)}%`
-  }
+  // ✅ formatCurrency, formatChange는 @/lib/formatters에서 import (Phase 1 표준화)
 
   if (isLoading) {
     return <EnhancedLoadingPage message="대시보드 데이터를 불러오는 중..." variant="default" size="lg" />
@@ -287,7 +277,7 @@ export default function DashboardPage() {
                       <span className={`font-semibold ${
                         (data.kpis.gmv.change || 0) >= 0 ? 'text-emerald-600' : 'text-red-600'
                       }`}>
-                        {formatChange(data.kpis.gmv.change || 0)}
+                        {formatChange(data.kpis.gmv.change || 0, { isRatio: true })}
                       </span>
                     </div>
                     <div className="flex items-center justify-between text-xs">
@@ -295,7 +285,7 @@ export default function DashboardPage() {
                       <span className={`font-semibold ${
                         (data.kpis.orderCount.change || 0) >= 0 ? 'text-emerald-600' : 'text-red-600'
                       }`}>
-                        {formatChange(data.kpis.orderCount.change || 0)}
+                        {formatChange(data.kpis.orderCount.change || 0, { isRatio: true })}
                       </span>
                     </div>
                   </div>
@@ -518,7 +508,7 @@ export default function DashboardPage() {
               change={(data.kpis.gmv.change || 0) * 100}
               icon={DollarSign}
               tooltip="Gross Merchandise Value: 총 상품 거래액"
-              detailInfo={`전기간 대비 ${formatChange(data.kpis.gmv.change)} 변화`}
+              detailInfo={`전기간 대비 ${formatChange(data.kpis.gmv.change, { isRatio: true })} 변화`}
             />
 
             {/* 주문 건수 */}
@@ -529,7 +519,7 @@ export default function DashboardPage() {
               change={(data.kpis.orderCount.change || 0) * 100}
               icon={Package}
               tooltip="선택한 기간 동안 발생한 총 주문 건수"
-              detailInfo={`전기간 대비 ${formatChange(data.kpis.orderCount.change)} 변화`}
+              detailInfo={`전기간 대비 ${formatChange(data.kpis.orderCount.change, { isRatio: true })} 변화`}
             />
 
             {/* AOV */}
@@ -540,7 +530,7 @@ export default function DashboardPage() {
               change={(data.kpis.aov.change || 0) * 100}
               icon={BarChart3}
               tooltip="Average Order Value: 평균 주문 금액"
-              detailInfo={`전기간 대비 ${formatChange(data.kpis.aov.change)} 변화`}
+              detailInfo={`전기간 대비 ${formatChange(data.kpis.aov.change, { isRatio: true })} 변화`}
             />
 
             {/* 판매 작품 수 */}
@@ -551,29 +541,29 @@ export default function DashboardPage() {
               change={(data.kpis.itemCount.change || 0) * 100}
               icon={Palette}
               tooltip="선택한 기간 동안 판매된 작품 수"
-              detailInfo={`전기간 대비 ${formatChange(data.kpis.itemCount.change)} 변화`}
+              detailInfo={`전기간 대비 ${formatChange(data.kpis.itemCount.change, { isRatio: true })} 변화`}
             />
 
-            {/* 신규 고객 */}
+            {/* 신규 고객 - Phase 1 Task 1.5: 실제 데이터 연동 */}
             <EnhancedKPICard
               title="신규 고객"
-              value={Math.floor(data.kpis.orderCount.value * 0.18)}
+              value={data.kpis.newCustomers?.value ?? 0}
               suffix="명"
-              change={12}
+              change={(data.kpis.newCustomers?.change ?? 0) * 100}
               icon={Users}
               tooltip="선택한 기간 동안 신규로 가입한 고객 수"
-              detailInfo="전기간 대비 +12% 증가"
+              detailInfo={`전기간 대비 ${formatChange(data.kpis.newCustomers?.change, { isRatio: true })} 변화`}
             />
 
-            {/* 배송 완료율 */}
+            {/* 배송 완료율 - Phase 1 Task 1.5: 실제 데이터 연동 */}
             <EnhancedKPICard
               title="배송 완료율"
-              value="92.1"
+              value={(data.kpis.deliveryRate?.value ?? 0).toFixed(1)}
               suffix="%"
-              change={1.2}
+              change={data.kpis.deliveryRate?.change ?? 0}
               icon={Truck}
               tooltip="배송이 완료된 주문의 비율"
-              detailInfo="전기간 대비 +1.2% 증가"
+              detailInfo={`전기간 대비 ${(data.kpis.deliveryRate?.change ?? 0) >= 0 ? '+' : ''}${(data.kpis.deliveryRate?.change ?? 0).toFixed(1)}%p 변화`}
             />
           </div>
 

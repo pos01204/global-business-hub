@@ -1447,5 +1447,231 @@ export const businessBrainApi = {
   },
 }
 
+// ==================== 관리자 API ====================
+export const adminApi = {
+  /**
+   * 수동 집계 트리거
+   * @param date - 집계 대상 날짜 (YYYY-MM-DD)
+   * @param types - 집계 유형 배열 (미지정 시 전체)
+   */
+  triggerAggregation: async (
+    date: string,
+    types?: ('metrics' | 'review' | 'coupon')[]
+  ) => {
+    const response = await api.post('/api/admin/trigger-aggregation', {
+      date,
+      types: types || ['metrics', 'review', 'coupon'],
+    })
+    return response.data
+  },
+
+  /**
+   * 집계 상태 조회
+   * @param date - 조회 대상 날짜 (YYYY-MM-DD)
+   */
+  getAggregationStatus: async (date: string) => {
+    const response = await api.get('/api/admin/aggregation-status', {
+      params: { date },
+    })
+    return response.data
+  },
+
+  /**
+   * 배치 Job 로그 조회
+   * @param limit - 조회 개수
+   */
+  getBatchLogs: async (limit: number = 10) => {
+    const response = await api.get('/api/admin/batch-logs', {
+      params: { limit },
+    })
+    return response.data
+  },
+}
+
+// ==================== 집계 데이터 API ====================
+export const metricsApi = {
+  /**
+   * 일별 집계 데이터 조회
+   * @param date - 조회 날짜 (YYYY-MM-DD)
+   */
+  getDaily: async (date: string) => {
+    const response = await api.get('/api/metrics/daily', {
+      params: { date },
+    })
+    return response.data
+  },
+
+  /**
+   * 기간 요약 조회
+   * @param startDate - 시작일
+   * @param endDate - 종료일
+   */
+  getSummary: async (startDate: string, endDate: string) => {
+    const response = await api.get('/api/metrics/summary', {
+      params: { startDate, endDate },
+    })
+    return response.data
+  },
+
+  /**
+   * 트렌드 데이터 조회
+   * @param startDate - 시작일
+   * @param endDate - 종료일
+   * @param metric - 지표명
+   */
+  getTrend: async (startDate: string, endDate: string, metric: string) => {
+    const response = await api.get('/api/metrics/trend', {
+      params: { startDate, endDate, metric },
+    })
+    return response.data
+  },
+}
+
+// ==================== 쿠폰 분석 API ====================
+export const couponAnalyticsApi = {
+  /**
+   * 쿠폰 분석 요약
+   */
+  getSummary: async (startDate: string, endDate: string, compareWithPrevious: boolean = false) => {
+    const response = await api.get('/api/coupon-analytics/summary', {
+      params: { startDate, endDate, compareWithPrevious },
+    })
+    return response.data
+  },
+
+  /**
+   * 쿠폰 트렌드
+   */
+  getTrend: async (startDate: string, endDate: string, aggregation: string = 'monthly') => {
+    const response = await api.get('/api/coupon-analytics/trend', {
+      params: { startDate, endDate, aggregation },
+    })
+    return response.data
+  },
+
+  /**
+   * 유형별 분석
+   */
+  getByType: async (startDate: string, endDate: string) => {
+    const response = await api.get('/api/coupon-analytics/by-type', {
+      params: { startDate, endDate },
+    })
+    return response.data
+  },
+
+  /**
+   * 국가별 분석
+   */
+  getByCountry: async (startDate: string, endDate: string) => {
+    const response = await api.get('/api/coupon-analytics/by-country', {
+      params: { startDate, endDate },
+    })
+    return response.data
+  },
+
+  /**
+   * TOP 성과 쿠폰
+   */
+  getTopPerformers: async (startDate: string, endDate: string, limit: number = 10) => {
+    const response = await api.get('/api/coupon-analytics/top-performers', {
+      params: { startDate, endDate, limit },
+    })
+    return response.data
+  },
+
+  /**
+   * 실패 쿠폰 분석
+   */
+  getFailures: async (startDate: string, endDate: string) => {
+    const response = await api.get('/api/coupon-analytics/failures', {
+      params: { startDate, endDate },
+    })
+    return response.data
+  },
+
+  /**
+   * 자동 인사이트
+   */
+  getInsights: async (startDate: string, endDate: string) => {
+    const response = await api.get('/api/coupon-analytics/insights', {
+      params: { startDate, endDate },
+    })
+    return response.data
+  },
+}
+
+// ==================== 리뷰 분석 API ====================
+export const reviewAnalyticsApi = {
+  /**
+   * NPS 분석
+   */
+  getNPS: async (startDate: string, endDate: string, compareWithPrevious: boolean = false) => {
+    const response = await api.get('/api/review-analytics/nps', {
+      params: { startDate, endDate, compareWithPrevious },
+    })
+    return response.data
+  },
+
+  /**
+   * 리뷰 트렌드
+   */
+  getTrend: async (startDate: string, endDate: string, aggregation: string = 'monthly') => {
+    const response = await api.get('/api/review-analytics/trend', {
+      params: { startDate, endDate, aggregation },
+    })
+    return response.data
+  },
+
+  /**
+   * 작가별 분석
+   */
+  getByArtist: async (startDate: string, endDate: string, limit: number = 20, sortBy: string = 'count') => {
+    const response = await api.get('/api/review-analytics/by-artist', {
+      params: { startDate, endDate, limit, sortBy },
+    })
+    return response.data
+  },
+
+  /**
+   * 상품별 분석
+   */
+  getByProduct: async (startDate: string, endDate: string, limit: number = 20) => {
+    const response = await api.get('/api/review-analytics/by-product', {
+      params: { startDate, endDate, limit },
+    })
+    return response.data
+  },
+
+  /**
+   * 국가별 분석
+   */
+  getByCountry: async (startDate: string, endDate: string) => {
+    const response = await api.get('/api/review-analytics/by-country', {
+      params: { startDate, endDate },
+    })
+    return response.data
+  },
+
+  /**
+   * 평점 분포
+   */
+  getRatingDistribution: async (startDate: string, endDate: string) => {
+    const response = await api.get('/api/review-analytics/rating-distribution', {
+      params: { startDate, endDate },
+    })
+    return response.data
+  },
+
+  /**
+   * 자동 인사이트
+   */
+  getInsights: async (startDate: string, endDate: string) => {
+    const response = await api.get('/api/review-analytics/insights', {
+      params: { startDate, endDate },
+    })
+    return response.data
+  },
+}
+
 export default api
 

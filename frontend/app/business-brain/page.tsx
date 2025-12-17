@@ -19,6 +19,9 @@ import {
   DollarSign, Activity, ArrowRight,
   type LucideIcon
 } from 'lucide-react'
+// ✅ 공통 유틸리티 import (Phase 1 표준화)
+import { formatKRW, toKRW, formatCurrency } from '@/lib/formatters'
+import { CURRENCY } from '@/config/constants'
 // v4.2: 신뢰도 컴포넌트
 import { ConfidenceBadge } from '@/components/business-brain/ConfidenceBadge'
 import { ConfidenceInterval } from '@/components/business-brain/ConfidenceInterval'
@@ -58,19 +61,10 @@ import {
 // 기간 프리셋 타입
 type PeriodPreset = '7d' | '30d' | '90d' | '180d' | '365d'
 
-// 환율 상수 (USD → KRW)
-const USD_TO_KRW = 1350
-
-// 원화 포맷팅 함수
-function formatKRW(usdAmount: number): string {
-  const krwAmount = Math.round(usdAmount * USD_TO_KRW)
-  return `₩${krwAmount.toLocaleString()}`
-}
-
-// 원화 포맷팅 (숫자만)
-function toKRW(usdAmount: number): number {
-  return Math.round(usdAmount * USD_TO_KRW)
-}
+// ✅ 환율 상수 및 포맷팅 함수는 @/lib/formatters, @/config/constants에서 import (Phase 1 표준화)
+// const USD_TO_KRW = 1350  // 삭제됨 - CURRENCY.USD_TO_KRW 사용
+// function formatKRW(usdAmount: number) // 삭제됨 - @/lib/formatters 사용
+// function toKRW(usdAmount: number) // 삭제됨 - @/lib/formatters 사용
 
 // ==================== 애니메이션 훅 ====================
 

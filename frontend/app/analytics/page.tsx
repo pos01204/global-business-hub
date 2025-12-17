@@ -26,6 +26,8 @@ import {
   Palette, BarChart3, Calendar, Lightbulb, CheckCircle,
   TrendingUp, TrendingDown, ArrowRight
 } from 'lucide-react'
+// ✅ 공통 유틸리티 import (Phase 1 표준화)
+import { formatCurrency, formatChange } from '@/lib/formatters'
 
 ChartJS.register(
   CategoryScale,
@@ -317,12 +319,7 @@ function ComparisonTab({
   })
 
   const isLoading = periodLoading || artistLoading || countryLoading
-  const formatCurrency = (value: number | null | undefined): string => {
-    if (value === null || value === undefined || isNaN(value)) {
-      return '₩0'
-    }
-    return `₩${Math.round(value).toLocaleString()}`
-  }
+  // ✅ formatCurrency는 @/lib/formatters에서 import (Phase 1 표준화)
 
   // 날짜 포맷팅 함수
   const formatDateRange = (startDate: string, endDate: string): string => {
@@ -1092,19 +1089,8 @@ export default function AnalyticsPage() {
     queryFn: () => analyticsApi.getData(dateRange, countryFilter),
   })
 
-  const formatCurrency = (value: number | null | undefined): string => {
-    if (value === null || value === undefined || isNaN(value)) {
-      return '₩0'
-    }
-    return `₩${Math.round(value).toLocaleString()}`
-  }
-
-  const formatChange = (change: number) => {
-    if (change === Infinity) return 'New'
-    if (isNaN(change) || !isFinite(change)) return '-'
-    const sign = change >= 0 ? '+' : ''
-    return `${sign}${(change * 100).toFixed(1)}%`
-  }
+  // ✅ formatCurrency, formatChange는 @/lib/formatters에서 import (Phase 1 표준화)
+  // formatChange 사용 시 { isRatio: true } 옵션 필요 (API가 비율 반환)
 
   const handleDownloadCSV = async (status: string) => {
     try {
