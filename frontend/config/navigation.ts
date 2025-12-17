@@ -87,8 +87,8 @@ export const navigation: NavGroup[] = [
         isHub: true,
         items: [
           { name: '성과 분석', href: '/analytics', icon: BarChart3 },
-          { name: '주문 패턴 분석', href: '/order-patterns', icon: TrendingUp, badge: 'NEW' },
-          { name: '쿠폰 효과 분석', href: '/coupon-analytics', icon: Ticket, badge: 'NEW' },
+          { name: '주문 패턴 분석', href: '/order-patterns', icon: TrendingUp },
+          { name: '쿠폰 효과 분석', href: '/coupon-analytics', icon: Ticket },
         ],
       },
       {
@@ -96,8 +96,8 @@ export const navigation: NavGroup[] = [
         isHub: true,
         items: [
           { name: '고객 분석', href: '/customer-analytics', icon: Users },
-          { name: '고객 360° 뷰', href: '/customer-360', icon: UserCircle, badge: 'NEW' },
-          { name: '리뷰 분석', href: '/review-analytics', icon: Star, badge: 'NEW' },
+          { name: '고객 360° 뷰', href: '/customer-360', icon: UserCircle },
+          { name: '리뷰 분석', href: '/review-analytics', icon: Star },
         ],
       },
       {

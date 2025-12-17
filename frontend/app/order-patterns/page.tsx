@@ -221,52 +221,34 @@ export default function OrderPatternsPage() {
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
         {/* 헤더 */}
         <div className="mb-8">
-          <div className="flex items-center justify-between mb-4">
-            <div className="flex items-center gap-3">
-              <div className="w-12 h-12 bg-gradient-to-br from-indigo-500 to-purple-600 rounded-xl flex items-center justify-center shadow-lg">
-                <Icon icon={BarChart3} size="xl" className="text-white" />
-              </div>
-              <div>
-                <h1 className="text-2xl font-bold text-slate-800 dark:text-slate-100">주문 패턴 분석</h1>
-                <p className="text-sm text-slate-500 dark:text-slate-400">요일별, 월별, 국가별 다차원 주문 패턴 분석</p>
-              </div>
+          <div className="flex items-center gap-3 mb-2">
+            <div className="w-12 h-12 bg-gradient-to-br from-violet-500 to-purple-600 rounded-xl flex items-center justify-center shadow-lg">
+              <Icon icon={BarChart3} size="xl" className="text-white" />
+            </div>
+            <div>
+              <h1 className="text-2xl font-bold text-slate-800 dark:text-slate-100">주문 패턴 분석</h1>
+              <p className="text-sm text-slate-500 dark:text-slate-400">요일별, 월별, 국가별 다차원 주문 패턴 분석</p>
             </div>
           </div>
-
-          {/* 핵심 요약 배너 */}
-          {summary && (
-            <div className="bg-gradient-to-r from-indigo-50 to-purple-50 dark:from-indigo-900/20 dark:to-purple-900/20 rounded-xl p-4 border border-indigo-100 dark:border-indigo-800">
-              <div className="flex flex-wrap items-center gap-6 text-sm">
-                <span className="text-slate-600 dark:text-slate-400">
-                  분석 기간: <strong className="text-slate-800 dark:text-slate-200">{format(dateRange.from, 'yyyy.MM.dd')} ~ {format(dateRange.to, 'yyyy.MM.dd')}</strong> ({selectedDays}일)
-                </span>
-                <span className="text-slate-600 dark:text-slate-400">
-                  총 주문: <strong className="text-indigo-600 dark:text-indigo-400">{summary.totalOrders.toLocaleString()}건</strong>
-                </span>
-                <span className="text-slate-600 dark:text-slate-400">
-                  총 GMV: <strong className="text-emerald-600 dark:text-emerald-400">{formatCurrency(summary.totalGmv)}</strong>
-                </span>
-                <span className="text-slate-600 dark:text-slate-400">
-                  피크 요일: <strong className="text-amber-600 dark:text-amber-400">{summary.peakDay.dayName}요일</strong>
-                </span>
-                {comparison && (
-                  <span className={`flex items-center gap-1 ${comparison.changes.gmv >= 0 ? 'text-emerald-600' : 'text-red-500'}`}>
-                    <Icon icon={comparison.changes.gmv >= 0 ? ArrowUpRight : ArrowDownRight} size="sm" />
-                    {comparison.changes.gmv >= 0 ? '+' : ''}{comparison.changes.gmv.toFixed(1)}% vs 전기간
-                  </span>
-                )}
-              </div>
-            </div>
-          )}
         </div>
 
-        {/* 기간 선택 */}
+        {/* 날짜 필터 & 빠른 선택 */}
         <div className="mb-6 flex flex-wrap items-center gap-4">
-          <div className="flex items-center gap-2 bg-white dark:bg-slate-800 px-4 py-2 rounded-lg border border-slate-200 dark:border-slate-700">
-            <Icon icon={Calendar} size="sm" className="text-slate-400" />
-            <span className="text-sm text-slate-600 dark:text-slate-300">
-              {format(dateRange.from, 'yyyy.MM.dd')} - {format(dateRange.to, 'yyyy.MM.dd')}
-            </span>
+          <div className="flex items-center gap-2">
+            <label className="text-sm font-medium text-slate-600 dark:text-slate-400">기간:</label>
+            <input
+              type="date"
+              value={startDate}
+              onChange={(e) => setDateRange({ ...dateRange, from: new Date(e.target.value) })}
+              className="px-3 py-2 border border-slate-200 dark:border-slate-700 rounded-lg text-sm bg-white dark:bg-slate-800 text-slate-800 dark:text-slate-200"
+            />
+            <span className="text-slate-400">~</span>
+            <input
+              type="date"
+              value={endDate}
+              onChange={(e) => setDateRange({ ...dateRange, to: new Date(e.target.value) })}
+              className="px-3 py-2 border border-slate-200 dark:border-slate-700 rounded-lg text-sm bg-white dark:bg-slate-800 text-slate-800 dark:text-slate-200"
+            />
           </div>
           <div className="flex gap-2">
             {periodOptions.map((option) => (
@@ -275,7 +257,7 @@ export default function OrderPatternsPage() {
                 onClick={() => setDateRange({ from: addDays(new Date(), -option.days), to: new Date() })}
                 className={`px-3 py-1.5 text-sm rounded-lg transition-colors ${
                   selectedDays === option.days
-                    ? 'bg-indigo-500 text-white'
+                    ? 'bg-violet-500 text-white'
                     : 'bg-white dark:bg-slate-800 text-slate-600 dark:text-slate-300 border border-slate-200 dark:border-slate-700 hover:bg-slate-50 dark:hover:bg-slate-700'
                 }`}
               >
@@ -284,6 +266,32 @@ export default function OrderPatternsPage() {
             ))}
           </div>
         </div>
+
+        {/* 핵심 요약 배너 */}
+        {summary && (
+          <div className="mb-6 bg-gradient-to-r from-violet-50 to-purple-50 dark:from-violet-900/20 dark:to-purple-900/20 rounded-xl p-4 border border-violet-100 dark:border-violet-800">
+            <div className="flex flex-wrap items-center gap-6 text-sm">
+              <span className="text-slate-600 dark:text-slate-400">
+                분석 기간: <strong className="text-slate-800 dark:text-slate-200">{format(dateRange.from, 'yyyy.MM.dd')} ~ {format(dateRange.to, 'yyyy.MM.dd')}</strong> ({selectedDays}일)
+              </span>
+              <span className="text-slate-600 dark:text-slate-400">
+                총 주문: <strong className="text-violet-600 dark:text-violet-400">{summary.totalOrders.toLocaleString()}건</strong>
+              </span>
+              <span className="text-slate-600 dark:text-slate-400">
+                총 GMV: <strong className="text-emerald-600 dark:text-emerald-400">{formatCurrency(summary.totalGmv)}</strong>
+              </span>
+              <span className="text-slate-600 dark:text-slate-400">
+                피크 요일: <strong className="text-amber-600 dark:text-amber-400">{summary.peakDay.dayName}요일</strong>
+              </span>
+              {comparison && (
+                <span className={`flex items-center gap-1 ${comparison.changes.gmv >= 0 ? 'text-emerald-600' : 'text-red-500'}`}>
+                  <Icon icon={comparison.changes.gmv >= 0 ? ArrowUpRight : ArrowDownRight} size="sm" />
+                  {comparison.changes.gmv >= 0 ? '+' : ''}{comparison.changes.gmv.toFixed(1)}% vs 전기간
+                </span>
+              )}
+            </div>
+          </div>
+        )}
 
         {/* 탭 네비게이션 */}
         <div className="mb-6 border-b border-slate-200 dark:border-slate-700">
@@ -294,7 +302,7 @@ export default function OrderPatternsPage() {
                 onClick={() => setActiveTab(tab.id as any)}
                 className={`flex items-center gap-2 px-4 py-3 text-sm font-medium border-b-2 transition-colors ${
                   activeTab === tab.id
-                    ? 'border-indigo-500 text-indigo-600 dark:text-indigo-400'
+                    ? 'border-violet-500 text-violet-600 dark:text-violet-400'
                     : 'border-transparent text-slate-500 hover:text-slate-700 dark:text-slate-400'
                 }`}
               >
@@ -309,13 +317,13 @@ export default function OrderPatternsPage() {
         {activeTab === 'overview' && (
           <div className="space-y-6">
             {/* KPI 카드 */}
-            <div className="grid grid-cols-2 md:grid-cols-4 lg:grid-cols-5 gap-4">
+            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-5 gap-4">
               <KPICard
                 title="총 주문"
                 value={formatNumber(summary?.totalOrders || 0)}
                 suffix="건"
                 icon={ShoppingBag}
-                color="indigo"
+                color="violet"
                 change={comparison?.changes?.orders}
               />
               <KPICard
@@ -329,7 +337,7 @@ export default function OrderPatternsPage() {
                 title="평균 주문액"
                 value={formatCurrency(summary?.avgOrderValue || 0)}
                 icon={TrendingUp}
-                color="violet"
+                color="blue"
                 change={comparison?.changes?.avgOrderValue}
                 tooltip="AOV (Average Order Value)"
               />
@@ -338,7 +346,7 @@ export default function OrderPatternsPage() {
                 value={formatNumber(summary?.uniqueCustomers || 0)}
                 suffix="명"
                 icon={Users}
-                color="blue"
+                color="indigo"
                 change={comparison?.changes?.customers}
               />
               <KPICard
@@ -357,7 +365,7 @@ export default function OrderPatternsPage() {
               <div className="bg-white dark:bg-slate-900 rounded-2xl border border-slate-200 dark:border-slate-800 p-6 shadow-sm">
                 <div className="flex items-center justify-between mb-4">
                   <div className="flex items-center gap-2">
-                    <Icon icon={Calendar} size="md" className="text-indigo-500" />
+                    <Icon icon={Calendar} size="md" className="text-violet-500" />
                     <h3 className="text-lg font-semibold text-slate-800 dark:text-slate-100">요일별 주문 패턴</h3>
                   </div>
                   {summary?.peakDay && (
@@ -375,10 +383,10 @@ export default function OrderPatternsPage() {
                           {
                             label: '주문 수',
                             data: byDay.map(d => d.orders),
-                            backgroundColor: byDay.map((d, i) => 
+                            backgroundColor: byDay.map((d) => 
                               d.day === summary?.peakDay?.day 
-                                ? '#6366f1' 
-                                : 'rgba(99, 102, 241, 0.5)'
+                                ? '#8b5cf6' 
+                                : 'rgba(139, 92, 246, 0.5)'
                             ),
                             borderRadius: 8,
                           }
@@ -412,7 +420,7 @@ export default function OrderPatternsPage() {
                             type: 'bar' as const,
                             label: '주문 수',
                             data: monthly.map(d => d.orders),
-                            backgroundColor: 'rgba(99, 102, 241, 0.6)',
+                            backgroundColor: 'rgba(139, 92, 246, 0.6)',
                             borderRadius: 4,
                             yAxisID: 'y',
                           },
@@ -459,7 +467,7 @@ export default function OrderPatternsPage() {
               {/* 국가별 요일 비교 */}
               <div className="bg-white dark:bg-slate-900 rounded-2xl border border-slate-200 dark:border-slate-800 p-6 shadow-sm">
                 <div className="flex items-center gap-2 mb-4">
-                  <Icon icon={Globe} size="md" className="text-blue-500" />
+                  <Icon icon={Globe} size="md" className="text-violet-500" />
                   <h3 className="text-lg font-semibold text-slate-800 dark:text-slate-100">국가별 요일 패턴 비교</h3>
                 </div>
                 <div className="h-64">
@@ -471,13 +479,13 @@ export default function OrderPatternsPage() {
                           {
                             label: '🇯🇵 일본 (JP)',
                             data: byCountry.JP?.map((d: any) => d.orders) || [],
-                            backgroundColor: '#ef4444',
+                            backgroundColor: '#f43f5e',
                             borderRadius: 4,
                           },
                           {
                             label: '🌍 영어권 (EN)',
                             data: byCountry.EN?.map((d: any) => d.orders) || [],
-                            backgroundColor: '#3b82f6',
+                            backgroundColor: '#8b5cf6',
                             borderRadius: 4,
                           }
                         ]
@@ -496,7 +504,7 @@ export default function OrderPatternsPage() {
               {/* 히트맵 (간소화) */}
               <div className="bg-white dark:bg-slate-900 rounded-2xl border border-slate-200 dark:border-slate-800 p-6 shadow-sm">
                 <div className="flex items-center gap-2 mb-4">
-                  <Icon icon={Activity} size="md" className="text-violet-500" />
+                  <Icon icon={Activity} size="md" className="text-purple-500" />
                   <h3 className="text-lg font-semibold text-slate-800 dark:text-slate-100">월별 x 요일별 히트맵</h3>
                 </div>
                 {heatmapData?.data && (
@@ -517,15 +525,15 @@ export default function OrderPatternsPage() {
 
             {/* 핵심 인사이트 미리보기 */}
             {insights && insights.length > 0 && (
-              <div className="bg-gradient-to-r from-indigo-50 to-purple-50 dark:from-indigo-900/20 dark:to-purple-900/20 rounded-2xl p-6 border border-indigo-100 dark:border-indigo-800">
+              <div className="bg-gradient-to-r from-violet-50 to-purple-50 dark:from-violet-900/20 dark:to-purple-900/20 rounded-2xl p-6 border border-violet-100 dark:border-violet-800">
                 <div className="flex items-center justify-between mb-4">
                   <div className="flex items-center gap-2">
                     <Icon icon={Lightbulb} size="md" className="text-amber-500" />
-                    <h3 className="text-lg font-semibold text-indigo-800 dark:text-indigo-200">💡 핵심 인사이트</h3>
+                    <h3 className="text-lg font-semibold text-violet-800 dark:text-violet-200">💡 핵심 인사이트</h3>
                   </div>
                   <button 
                     onClick={() => setActiveTab('insights')}
-                    className="text-sm text-indigo-600 dark:text-indigo-400 hover:underline"
+                    className="text-sm text-violet-600 dark:text-violet-400 hover:underline"
                   >
                     전체 보기 →
                   </button>
@@ -767,10 +775,10 @@ function HeatmapChart({ rows, cols, values, max }: { rows: string[]; cols: strin
   const getColor = (value: number) => {
     if (value === 0) return 'bg-slate-100 dark:bg-slate-800'
     const intensity = Math.min(value / max, 1)
-    if (intensity < 0.25) return 'bg-indigo-100 dark:bg-indigo-900/30'
-    if (intensity < 0.5) return 'bg-indigo-200 dark:bg-indigo-800/50'
-    if (intensity < 0.75) return 'bg-indigo-400 dark:bg-indigo-600'
-    return 'bg-indigo-600 dark:bg-indigo-500'
+    if (intensity < 0.25) return 'bg-violet-100 dark:bg-violet-900/30'
+    if (intensity < 0.5) return 'bg-violet-200 dark:bg-violet-800/50'
+    if (intensity < 0.75) return 'bg-violet-400 dark:bg-violet-600'
+    return 'bg-violet-600 dark:bg-violet-500'
   }
 
   // 최근 6개월만 표시
@@ -809,10 +817,10 @@ function HeatmapChart({ rows, cols, values, max }: { rows: string[]; cols: strin
       <div className="flex items-center justify-end gap-2 mt-2 text-[10px] text-slate-500">
         <span>낮음</span>
         <div className="flex gap-0.5">
-          <div className="w-4 h-3 bg-indigo-100 dark:bg-indigo-900/30 rounded" />
-          <div className="w-4 h-3 bg-indigo-200 dark:bg-indigo-800/50 rounded" />
-          <div className="w-4 h-3 bg-indigo-400 dark:bg-indigo-600 rounded" />
-          <div className="w-4 h-3 bg-indigo-600 dark:bg-indigo-500 rounded" />
+          <div className="w-4 h-3 bg-violet-100 dark:bg-violet-900/30 rounded" />
+          <div className="w-4 h-3 bg-violet-200 dark:bg-violet-800/50 rounded" />
+          <div className="w-4 h-3 bg-violet-400 dark:bg-violet-600 rounded" />
+          <div className="w-4 h-3 bg-violet-600 dark:bg-violet-500 rounded" />
         </div>
         <span>높음</span>
       </div>
@@ -1001,7 +1009,7 @@ function CountryDetailCard({ country }: { country: CountryDetailData }) {
             return (
               <div key={d.day} className="flex-1 flex flex-col items-center">
                 <div 
-                  className="w-full bg-indigo-400 dark:bg-indigo-500 rounded-t"
+                  className="w-full bg-violet-400 dark:bg-violet-500 rounded-t"
                   style={{ height: `${Math.max(height, 4)}px` }}
                 />
                 <span className="text-[10px] text-slate-400 mt-1">{d.dayName}</span>

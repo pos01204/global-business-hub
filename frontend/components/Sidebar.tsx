@@ -61,7 +61,7 @@ const navGroups: ExtendedNavGroup[] = [
         isHub: true,
         items: [
           { href: '/analytics', label: '성과 분석', icon: '📈' },
-          { href: '/order-patterns', label: '주문 패턴 분석', icon: '📊', badge: 'NEW' },
+          { href: '/order-patterns', label: '주문 패턴 분석', icon: '📊' },
           { href: '/coupon-analytics', label: '쿠폰 효과 분석', icon: '🎫' },
         ],
       },
@@ -70,7 +70,7 @@ const navGroups: ExtendedNavGroup[] = [
         isHub: true,
         items: [
           { href: '/customer-analytics', label: '고객 분석', icon: '👥' },
-          { href: '/customer-360', label: '고객 360° 뷰', icon: '🔄', badge: 'NEW' },
+          { href: '/customer-360', label: '고객 360° 뷰', icon: '🔄' },
           { href: '/review-analytics', label: '리뷰 분석', icon: '⭐' },
         ],
       },
