@@ -63,14 +63,22 @@ export const NPS_THRESHOLDS = {
   PASSIVE_MIN: 4,
   /** Detractor: 1~3점 */
   DETRACTOR_MAX: 3,
+  /** NPS 점수 해석 기준 */
+  EXCELLENT: 50,
+  GOOD: 0,
+  NEEDS_IMPROVEMENT: -50,
 } as const
 
 /**
  * 쿠폰 분석 기준
  */
 export const COUPON_THRESHOLDS = {
-  /** 저전환율 기준: 1% 미만 */
-  LOW_CONVERSION_RATE: 0.01,
+  /** 저전환율 기준: 5% 미만 */
+  LOW_CONVERSION_RATE: 5,
+  /** 고전환율 기준: 20% 이상 */
+  HIGH_CONVERSION_RATE: 20,
+  /** 저효율 ROI 기준: 2배 미만 */
+  LOW_ROI: 2,
   /** 고효율 ROI 기준: 10배 이상 */
   HIGH_ROI: 10,
   /** 실패 쿠폰 기준: 0% 전환율 */

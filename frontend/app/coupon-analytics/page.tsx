@@ -7,7 +7,6 @@ import { formatCurrency, formatPercent } from '@/lib/formatters'
 import { EnhancedLoadingPage } from '@/components/ui'
 import { Icon } from '@/components/ui/Icon'
 import { Tooltip } from '@/components/ui/Tooltip'
-import { DateRangeFilter } from '@/components/filters/DateRangeFilter'
 import {
   Ticket, TrendingUp, TrendingDown, DollarSign, Users,
   BarChart3, PieChart, AlertTriangle, Lightbulb, Award,

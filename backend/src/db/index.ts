@@ -25,7 +25,7 @@ const poolConfig: PoolConfig = {
 const pool = new Pool(poolConfig)
 
 // 연결 에러 핸들링
-pool.on('error', (err) => {
+pool.on('error', (err: Error) => {
   console.error('[DB] Unexpected error on idle client', err)
 })
 
@@ -40,14 +40,14 @@ pool.on('connect', () => {
  * @param params - 쿼리 파라미터
  * @returns 쿼리 결과
  */
-export async function query<T = any>(
+export async function query(
   text: string,
   params?: any[]
-): Promise<QueryResult<T>> {
+): Promise<QueryResult<any>> {
   const start = Date.now()
   
   try {
-    const result = await pool.query<T>(text, params)
+    const result = await pool.query(text, params)
     const duration = Date.now() - start
     
     if (process.env.NODE_ENV === 'development') {

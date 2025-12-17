@@ -67,7 +67,7 @@ export const safeArray = <T>(value: T[] | null | undefined): T[] => {
  * 안전한 배열 합계
  */
 export const safeSum = (arr: (number | null | undefined)[]): number => {
-  return safeArray(arr).reduce((acc, val) => acc + safeNumber(val), 0)
+  return safeArray(arr).reduce((acc: number, val) => acc + safeNumber(val), 0)
 }
 
 /**
