@@ -468,6 +468,97 @@ router.get('/by-artist', async (req: Request, res: Response) => {
 })
 
 /**
+ * 상품별 리뷰 분석
+ * GET /api/review-analytics/by-product?startDate=2024-01-01&endDate=2024-12-17&limit=20
+ */
+router.get('/by-product', async (req: Request, res: Response) => {
+  try {
+    const { startDate, endDate, limit = 20 } = req.query
+    
+    if (!startDate || !endDate) {
+      return res.status(400).json({
+        success: false,
+        error: 'startDate와 endDate가 필요합니다.'
+      })
+    }
+    
+    // 리뷰 데이터 로드
+    let reviewData: any[] = []
+    try {
+      reviewData = await sheetsService.getSheetDataAsJson(SHEET_NAMES.REVIEW, false)
+    } catch (error) {
+      return res.status(404).json({
+        success: false,
+        error: '리뷰 데이터를 찾을 수 없습니다.'
+      })
+    }
+    
+    const start = new Date(startDate as string)
+    start.setHours(0, 0, 0, 0)
+    const end = new Date(endDate as string)
+    end.setHours(23, 59, 59, 999)
+    
+    // 상품별 집계
+    const productMap: Map<number, any[]> = new Map()
+    
+    reviewData.forEach((review: any) => {
+      try {
+        const dateField = review.dt || review.created_at || review.review_date || review.date
+        if (!dateField) return
+        const reviewDate = new Date(dateField)
+        if (reviewDate < start || reviewDate > end) return
+        
+        const productId = safeNumber(review.product_id || review.productId)
+        if (productId === 0) return
+        
+        if (!productMap.has(productId)) {
+          productMap.set(productId, [])
+        }
+        productMap.get(productId)!.push(review)
+      } catch {}
+    })
+    
+    // 상품별 NPS 계산
+    const productStats = Array.from(productMap.entries()).map(([productId, reviews]) => {
+      const nps = calculateNPS(reviews)
+      return {
+        productId,
+        productName: reviews[0]?.product_name || reviews[0]?.productName || `상품 ${productId}`,
+        reviewCount: nps.total,
+        avgRating: nps.avgRating,
+        npsScore: nps.score,
+        promoters: nps.promoters,
+        detractors: nps.detractors
+      }
+    })
+    
+    // 리뷰 수 기준 정렬
+    productStats.sort((a, b) => b.reviewCount - a.reviewCount)
+    
+    const limitNum = parseInt(limit as string) || 20
+    
+    res.json({
+      success: true,
+      data: {
+        period: { startDate, endDate },
+        totalProducts: productStats.length,
+        byProduct: productStats.slice(0, limitNum).map(stat => ({
+          ...stat,
+          avgRating: stat.avgRating.toFixed(2)
+        }))
+      }
+    })
+  } catch (error: any) {
+    console.error('[ReviewAnalytics] By-product failed:', error)
+    res.status(500).json({
+      success: false,
+      error: '상품별 리뷰 분석 중 오류가 발생했습니다.',
+      details: error.message
+    })
+  }
+})
+
+/**
  * 평점 분포 분석
  * GET /api/review-analytics/rating-distribution?startDate=2024-01-01&endDate=2024-12-17
  */
@@ -498,8 +589,13 @@ router.get('/rating-distribution', async (req: Request, res: Response) => {
     const end = new Date(endDate as string)
     end.setHours(23, 59, 59, 999)
     
-    const distribution = { 1: 0, 2: 0, 3: 0, 4: 0, 5: 0 }
+    // 10점 만점 기준 분포
+    const distribution: Record<number, number> = {}
+    for (let i = 1; i <= 10; i++) {
+      distribution[i] = 0
+    }
     let total = 0
+    let totalRating = 0
     
     reviewData.forEach((review: any) => {
       try {
@@ -509,9 +605,10 @@ router.get('/rating-distribution', async (req: Request, res: Response) => {
         if (reviewDate < start || reviewDate > end) return
         
         const rating = safeNumber(review.rating || review.score, 0)
-        if (rating >= 1 && rating <= 5) {
-          distribution[rating as keyof typeof distribution]++
+        if (rating >= 1 && rating <= 10) {
+          distribution[rating]++
           total++
+          totalRating += rating
         }
       } catch {}
     })
@@ -524,11 +621,11 @@ router.get('/rating-distribution', async (req: Request, res: Response) => {
         distribution: Object.entries(distribution).map(([rating, count]) => ({
           rating: parseInt(rating),
           count,
-          percentage: total > 0 ? ((count / total) * 100).toFixed(1) : 0
+          percentage: total > 0 ? ((count / total) * 100).toFixed(1) : '0.0'
         })),
         avgRating: total > 0 
-          ? (Object.entries(distribution).reduce((sum, [r, c]) => sum + parseInt(r) * c, 0) / total).toFixed(2)
-          : 0
+          ? (totalRating / total).toFixed(2)
+          : '0.00'
       }
     })
   } catch (error: any) {
@@ -536,6 +633,118 @@ router.get('/rating-distribution', async (req: Request, res: Response) => {
     res.status(500).json({
       success: false,
       error: '평점 분포 분석 중 오류가 발생했습니다.',
+      details: error.message
+    })
+  }
+})
+
+/**
+ * 리뷰 내용 및 이미지 분석
+ * GET /api/review-analytics/content-analysis?startDate=2024-01-01&endDate=2024-12-17
+ */
+router.get('/content-analysis', async (req: Request, res: Response) => {
+  try {
+    const { startDate, endDate } = req.query
+    
+    if (!startDate || !endDate) {
+      return res.status(400).json({
+        success: false,
+        error: 'startDate와 endDate가 필요합니다.'
+      })
+    }
+    
+    // 리뷰 데이터 로드
+    let reviewData: any[] = []
+    try {
+      reviewData = await sheetsService.getSheetDataAsJson(SHEET_NAMES.REVIEW, false)
+    } catch (error) {
+      return res.status(404).json({
+        success: false,
+        error: '리뷰 데이터를 찾을 수 없습니다.'
+      })
+    }
+    
+    const start = new Date(startDate as string)
+    start.setHours(0, 0, 0, 0)
+    const end = new Date(endDate as string)
+    end.setHours(23, 59, 59, 999)
+    
+    // 기간 필터링
+    const filteredReviews = reviewData.filter((review: any) => {
+      try {
+        const dateField = review.dt || review.created_at || review.review_date || review.date
+        if (!dateField) return false
+        const reviewDate = new Date(dateField)
+        return reviewDate >= start && reviewDate <= end
+      } catch {
+        return false
+      }
+    })
+    
+    // 이미지 분석
+    let totalWithImages = 0
+    let totalImages = 0
+    const imageCountDist: Record<number, number> = {}
+    
+    // 리뷰 길이 분석
+    let totalLength = 0
+    let reviewLengths: number[] = []
+    let detailedReviews = 0 // 100자 이상
+    
+    filteredReviews.forEach((review: any) => {
+      const imageCnt = safeNumber(review.image_cnt || review.imageCount, 0)
+      if (imageCnt > 0) {
+        totalWithImages++
+        totalImages += imageCnt
+        imageCountDist[imageCnt] = (imageCountDist[imageCnt] || 0) + 1
+      }
+      
+      const contentLen = safeNumber(review.contents_len || review.contentLength || (review.contents?.length || 0), 0)
+      if (contentLen > 0) {
+        totalLength += contentLen
+        reviewLengths.push(contentLen)
+        if (contentLen >= 100) detailedReviews++
+      }
+    })
+    
+    const avgImageCount = totalWithImages > 0 ? totalImages / totalWithImages : 0
+    const avgReviewLength = reviewLengths.length > 0 ? totalLength / reviewLengths.length : 0
+    const imageRate = filteredReviews.length > 0 ? (totalWithImages / filteredReviews.length) * 100 : 0
+    const detailedReviewRate = filteredReviews.length > 0 ? (detailedReviews / filteredReviews.length) * 100 : 0
+    
+    res.json({
+      success: true,
+      data: {
+        period: { startDate, endDate },
+        imageAnalysis: {
+          totalWithImages,
+          totalImages,
+          avgImageCount: avgImageCount.toFixed(1),
+          imageRate: imageRate.toFixed(1),
+          distribution: Object.entries(imageCountDist).map(([count, num]) => ({
+            imageCount: parseInt(count),
+            reviewCount: num
+          })).sort((a, b) => a.imageCount - b.imageCount)
+        },
+        contentAnalysis: {
+          totalReviews: filteredReviews.length,
+          totalLength,
+          avgReviewLength: Math.round(avgReviewLength),
+          detailedReviews,
+          detailedReviewRate: detailedReviewRate.toFixed(1),
+          lengthDistribution: {
+            short: reviewLengths.filter(l => l < 50).length,
+            medium: reviewLengths.filter(l => l >= 50 && l < 100).length,
+            long: reviewLengths.filter(l => l >= 100).length
+          }
+        }
+      }
+    })
+  } catch (error: any) {
+    console.error('[ReviewAnalytics] Content analysis failed:', error)
+    res.status(500).json({
+      success: false,
+      error: '리뷰 내용 분석 중 오류가 발생했습니다.',
       details: error.message
     })
   }

@@ -1798,6 +1798,16 @@ export const reviewAnalyticsApi = {
     })
     return response.data
   },
+
+  /**
+   * 리뷰 내용 및 이미지 분석
+   */
+  getContentAnalysis: async (startDate: string, endDate: string) => {
+    const response = await api.get('/api/review-analytics/content-analysis', {
+      params: { startDate, endDate },
+    })
+    return response.data
+  },
 }
 
 // ==================== 주문 패턴 분석 API (개선 버전) ====================
