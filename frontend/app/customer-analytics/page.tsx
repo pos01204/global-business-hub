@@ -772,12 +772,8 @@ function ChurnRiskTab() {
             },
           ]}
           searchPlaceholder="중간 위험 고객 검색..."
-          pageSize={10
-                </tr>
-              ))}
-            </tbody>
-          </table>
-        </div>
+          pageSize={20}
+        />
       </div>
     </div>
   )
