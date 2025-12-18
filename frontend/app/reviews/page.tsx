@@ -1,33 +1,25 @@
 'use client'
 
-import { useState, useEffect, useRef } from 'react'
-import { useQuery } from '@tanstack/react-query'
-import { reviewsApi } from '@/lib/api'
-import { Icon } from '@/components/ui/Icon'
-import { EnhancedLoadingPage } from '@/components/ui'
-import { Palette } from 'lucide-react'
+import { useEffect } from 'react'
+import { useRouter } from 'next/navigation'
 
-// 국가별 테마 컬러 (그라데이션 제거)
-const countryThemes: Record<string, { bg: string; accent: string }> = {
-  JP: { bg: 'bg-pink-100', accent: 'text-pink-600' },
-  US: { bg: 'bg-blue-100', accent: 'text-blue-600' },
-  SG: { bg: 'bg-red-100', accent: 'text-red-600' },
-  HK: { bg: 'bg-rose-100', accent: 'text-rose-600' },
-  AU: { bg: 'bg-emerald-100', accent: 'text-emerald-600' },
-  PL: { bg: 'bg-red-100', accent: 'text-red-600' },
-  CA: { bg: 'bg-red-100', accent: 'text-red-600' },
-  GB: { bg: 'bg-blue-100', accent: 'text-blue-700' },
-  NL: { bg: 'bg-orange-100', accent: 'text-orange-600' },
-  FR: { bg: 'bg-blue-100', accent: 'text-blue-600' },
-  DEFAULT: { bg: 'bg-violet-100', accent: 'text-violet-600' },
-}
-
+// IA 개편안 11.4 - /reviews 페이지를 /review-analytics?tab=list로 리다이렉트
 export default function ReviewsPage() {
-  const [selectedCountry, setSelectedCountry] = useState<string>('')
-  const [showImageOnly, setShowImageOnly] = useState(false)
-  const [currentPage, setCurrentPage] = useState(1)
-  const [selectedReview, setSelectedReview] = useState<any>(null)
-  const [featuredIndex, setFeaturedIndex] = useState(0)
+  const router = useRouter()
+
+  useEffect(() => {
+    router.replace('/review-analytics?tab=list')
+  }, [router])
+
+  return (
+    <div className="min-h-screen flex items-center justify-center">
+      <div className="text-center">
+        <div className="animate-spin w-8 h-8 border-4 border-sky-500 border-t-transparent rounded-full mx-auto mb-4"></div>
+        <p className="text-slate-500 dark:text-slate-400">리뷰 분석 페이지로 이동 중...</p>
+      </div>
+    </div>
+  )
+}
   const [searchQuery, setSearchQuery] = useState('')
   const [sortOption, setSortOption] = useState<'latest' | 'rating' | 'popular'>('latest')
   const featuredRef = useRef<HTMLDivElement>(null)

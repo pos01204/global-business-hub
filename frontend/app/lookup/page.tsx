@@ -66,11 +66,11 @@ export default function LookupPage() {
 
   return (
     <div className="animate-fade-in">
-      {/* 페이지 헤더 - idus 브랜드 스타일 */}
-      <div className="relative bg-idus-500 rounded-2xl p-6 mb-6 overflow-hidden shadow-lg">
-        <div className="absolute top-0 right-0 w-64 h-64 bg-white/10 rounded-full -translate-y-1/2 translate-x-1/2"></div>
+      {/* 페이지 헤더 - 업무 지원 (뉴트럴 블루/그레이 계열, IA 개편안 9.1.2) */}
+      <div className="relative bg-gradient-to-r from-slate-600 to-slate-800 dark:from-slate-700 dark:to-slate-900 rounded-2xl p-4 lg:p-6 mb-6 overflow-hidden shadow-lg dark:shadow-none">
+        <div className="absolute top-0 right-0 w-64 h-64 bg-white/10 dark:bg-white/5 rounded-full -translate-y-1/2 translate-x-1/2"></div>
         <div className="flex items-center gap-4">
-          <div className="w-14 h-14 bg-white/20 backdrop-blur rounded-xl flex items-center justify-center shadow-lg">
+          <div className="w-12 h-12 lg:w-14 lg:h-14 bg-white/20 dark:bg-white/10 backdrop-blur rounded-xl flex items-center justify-center shadow-lg dark:shadow-none">
             <Icon icon={Search} size="xl" className="text-white" />
           </div>
           <div>

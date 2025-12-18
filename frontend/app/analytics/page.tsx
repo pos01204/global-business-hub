@@ -28,6 +28,9 @@ import {
 } from 'lucide-react'
 // ✅ 공통 유틸리티 import (Phase 1 표준화)
 import { formatCurrency, formatChange } from '@/lib/formatters'
+// IA 개편안 Phase 1: 주문 패턴/쿠폰 효과 탭 통합
+import { OrderPatternsContent } from '../order-patterns/page'
+import { CouponAnalyticsContent } from '../coupon-analytics/page'
 
 ChartJS.register(
   CategoryScale,
@@ -1137,16 +1140,16 @@ export default function AnalyticsPage() {
 
   return (
     <div className="animate-fade-in">
-      {/* 페이지 헤더 - idus 브랜드 스타일 */}
-      <div className="relative bg-idus-500 rounded-2xl p-6 mb-6 overflow-hidden shadow-lg">
-        <div className="absolute top-0 right-0 w-64 h-64 bg-white/10 rounded-full -translate-y-1/2 translate-x-1/2"></div>
+      {/* 페이지 헤더 - 성과 분석 허브 (보라/인디고 계열, IA 개편안 Phase 1) */}
+      <div className="relative bg-gradient-to-r from-violet-600 to-indigo-600 dark:from-violet-700 dark:to-indigo-700 rounded-2xl p-4 lg:p-6 mb-6 overflow-hidden shadow-lg dark:shadow-none">
+        <div className="absolute top-0 right-0 w-64 h-64 bg-white/10 dark:bg-white/5 rounded-full -translate-y-1/2 translate-x-1/2"></div>
         <div className="flex items-center gap-4">
-          <div className="w-14 h-14 bg-white/20 backdrop-blur rounded-xl flex items-center justify-center shadow-lg">
-            <span className="text-3xl">📈</span>
+          <div className="w-12 h-12 lg:w-14 lg:h-14 bg-white/20 dark:bg-white/10 backdrop-blur rounded-xl flex items-center justify-center shadow-lg dark:shadow-none">
+            <Icon icon={BarChart3} size="xl" className="text-white" />
           </div>
           <div>
-            <h1 className="text-2xl font-extrabold text-white tracking-tight">성과 분석</h1>
-            <p className="text-idus-100 text-sm font-medium">상세한 성과 분석 및 리포트를 확인하세요</p>
+            <h1 className="text-xl lg:text-2xl font-extrabold text-white tracking-tight">성과 분석 허브</h1>
+            <p className="text-violet-100 dark:text-violet-200/80 text-xs lg:text-sm font-medium">GMV, 주문, 쿠폰, 채널 통합 분석</p>
           </div>
         </div>
       </div>
@@ -1205,7 +1208,7 @@ export default function AnalyticsPage() {
         </div>
       </div>
 
-      {/* 탭 - P2: 카테고리별 그룹화 */}
+      {/* 탭 - IA 개편안 Phase 1: 성과 분석 허브 탭 구조 */}
       <div className="mb-6">
         {/* 탭 그룹 */}
         <div className="bg-white dark:bg-slate-900 rounded-xl shadow-sm border border-slate-200 dark:border-slate-700 p-4 lg:p-6">
@@ -1213,25 +1216,21 @@ export default function AnalyticsPage() {
             {[
               {
                 name: '성과 분석',
-                description: '매출, 고객, 작가 성과 분석',
+                description: 'GMV, 주문, 고객 성과 분석',
                 tabs: [
                   { id: 'overview', label: '종합 성과', icon: '📈' },
-                  { id: 'customer', label: '고객 확보', icon: '👥' },
+                  { id: 'order-patterns', label: '주문 패턴', icon: '📊' },
+                  { id: 'coupon', label: '쿠폰 효과', icon: '🎫' },
                   { id: 'channel', label: '채널 분석', icon: '📱' },
                   ...(countryFilter === 'all' ? [{ id: 'regional', label: '지역 분석', icon: '🌍' }] : []),
                 ]
               },
               {
-                name: '물류 운영',
-                description: '물류 처리 시간 및 파이프라인',
+                name: '심화 분석',
+                description: '고객, 물류, 비교 분석',
                 tabs: [
+                  { id: 'customer', label: '고객 확보', icon: '👥' },
                   { id: 'logistics-performance', label: '물류 처리 시간', icon: '📦' },
-                ]
-              },
-              {
-                name: '비교 분석',
-                description: '기간, 작가, 국가 비교',
-                tabs: [
                   { id: 'comparison', label: '비교 분석', icon: '⚖️' },
                 ]
               },
@@ -1252,7 +1251,7 @@ export default function AnalyticsPage() {
                       onClick={() => handleTabChange(tab.id)}
                       className={`group relative px-4 py-2.5 rounded-lg text-sm font-medium transition-all duration-200 flex items-center gap-2 ${
                         activeTab === tab.id
-                          ? 'bg-idus-500 text-white shadow-md scale-105'
+                          ? 'bg-violet-600 text-white shadow-md scale-105'
                           : 'bg-slate-100 dark:bg-slate-800 text-slate-600 dark:text-slate-400 hover:bg-slate-200 dark:hover:bg-slate-700 hover:scale-102'
                       }`}
                     >
@@ -2163,6 +2162,16 @@ export default function AnalyticsPage() {
             countryFilter={countryFilter}
             onArtistClick={openArtistOrdersModal}
           />
+        )}
+
+        {/* 주문 패턴 탭 (IA 개편안 Phase 1) */}
+        {activeTab === 'order-patterns' && (
+          <OrderPatternsContent />
+        )}
+
+        {/* 쿠폰 효과 탭 (IA 개편안 Phase 1) */}
+        {activeTab === 'coupon' && (
+          <CouponAnalyticsContent />
         )}
 
       {/* 모달 */}

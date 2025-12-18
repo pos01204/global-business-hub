@@ -38,17 +38,17 @@ function CouponGeneratorContent() {
 
   return (
     <div className="animate-fade-in">
-      {/* 페이지 헤더 */}
-      <div className="relative bg-amber-500 dark:bg-amber-900/70 rounded-2xl p-4 lg:p-6 mb-6 overflow-hidden shadow-lg dark:shadow-none">
-        <div className="absolute top-0 right-0 w-64 h-64 bg-white/10 dark:bg-white/5 rounded-full -translate-y-1/2 translate-x-1/2"></div>
-        <div className="absolute bottom-0 left-0 w-32 h-32 bg-white/5 dark:bg-white/[0.02] rounded-full translate-y-1/2 -translate-x-1/2"></div>
+      {/* 페이지 헤더 - 도구 (뉴트럴 화이트/그레이 + idus 포인트, IA 개편안 9.1.2) */}
+      <div className="relative bg-gradient-to-r from-slate-50 to-slate-100 dark:from-slate-800 dark:to-slate-900 rounded-2xl p-4 lg:p-6 mb-6 overflow-hidden shadow-lg dark:shadow-none border border-slate-200 dark:border-slate-700">
+        <div className="absolute top-0 right-0 w-64 h-64 bg-idus-500/10 dark:bg-idus-500/5 rounded-full -translate-y-1/2 translate-x-1/2"></div>
+        <div className="absolute bottom-0 left-0 w-32 h-32 bg-slate-200/50 dark:bg-slate-700/30 rounded-full translate-y-1/2 -translate-x-1/2"></div>
         <div className="flex items-center gap-3 lg:gap-4">
-          <div className="w-12 h-12 lg:w-14 lg:h-14 bg-white/20 dark:bg-white/10 backdrop-blur rounded-xl flex items-center justify-center shadow-lg dark:shadow-none">
+          <div className="w-12 h-12 lg:w-14 lg:h-14 bg-idus-500 rounded-xl flex items-center justify-center shadow-lg dark:shadow-none">
             <Icon icon={Ticket} size="xl" className="text-white" />
           </div>
           <div>
-            <h1 className="text-xl lg:text-2xl font-extrabold text-white tracking-tight">쿠폰 생성/발급 도우미</h1>
-            <p className="text-white/80 dark:text-white/70 text-xs lg:text-sm font-medium">마케팅 캠페인용 쿠폰 쿼리를 쉽게 생성하고 발급하세요</p>
+            <h1 className="text-xl lg:text-2xl font-extrabold text-slate-800 dark:text-slate-100 tracking-tight">쿠폰 생성/발급</h1>
+            <p className="text-slate-600 dark:text-slate-400 text-xs lg:text-sm font-medium">마케팅 캠페인용 쿠폰 쿼리를 쉽게 생성하고 발급하세요</p>
           </div>
         </div>
       </div>

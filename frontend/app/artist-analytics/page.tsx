@@ -44,12 +44,12 @@ export default function ArtistAnalyticsPage() {
 
   return (
     <div className="animate-fade-in">
-      {/* 페이지 헤더 */}
-      <div className="relative bg-violet-600 dark:bg-violet-900/70 rounded-2xl p-4 lg:p-6 mb-6 overflow-hidden">
+      {/* 페이지 헤더 - 작가 & 상품 분석 (보라/로즈 계열, IA 개편안 9.1.2) */}
+      <div className="relative bg-gradient-to-r from-violet-500 to-rose-500 dark:from-violet-600 dark:to-rose-600 rounded-2xl p-4 lg:p-6 mb-6 overflow-hidden shadow-lg dark:shadow-none">
         <div className="absolute top-0 right-0 w-64 h-64 bg-white/10 dark:bg-white/5 rounded-full -translate-y-1/2 translate-x-1/2"></div>
         <div className="absolute bottom-0 left-0 w-32 h-32 bg-white/5 dark:bg-white/[0.02] rounded-full translate-y-1/2 -translate-x-1/2"></div>
         <div className="flex items-center gap-3 lg:gap-4">
-          <div className="w-12 h-12 lg:w-14 lg:h-14 bg-white/20 dark:bg-white/10 backdrop-blur rounded-xl flex items-center justify-center">
+          <div className="w-12 h-12 lg:w-14 lg:h-14 bg-white/20 dark:bg-white/10 backdrop-blur rounded-xl flex items-center justify-center shadow-lg dark:shadow-none">
             <Icon icon={Palette} size="xl" className="text-white" />
           </div>
           <div>

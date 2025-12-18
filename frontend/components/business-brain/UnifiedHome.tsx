@@ -906,32 +906,62 @@ export function UnifiedHome({
         </FadeInUp>
       </div>
 
-      {/* 빠른 네비게이션 */}
+      {/* 빠른 네비게이션 - IA 개편안 Phase 3: 전문 페이지로 이동 링크 */}
       <FadeInUp delay={600}>
         <Card className="p-4 bg-slate-50 dark:bg-slate-800/50 border border-slate-200 dark:border-slate-700">
-          <div className="flex items-center justify-between flex-wrap gap-4">
-            <p className="text-sm text-slate-600 dark:text-slate-400">
-              <Icon icon={Clock} size="xs" className="inline mr-1" />
-              마지막 업데이트: {new Date().toLocaleString('ko-KR')}
-            </p>
-            <div className="flex items-center gap-2">
+          <div className="flex flex-col gap-4">
+            <div className="flex items-center justify-between flex-wrap gap-4">
+              <p className="text-sm text-slate-600 dark:text-slate-400">
+                <Icon icon={Clock} size="xs" className="inline mr-1" />
+                마지막 업데이트: {new Date().toLocaleString('ko-KR')}
+              </p>
+              <div className="flex items-center gap-2">
+                <button
+                  onClick={() => onTabChange('customer')}
+                  className="px-4 py-2 text-sm font-medium text-slate-600 dark:text-slate-300 bg-white dark:bg-slate-700 rounded-lg border border-slate-200 dark:border-slate-600 hover:bg-slate-50 dark:hover:bg-slate-600 transition-colors"
+                >
+                  고객 요약
+                </button>
+                <button
+                  onClick={() => onTabChange('revenue')}
+                  className="px-4 py-2 text-sm font-medium text-slate-600 dark:text-slate-300 bg-white dark:bg-slate-700 rounded-lg border border-slate-200 dark:border-slate-600 hover:bg-slate-50 dark:hover:bg-slate-600 transition-colors"
+                >
+                  매출 요약
+                </button>
+                <button
+                  onClick={() => onTabChange('explorer')}
+                  className="px-4 py-2 text-sm font-medium text-white bg-slate-700 rounded-lg hover:bg-slate-600 transition-colors"
+                >
+                  데이터 탐색기
+                </button>
+              </div>
+            </div>
+            {/* 전문 페이지 바로가기 */}
+            <div className="flex items-center gap-2 pt-3 border-t border-slate-200 dark:border-slate-700">
+              <span className="text-xs text-slate-500 dark:text-slate-400 mr-2">상세 분석:</span>
               <button
-                onClick={() => onTabChange('customer')}
-                className="px-4 py-2 text-sm font-medium text-slate-600 dark:text-slate-300 bg-white dark:bg-slate-700 rounded-lg border border-slate-200 dark:border-slate-600 hover:bg-slate-50 dark:hover:bg-slate-600 transition-colors"
+                onClick={() => router.push('/analytics')}
+                className="px-3 py-1.5 text-xs font-medium text-violet-600 dark:text-violet-400 bg-violet-50 dark:bg-violet-900/30 rounded-lg hover:bg-violet-100 dark:hover:bg-violet-900/50 transition-colors"
+              >
+                성과 분석 허브
+              </button>
+              <button
+                onClick={() => router.push('/customer-analytics')}
+                className="px-3 py-1.5 text-xs font-medium text-sky-600 dark:text-sky-400 bg-sky-50 dark:bg-sky-900/30 rounded-lg hover:bg-sky-100 dark:hover:bg-sky-900/50 transition-colors"
               >
                 고객 분석
               </button>
               <button
-                onClick={() => onTabChange('revenue')}
-                className="px-4 py-2 text-sm font-medium text-slate-600 dark:text-slate-300 bg-white dark:bg-slate-700 rounded-lg border border-slate-200 dark:border-slate-600 hover:bg-slate-50 dark:hover:bg-slate-600 transition-colors"
+                onClick={() => router.push('/review-analytics')}
+                className="px-3 py-1.5 text-xs font-medium text-sky-600 dark:text-sky-400 bg-sky-50 dark:bg-sky-900/30 rounded-lg hover:bg-sky-100 dark:hover:bg-sky-900/50 transition-colors"
               >
-                매출 분석
+                리뷰 분석
               </button>
               <button
-                onClick={() => onTabChange('explorer')}
-                className="px-4 py-2 text-sm font-medium text-white bg-idus-500 rounded-lg hover:bg-idus-600 transition-colors"
+                onClick={() => router.push('/artist-analytics')}
+                className="px-3 py-1.5 text-xs font-medium text-rose-600 dark:text-rose-400 bg-rose-50 dark:bg-rose-900/30 rounded-lg hover:bg-rose-100 dark:hover:bg-rose-900/50 transition-colors"
               >
-                데이터 탐색기
+                작가 분석
               </button>
             </div>
           </div>

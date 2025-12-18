@@ -206,8 +206,8 @@ export default function ControlTowerPage() {
 
   return (
     <div className="animate-fade-in">
-      {/* 페이지 헤더 - 다크 모드 지원 */}
-      <div className="relative bg-gradient-to-r from-idus-500 to-idus-600 dark:from-orange-600 dark:to-orange-700 rounded-2xl p-4 lg:p-6 mb-6 overflow-hidden shadow-lg dark:shadow-none">
+      {/* 페이지 헤더 - 물류 운영 (그린/티얼 계열, IA 개편안 9.1.2) */}
+      <div className="relative bg-gradient-to-r from-emerald-500 to-teal-500 dark:from-emerald-600 dark:to-teal-600 rounded-2xl p-4 lg:p-6 mb-6 overflow-hidden shadow-lg dark:shadow-none">
         <div className="absolute top-0 right-0 w-64 h-64 bg-white/10 dark:bg-white/5 rounded-full -translate-y-1/2 translate-x-1/2"></div>
         <div className="absolute bottom-0 left-0 w-32 h-32 bg-white/5 rounded-full translate-y-1/2 -translate-x-1/2"></div>
         <div className="flex items-center gap-4 relative z-10">
@@ -215,7 +215,7 @@ export default function ControlTowerPage() {
             <Icon icon={Activity} size="xl" className="text-white" />
           </div>
           <div>
-            <h1 className="text-xl lg:text-2xl font-extrabold text-white tracking-tight">실시간 물류 관제 센터</h1>
+            <h1 className="text-xl lg:text-2xl font-extrabold text-white tracking-tight">물류 관제 센터</h1>
             <p className="text-idus-100 dark:text-orange-200/80 text-xs lg:text-sm font-medium">
               주문 단위로 5단계 물류 파이프라인 현황을 모니터링합니다
             </p>

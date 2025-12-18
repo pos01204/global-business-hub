@@ -194,8 +194,8 @@ export default function SopoReceiptPage() {
 
   return (
     <div className="animate-fade-in">
-      {/* 페이지 헤더 - idus 브랜드 스타일 */}
-      <div className="relative bg-idus-500 dark:bg-orange-900/70 rounded-2xl p-4 lg:p-6 mb-6 overflow-hidden shadow-lg dark:shadow-none">
+      {/* 페이지 헤더 - 업무 지원 (뉴트럴 블루/그레이 계열, IA 개편안 9.1.2) */}
+      <div className="relative bg-gradient-to-r from-slate-600 to-slate-800 dark:from-slate-700 dark:to-slate-900 rounded-2xl p-4 lg:p-6 mb-6 overflow-hidden shadow-lg dark:shadow-none">
         <div className="absolute top-0 right-0 w-64 h-64 bg-white/10 dark:bg-white/5 rounded-full -translate-y-1/2 translate-x-1/2"></div>
         <div className="flex items-center justify-between flex-wrap gap-4">
           <div className="flex items-center gap-4">
@@ -203,7 +203,7 @@ export default function SopoReceiptPage() {
               <Icon icon={Package} size="xl" className="text-white" />
             </div>
             <div>
-              <h1 className="text-xl lg:text-2xl font-extrabold text-white tracking-tight">소포수령증 관리</h1>
+              <h1 className="text-xl lg:text-2xl font-extrabold text-white tracking-tight">소포수령증</h1>
               <p className="text-idus-100 dark:text-orange-200/80 text-xs lg:text-sm font-medium">해외 배송 주문 소포수령증 발급 자동화</p>
             </div>
           </div>

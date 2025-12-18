@@ -1,8 +1,9 @@
 'use client'
 
 import { useQuery } from '@tanstack/react-query'
-import { useState } from 'react'
-import { reviewAnalyticsApi } from '@/lib/api'
+import { useState, useEffect } from 'react'
+import { useSearchParams, useRouter } from 'next/navigation'
+import { reviewAnalyticsApi, reviewsApi } from '@/lib/api'
 import { EnhancedLoadingPage } from '@/components/ui'
 import { Icon } from '@/components/ui/Icon'
 import { Tooltip } from '@/components/ui/Tooltip'
@@ -68,6 +69,10 @@ interface Insight {
 // ============================================================
 
 export default function ReviewAnalyticsPage() {
+  const router = useRouter()
+  const searchParams = useSearchParams()
+  const tabFromUrl = searchParams.get('tab')
+
   // 기본 날짜 범위: 최근 30일
   const today = new Date()
   const thirtyDaysAgo = new Date(today.getTime() - 30 * 24 * 60 * 60 * 1000)
@@ -76,7 +81,20 @@ export default function ReviewAnalyticsPage() {
     from: thirtyDaysAgo,
     to: today,
   })
-  const [activeTab, setActiveTab] = useState<'overview' | 'distribution' | 'comparison' | 'insights' | 'trend'>('overview')
+  const [activeTab, setActiveTab] = useState<'overview' | 'distribution' | 'comparison' | 'insights' | 'trend' | 'list'>((tabFromUrl as any) || 'overview')
+
+  // URL 쿼리 파라미터 변경 시 탭 업데이트 (9.3.1 딥링크 지원)
+  useEffect(() => {
+    if (tabFromUrl && ['overview', 'distribution', 'comparison', 'insights', 'trend', 'list'].includes(tabFromUrl)) {
+      setActiveTab(tabFromUrl as any)
+    }
+  }, [tabFromUrl])
+
+  // 탭 변경 시 URL 업데이트
+  const handleTabChange = (newTab: string) => {
+    setActiveTab(newTab as any)
+    router.push(`/review-analytics?tab=${newTab}`, { scroll: false })
+  }
 
   const startDate = format(dateRange.from, 'yyyy-MM-dd')
   const endDate = format(dateRange.to, 'yyyy-MM-dd')
@@ -153,8 +171,8 @@ export default function ReviewAnalyticsPage() {
 
   return (
     <div className="animate-fade-in">
-      {/* 페이지 헤더 - idus 브랜드 스타일 */}
-      <div className="relative bg-idus-500 dark:bg-orange-900/70 rounded-2xl p-4 lg:p-6 mb-6 overflow-hidden shadow-lg dark:shadow-none">
+      {/* 페이지 헤더 - 고객 인사이트 허브 (블루/시안 계열, IA 개편안 Phase 4) */}
+      <div className="relative bg-gradient-to-r from-sky-500 to-cyan-500 dark:from-sky-600 dark:to-cyan-600 rounded-2xl p-4 lg:p-6 mb-6 overflow-hidden shadow-lg dark:shadow-none">
         <div className="absolute top-0 right-0 w-64 h-64 bg-white/10 dark:bg-white/5 rounded-full -translate-y-1/2 translate-x-1/2"></div>
         <div className="flex items-center gap-4">
           <div className="w-12 h-12 lg:w-14 lg:h-14 bg-white/20 dark:bg-white/10 backdrop-blur rounded-xl flex items-center justify-center shadow-lg dark:shadow-none">
@@ -192,7 +210,7 @@ export default function ReviewAnalyticsPage() {
               onClick={() => setDateRange({ from: addDays(new Date(), -option.days), to: new Date() })}
               className={`px-3 py-1.5 text-sm rounded-lg transition-colors ${
                 selectedDays === option.days
-                  ? 'bg-idus-500 text-white'
+                  ? 'bg-sky-500 text-white'
                   : 'bg-white dark:bg-slate-800 text-slate-600 dark:text-slate-300 border border-slate-200 dark:border-slate-700 hover:bg-slate-50 dark:hover:bg-slate-700'
               }`}
             >
@@ -230,20 +248,21 @@ export default function ReviewAnalyticsPage() {
 
       {/* 탭 네비게이션 */}
       <div className="mb-6">
-        <div className="flex gap-2">
+        <div className="flex gap-2 flex-wrap">
           {[
             { id: 'overview', label: 'NPS 개요', icon: BarChart3 },
             { id: 'distribution', label: '평점 분포', icon: PieChart },
             { id: 'trend', label: '트렌드', icon: TrendingUp },
             { id: 'comparison', label: '비교 분석', icon: Globe },
             { id: 'insights', label: '인사이트', icon: Lightbulb },
+            { id: 'list', label: '리뷰 목록', icon: MessageSquare },
           ].map((tab) => (
             <button
               key={tab.id}
-              onClick={() => setActiveTab(tab.id as any)}
+              onClick={() => handleTabChange(tab.id)}
               className={`flex items-center gap-2 px-4 py-3 rounded-xl text-sm font-medium transition-all ${
                 activeTab === tab.id
-                  ? 'bg-idus-500 text-white shadow-sm'
+                  ? 'bg-sky-500 text-white shadow-sm'
                   : 'bg-slate-100 dark:bg-slate-800 text-slate-600 dark:text-slate-400 hover:bg-slate-200 dark:hover:bg-slate-700'
               }`}
             >
@@ -974,6 +993,11 @@ export default function ReviewAnalyticsPage() {
             )}
           </div>
         )}
+
+        {/* 리뷰 목록 탭 (IA 개편안 11.4 - /reviews 기능 통합) */}
+        {activeTab === 'list' && (
+          <ReviewListTab />
+        )}
     </div>
   )
 }
@@ -1113,6 +1137,306 @@ function InsightCard({ insight }: { insight: Insight }) {
            insight.priority === 'medium' ? '보통' : '낮음'}
         </span>
       </div>
+    </div>
+  )
+}
+
+// ============================================================
+// 리뷰 목록 탭 컴포넌트 (IA 개편안 11.4 - /reviews 기능 통합)
+// ============================================================
+
+function ReviewListTab() {
+  const [selectedCountry, setSelectedCountry] = useState<string>('')
+  const [showImageOnly, setShowImageOnly] = useState(false)
+  const [currentPage, setCurrentPage] = useState(1)
+  const [searchQuery, setSearchQuery] = useState('')
+  const [sortOption, setSortOption] = useState<'latest' | 'rating' | 'popular'>('latest')
+  const [selectedReview, setSelectedReview] = useState<any>(null)
+
+  // 갤러리 데이터
+  const { data: galleryData, isLoading } = useQuery({
+    queryKey: ['reviews-gallery', selectedCountry, showImageOnly, currentPage, searchQuery, sortOption],
+    queryFn: () => reviewsApi.getGallery({
+      country: selectedCountry || undefined,
+      hasImage: showImageOnly || undefined,
+      page: currentPage,
+      pageSize: 24,
+      minRating: 1,
+      search: searchQuery || undefined,
+      sort: sortOption,
+    }),
+    staleTime: 3 * 60 * 1000,
+  })
+
+  // 통계
+  const { data: statsData } = useQuery({
+    queryKey: ['reviews-stats'],
+    queryFn: reviewsApi.getStats,
+    staleTime: 5 * 60 * 1000,
+  })
+
+  const countries = statsData?.data?.countries || []
+  const reviews = galleryData?.data?.reviews || []
+  const pagination = galleryData?.data?.pagination
+
+  // 국가별 테마 컬러
+  const countryThemes: Record<string, { bg: string; accent: string }> = {
+    JP: { bg: 'bg-pink-100 dark:bg-pink-900/30', accent: 'text-pink-600 dark:text-pink-400' },
+    US: { bg: 'bg-blue-100 dark:bg-blue-900/30', accent: 'text-blue-600 dark:text-blue-400' },
+    SG: { bg: 'bg-red-100 dark:bg-red-900/30', accent: 'text-red-600 dark:text-red-400' },
+    HK: { bg: 'bg-rose-100 dark:bg-rose-900/30', accent: 'text-rose-600 dark:text-rose-400' },
+    AU: { bg: 'bg-emerald-100 dark:bg-emerald-900/30', accent: 'text-emerald-600 dark:text-emerald-400' },
+    DEFAULT: { bg: 'bg-violet-100 dark:bg-violet-900/30', accent: 'text-violet-600 dark:text-violet-400' },
+  }
+
+  const getTheme = (country: string) => countryThemes[country] || countryThemes.DEFAULT
+
+  // 국가 플래그 매핑
+  const countryFlags: Record<string, string> = {
+    JP: '🇯🇵', US: '🇺🇸', SG: '🇸🇬', HK: '🇭🇰', AU: '🇦🇺', CA: '🇨🇦',
+    GB: '🇬🇧', DE: '🇩🇪', FR: '🇫🇷', NL: '🇳🇱', PL: '🇵🇱', TW: '🇹🇼',
+  }
+
+  return (
+    <div className="space-y-6">
+      {/* 필터 영역 */}
+      <div className="bg-white dark:bg-slate-800 rounded-xl border border-slate-200 dark:border-slate-700 p-4">
+        <div className="flex flex-wrap items-center gap-4">
+          {/* 검색 */}
+          <div className="flex-1 min-w-[200px]">
+            <input
+              type="text"
+              placeholder="리뷰 내용, 작가명, 상품명 검색..."
+              value={searchQuery}
+              onChange={(e) => {
+                setSearchQuery(e.target.value)
+                setCurrentPage(1)
+              }}
+              className="w-full px-4 py-2.5 rounded-lg border border-slate-200 dark:border-slate-600 bg-white dark:bg-slate-700 text-slate-900 dark:text-slate-100 text-sm focus:ring-2 focus:ring-sky-500 focus:border-sky-500"
+            />
+          </div>
+
+          {/* 국가 필터 */}
+          <select
+            value={selectedCountry}
+            onChange={(e) => {
+              setSelectedCountry(e.target.value)
+              setCurrentPage(1)
+            }}
+            className="px-4 py-2.5 rounded-lg border border-slate-200 dark:border-slate-600 bg-white dark:bg-slate-700 text-slate-900 dark:text-slate-100 text-sm focus:ring-2 focus:ring-sky-500 focus:border-sky-500"
+          >
+            <option value="">전체 국가</option>
+            {countries.map((c: any) => (
+              <option key={c.country} value={c.country}>
+                {countryFlags[c.country] || '🌍'} {c.country} ({c.count})
+              </option>
+            ))}
+          </select>
+
+          {/* 정렬 */}
+          <select
+            value={sortOption}
+            onChange={(e) => {
+              setSortOption(e.target.value as any)
+              setCurrentPage(1)
+            }}
+            className="px-4 py-2.5 rounded-lg border border-slate-200 dark:border-slate-600 bg-white dark:bg-slate-700 text-slate-900 dark:text-slate-100 text-sm focus:ring-2 focus:ring-sky-500 focus:border-sky-500"
+          >
+            <option value="latest">최신순</option>
+            <option value="rating">평점순</option>
+            <option value="popular">인기순</option>
+          </select>
+
+          {/* 이미지 필터 */}
+          <label className="flex items-center gap-2 cursor-pointer">
+            <input
+              type="checkbox"
+              checked={showImageOnly}
+              onChange={(e) => {
+                setShowImageOnly(e.target.checked)
+                setCurrentPage(1)
+              }}
+              className="w-4 h-4 rounded border-slate-300 dark:border-slate-600 text-sky-500 focus:ring-sky-500"
+            />
+            <span className="text-sm text-slate-600 dark:text-slate-400">이미지 있는 리뷰만</span>
+          </label>
+        </div>
+      </div>
+
+      {/* 리뷰 그리드 */}
+      {isLoading ? (
+        <div className="text-center py-12">
+          <div className="animate-spin w-8 h-8 border-4 border-sky-500 border-t-transparent rounded-full mx-auto mb-4"></div>
+          <p className="text-slate-500 dark:text-slate-400">리뷰를 불러오는 중...</p>
+        </div>
+      ) : reviews.length === 0 ? (
+        <div className="text-center py-12 bg-white dark:bg-slate-800 rounded-xl border border-slate-200 dark:border-slate-700">
+          <Icon icon={MessageSquare} size="xl" className="mx-auto mb-4 text-slate-400" />
+          <h3 className="text-lg font-semibold text-slate-900 dark:text-slate-100 mb-2">리뷰가 없습니다</h3>
+          <p className="text-slate-500 dark:text-slate-400">검색 조건을 변경해 보세요.</p>
+        </div>
+      ) : (
+        <>
+          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-4">
+            {reviews.map((review: any) => {
+              const theme = getTheme(review.country)
+              return (
+                <div
+                  key={review.id}
+                  onClick={() => setSelectedReview(review)}
+                  className="bg-white dark:bg-slate-800 rounded-xl border border-slate-200 dark:border-slate-700 overflow-hidden cursor-pointer hover:shadow-lg hover:-translate-y-1 transition-all"
+                >
+                  {/* 이미지 */}
+                  {review.imageUrl && (
+                    <div className="aspect-square bg-slate-100 dark:bg-slate-700 overflow-hidden">
+                      <img
+                        src={review.imageUrl}
+                        alt="리뷰 이미지"
+                        className="w-full h-full object-cover"
+                        onError={(e) => {
+                          (e.target as HTMLImageElement).style.display = 'none'
+                        }}
+                      />
+                    </div>
+                  )}
+
+                  <div className="p-4">
+                    {/* 헤더 */}
+                    <div className="flex items-center justify-between mb-2">
+                      <span className={`text-xs px-2 py-1 rounded-full ${theme.bg} ${theme.accent} font-medium`}>
+                        {countryFlags[review.country] || '🌍'} {review.country}
+                      </span>
+                      <div className="flex items-center gap-1">
+                        <Icon icon={Star} size="xs" className="text-amber-400 fill-amber-400" />
+                        <span className="text-sm font-semibold text-slate-900 dark:text-slate-100">
+                          {review.rating}/10
+                        </span>
+                      </div>
+                    </div>
+
+                    {/* 리뷰 내용 */}
+                    <p className="text-sm text-slate-700 dark:text-slate-300 line-clamp-3 mb-3">
+                      {review.content || '(내용 없음)'}
+                    </p>
+
+                    {/* 작가/상품 정보 */}
+                    <div className="flex items-center gap-2 text-xs text-slate-500 dark:text-slate-400">
+                      <Icon icon={Palette} size="xs" />
+                      <span className="truncate">{review.artistName || '알 수 없음'}</span>
+                    </div>
+
+                    {/* 날짜 */}
+                    <p className="text-xs text-slate-400 dark:text-slate-500 mt-2">
+                      {review.createdAt ? format(new Date(review.createdAt), 'yyyy.MM.dd') : '날짜 없음'}
+                    </p>
+                  </div>
+                </div>
+              )
+            })}
+          </div>
+
+          {/* 페이지네이션 */}
+          {pagination && pagination.totalPages > 1 && (
+            <div className="flex items-center justify-center gap-2 mt-6">
+              <button
+                onClick={() => setCurrentPage(p => Math.max(1, p - 1))}
+                disabled={currentPage === 1}
+                className="px-4 py-2 rounded-lg border border-slate-200 dark:border-slate-700 text-sm font-medium text-slate-600 dark:text-slate-400 disabled:opacity-50 disabled:cursor-not-allowed hover:bg-slate-50 dark:hover:bg-slate-700"
+              >
+                이전
+              </button>
+              <span className="px-4 py-2 text-sm text-slate-600 dark:text-slate-400">
+                {currentPage} / {pagination.totalPages}
+              </span>
+              <button
+                onClick={() => setCurrentPage(p => Math.min(pagination.totalPages, p + 1))}
+                disabled={currentPage === pagination.totalPages}
+                className="px-4 py-2 rounded-lg border border-slate-200 dark:border-slate-700 text-sm font-medium text-slate-600 dark:text-slate-400 disabled:opacity-50 disabled:cursor-not-allowed hover:bg-slate-50 dark:hover:bg-slate-700"
+              >
+                다음
+              </button>
+            </div>
+          )}
+        </>
+      )}
+
+      {/* 리뷰 상세 모달 */}
+      {selectedReview && (
+        <div
+          className="fixed inset-0 bg-black/60 backdrop-blur-sm flex items-center justify-center z-50 p-4"
+          onClick={() => setSelectedReview(null)}
+        >
+          <div
+            className="bg-white dark:bg-slate-800 rounded-2xl max-w-2xl w-full max-h-[90vh] overflow-y-auto shadow-2xl"
+            onClick={(e) => e.stopPropagation()}
+          >
+            {/* 이미지 */}
+            {selectedReview.imageUrl && (
+              <div className="aspect-video bg-slate-100 dark:bg-slate-700 overflow-hidden">
+                <img
+                  src={selectedReview.imageUrl}
+                  alt="리뷰 이미지"
+                  className="w-full h-full object-cover"
+                />
+              </div>
+            )}
+
+            <div className="p-6">
+              {/* 헤더 */}
+              <div className="flex items-center justify-between mb-4">
+                <div className="flex items-center gap-3">
+                  <span className={`text-sm px-3 py-1 rounded-full ${getTheme(selectedReview.country).bg} ${getTheme(selectedReview.country).accent} font-medium`}>
+                    {countryFlags[selectedReview.country] || '🌍'} {selectedReview.country}
+                  </span>
+                  <div className="flex items-center gap-1">
+                    {[...Array(10)].map((_, i) => (
+                      <Icon
+                        key={i}
+                        icon={Star}
+                        size="sm"
+                        className={i < selectedReview.rating ? 'text-amber-400 fill-amber-400' : 'text-slate-200 dark:text-slate-600'}
+                      />
+                    ))}
+                    <span className="ml-2 font-bold text-slate-900 dark:text-slate-100">
+                      {selectedReview.rating}/10
+                    </span>
+                  </div>
+                </div>
+                <button
+                  onClick={() => setSelectedReview(null)}
+                  className="w-8 h-8 flex items-center justify-center rounded-full hover:bg-slate-100 dark:hover:bg-slate-700 text-slate-500 dark:text-slate-400"
+                >
+                  ✕
+                </button>
+              </div>
+
+              {/* 리뷰 내용 */}
+              <p className="text-slate-700 dark:text-slate-300 mb-6 leading-relaxed">
+                {selectedReview.content || '(내용 없음)'}
+              </p>
+
+              {/* 메타 정보 */}
+              <div className="border-t border-slate-200 dark:border-slate-700 pt-4 space-y-2">
+                <div className="flex items-center gap-2 text-sm text-slate-600 dark:text-slate-400">
+                  <Icon icon={Palette} size="sm" />
+                  <span className="font-medium">작가:</span>
+                  <span>{selectedReview.artistName || '알 수 없음'}</span>
+                </div>
+                {selectedReview.productName && (
+                  <div className="flex items-center gap-2 text-sm text-slate-600 dark:text-slate-400">
+                    <span className="font-medium">상품:</span>
+                    <span>{selectedReview.productName}</span>
+                  </div>
+                )}
+                <div className="flex items-center gap-2 text-sm text-slate-500 dark:text-slate-500">
+                  <Icon icon={Calendar} size="sm" />
+                  <span>{selectedReview.createdAt ? format(new Date(selectedReview.createdAt), 'yyyy년 MM월 dd일') : '날짜 없음'}</span>
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   )
 }

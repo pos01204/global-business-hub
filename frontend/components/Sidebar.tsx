@@ -29,6 +29,9 @@ interface ExtendedNavGroup {
   subGroups?: NavSubGroup[]
 }
 
+// ============================================================
+// IA 개편안 Phase 2: 허브 단위 메뉴 구조
+// ============================================================
 const navGroups: ExtendedNavGroup[] = [
   {
     title: '홈',
@@ -54,49 +57,42 @@ const navGroups: ExtendedNavGroup[] = [
     ],
   },
   {
-    title: '분석',
-    subGroups: [
-      {
-        title: '📈 성과 분석 허브',
-        isHub: true,
-        items: [
-          { href: '/analytics', label: '성과 분석', icon: '📈' },
-          { href: '/order-patterns', label: '주문 패턴 분석', icon: '📊' },
-          { href: '/coupon-analytics', label: '쿠폰 효과 분석', icon: '🎫' },
-        ],
-      },
-      {
-        title: '👥 고객 분석 허브',
-        isHub: true,
-        items: [
-          { href: '/customer-analytics', label: '고객 분석', icon: '👥' },
-          { href: '/customer-360', label: '고객 360° 뷰', icon: '🔄' },
-          { href: '/review-analytics', label: '리뷰 분석', icon: '⭐' },
-        ],
-      },
-      {
-        title: '기타',
-        items: [
-          { href: '/artist-analytics', label: '작가 분석', icon: '👨‍🎨' },
-          { href: '/cost-analysis', label: '비용 & 손익', icon: '💰' },
-        ],
-      },
+    title: '📊 성과 분석 허브',
+    items: [
+      { href: '/analytics', label: '성과 분석 허브', icon: '📈' },
+      // 주문 패턴, 쿠폰 효과는 성과 분석 허브 내 탭으로 통합됨 (IA 개편안 Phase 1)
     ],
   },
   {
-    title: '경영 인사이트',
+    title: '👥 고객 인사이트 허브',
+    items: [
+      { href: '/customer-analytics', label: '고객 분석', icon: '👥' },
+      { href: '/customer-360', label: '고객 360° 뷰', icon: '🔄' },
+      { href: '/review-analytics', label: '리뷰 분석', icon: '⭐' },
+      // 리뷰 목록 기능은 리뷰 분석 내 탭으로 통합 예정 (IA 개편안 Phase 4)
+    ],
+  },
+  {
+    title: '🎨 작가 & 상품 분석',
+    items: [
+      { href: '/artist-analytics', label: '작가 분석', icon: '👨‍🎨' },
+      // 향후: 상품 분석 페이지 추가 예정
+    ],
+  },
+  {
+    title: '💰 재무 분석',
+    items: [
+      { href: '/cost-analysis', label: '비용 & 손익', icon: '💰' },
+    ],
+  },
+  {
+    title: '🧠 경영 인사이트',
     items: [
       { href: '/business-brain', label: 'Business Brain', icon: '🧠' },
     ],
   },
   {
-    title: '고객 인사이트',
-    items: [
-      { href: '/reviews', label: '고객 리뷰', icon: '⭐' },
-    ],
-  },
-  {
-    title: '도구',
+    title: '🛠️ 도구',
     items: [
       { href: '/marketer', label: '퍼포먼스 마케터', icon: '🎯' },
       { href: '/coupon-generator', label: '쿠폰 생성/발급', icon: '🎟️' },

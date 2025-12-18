@@ -102,38 +102,38 @@ export default function Customer360Page() {
   const ltv = customer?.ltv as LTV | undefined
 
   return (
-    <div className="min-h-screen bg-gradient-to-br from-slate-50 via-white to-slate-100 dark:from-slate-950 dark:via-slate-900 dark:to-slate-950">
-      <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
-        {/* 헤더 */}
-        <div className="mb-8">
-          <div className="flex items-center gap-3 mb-2">
-            <div className="w-12 h-12 bg-gradient-to-br from-blue-500 to-indigo-600 rounded-xl flex items-center justify-center shadow-lg">
-              <Icon icon={User} size="xl" className="text-white" />
-            </div>
-            <div>
-              <h1 className="text-2xl font-bold text-slate-800 dark:text-slate-100">고객 360° 뷰</h1>
-              <p className="text-sm text-slate-500 dark:text-slate-400">고객 통합 프로필 및 RFM 분석</p>
-            </div>
+    <div className="animate-fade-in">
+      {/* 페이지 헤더 - 고객 인사이트 허브 (블루/시안 계열, IA 개편안 Phase 4) */}
+      <div className="relative bg-gradient-to-r from-sky-500 to-cyan-500 dark:from-sky-600 dark:to-cyan-600 rounded-2xl p-4 lg:p-6 mb-6 overflow-hidden shadow-lg dark:shadow-none">
+        <div className="absolute top-0 right-0 w-64 h-64 bg-white/10 dark:bg-white/5 rounded-full -translate-y-1/2 translate-x-1/2"></div>
+        <div className="flex items-center gap-3 lg:gap-4">
+          <div className="w-12 h-12 lg:w-14 lg:h-14 bg-white/20 dark:bg-white/10 backdrop-blur rounded-xl flex items-center justify-center shadow-lg dark:shadow-none">
+            <Icon icon={User} size="xl" className="text-white" />
+          </div>
+          <div>
+            <h1 className="text-xl lg:text-2xl font-extrabold text-white tracking-tight">고객 360° 뷰</h1>
+            <p className="text-sky-100 dark:text-sky-200/80 text-xs lg:text-sm font-medium">고객 통합 프로필 및 RFM 분석</p>
           </div>
         </div>
+      </div>
 
-        {/* 검색 */}
-        <div className="mb-6">
-          <div className="relative max-w-md">
-            <Icon icon={Search} size="md" className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400" />
-            <input
-              type="text"
-              placeholder="고객 ID (user_id)로 검색..."
-              value={searchQuery}
-              onChange={(e) => setSearchQuery(e.target.value)}
-              className="w-full pl-10 pr-4 py-3 border border-slate-200 dark:border-slate-700 rounded-xl text-sm bg-white dark:bg-slate-800 focus:outline-none focus:ring-2 focus:ring-blue-500"
-            />
-            {searchLoading && (
-              <div className="absolute right-3 top-1/2 -translate-y-1/2">
-                <Icon icon={RefreshCw} size="sm" className="animate-spin text-slate-400" />
-              </div>
-            )}
-          </div>
+      {/* 검색 */}
+      <div className="mb-6">
+        <div className="relative max-w-md">
+          <Icon icon={Search} size="md" className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400" />
+          <input
+            type="text"
+            placeholder="고객 ID (user_id)로 검색..."
+            value={searchQuery}
+            onChange={(e) => setSearchQuery(e.target.value)}
+            className="w-full pl-10 pr-4 py-3 border border-slate-200 dark:border-slate-700 rounded-xl text-sm bg-white dark:bg-slate-800 focus:outline-none focus:ring-2 focus:ring-sky-500"
+          />
+          {searchLoading && (
+            <div className="absolute right-3 top-1/2 -translate-y-1/2">
+              <Icon icon={RefreshCw} size="sm" className="animate-spin text-slate-400" />
+            </div>
+          )}
+        </div>
 
           {/* 검색 결과 */}
           {searchResults?.data?.results && searchResults.data.results.length > 0 && (
