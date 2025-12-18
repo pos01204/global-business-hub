@@ -4,8 +4,13 @@ import Link from 'next/link'
 import Image from 'next/image'
 import { usePathname } from 'next/navigation'
 import { useState } from 'react'
-// ✅ Phase 2: 고도화 컴포넌트
-import { hoverEffects } from '@/lib/hover-effects'
+import { 
+  LayoutDashboard, Package, Truck, Radio, DollarSign,
+  CheckCircle, FileText, Search, BarChart3, Users, 
+  RefreshCw, Star, Palette, PiggyBank, Brain, 
+  Target, Ticket, MessageSquare, AlertTriangle
+} from 'lucide-react'
+import type { LucideIcon } from 'lucide-react'
 
 // 브랜드 리소스 경로
 const BRAND_PATH = '/brand/Rebranding Design Resources/Rebranding Design Resources'
@@ -13,7 +18,7 @@ const BRAND_PATH = '/brand/Rebranding Design Resources/Rebranding Design Resourc
 interface NavItem {
   href: string
   label: string
-  icon: string
+  icon: LucideIcon
   badge?: number | string
   external?: boolean
 }
@@ -32,73 +37,70 @@ interface ExtendedNavGroup {
 }
 
 // ============================================================
-// IA 개편안 Phase 2: 허브 단위 메뉴 구조
+// IA 개편안 Phase 2: 허브 단위 메뉴 구조 (Lucide 아이콘 적용)
 // ============================================================
 const navGroups: ExtendedNavGroup[] = [
   {
     title: '홈',
     items: [
-      { href: '/dashboard', label: '대시보드', icon: '📊' },
+      { href: '/dashboard', label: '대시보드', icon: LayoutDashboard },
     ],
   },
   {
     title: '물류 운영',
     items: [
-      { href: '/unreceived', label: '미입고 관리', icon: '🚨' },
-      { href: '/logistics', label: '물류 추적', icon: '🚚' },
-      { href: '/control-tower', label: '물류 관제 센터', icon: '📡' },
-      { href: '/settlement', label: '물류비 정산', icon: '💵' },
+      { href: '/unreceived', label: '미입고 관리', icon: AlertTriangle },
+      { href: '/logistics', label: '물류 추적', icon: Truck },
+      { href: '/control-tower', label: '물류 관제 센터', icon: Radio },
+      { href: '/settlement', label: '물류비 정산', icon: DollarSign },
     ],
   },
   {
     title: '업무 지원',
     items: [
-      { href: '/qc', label: 'QC 관리', icon: '✅' },
-      { href: '/sopo-receipt', label: '소포수령증', icon: '📄' },
-      { href: '/lookup', label: '통합 검색', icon: '🔍' },
+      { href: '/qc', label: 'QC 관리', icon: CheckCircle },
+      { href: '/sopo-receipt', label: '소포수령증', icon: FileText },
+      { href: '/lookup', label: '통합 검색', icon: Search },
     ],
   },
   {
     title: '📊 성과 분석 허브',
     items: [
-      { href: '/analytics', label: '성과 분석 허브', icon: '📈' },
-      // 주문 패턴, 쿠폰 효과는 성과 분석 허브 내 탭으로 통합됨 (IA 개편안 Phase 1)
+      { href: '/analytics', label: '성과 분석 허브', icon: BarChart3 },
     ],
   },
   {
     title: '👥 고객 인사이트 허브',
     items: [
-      { href: '/customer-analytics', label: '고객 분석', icon: '👥' },
-      { href: '/customer-360', label: '고객 360° 뷰', icon: '🔄' },
-      { href: '/review-analytics', label: '리뷰 분석', icon: '⭐' },
-      // 리뷰 목록 기능은 리뷰 분석 내 탭으로 통합 예정 (IA 개편안 Phase 4)
+      { href: '/customer-analytics', label: '고객 분석', icon: Users },
+      { href: '/customer-360', label: '고객 360° 뷰', icon: RefreshCw },
+      { href: '/review-analytics', label: '리뷰 분석', icon: Star },
     ],
   },
   {
     title: '🎨 작가 & 상품 분석',
     items: [
-      { href: '/artist-analytics', label: '작가 분석', icon: '👨‍🎨' },
-      // 향후: 상품 분석 페이지 추가 예정
+      { href: '/artist-analytics', label: '작가 분석', icon: Palette },
     ],
   },
   {
     title: '💰 재무 분석',
     items: [
-      { href: '/cost-analysis', label: '비용 & 손익', icon: '💰' },
+      { href: '/cost-analysis', label: '비용 & 손익', icon: PiggyBank },
     ],
   },
   {
     title: '🧠 경영 인사이트',
     items: [
-      { href: '/business-brain', label: 'Business Brain', icon: '🧠' },
+      { href: '/business-brain', label: 'Business Brain', icon: Brain },
     ],
   },
   {
     title: '🛠️ 도구',
     items: [
-      { href: '/marketer', label: '퍼포먼스 마케터', icon: '🎯' },
-      { href: '/coupon-generator', label: '쿠폰 생성/발급', icon: '🎟️' },
-      { href: '/chat', label: 'AI 어시스턴트', icon: '🤖' },
+      { href: '/marketer', label: '퍼포먼스 마케터', icon: Target },
+      { href: '/coupon-generator', label: '쿠폰 생성/발급', icon: Ticket },
+      { href: '/chat', label: 'AI 어시스턴트', icon: MessageSquare },
     ],
   },
 ]
@@ -114,6 +116,7 @@ function NavItemComponent({
   isCollapsed: boolean 
 }) {
   const isActive = pathname === item.href || pathname?.startsWith(item.href + '/')
+  const IconComponent = item.icon
   
   return (
     <li>
@@ -121,14 +124,19 @@ function NavItemComponent({
         href={item.href}
         className={`
           relative flex items-center gap-3 px-3 py-2.5 rounded-lg
-          transition-all duration-300 ease-out
+          transition-all duration-300 ease-out group
           ${isActive
             ? 'bg-orange-50 dark:bg-orange-900/20 text-[#F78C3A] font-medium before:absolute before:left-0 before:top-1/2 before:-translate-y-1/2 before:w-1 before:h-6 before:bg-[#F78C3A] before:rounded-r-full shadow-sm'
             : `text-slate-600 dark:text-slate-400 hover:bg-indigo-50 dark:hover:bg-indigo-900/20 hover:text-indigo-600 dark:hover:text-indigo-400 hover:shadow-sm hover:-translate-y-0.5`
           }
         `}
       >
-        <span className="text-base flex-shrink-0">{item.icon}</span>
+        <IconComponent 
+          size={18} 
+          className={`flex-shrink-0 transition-transform duration-200 ${
+            isActive ? '' : 'group-hover:scale-110'
+          }`}
+        />
         {!isCollapsed && (
           <>
             <span className={`flex-1 text-sm ${isActive ? 'font-medium' : ''}`}>
@@ -183,7 +191,7 @@ export default function Sidebar() {
           {/* 로고 영역 */}
           <div className="flex items-center justify-between px-5 py-4 border-b border-slate-100 dark:border-slate-800">
             <Link href="/" className="flex items-center gap-3">
-              <div className="relative w-9 h-9 rounded-lg overflow-hidden">
+              <div className="relative w-9 h-9 rounded-lg overflow-hidden shadow-sm">
                 <Image
                   src={`${BRAND_PATH}/02. Profile/appicon-1024.png`}
                   alt="idus"
@@ -198,7 +206,8 @@ export default function Sidebar() {
                     <span className="text-[17px] font-bold tracking-tight text-slate-900 dark:text-slate-100">
                       i<span className="text-idus-500">d</span>us
                     </span>
-                    <span className="text-[15px] font-medium text-slate-500 dark:text-slate-400">Global</span>
+                    <span className="text-[14px] font-medium text-slate-500 dark:text-slate-400">Global</span>
+                    <span className="text-[14px] font-medium text-idus-500">Business</span>
                   </div>
                 </div>
               )}
@@ -214,7 +223,7 @@ export default function Sidebar() {
           </div>
 
           {/* 네비게이션 */}
-          <nav className="flex-1 overflow-y-auto py-4 px-3">
+          <nav className="flex-1 overflow-y-auto py-4 px-3 scrollbar-brand">
             {navGroups.map((group, groupIndex) => (
               <div key={group.title} className={groupIndex > 0 ? 'mt-6' : ''}>
                 {!isCollapsed && (
@@ -260,7 +269,7 @@ export default function Sidebar() {
             <div className="p-4 border-t border-slate-100 dark:border-slate-800">
               <div className="flex items-center justify-between">
                 <div className="flex items-center gap-2">
-                  <div className="w-2 h-2 bg-emerald-500 rounded-full"></div>
+                  <div className="w-2 h-2 bg-emerald-500 rounded-full animate-pulse"></div>
                   <span className="text-xs text-slate-500 dark:text-slate-400">시스템 정상</span>
                 </div>
                 <span className="text-xs text-slate-400 dark:text-slate-500">v2.0</span>

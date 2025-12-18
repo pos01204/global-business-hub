@@ -499,11 +499,11 @@ export default function DashboardPage() {
         </Link>
       )}
 
-      {/* KPI 카드 - 6개 */}
+      {/* KPI 카드 - 6개 (시선 정지점: GMV를 Primary로 강조) */}
       {data && (
         <>
           <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-6 gap-3 lg:gap-4">
-            {/* GMV */}
+            {/* GMV - Primary KPI (시선 정지점) */}
             <EnhancedKPICard
               title="GMV"
               value={data.kpis.gmv.value}
@@ -512,6 +512,8 @@ export default function DashboardPage() {
               icon={DollarSign}
               tooltip="Gross Merchandise Value: 총 상품 거래액"
               detailInfo={`전기간 대비 ${formatChange(data.kpis.gmv.change, { isRatio: true })} 변화`}
+              isPrimary={true}
+              accentColor="orange"
             />
 
             {/* 주문 건수 */}
@@ -523,6 +525,7 @@ export default function DashboardPage() {
               icon={Package}
               tooltip="선택한 기간 동안 발생한 총 주문 건수"
               detailInfo={`전기간 대비 ${formatChange(data.kpis.orderCount.change, { isRatio: true })} 변화`}
+              accentColor="blue"
             />
 
             {/* AOV */}
@@ -534,6 +537,7 @@ export default function DashboardPage() {
               icon={BarChart3}
               tooltip="Average Order Value: 평균 주문 금액"
               detailInfo={`전기간 대비 ${formatChange(data.kpis.aov.change, { isRatio: true })} 변화`}
+              accentColor="purple"
             />
 
             {/* 판매 작품 수 */}
@@ -545,9 +549,10 @@ export default function DashboardPage() {
               icon={Palette}
               tooltip="선택한 기간 동안 판매된 작품 수"
               detailInfo={`전기간 대비 ${formatChange(data.kpis.itemCount.change, { isRatio: true })} 변화`}
+              accentColor="purple"
             />
 
-            {/* 신규 고객 - Phase 1 Task 1.5: 실제 데이터 연동 */}
+            {/* 신규 고객 */}
             <EnhancedKPICard
               title="신규 고객"
               value={data.kpis.newCustomers?.value ?? 0}
@@ -556,9 +561,10 @@ export default function DashboardPage() {
               icon={Users}
               tooltip="선택한 기간 동안 신규로 가입한 고객 수"
               detailInfo={`전기간 대비 ${formatChange(data.kpis.newCustomers?.change, { isRatio: true })} 변화`}
+              accentColor="green"
             />
 
-            {/* 배송 완료율 - Phase 1 Task 1.5: 실제 데이터 연동 */}
+            {/* 배송 완료율 - 낮으면 긴급 표시 */}
             <EnhancedKPICard
               title="배송 완료율"
               value={(data.kpis.deliveryRate?.value ?? 0).toFixed(1)}
@@ -567,6 +573,8 @@ export default function DashboardPage() {
               icon={Truck}
               tooltip="배송이 완료된 주문의 비율"
               detailInfo={`전기간 대비 ${(data.kpis.deliveryRate?.change ?? 0) >= 0 ? '+' : ''}${(data.kpis.deliveryRate?.change ?? 0).toFixed(1)}%p 변화`}
+              accentColor={(data.kpis.deliveryRate?.value ?? 0) < 80 ? 'red' : 'green'}
+              isUrgent={(data.kpis.deliveryRate?.value ?? 0) < 70}
             />
           </div>
 

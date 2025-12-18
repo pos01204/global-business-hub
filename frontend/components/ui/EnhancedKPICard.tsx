@@ -19,8 +19,12 @@ export interface EnhancedKPICardProps {
   className?: string
   suffix?: string
   prefix?: string
-  variant?: 'default' | 'gradient' | 'glass' | 'bordered'
+  variant?: 'default' | 'gradient' | 'glass' | 'bordered' | 'hero'
   accentColor?: 'blue' | 'green' | 'purple' | 'orange' | 'red'
+  /** 주요 KPI 강조 표시 (시선 정지점) */
+  isPrimary?: boolean
+  /** 긴급/경고 상태 펄스 애니메이션 */
+  isUrgent?: boolean
 }
 
 const accentColors = {
@@ -36,6 +40,7 @@ const variantStyles = {
   gradient: 'bg-gradient-to-br border',
   glass: 'bg-white/70 dark:bg-slate-800/70 backdrop-blur-md border border-white/20 dark:border-slate-700/50',
   bordered: 'bg-white dark:bg-slate-800 border-2 border-slate-300 dark:border-slate-600',
+  hero: 'bg-gradient-to-br from-idus-500/10 to-orange-500/5 dark:from-idus-500/20 dark:to-orange-500/10 border-2 border-idus-500/30 dark:border-idus-500/40 shadow-lg shadow-idus-500/10',
 }
 
 export const EnhancedKPICard = memo(function EnhancedKPICard({
@@ -50,6 +55,8 @@ export const EnhancedKPICard = memo(function EnhancedKPICard({
   prefix,
   variant = 'default',
   accentColor = 'blue',
+  isPrimary = false,
+  isUrgent = false,
 }: EnhancedKPICardProps) {
   const [showDetail, setShowDetail] = useState(false)
   const [displayValue, setDisplayValue] = useState(0)
@@ -116,6 +123,9 @@ export const EnhancedKPICard = memo(function EnhancedKPICard({
     return { main: val, unit: '', full: val }
   }
 
+  // Primary KPI는 hero variant 자동 적용
+  const effectiveVariant = isPrimary ? 'hero' : variant
+
   return (
     <motion.div
       variants={cardHoverVariants}
@@ -125,9 +135,13 @@ export const EnhancedKPICard = memo(function EnhancedKPICard({
       transition={{ duration: 0.25, ease: "easeOut" }}
       className={cn(
         'rounded-xl p-6 shadow-md transition-all duration-300 group relative overflow-hidden',
-        variantStyles[variant],
-        variant === 'gradient' && accentColors[accentColor],
+        variantStyles[effectiveVariant],
+        effectiveVariant === 'gradient' && accentColors[accentColor],
         hoverEffects.card,
+        // Primary KPI 강조 스타일
+        isPrimary && 'ring-2 ring-idus-500/20 dark:ring-idus-500/30',
+        // 긴급 상태 펄스 애니메이션
+        isUrgent && 'animate-pulse-urgent',
         className
       )}
       onMouseEnter={() => {
@@ -138,6 +152,8 @@ export const EnhancedKPICard = memo(function EnhancedKPICard({
         setShowDetail(false)
         setIsHovered(false)
       }}
+      role="article"
+      aria-label={`${title}: ${typeof value === 'number' ? value.toLocaleString() : value}${suffix || ''}`}
     >
       {/* 호버 시 배경 그라데이션 효과 */}
       <motion.div
@@ -250,21 +266,37 @@ export const EnhancedKPICard = memo(function EnhancedKPICard({
         )}
       </AnimatePresence>
 
-      {/* 호버 시 상단 액센트 라인 */}
+      {/* 호버 시 상단 액센트 라인 (Primary는 항상 표시) */}
       <motion.div
         className={cn(
           'absolute top-0 left-0 right-0 h-1 rounded-t-xl',
-          accentColor === 'blue' && 'bg-gradient-to-r from-blue-500 to-indigo-500',
-          accentColor === 'green' && 'bg-gradient-to-r from-emerald-500 to-teal-500',
-          accentColor === 'purple' && 'bg-gradient-to-r from-purple-500 to-pink-500',
-          accentColor === 'orange' && 'bg-gradient-to-r from-orange-500 to-amber-500',
-          accentColor === 'red' && 'bg-gradient-to-r from-red-500 to-rose-500',
+          isPrimary && 'bg-gradient-to-r from-idus-500 to-orange-400',
+          !isPrimary && accentColor === 'blue' && 'bg-gradient-to-r from-blue-500 to-indigo-500',
+          !isPrimary && accentColor === 'green' && 'bg-gradient-to-r from-emerald-500 to-teal-500',
+          !isPrimary && accentColor === 'purple' && 'bg-gradient-to-r from-purple-500 to-pink-500',
+          !isPrimary && accentColor === 'orange' && 'bg-gradient-to-r from-orange-500 to-amber-500',
+          !isPrimary && accentColor === 'red' && 'bg-gradient-to-r from-red-500 to-rose-500',
         )}
-        initial={{ scaleX: 0 }}
-        animate={{ scaleX: isHovered ? 1 : 0 }}
+        initial={{ scaleX: isPrimary ? 1 : 0 }}
+        animate={{ scaleX: isPrimary || isHovered ? 1 : 0 }}
         transition={{ duration: 0.3 }}
         style={{ transformOrigin: 'left' }}
       />
+
+      {/* Primary KPI 배지 */}
+      {isPrimary && (
+        <div className="absolute top-2 right-2 px-2 py-0.5 bg-idus-500 text-white text-[10px] font-bold rounded-full shadow-sm">
+          핵심
+        </div>
+      )}
+
+      {/* 긴급 상태 표시 */}
+      {isUrgent && (
+        <div className="absolute top-2 right-2 flex items-center gap-1 px-2 py-0.5 bg-red-500 text-white text-[10px] font-bold rounded-full shadow-sm animate-pulse">
+          <span className="w-1.5 h-1.5 bg-white rounded-full"></span>
+          긴급
+        </div>
+      )}
     </motion.div>
   )
 })

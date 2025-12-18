@@ -1,6 +1,6 @@
 'use client'
 
-import React from 'react'
+import React, { memo, useCallback } from 'react'
 
 export interface CardProps {
   variant?: 'default' | 'elevated' | 'outlined' | 'filled' | 'interactive'
@@ -10,13 +10,13 @@ export interface CardProps {
   onClick?: () => void
 }
 
-export const Card: React.FC<CardProps> = ({
+export const Card = memo(function Card({
   variant = 'default',
   padding = 'md',
   className = '',
   children,
   onClick,
-}) => {
+}: CardProps) {
   const variants = {
     default: 'bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 shadow-sm hover:shadow-md',
     elevated: 'bg-white dark:bg-slate-900 shadow-lg hover:shadow-xl',
@@ -36,6 +36,12 @@ export const Card: React.FC<CardProps> = ({
     lg: 'p-6',
   }
 
+  const handleKeyDown = useCallback((e: React.KeyboardEvent) => {
+    if (onClick && e.key === 'Enter') {
+      onClick()
+    }
+  }, [onClick])
+
   return (
     <div
       className={`
@@ -47,12 +53,12 @@ export const Card: React.FC<CardProps> = ({
       onClick={onClick}
       role={onClick ? 'button' : undefined}
       tabIndex={onClick ? 0 : undefined}
-      onKeyDown={onClick ? (e) => e.key === 'Enter' && onClick() : undefined}
+      onKeyDown={onClick ? handleKeyDown : undefined}
     >
       {children}
     </div>
   )
-}
+})
 
 export interface CardHeaderProps {
   title: string
@@ -62,13 +68,14 @@ export interface CardHeaderProps {
   className?: string
 }
 
-export const CardHeader: React.FC<CardHeaderProps> = ({
+export const CardHeader = memo(function CardHeader({
   title,
   subtitle,
   icon,
   action,
   className = '',
-}) => (
+}: CardHeaderProps) {
+  return (
   <div className={`flex items-start justify-between gap-4 mb-4 ${className}`}>
     <div className="flex items-start gap-3">
       {icon && (
@@ -83,7 +90,8 @@ export const CardHeader: React.FC<CardHeaderProps> = ({
     </div>
     {action && <div className="flex-shrink-0">{action}</div>}
   </div>
-)
+  )
+})
 
 export interface CardFooterProps {
   children: React.ReactNode
@@ -91,20 +99,22 @@ export interface CardFooterProps {
   bordered?: boolean
 }
 
-export const CardFooter: React.FC<CardFooterProps> = ({
+export const CardFooter = memo(function CardFooter({
   children,
   className = '',
   bordered = true,
-}) => (
-  <div
-    className={`
-      mt-4 pt-4 flex items-center justify-end gap-2
-      ${bordered ? 'border-t border-slate-100 dark:border-slate-800' : ''}
-      ${className}
-    `}
-  >
-    {children}
-  </div>
-)
+}: CardFooterProps) {
+  return (
+    <div
+      className={`
+        mt-4 pt-4 flex items-center justify-end gap-2
+        ${bordered ? 'border-t border-slate-100 dark:border-slate-800' : ''}
+        ${className}
+      `}
+    >
+      {children}
+    </div>
+  )
+})
 
 export default Card

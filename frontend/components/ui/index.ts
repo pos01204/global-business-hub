@@ -141,3 +141,6 @@ export type { VirtualizedListProps } from './VirtualizedList'
 // Animated Empty State (Lottie 기반)
 export { AnimatedEmptyState } from './AnimatedEmptyState'
 export type { AnimatedEmptyStateProps } from './AnimatedEmptyState'
+
+// Collapsible Section (정보 밀도 조절)
+export { CollapsibleSection, DetailToggle } from './CollapsibleSection'

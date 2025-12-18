@@ -1102,3 +1102,519 @@ tbody tr:hover {
     right: 2rem;
   }
 }
+
+/* ===================================
+   Brand Extensions (2025-12-18)
+   idus 브랜드 에셋 활용 확장 스타일
+   =================================== */
+
+/* 데이터용 모노스페이스 폰트 */
+@import url('https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@400;500;600&display=swap');
+
+.font-mono-data {
+  font-family: 'JetBrains Mono', ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace;
+  font-feature-settings: 'tnum' 1; /* 고정폭 숫자 */
+  letter-spacing: -0.02em;
+}
+
+/* 숫자 강조 스타일 */
+.number-display {
+  font-family: 'JetBrains Mono', monospace;
+  font-weight: 600;
+  font-variant-numeric: tabular-nums;
+}
+
+/* ===================================
+   Brand Gradients
+   =================================== */
+.gradient-idus-warm {
+  background: linear-gradient(135deg, #F78C3A 0%, #FFB347 100%);
+}
+
+.gradient-idus-cool {
+  background: linear-gradient(135deg, #F78C3A 0%, #FF6B6B 100%);
+}
+
+.gradient-idus-soft {
+  background: linear-gradient(135deg, #FFF8F3 0%, #FFE4CC 100%);
+}
+
+.gradient-idus-dark {
+  background: linear-gradient(135deg, #E67729 0%, #C45A1A 100%);
+}
+
+.gradient-mesh {
+  background: 
+    radial-gradient(at 40% 20%, hsla(28, 100%, 60%, 0.3) 0px, transparent 50%),
+    radial-gradient(at 80% 0%, hsla(189, 100%, 56%, 0.2) 0px, transparent 50%),
+    radial-gradient(at 0% 50%, hsla(355, 100%, 93%, 0.3) 0px, transparent 50%);
+}
+
+.gradient-mesh-dark {
+  background: 
+    radial-gradient(at 40% 20%, hsla(28, 100%, 40%, 0.2) 0px, transparent 50%),
+    radial-gradient(at 80% 0%, hsla(189, 100%, 36%, 0.15) 0px, transparent 50%),
+    radial-gradient(at 0% 50%, hsla(355, 100%, 40%, 0.2) 0px, transparent 50%);
+}
+
+/* ===================================
+   Brand Pattern Backgrounds
+   =================================== */
+.bg-brand-pattern {
+  position: relative;
+}
+
+.bg-brand-pattern::before {
+  content: '';
+  position: absolute;
+  inset: 0;
+  background-image: url('/brand/Rebranding Design Resources/Rebranding Design Resources/07. Cover images/logo_pattern.jpg');
+  background-size: 200px;
+  background-repeat: repeat;
+  opacity: 0.03;
+  pointer-events: none;
+  z-index: 0;
+}
+
+.dark .bg-brand-pattern::before {
+  background-image: url('/brand/Rebranding Design Resources/Rebranding Design Resources/07. Cover images/logo_pattern-wh.jpg');
+  opacity: 0.02;
+}
+
+.bg-brand-pattern-soft::before {
+  opacity: 0.015;
+}
+
+/* ===================================
+   Brand Card Decorations
+   =================================== */
+.card-brand-corner {
+  position: relative;
+  overflow: hidden;
+}
+
+.card-brand-corner::after {
+  content: '';
+  position: absolute;
+  top: -30px;
+  right: -30px;
+  width: 100px;
+  height: 100px;
+  background: linear-gradient(135deg, transparent 50%, rgba(247, 140, 58, 0.08) 50%);
+  border-radius: 50%;
+  pointer-events: none;
+}
+
+.dark .card-brand-corner::after {
+  background: linear-gradient(135deg, transparent 50%, rgba(247, 140, 58, 0.05) 50%);
+}
+
+/* ===================================
+   Brand KPI Highlight
+   =================================== */
+.kpi-highlight-positive {
+  color: var(--success-color);
+  background: linear-gradient(90deg, transparent 0%, var(--success-light) 100%);
+  padding: 0.125rem 0.5rem;
+  border-radius: var(--radius-sm);
+}
+
+.kpi-highlight-negative {
+  color: var(--danger-color);
+  background: linear-gradient(90deg, transparent 0%, var(--danger-light) 100%);
+  padding: 0.125rem 0.5rem;
+  border-radius: var(--radius-sm);
+}
+
+.kpi-highlight-neutral {
+  color: var(--text-muted-color);
+  background: linear-gradient(90deg, transparent 0%, var(--hover-color) 100%);
+  padding: 0.125rem 0.5rem;
+  border-radius: var(--radius-sm);
+}
+
+/* ===================================
+   Brand Animation Classes
+   =================================== */
+.animate-brand-pulse {
+  animation: brandPulse 2s ease-in-out infinite;
+}
+
+@keyframes brandPulse {
+  0%, 100% {
+    box-shadow: 0 0 0 0 rgba(247, 140, 58, 0.4);
+  }
+  50% {
+    box-shadow: 0 0 0 8px rgba(247, 140, 58, 0);
+  }
+}
+
+.animate-brand-glow {
+  animation: brandGlow 3s ease-in-out infinite;
+}
+
+@keyframes brandGlow {
+  0%, 100% {
+    filter: drop-shadow(0 0 2px rgba(247, 140, 58, 0.3));
+  }
+  50% {
+    filter: drop-shadow(0 0 8px rgba(247, 140, 58, 0.5));
+  }
+}
+
+.animate-float {
+  animation: float 6s ease-in-out infinite;
+}
+
+@keyframes float {
+  0%, 100% {
+    transform: translateY(0);
+  }
+  50% {
+    transform: translateY(-10px);
+  }
+}
+
+/* ===================================
+   Brand Hover Effects
+   =================================== */
+.hover-brand-lift {
+  transition: all var(--transition-normal);
+}
+
+.hover-brand-lift:hover {
+  transform: translateY(-4px);
+  box-shadow: 0 12px 24px rgba(247, 140, 58, 0.15);
+}
+
+.hover-brand-glow {
+  transition: all var(--transition-normal);
+}
+
+.hover-brand-glow:hover {
+  box-shadow: 0 0 20px rgba(247, 140, 58, 0.25);
+}
+
+.hover-brand-scale {
+  transition: all var(--transition-normal);
+}
+
+.hover-brand-scale:hover {
+  transform: scale(1.02);
+}
+
+/* ===================================
+   Brand Text Styles
+   =================================== */
+.text-brand-gradient {
+  background: linear-gradient(135deg, #F78C3A 0%, #E67729 100%);
+  -webkit-background-clip: text;
+  -webkit-text-fill-color: transparent;
+  background-clip: text;
+}
+
+.text-brand-highlight {
+  position: relative;
+  display: inline-block;
+}
+
+.text-brand-highlight::after {
+  content: '';
+  position: absolute;
+  bottom: 0;
+  left: 0;
+  right: 0;
+  height: 30%;
+  background: rgba(247, 140, 58, 0.2);
+  z-index: -1;
+}
+
+/* ===================================
+   Brand Border Styles
+   =================================== */
+.border-brand-accent {
+  border-left: 3px solid var(--idus-orange);
+}
+
+.border-brand-top {
+  border-top: 3px solid var(--idus-orange);
+}
+
+.border-brand-gradient {
+  border-image: linear-gradient(90deg, var(--idus-orange), var(--idus-orange-dark)) 1;
+}
+
+/* ===================================
+   Brand Status Indicators
+   =================================== */
+.status-brand-success {
+  background: linear-gradient(90deg, var(--success-light) 0%, transparent 100%);
+  border-left: 3px solid var(--success-color);
+}
+
+.status-brand-warning {
+  background: linear-gradient(90deg, var(--warning-light) 0%, transparent 100%);
+  border-left: 3px solid var(--warning-color);
+}
+
+.status-brand-danger {
+  background: linear-gradient(90deg, var(--danger-light) 0%, transparent 100%);
+  border-left: 3px solid var(--danger-color);
+}
+
+.status-brand-info {
+  background: linear-gradient(90deg, var(--info-light) 0%, transparent 100%);
+  border-left: 3px solid var(--info-color);
+}
+
+/* ===================================
+   Brand Loading Skeleton
+   =================================== */
+.skeleton-brand {
+  background: linear-gradient(
+    90deg,
+    var(--background-alt-color) 0%,
+    rgba(247, 140, 58, 0.05) 50%,
+    var(--background-alt-color) 100%
+  );
+  background-size: 200% 100%;
+  animation: skeletonBrand 1.5s ease-in-out infinite;
+}
+
+@keyframes skeletonBrand {
+  0% {
+    background-position: 200% 0;
+  }
+  100% {
+    background-position: -200% 0;
+  }
+}
+
+/* ===================================
+   Brand Scrollbar (Webkit)
+   =================================== */
+.scrollbar-brand::-webkit-scrollbar {
+  width: 6px;
+  height: 6px;
+}
+
+.scrollbar-brand::-webkit-scrollbar-track {
+  background: var(--background-alt-color);
+  border-radius: 3px;
+}
+
+.scrollbar-brand::-webkit-scrollbar-thumb {
+  background: rgba(247, 140, 58, 0.3);
+  border-radius: 3px;
+}
+
+.scrollbar-brand::-webkit-scrollbar-thumb:hover {
+  background: rgba(247, 140, 58, 0.5);
+}
+
+/* ===================================
+   Brand Focus Ring
+   =================================== */
+.focus-brand:focus {
+  outline: none;
+  box-shadow: 0 0 0 3px rgba(247, 140, 58, 0.3);
+}
+
+.focus-brand:focus-visible {
+  outline: 2px solid var(--idus-orange);
+  outline-offset: 2px;
+}
+
+/* ===================================
+   Urgent Pulse Animation (시선 정지점)
+   =================================== */
+@keyframes pulseUrgent {
+  0%, 100% {
+    box-shadow: 0 0 0 0 rgba(239, 68, 68, 0.4), 0 4px 12px rgba(0, 0, 0, 0.08);
+  }
+  50% {
+    box-shadow: 0 0 0 8px rgba(239, 68, 68, 0), 0 4px 12px rgba(0, 0, 0, 0.08);
+  }
+}
+
+.animate-pulse-urgent {
+  animation: pulseUrgent 2s ease-in-out infinite;
+}
+
+/* ===================================
+   Skip Link (접근성)
+   =================================== */
+.skip-link {
+  position: absolute;
+  top: -100%;
+  left: 50%;
+  transform: translateX(-50%);
+  padding: 0.75rem 1.5rem;
+  background: var(--idus-orange);
+  color: white;
+  font-weight: 600;
+  font-size: 0.875rem;
+  border-radius: var(--radius-lg);
+  z-index: 9999;
+  transition: top 0.2s ease;
+  text-decoration: none;
+  box-shadow: var(--shadow-lg);
+}
+
+.skip-link:focus {
+  top: 1rem;
+  outline: 2px solid white;
+  outline-offset: 2px;
+}
+
+/* ===================================
+   Keyboard Navigation Focus Styles
+   =================================== */
+*:focus-visible {
+  outline: 2px solid var(--idus-orange);
+  outline-offset: 2px;
+}
+
+/* Interactive elements focus */
+button:focus-visible,
+a:focus-visible,
+input:focus-visible,
+select:focus-visible,
+textarea:focus-visible {
+  outline: 2px solid var(--idus-orange);
+  outline-offset: 2px;
+  box-shadow: 0 0 0 4px rgba(247, 140, 58, 0.15);
+}
+
+/* Card focus for keyboard navigation */
+[role="article"]:focus-visible,
+[role="button"]:focus-visible {
+  outline: 2px solid var(--idus-orange);
+  outline-offset: 2px;
+  box-shadow: 0 0 0 4px rgba(247, 140, 58, 0.15);
+}
+
+/* ===================================
+   Visual Hierarchy Enhancements
+   =================================== */
+/* Primary card shadow (더 강한 그림자) */
+.shadow-primary {
+  box-shadow: 0 8px 24px rgba(247, 140, 58, 0.15), 0 4px 12px rgba(0, 0, 0, 0.08);
+}
+
+/* Secondary card shadow (표준 그림자) */
+.shadow-secondary {
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.06);
+}
+
+/* Tertiary card shadow (미니멀 그림자) */
+.shadow-tertiary {
+  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.04);
+}
+
+/* ===================================
+   Button Hierarchy Styles
+   =================================== */
+/* Primary Action Button */
+.btn-primary-action {
+  background: linear-gradient(135deg, var(--idus-orange) 0%, var(--idus-orange-dark) 100%);
+  color: white;
+  font-weight: 600;
+  padding: 0.75rem 1.5rem;
+  border-radius: var(--radius-lg);
+  box-shadow: 0 4px 12px rgba(247, 140, 58, 0.3);
+  transition: all var(--transition-normal);
+}
+
+.btn-primary-action:hover {
+  transform: translateY(-2px);
+  box-shadow: 0 6px 16px rgba(247, 140, 58, 0.4);
+}
+
+.btn-primary-action:active {
+  transform: translateY(0);
+}
+
+/* Secondary Action Button */
+.btn-secondary-action {
+  background: var(--card-background-color);
+  color: var(--text-color);
+  font-weight: 500;
+  padding: 0.625rem 1.25rem;
+  border: 1px solid var(--border-color);
+  border-radius: var(--radius-md);
+  transition: all var(--transition-normal);
+}
+
+.btn-secondary-action:hover {
+  background: var(--hover-color);
+  border-color: var(--border-focus);
+}
+
+/* Tertiary Action Button (링크 스타일) */
+.btn-tertiary-action {
+  background: transparent;
+  color: var(--idus-orange);
+  font-weight: 500;
+  padding: 0.5rem 1rem;
+  border-radius: var(--radius-sm);
+  transition: all var(--transition-fast);
+}
+
+.btn-tertiary-action:hover {
+  background: var(--idus-orange-light);
+}
+
+/* Dark mode button styles */
+.dark .btn-secondary-action {
+  background: var(--card-background-color);
+  border-color: var(--border-color);
+}
+
+.dark .btn-secondary-action:hover {
+  background: var(--hover-color);
+}
+
+.dark .btn-tertiary-action:hover {
+  background: rgba(247, 140, 58, 0.1);
+}
+
+/* ===================================
+   Information Density Controls
+   =================================== */
+/* Collapsible section */
+.collapsible-section {
+  overflow: hidden;
+  transition: max-height 0.3s ease-out;
+}
+
+.collapsible-section.collapsed {
+  max-height: 0;
+}
+
+/* Detail toggle button */
+.detail-toggle {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  padding: 0.5rem 0.75rem;
+  font-size: 0.75rem;
+  color: var(--text-muted-color);
+  background: var(--background-alt-color);
+  border-radius: var(--radius-sm);
+  cursor: pointer;
+  transition: all var(--transition-fast);
+}
+
+.detail-toggle:hover {
+  color: var(--text-color);
+  background: var(--hover-color);
+}
+
+.detail-toggle svg {
+  transition: transform 0.2s ease;
+}
+
+.detail-toggle.expanded svg {
+  transform: rotate(180deg);
+}

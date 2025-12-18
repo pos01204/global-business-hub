@@ -1,9 +1,9 @@
 # 📚 Global Business Hub 통합 데이터 Context 및 규칙 문서
 
-> **문서 버전**: 2.0  
+> **문서 버전**: 3.0  
 > **작성일**: 2024-12-17  
-> **최종 수정일**: 2024-12-17  
-> **목적**: 프로젝트 전체에서 일관된 데이터 정의, 가공, 분석 규칙을 수립하고, 모든 페이지에서 준수해야 할 공통 규칙을 정의
+> **최종 수정일**: 2024-12-18  
+> **목적**: 프로젝트 전체에서 일관된 데이터 정의, 가공, 분석 규칙을 수립하고, 모든 페이지에서 준수해야 할 공통 규칙을 정의. UI/UX 컴포넌트 및 외부 라이브러리 활용 규칙 포함.
 
 ---
 
@@ -946,6 +946,269 @@ interface PaginatedResponse<T> {
 
 ---
 
+### 3.9 UI 컴포넌트 표준 🆕
+
+> **목적**: 허브 전체에서 일관된 UI 컴포넌트 사용을 위한 표준 정의
+
+#### 📌 공통 UI 컴포넌트 목록
+
+| 컴포넌트 | 파일 경로 | 용도 | 외부 라이브러리 |
+|---------|----------|------|---------------|
+| `DataTable` | `components/ui/DataTable.tsx` | 고급 테이블 (정렬, 검색, 페이지네이션) | `@tanstack/react-table` |
+| `VirtualizedList` | `components/ui/VirtualizedList.tsx` | 대용량 리스트 가상화 스크롤 | `@tanstack/react-virtual` |
+| `DateRangePicker` | `components/ui/DateRangePicker.tsx` | 날짜 범위 선택 | `react-day-picker` |
+| `RichTooltip` | `components/ui/RichTooltip.tsx` | 향상된 툴팁 (KPI, 상태 정보) | `@floating-ui/react` |
+| `AnimatedEmptyState` | `components/ui/AnimatedEmptyState.tsx` | 빈 상태 디자인 (애니메이션) | `lottie-react` |
+| `EnhancedKPICard` | `components/ui/EnhancedKPICard.tsx` | KPI 카드 (호버 효과 포함) | `framer-motion` |
+
+#### 📌 차트 컴포넌트 목록
+
+| 컴포넌트 | 파일 경로 | 용도 | 외부 라이브러리 |
+|---------|----------|------|---------------|
+| `TremorKPICard` | `components/charts/TremorCharts.tsx` | Tremor 기반 KPI 카드 | `@tremor/react` |
+| `CountryGMVMap` | `components/charts/GeoMap.tsx` | 국가별 GMV 지도 시각화 | `react-simple-maps` |
+| `PipelineSankey` | `components/charts/NivoCharts.tsx` | Sankey 다이어그램 | `@nivo/sankey` |
+| `CustomChartTooltip` | `components/charts/ChartTooltip.tsx` | 차트 커스텀 툴팁 | `recharts` |
+
+---
+
+### 3.10 외부 라이브러리 활용 규칙 🆕
+
+#### 📌 승인된 외부 라이브러리 목록
+
+```typescript
+// frontend/package.json - 승인된 UI/차트 라이브러리
+
+// 차트 라이브러리
+"@tremor/react": "^3.x"           // KPI 카드, 기본 차트
+"recharts": "^2.x"               // 메인 차트 라이브러리
+"@nivo/core": "^0.87.x"          // 고급 차트 (Sankey, Calendar 등)
+"react-simple-maps": "^3.x"      // 지도 시각화
+
+// 테이블/리스트
+"@tanstack/react-table": "^8.x"  // 고급 테이블
+"@tanstack/react-virtual": "^3.x" // 가상화 스크롤
+
+// UI 인터랙션
+"@floating-ui/react": "^0.26.x"  // 툴팁 포지셔닝
+"react-day-picker": "^9.x"       // 날짜 선택
+"sonner": "^1.x"                 // 토스트 알림
+"lottie-react": "^2.x"           // Lottie 애니메이션
+"framer-motion": "^11.x"         // 애니메이션
+```
+
+#### 📌 라이브러리 선택 기준
+
+| 기능 | 우선 사용 | 대안 | 비고 |
+|------|----------|------|------|
+| **기본 차트** | Recharts | Tremor | 기존 코드 호환성 |
+| **KPI 카드** | Tremor | EnhancedKPICard | Tremor 우선 권장 |
+| **테이블** | TanStack Table | AG Grid | TanStack 우선 (경량) |
+| **지도** | react-simple-maps | - | 유일 옵션 |
+| **토스트** | sonner | - | 기존 alert/confirm 대체 |
+
+---
+
+### 3.11 호버 효과 및 인터랙션 규칙 🆕
+
+#### 📌 공통 호버 효과 유틸리티
+
+```typescript
+// lib/hover-effects.ts - 전역 호버 효과 정의
+
+export const hoverEffects = {
+  // 카드 호버 (KPI, 통계 카드)
+  card: 'transition-all duration-200 hover:shadow-lg hover:-translate-y-0.5',
+  
+  // KPI 카드 전용
+  kpiCard: 'transition-all duration-300 hover:shadow-xl hover:-translate-y-1 hover:border-indigo-200',
+  
+  // 버튼 호버
+  button: 'transition-all duration-150 hover:scale-105 active:scale-95',
+  
+  // 테이블 행 호버
+  tableRow: 'transition-colors duration-150 hover:bg-slate-50 dark:hover:bg-slate-800/50',
+  
+  // 아이콘 버튼
+  iconButton: 'transition-all duration-150 hover:bg-slate-100 dark:hover:bg-slate-700 rounded-lg p-1.5',
+  
+  // 네비게이션 링크
+  navLink: 'transition-colors duration-150 hover:text-indigo-600 dark:hover:text-indigo-400',
+  
+  // 탭
+  tab: 'transition-all duration-200 hover:bg-slate-100 dark:hover:bg-slate-700',
+}
+```
+
+#### 📌 사용 예시
+
+```tsx
+import { hoverEffects } from '@/lib/hover-effects'
+
+// KPI 카드에 적용
+<motion.div className={cn('card', hoverEffects.kpiCard)}>
+  ...
+</motion.div>
+
+// 테이블 행에 적용
+<tr className={hoverEffects.tableRow}>
+  ...
+</tr>
+```
+
+---
+
+### 3.12 토스트 알림 규칙 🆕
+
+#### 📌 토스트 사용 표준
+
+```typescript
+// lib/toast.ts - sonner 기반 토스트 유틸리티
+
+import { toast } from 'sonner'
+
+export const showToast = {
+  success: (message: string) => toast.success(message),
+  error: (message: string) => toast.error(message),
+  warning: (message: string) => toast.warning(message),
+  info: (message: string) => toast.info(message),
+  loading: (message: string) => toast.loading(message),
+  promise: <T>(promise: Promise<T>, messages: {
+    loading: string
+    success: string
+    error: string
+  }) => toast.promise(promise, messages),
+  dismiss: (id?: string | number) => toast.dismiss(id),
+}
+```
+
+#### 📌 기존 alert/confirm 대체 규칙
+
+| 기존 패턴 | 새로운 패턴 | 비고 |
+|----------|------------|------|
+| `alert('저장되었습니다')` | `showToast.success('저장되었습니다')` | ✅ 권장 |
+| `alert('오류가 발생했습니다')` | `showToast.error('오류가 발생했습니다')` | ✅ 권장 |
+| `confirm('삭제하시겠습니까?')` | `showToast.promise(deleteAction(), {...})` | ✅ 권장 |
+
+#### 📌 Toaster 설정 (providers.tsx)
+
+```tsx
+// app/providers.tsx
+import { Toaster } from 'sonner'
+
+export function Providers({ children }: { children: React.ReactNode }) {
+  return (
+    <QueryClientProvider client={queryClient}>
+      {children}
+      <Toaster 
+        position="top-right"
+        richColors
+        closeButton
+        duration={3000}
+      />
+    </QueryClientProvider>
+  )
+}
+```
+
+---
+
+### 3.13 빈 상태(Empty State) 규칙 🆕
+
+#### 📌 AnimatedEmptyState 컴포넌트 사용
+
+```tsx
+// components/ui/AnimatedEmptyState.tsx
+
+interface AnimatedEmptyStateProps {
+  type: 'search' | 'data' | 'error' | 'filter' | 'chart' | 'customer' | 'product'
+  title: string
+  description?: string
+  action?: {
+    label: string
+    onClick: () => void
+  }
+}
+
+// 사용 예시
+<AnimatedEmptyState
+  type="search"
+  title="검색 결과가 없습니다"
+  description="다른 검색어를 입력해보세요"
+  action={{
+    label: "검색 초기화",
+    onClick: () => setSearchTerm('')
+  }}
+/>
+```
+
+#### 📌 타입별 용도
+
+| 타입 | 용도 | 애니메이션 |
+|------|------|-----------|
+| `search` | 검색 결과 없음 | 검색 아이콘 |
+| `data` | 데이터 없음 | 빈 폴더 |
+| `error` | 오류 발생 | 경고 아이콘 |
+| `filter` | 필터 결과 없음 | 필터 아이콘 |
+| `chart` | 차트 데이터 없음 | 차트 아이콘 |
+| `customer` | 고객 없음 | 사용자 아이콘 |
+| `product` | 상품 없음 | 상품 아이콘 |
+
+---
+
+### 3.14 지도 시각화 규칙 🆕
+
+#### 📌 국가 코드 매핑 규칙
+
+> **중요**: Analytics API의 지역 분석(country)은 **ISO 2자리 코드**(JP, US 등)를 사용하고,
+> `react-simple-maps`의 GeoJSON은 **ISO 3자리 코드**(JPN, USA 등)를 사용합니다.
+
+```typescript
+// components/charts/GeoMap.tsx - 국가 코드 매핑
+
+export const countryCodeMap: Record<string, { iso: string; lat: number; lng: number }> = {
+  // ISO 2자리 → ISO 3자리 + 좌표
+  JP: { iso: 'JPN', lat: 36.2048, lng: 138.2529 },
+  US: { iso: 'USA', lat: 37.0902, lng: -95.7129 },
+  TW: { iso: 'TWN', lat: 23.6978, lng: 120.9605 },
+  SG: { iso: 'SGP', lat: 1.3521, lng: 103.8198 },
+  HK: { iso: 'HKG', lat: 22.3193, lng: 114.1694 },
+  TH: { iso: 'THA', lat: 15.87, lng: 100.9925 },
+  MY: { iso: 'MYS', lat: 4.2105, lng: 101.9758 },
+  VN: { iso: 'VNM', lat: 14.0583, lng: 108.2772 },
+  AU: { iso: 'AUS', lat: -25.2744, lng: 133.7751 },
+  DE: { iso: 'DEU', lat: 51.1657, lng: 10.4515 },
+  // ... 기타 국가
+}
+```
+
+#### 📌 CountryGMVMap 사용 규칙
+
+```tsx
+// Analytics 지역 분석에서 사용
+import { CountryGMVMap, convertToCountryData } from '@/components/charts'
+
+// ✅ 올바른 사용 - totalSalesInKrw를 value로 명시적 매핑
+<CountryGMVMap
+  data={convertToCountryData(
+    data.regionalPerformance.map((r: any) => ({
+      country: r.country,              // ISO 2자리 코드 (예: JP, US)
+      value: r.totalSalesInKrw as number,  // KRW 기준 매출
+    }))
+  )}
+  height={400}
+  showLegend={true}
+/>
+
+// ❌ 잘못된 사용 - API 응답 직접 전달 (value 필드 누락)
+<CountryGMVMap
+  data={convertToCountryData(data.regionalPerformance)}  // value가 undefined
+  ...
+/>
+```
+
+---
+
 ## 4. 페이지별 데이터 활용 상세 진단 및 평가 🆕
 
 ### 4.1 페이지별 데이터 활용 현황 매트릭스
@@ -1000,6 +1263,7 @@ interface PaginatedResponse<T> {
 | **문제점** | 1. `formatCurrency`, `formatChange` 로컬 정의 (중복)<br>2. 활동 상태 기준일 하드코딩 (`90일`, `180일`)<br>3. 많은 탭으로 인한 데이터 로딩 복잡성 |
 | **개선 필요** | 공통 유틸리티 사용, 비즈니스 규칙 상수화 |
 | **활용 확대 제안** | 리뷰 데이터 연동 (NPS 지표), 작가별 품질 점수 |
+| **2024-12 업데이트** | ✅ `CountryGMVMap` 지도 시각화 추가 (지역 분석 탭), ISO 2→3자리 국가 코드 매핑 적용, `convertToCountryData` 유틸리티 사용 |
 
 ---
 
@@ -1012,6 +1276,7 @@ interface PaginatedResponse<T> {
 | **문제점** | 1. `STAGE_META`에 기준일 하드코딩 (`7, 5, 2, 3, 14일`)<br>2. Order-shipment status 규칙과 코드 간 동기화 필요 |
 | **개선 필요** | 비즈니스 규칙 상수화 |
 | **평가** | ✅ 물류 데이터 활용 최적화됨. 데이터 활용도 **최고 수준** |
+| **2024-12 업데이트** | ✅ Sankey 다이어그램 제거 (UX 개선), 카드 기반 파이프라인 상세 뷰 유지, `showToast` 알림 적용 |
 
 ---
 
@@ -2039,7 +2304,95 @@ const calculateNPS = (reviews: Review[]) => {
 
 ---
 
-### 7.E. 데이터 아키텍처 권고사항
+### 7.E. 승인된 외부 라이브러리 목록 🆕
+
+> **업데이트**: 2024-12-18
+> **목적**: 허브에서 사용 승인된 외부 라이브러리 및 의존성 목록
+
+#### 📦 차트/시각화 라이브러리
+
+| 패키지명 | 버전 | 용도 | 적용 페이지 |
+|---------|------|------|-----------|
+| `recharts` | ^2.x | 메인 차트 라이브러리 (Line, Bar, Pie 등) | Dashboard, Analytics, Artist Analytics |
+| `@tremor/react` | ^3.x | KPI 카드, 진행 바, 기본 차트 | Dashboard |
+| `@nivo/core` | ^0.87.x | 고급 차트 베이스 | Business Brain |
+| `@nivo/sankey` | ^0.87.x | Sankey 다이어그램 | (제거됨) |
+| `@nivo/calendar` | ^0.87.x | 캘린더 히트맵 | Marketer |
+| `@nivo/heatmap` | ^0.87.x | 히트맵 | Customer Analytics |
+| `react-simple-maps` | ^3.x | 국가별 GMV 지도 | Analytics (지역 분석) |
+| `chart.js` | ^4.x | 레거시 차트 (유지) | Cost Analysis, Settlement |
+
+#### 📦 테이블/리스트 라이브러리
+
+| 패키지명 | 버전 | 용도 | 적용 페이지 |
+|---------|------|------|-----------|
+| `@tanstack/react-table` | ^8.x | 고급 테이블 (정렬, 필터, 페이지네이션) | QC, Artist Analytics, Customer Analytics |
+| `@tanstack/react-virtual` | ^3.x | 대용량 리스트 가상화 | Customer 360, Customer Analytics |
+| `ag-grid-react` | ^32.x | 엔터프라이즈 그리드 (대안) | 선택적 사용 |
+
+#### 📦 UI 인터랙션 라이브러리
+
+| 패키지명 | 버전 | 용도 | 적용 페이지 |
+|---------|------|------|-----------|
+| `@floating-ui/react` | ^0.26.x | 툴팁 포지셔닝 | 전역 (RichTooltip) |
+| `react-day-picker` | ^9.x | 날짜 범위 선택 | Review Analytics, Coupon Analytics, Order Patterns |
+| `sonner` | ^1.x | 토스트 알림 | 전역 (alert/confirm 대체) |
+| `lottie-react` | ^2.x | Lottie 애니메이션 | 전역 (AnimatedEmptyState) |
+| `framer-motion` | ^11.x | 애니메이션 | EnhancedKPICard, 전환 효과 |
+
+#### 📦 유틸리티 라이브러리
+
+| 패키지명 | 버전 | 용도 | 비고 |
+|---------|------|------|------|
+| `@tanstack/react-query` | ^5.x | 데이터 페칭/캐싱 | 전역 |
+| `axios` | ^1.x | HTTP 클라이언트 | API 통신 |
+| `d3-scale` | ^4.x | 스케일 함수 | GeoMap 색상 스케일 |
+| `date-fns` | ^3.x | 날짜 유틸리티 | 전역 |
+
+---
+
+### 7.F. UI 컴포넌트 파일 구조 🆕
+
+> **업데이트**: 2024-12-18
+
+```
+frontend/
+├── components/
+│   ├── ui/
+│   │   ├── DataTable.tsx           # TanStack Table 래퍼
+│   │   ├── VirtualizedList.tsx     # 가상화 리스트
+│   │   ├── DateRangePicker.tsx     # 날짜 범위 선택
+│   │   ├── RichTooltip.tsx         # 향상된 툴팁
+│   │   ├── AnimatedEmptyState.tsx  # 빈 상태 (Lottie)
+│   │   ├── EnhancedKPICard.tsx     # KPI 카드
+│   │   ├── Tooltip.tsx             # 기본 툴팁
+│   │   └── index.ts                # 컴포넌트 export
+│   │
+│   └── charts/
+│       ├── TremorCharts.tsx        # Tremor 기반 차트
+│       ├── NivoCharts.tsx          # Nivo 기반 차트
+│       ├── GeoMap.tsx              # 지도 시각화
+│       ├── ChartTooltip.tsx        # 차트 커스텀 툴팁
+│       ├── GMVTrendChart.tsx       # GMV 트렌드
+│       └── index.ts                # 차트 export
+│
+├── lib/
+│   ├── hover-effects.ts            # 호버 효과 유틸리티
+│   ├── toast.ts                    # sonner 토스트 래퍼
+│   ├── formatters.ts               # 포맷팅 함수
+│   └── utils.ts                    # 공통 유틸리티
+│
+└── public/
+    └── animations/                 # Lottie JSON 파일
+        ├── empty-search.json
+        ├── empty-data.json
+        ├── error.json
+        └── ...
+```
+
+---
+
+### 7.G. 데이터 아키텍처 권고사항
 
 #### 1. 데이터 정규화 개선
 
@@ -2080,20 +2433,35 @@ const calculateNPS = (reviews: Review[]) => {
 | **고객 활동 기준** | 90일/180일 | 🟡 설정 가능 |
 | **물류 위험 기준** | 7/5/2/3/14일 | 🟡 설정 가능 |
 
+### 🎨 UI/UX 규칙 체크리스트 🆕
+
+| 규칙 | 상세 | 필수 여부 |
+|------|------|:--------:|
+| **토스트 알림** | `showToast.success/error()` 사용, alert/confirm 금지 | ✅ 필수 |
+| **호버 효과** | `hoverEffects.*` 유틸리티 사용 | ✅ 필수 |
+| **빈 상태** | `AnimatedEmptyState` 컴포넌트 사용 | ✅ 필수 |
+| **테이블** | `DataTable` (TanStack Table) 사용 | 🟡 권장 |
+| **날짜 선택** | `DateRangePicker` 컴포넌트 사용 | 🟡 권장 |
+| **지도 시각화** | `CountryGMVMap` + `convertToCountryData` 사용 | 🟡 권장 |
+| **차트 툴팁** | `CustomChartTooltip` 컴포넌트 사용 | 🟡 권장 |
+
 ### 📊 데이터 활용 현황 요약
 
 | 구분 | 점수 | 상태 |
 |------|:----:|:----:|
 | **핵심 데이터 (Order/Logistics)** | 88% | 🟢 양호 |
 | **부가 데이터 (Review/User_locale)** | 25% | 🔴 개선 필요 |
-| **코드 일관성** | 60% | 🟡 통합 필요 |
+| **코드 일관성** | 75% | 🟢 개선됨 (v3.0) |
+| **UI 컴포넌트 통일** | 80% | 🟢 개선됨 (v3.0) |
 
 ### 🚀 즉시 실행 항목 (P0)
 
-1. `lib/formatters.ts` 공통 포맷팅 함수 통합
-2. `config/constants.ts` 환율/상수 중앙화
+1. ~~`lib/formatters.ts` 공통 포맷팅 함수 통합~~ ✅ 완료
+2. ~~`config/constants.ts` 환율/상수 중앙화~~ ✅ 완료
 3. Dashboard 하드코딩 값 제거 (신규 고객, 배송 완료율)
 4. Reviews 페이지 NPS 지표 추가
+5. ~~`showToast`로 alert/confirm 대체~~ ✅ 완료 (v3.0)
+6. ~~`AnimatedEmptyState` 전역 적용~~ ✅ 완료 (v3.0)
 
 ### 📈 예상 효과
 
@@ -2103,6 +2471,8 @@ const calculateNPS = (reviews: Review[]) => {
 | Review 분석 추가 | 고객 만족도 가시화, **NPS 지표 확보** |
 | 환율 중앙화 | 금액 불일치 방지, **데이터 신뢰성 향상** |
 | 데이터 캐싱 표준화 | API 응답 속도 **30% 개선** |
+| UI 컴포넌트 통일 (v3.0) | **UX 일관성 향상**, 개발 생산성 증가 |
+| 토스트 알림 도입 (v3.0) | **사용자 피드백 개선**, 비차단 알림 |
 
 ---
 
@@ -2112,12 +2482,13 @@ const calculateNPS = (reviews: Review[]) => {
 |:----:|:----:|----------|--------|
 | 1.0 | 2024-12-17 | 초기 문서 작성 | AI 자동화팀 |
 | 2.0 | 2024-12-17 | 공통 규칙 기반 추가, 페이지별 진단 상세화, 허브 개선 로드맵 추가 | AI 자동화팀 |
+| 3.0 | 2024-12-18 | UI/UX 고도화 규칙 추가 (섹션 3.9~3.14), 외부 라이브러리 목록 추가 (7.E, 7.F), 페이지별 진단 업데이트 (Control Tower Sankey 제거, Analytics GeoMap 추가) | AI 자동화팀 |
 
 ---
 
 > **문서 관리자**: AI 자동화팀  
-> **최종 업데이트**: 2024-12-17 (v2.0 - 공통 규칙 기반 및 허브 개선 로드맵 추가)  
+> **최종 업데이트**: 2024-12-18 (v3.0 - UI/UX 고도화 규칙 및 외부 라이브러리 목록 추가)  
 > **데이터 소스**: `[GB] 대시보드 제작` Google Sheets (14개 시트, ~176,000건 데이터)  
-> **다음 리뷰 예정일**: 2025-01-17  
+> **다음 리뷰 예정일**: 2025-01-18  
 > **문서 경로**: `docs/통합_데이터_Context_및_규칙_문서.md`
 

@@ -1,6 +1,8 @@
 'use client'
 
 import React, { createContext, useContext, useState, useCallback } from 'react'
+import Image from 'next/image'
+import { BRAND_ASSETS } from '@/lib/brand-assets'
 
 export type ToastType = 'success' | 'error' | 'warning' | 'info'
 
@@ -10,6 +12,8 @@ export interface ToastOptions {
   description?: string
   duration?: number
   action?: { label: string; onClick: () => void }
+  /** 브랜드 이모션 아이콘 사용 여부 */
+  useBrandIcon?: boolean
 }
 
 interface ToastItem extends ToastOptions {
@@ -20,10 +24,10 @@ interface ToastContextType {
   toasts: ToastItem[]
   addToast: (options: ToastOptions) => void
   removeToast: (id: string) => void
-  success: (title: string, description?: string) => void
-  error: (title: string, description?: string) => void
-  warning: (title: string, description?: string) => void
-  info: (title: string, description?: string) => void
+  success: (title: string, description?: string, useBrandIcon?: boolean) => void
+  error: (title: string, description?: string, useBrandIcon?: boolean) => void
+  warning: (title: string, description?: string, useBrandIcon?: boolean) => void
+  info: (title: string, description?: string, useBrandIcon?: boolean) => void
 }
 
 const ToastContext = createContext<ToastContextType | undefined>(undefined)
@@ -54,20 +58,20 @@ export const ToastProvider: React.FC<{ children: React.ReactNode }> = ({ childre
     }
   }, [removeToast])
 
-  const success = useCallback((title: string, description?: string) => {
-    addToast({ type: 'success', title, description })
+  const success = useCallback((title: string, description?: string, useBrandIcon?: boolean) => {
+    addToast({ type: 'success', title, description, useBrandIcon })
   }, [addToast])
 
-  const error = useCallback((title: string, description?: string) => {
-    addToast({ type: 'error', title, description })
+  const error = useCallback((title: string, description?: string, useBrandIcon?: boolean) => {
+    addToast({ type: 'error', title, description, useBrandIcon })
   }, [addToast])
 
-  const warning = useCallback((title: string, description?: string) => {
-    addToast({ type: 'warning', title, description })
+  const warning = useCallback((title: string, description?: string, useBrandIcon?: boolean) => {
+    addToast({ type: 'warning', title, description, useBrandIcon })
   }, [addToast])
 
-  const info = useCallback((title: string, description?: string) => {
-    addToast({ type: 'info', title, description })
+  const info = useCallback((title: string, description?: string, useBrandIcon?: boolean) => {
+    addToast({ type: 'info', title, description, useBrandIcon })
   }, [addToast])
 
   return (
@@ -89,7 +93,7 @@ const ToastContainer: React.FC<ToastContainerProps> = ({ toasts, onRemove }) => 
   return (
     <div className="fixed bottom-20 lg:bottom-4 right-4 left-4 lg:left-auto z-[100] flex flex-col gap-2 max-w-sm w-auto lg:w-full pointer-events-none">
       {toasts.map((toast) => (
-        <ToastItem key={toast.id} toast={toast} onRemove={onRemove} />
+        <ToastItemComponent key={toast.id} toast={toast} onRemove={onRemove} />
       ))}
     </div>
   )
@@ -100,8 +104,16 @@ interface ToastItemProps {
   onRemove: (id: string) => void
 }
 
-const ToastItem: React.FC<ToastItemProps> = ({ toast, onRemove }) => {
-  const icons = {
+// 브랜드 이모션 아이콘 매핑
+const brandIcons: Record<ToastType, string> = {
+  success: BRAND_ASSETS.emotions.happy,
+  error: BRAND_ASSETS.emotions.sad,
+  warning: BRAND_ASSETS.emotions.cheer,
+  info: BRAND_ASSETS.emotions.like,
+}
+
+const ToastItemComponent: React.FC<ToastItemProps> = ({ toast, onRemove }) => {
+  const defaultIcons = {
     success: (
       <svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
         <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" />
@@ -138,17 +150,36 @@ const ToastItem: React.FC<ToastItemProps> = ({ toast, onRemove }) => {
     info: 'text-blue-500',
   }
 
+  // 아이콘 렌더링
+  const renderIcon = () => {
+    if (toast.useBrandIcon) {
+      return (
+        <div className="relative w-6 h-6 flex-shrink-0">
+          <Image
+            src={brandIcons[toast.type]}
+            alt=""
+            fill
+            className="object-contain"
+          />
+        </div>
+      )
+    }
+    return (
+      <span className={`flex-shrink-0 ${iconStyles[toast.type]}`}>
+        {defaultIcons[toast.type]}
+      </span>
+    )
+  }
+
   return (
     <div
       className={`
-        pointer-events-auto flex items-start gap-3 p-4 rounded-lg border shadow-lg
-        animate-slideUp ${styles[toast.type]}
+        pointer-events-auto flex items-start gap-3 p-4 rounded-xl border shadow-lg
+        animate-slideUp backdrop-blur-sm ${styles[toast.type]}
       `}
       role="alert"
     >
-      <span className={`flex-shrink-0 ${iconStyles[toast.type]}`}>
-        {icons[toast.type]}
-      </span>
+      {renderIcon()}
       <div className="flex-1 min-w-0">
         <p className="font-semibold text-sm">{toast.title}</p>
         {toast.description && (

@@ -1,6 +1,6 @@
 'use client'
 
-import React from 'react'
+import React, { memo, useMemo } from 'react'
 
 export interface KPICardProps {
   title: string
@@ -18,7 +18,7 @@ export interface KPICardProps {
   className?: string
 }
 
-export const KPICard: React.FC<KPICardProps> = ({
+export const KPICard = memo(function KPICard({
   title,
   value,
   suffix,
@@ -29,7 +29,7 @@ export const KPICard: React.FC<KPICardProps> = ({
   color = 'default',
   size = 'md',
   className = '',
-}) => {
+}: KPICardProps) {
   const colorStyles = {
     default: 'before:bg-gradient-to-r before:from-[#F78C3A] before:to-orange-300',
     success: 'before:bg-gradient-to-r before:from-emerald-500 before:to-emerald-300',
@@ -64,6 +64,12 @@ export const KPICard: React.FC<KPICardProps> = ({
     const sign = val >= 0 ? '+' : ''
     return `${sign}${val.toFixed(1)}%`
   }
+
+  // 트렌드 최대값 메모이제이션
+  const trendMax = useMemo(() => {
+    if (!trend || trend.length === 0) return 0
+    return Math.max(...trend)
+  }, [trend])
 
   return (
     <div
@@ -118,10 +124,9 @@ export const KPICard: React.FC<KPICardProps> = ({
 
       {/* 미니 스파크라인 (선택적) */}
       {trend && trend.length > 0 && (
-        <div className="mt-3 h-8 flex items-end gap-0.5">
+        <div className="mt-3 h-8 flex items-end gap-0.5" aria-hidden="true">
           {trend.map((val, idx) => {
-            const max = Math.max(...trend)
-            const height = max > 0 ? (val / max) * 100 : 0
+            const height = trendMax > 0 ? (val / trendMax) * 100 : 0
             return (
               <div
                 key={idx}
@@ -134,6 +139,6 @@ export const KPICard: React.FC<KPICardProps> = ({
       )}
     </div>
   )
-}
+})
 
 export default KPICard
