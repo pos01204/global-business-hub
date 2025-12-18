@@ -2,7 +2,7 @@
 
 import { useQuery } from '@tanstack/react-query'
 import { useState } from 'react'
-import { reviewAnalyticsApi, reviewsApi } from '@/lib/api'
+import { reviewAnalyticsApi } from '@/lib/api'
 import { EnhancedLoadingPage } from '@/components/ui'
 import { Icon } from '@/components/ui/Icon'
 import { Tooltip } from '@/components/ui/Tooltip'
@@ -76,14 +76,7 @@ export default function ReviewAnalyticsPage() {
     from: thirtyDaysAgo,
     to: today,
   })
-  const [activeTab, setActiveTab] = useState<'overview' | 'distribution' | 'comparison' | 'insights' | 'trend' | 'list'>('overview')
-  
-  // 리뷰 목록 탭 상태 (기존 reviews 페이지 기능 통합)
-  const [listCountry, setListCountry] = useState<string>('')
-  const [listPage, setListPage] = useState(1)
-  const [listSearch, setListSearch] = useState('')
-  const [listSort, setListSort] = useState<'latest' | 'rating' | 'popular'>('latest')
-  const [showImageOnly, setShowImageOnly] = useState(false)
+  const [activeTab, setActiveTab] = useState<'overview' | 'distribution' | 'comparison' | 'insights' | 'trend'>('overview')
 
   const startDate = format(dateRange.from, 'yyyy-MM-dd')
   const endDate = format(dateRange.to, 'yyyy-MM-dd')
@@ -143,21 +136,6 @@ export default function ReviewAnalyticsPage() {
     enabled: activeTab === 'overview' || activeTab === 'comparison',
   })
 
-  // 리뷰 목록 쿼리 (기존 reviews 페이지 기능 통합)
-  const { data: galleryData, isLoading: galleryLoading } = useQuery({
-    queryKey: ['reviews-gallery', listCountry, showImageOnly, listPage, listSearch, listSort],
-    queryFn: () => reviewsApi.getGallery({
-      country: listCountry || undefined,
-      hasImage: showImageOnly || undefined,
-      page: listPage,
-      pageSize: 20,
-      minRating: 1,
-      search: listSearch || undefined,
-      sort: listSort,
-    }),
-    enabled: activeTab === 'list',
-  })
-
   const isLoading = npsLoading || distLoading || countryLoading || artistLoading || insightsLoading || trendLoading || productLoading || contentLoading
 
   if (isLoading) {
@@ -175,8 +153,8 @@ export default function ReviewAnalyticsPage() {
 
   return (
     <div className="animate-fade-in">
-      {/* 페이지 헤더 - 고객 인사이트 허브 (블루/시안 계열) */}
-      <div className="relative bg-gradient-to-r from-sky-500 to-cyan-500 dark:from-sky-600 dark:to-cyan-600 rounded-2xl p-4 lg:p-6 mb-6 overflow-hidden shadow-lg dark:shadow-none">
+      {/* 페이지 헤더 - idus 브랜드 스타일 */}
+      <div className="relative bg-idus-500 dark:bg-orange-900/70 rounded-2xl p-4 lg:p-6 mb-6 overflow-hidden shadow-lg dark:shadow-none">
         <div className="absolute top-0 right-0 w-64 h-64 bg-white/10 dark:bg-white/5 rounded-full -translate-y-1/2 translate-x-1/2"></div>
         <div className="flex items-center gap-4">
           <div className="w-12 h-12 lg:w-14 lg:h-14 bg-white/20 dark:bg-white/10 backdrop-blur rounded-xl flex items-center justify-center shadow-lg dark:shadow-none">
@@ -184,7 +162,7 @@ export default function ReviewAnalyticsPage() {
           </div>
           <div>
             <h1 className="text-xl lg:text-2xl font-extrabold text-white tracking-tight">리뷰 분석</h1>
-            <p className="text-sky-100 dark:text-sky-200/80 text-xs lg:text-sm font-medium">NPS 및 고객 만족도 분석</p>
+            <p className="text-idus-100 dark:text-orange-200/80 text-xs lg:text-sm font-medium">NPS 및 고객 만족도 분석</p>
           </div>
         </div>
       </div>
@@ -214,7 +192,7 @@ export default function ReviewAnalyticsPage() {
               onClick={() => setDateRange({ from: addDays(new Date(), -option.days), to: new Date() })}
               className={`px-3 py-1.5 text-sm rounded-lg transition-colors ${
                 selectedDays === option.days
-                  ? 'bg-sky-500 text-white'
+                  ? 'bg-idus-500 text-white'
                   : 'bg-white dark:bg-slate-800 text-slate-600 dark:text-slate-300 border border-slate-200 dark:border-slate-700 hover:bg-slate-50 dark:hover:bg-slate-700'
               }`}
             >
@@ -252,21 +230,20 @@ export default function ReviewAnalyticsPage() {
 
       {/* 탭 네비게이션 */}
       <div className="mb-6">
-        <div className="flex gap-2 flex-wrap">
+        <div className="flex gap-2">
           {[
             { id: 'overview', label: 'NPS 개요', icon: BarChart3 },
             { id: 'distribution', label: '평점 분포', icon: PieChart },
             { id: 'trend', label: '트렌드', icon: TrendingUp },
             { id: 'comparison', label: '비교 분석', icon: Globe },
             { id: 'insights', label: '인사이트', icon: Lightbulb },
-            { id: 'list', label: '리뷰 목록', icon: MessageSquare },
           ].map((tab) => (
             <button
               key={tab.id}
               onClick={() => setActiveTab(tab.id as any)}
               className={`flex items-center gap-2 px-4 py-3 rounded-xl text-sm font-medium transition-all ${
                 activeTab === tab.id
-                  ? 'bg-sky-500 text-white shadow-sm'
+                  ? 'bg-idus-500 text-white shadow-sm'
                   : 'bg-slate-100 dark:bg-slate-800 text-slate-600 dark:text-slate-400 hover:bg-slate-200 dark:hover:bg-slate-700'
               }`}
             >
@@ -997,110 +974,6 @@ export default function ReviewAnalyticsPage() {
             )}
           </div>
         )}
-
-        {/* 리뷰 목록 탭 (기존 reviews 페이지 기능 통합) */}
-        {activeTab === 'list' && (
-          <div className="space-y-6">
-            {/* 필터 영역 */}
-            <div className="bg-white dark:bg-slate-900 rounded-2xl border border-slate-200 dark:border-slate-800 p-4 shadow-sm">
-              <div className="flex flex-wrap items-center gap-4">
-                {/* 검색 */}
-                <div className="flex-1 min-w-[200px]">
-                  <input
-                    type="text"
-                    placeholder="리뷰 내용, 작가명, 상품명 검색..."
-                    value={listSearch}
-                    onChange={(e) => { setListSearch(e.target.value); setListPage(1); }}
-                    className="w-full px-4 py-2 border border-slate-200 dark:border-slate-700 rounded-lg text-sm bg-white dark:bg-slate-800 focus:outline-none focus:ring-2 focus:ring-sky-500"
-                  />
-                </div>
-                
-                {/* 국가 필터 */}
-                <select
-                  value={listCountry}
-                  onChange={(e) => { setListCountry(e.target.value); setListPage(1); }}
-                  className="px-3 py-2 border border-slate-200 dark:border-slate-700 rounded-lg text-sm bg-white dark:bg-slate-800"
-                >
-                  <option value="">전체 국가</option>
-                  <option value="JP">🇯🇵 일본</option>
-                  <option value="US">🇺🇸 미국</option>
-                  <option value="SG">🇸🇬 싱가포르</option>
-                  <option value="HK">🇭🇰 홍콩</option>
-                  <option value="AU">🇦🇺 호주</option>
-                  <option value="GB">🇬🇧 영국</option>
-                  <option value="CA">🇨🇦 캐나다</option>
-                  <option value="FR">🇫🇷 프랑스</option>
-                </select>
-
-                {/* 정렬 */}
-                <select
-                  value={listSort}
-                  onChange={(e) => { setListSort(e.target.value as any); setListPage(1); }}
-                  className="px-3 py-2 border border-slate-200 dark:border-slate-700 rounded-lg text-sm bg-white dark:bg-slate-800"
-                >
-                  <option value="latest">최신순</option>
-                  <option value="rating">평점순</option>
-                  <option value="popular">인기순</option>
-                </select>
-
-                {/* 이미지 필터 */}
-                <label className="flex items-center gap-2 cursor-pointer">
-                  <input
-                    type="checkbox"
-                    checked={showImageOnly}
-                    onChange={(e) => { setShowImageOnly(e.target.checked); setListPage(1); }}
-                    className="w-4 h-4 rounded border-slate-300 text-sky-500 focus:ring-sky-500"
-                  />
-                  <span className="text-sm text-slate-600 dark:text-slate-400">이미지 리뷰만</span>
-                </label>
-              </div>
-            </div>
-
-            {/* 리뷰 목록 */}
-            {galleryLoading ? (
-              <div className="text-center py-12">
-                <div className="animate-spin w-8 h-8 border-4 border-sky-500 border-t-transparent rounded-full mx-auto mb-4"></div>
-                <p className="text-slate-500">리뷰를 불러오는 중...</p>
-              </div>
-            ) : galleryData?.data?.reviews?.length > 0 ? (
-              <>
-                <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
-                  {galleryData.data.reviews.map((review: any) => (
-                    <ReviewListCard key={review.id} review={review} />
-                  ))}
-                </div>
-
-                {/* 페이지네이션 */}
-                {galleryData.data.pagination && (
-                  <div className="flex items-center justify-center gap-2 mt-6">
-                    <button
-                      onClick={() => setListPage(p => Math.max(1, p - 1))}
-                      disabled={listPage === 1}
-                      className="px-4 py-2 rounded-lg text-sm font-medium bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700 disabled:opacity-50 hover:bg-slate-50 dark:hover:bg-slate-700"
-                    >
-                      이전
-                    </button>
-                    <span className="px-4 py-2 text-sm text-slate-600 dark:text-slate-400">
-                      {listPage} / {galleryData.data.pagination.totalPages || 1}
-                    </span>
-                    <button
-                      onClick={() => setListPage(p => Math.min(galleryData.data.pagination.totalPages || 1, p + 1))}
-                      disabled={listPage >= (galleryData.data.pagination.totalPages || 1)}
-                      className="px-4 py-2 rounded-lg text-sm font-medium bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700 disabled:opacity-50 hover:bg-slate-50 dark:hover:bg-slate-700"
-                    >
-                      다음
-                    </button>
-                  </div>
-                )}
-              </>
-            ) : (
-              <div className="text-center py-12 text-slate-500">
-                <Icon icon={MessageSquare} size="xl" className="mx-auto mb-4 opacity-50" />
-                <p>조건에 맞는 리뷰가 없습니다.</p>
-              </div>
-            )}
-          </div>
-        )}
     </div>
   )
 }
@@ -1239,66 +1112,6 @@ function InsightCard({ insight }: { insight: Insight }) {
            insight.priority === 'high' ? '높음' : 
            insight.priority === 'medium' ? '보통' : '낮음'}
         </span>
-      </div>
-    </div>
-  )
-}
-
-// 리뷰 목록 카드 컴포넌트 (기존 reviews 페이지 기능 통합)
-function ReviewListCard({ review }: { review: any }) {
-  const countryEmoji: Record<string, string> = {
-    JP: '🇯🇵', US: '🇺🇸', SG: '🇸🇬', HK: '🇭🇰', AU: '🇦🇺',
-    GB: '🇬🇧', CA: '🇨🇦', FR: '🇫🇷', NL: '🇳🇱', PL: '🇵🇱',
-  }
-
-  const getRatingColor = (rating: number) => {
-    if (rating >= 9) return 'bg-emerald-100 text-emerald-700 dark:bg-emerald-900/30 dark:text-emerald-400'
-    if (rating >= 7) return 'bg-amber-100 text-amber-700 dark:bg-amber-900/30 dark:text-amber-400'
-    return 'bg-red-100 text-red-700 dark:bg-red-900/30 dark:text-red-400'
-  }
-
-  return (
-    <div className="bg-white dark:bg-slate-900 rounded-2xl border border-slate-200 dark:border-slate-800 overflow-hidden shadow-sm hover:shadow-md transition-shadow">
-      {/* 이미지 (있는 경우) */}
-      {review.imageUrl && (
-        <div className="aspect-video relative overflow-hidden bg-slate-100 dark:bg-slate-800">
-          <img 
-            src={review.imageUrl} 
-            alt="" 
-            className="w-full h-full object-cover"
-          />
-        </div>
-      )}
-      
-      {/* 컨텐츠 */}
-      <div className="p-4">
-        {/* 헤더 */}
-        <div className="flex items-center justify-between mb-3">
-          <div className="flex items-center gap-2">
-            <span className="text-lg">{countryEmoji[review.country] || '🌐'}</span>
-            <span className={`px-2 py-0.5 rounded text-xs font-bold ${getRatingColor(review.rating)}`}>
-              ★ {review.rating}
-            </span>
-          </div>
-          <span className="text-xs text-slate-400">
-            {review.reviewDate ? format(new Date(review.reviewDate), 'yyyy.MM.dd') : ''}
-          </span>
-        </div>
-
-        {/* 리뷰 내용 */}
-        <p className="text-sm text-slate-700 dark:text-slate-300 line-clamp-3 mb-3">
-          {review.contents || '리뷰 내용 없음'}
-        </p>
-
-        {/* 상품/작가 정보 */}
-        <div className="text-xs text-slate-500 dark:text-slate-400 space-y-1">
-          {review.productName && (
-            <p className="truncate">📦 {review.productName}</p>
-          )}
-          {review.artistName && (
-            <p className="truncate">🎨 {review.artistName}</p>
-          )}
-        </div>
       </div>
     </div>
   )

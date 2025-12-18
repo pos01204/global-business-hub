@@ -79,35 +79,34 @@ export const navigation: NavGroup[] = [
     ],
   },
   {
-    name: '성과 분석 허브',
+    name: '분석',
     icon: BarChart3,
-    items: [
-      { name: '성과 분석 허브', href: '/analytics', icon: BarChart3 },
-      // 주문 패턴, 쿠폰 효과는 성과 분석 허브 내 탭으로 통합됨 (IA 개편안 Phase 1)
-    ],
-  },
-  {
-    name: '고객 인사이트 허브',
-    icon: Users,
-    items: [
-      { name: '고객 분석', href: '/customer-analytics', icon: Users },
-      { name: '고객 360° 뷰', href: '/customer-360', icon: UserCircle },
-      { name: '리뷰 분석', href: '/review-analytics', icon: Star },
-    ],
-  },
-  {
-    name: '작가 & 상품 분석',
-    icon: Palette,
-    items: [
-      { name: '작가 분석', href: '/artist-analytics', icon: Palette },
-      // 향후: 상품 분석 페이지 추가 예정
-    ],
-  },
-  {
-    name: '재무 분석',
-    icon: DollarSign,
-    items: [
-      { name: '비용 & 손익', href: '/cost-analysis', icon: DollarSign },
+    subGroups: [
+      {
+        name: '성과 분석 허브',
+        isHub: true,
+        items: [
+          { name: '성과 분석', href: '/analytics', icon: BarChart3 },
+          { name: '주문 패턴 분석', href: '/order-patterns', icon: TrendingUp },
+          { name: '쿠폰 효과 분석', href: '/coupon-analytics', icon: Ticket },
+        ],
+      },
+      {
+        name: '고객 분석 허브',
+        isHub: true,
+        items: [
+          { name: '고객 분석', href: '/customer-analytics', icon: Users },
+          { name: '고객 360° 뷰', href: '/customer-360', icon: UserCircle },
+          { name: '리뷰 분석', href: '/review-analytics', icon: Star },
+        ],
+      },
+      {
+        name: '기타 분석',
+        items: [
+          { name: '작가 분석', href: '/artist-analytics', icon: Palette },
+          { name: '비용 & 손익', href: '/cost-analysis', icon: DollarSign },
+        ],
+      },
     ],
   },
   {
@@ -115,6 +114,13 @@ export const navigation: NavGroup[] = [
     icon: Brain,
     items: [
       { name: 'Business Brain', href: '/business-brain', icon: Brain },
+    ],
+  },
+  {
+    name: '고객 인사이트',
+    icon: MessageSquare,
+    items: [
+      { name: '고객 리뷰', href: '/reviews', icon: Star },
     ],
   },
   {

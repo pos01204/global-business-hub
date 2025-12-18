@@ -28,9 +28,6 @@ import {
 } from 'lucide-react'
 // ✅ 공통 유틸리티 import (Phase 1 표준화)
 import { formatCurrency, formatChange } from '@/lib/formatters'
-// 주문 패턴 / 쿠폰 효과 분석 페이지 (성과 허브 탭 통합용)
-import OrderPatternsPage from '../order-patterns/page'
-import CouponAnalyticsPage from '../coupon-analytics/page'
 
 ChartJS.register(
   CategoryScale,
@@ -1140,16 +1137,16 @@ export default function AnalyticsPage() {
 
   return (
     <div className="animate-fade-in">
-      {/* 페이지 헤더 - 성과 분석 허브 (보라/인디고 계열, IA 가이드 9.1.2 준수) */}
-      <div className="relative bg-gradient-to-r from-violet-600 to-indigo-600 dark:from-violet-700 dark:to-indigo-700 rounded-2xl p-4 lg:p-6 mb-6 overflow-hidden shadow-lg dark:shadow-none">
-        <div className="absolute top-0 right-0 w-64 h-64 bg-white/10 dark:bg-white/5 rounded-full -translate-y-1/2 translate-x-1/2"></div>
+      {/* 페이지 헤더 - idus 브랜드 스타일 */}
+      <div className="relative bg-idus-500 rounded-2xl p-6 mb-6 overflow-hidden shadow-lg">
+        <div className="absolute top-0 right-0 w-64 h-64 bg-white/10 rounded-full -translate-y-1/2 translate-x-1/2"></div>
         <div className="flex items-center gap-4">
-          <div className="w-12 h-12 lg:w-14 lg:h-14 bg-white/20 dark:bg-white/10 backdrop-blur rounded-xl flex items-center justify-center shadow-lg dark:shadow-none">
-            <Icon icon={BarChart3} size="xl" className="text-white" />
+          <div className="w-14 h-14 bg-white/20 backdrop-blur rounded-xl flex items-center justify-center shadow-lg">
+            <span className="text-3xl">📈</span>
           </div>
           <div>
-            <h1 className="text-xl lg:text-2xl font-extrabold text-white tracking-tight">성과 분석 허브</h1>
-            <p className="text-violet-100 dark:text-violet-200/80 text-xs lg:text-sm font-medium">GMV, 주문, 쿠폰, 채널 통합 분석</p>
+            <h1 className="text-2xl font-extrabold text-white tracking-tight">성과 분석</h1>
+            <p className="text-idus-100 text-sm font-medium">상세한 성과 분석 및 리포트를 확인하세요</p>
           </div>
         </div>
       </div>
@@ -1216,11 +1213,9 @@ export default function AnalyticsPage() {
             {[
               {
                 name: '성과 분석',
-                description: '매출, 고객, 주문 패턴, 쿠폰 성과 분석',
+                description: '매출, 고객, 작가 성과 분석',
                 tabs: [
                   { id: 'overview', label: '종합 성과', icon: '📈' },
-                  { id: 'order-patterns', label: '주문 패턴', icon: '📊' },
-                  { id: 'coupon', label: '쿠폰 효과', icon: '🎫' },
                   { id: 'customer', label: '고객 확보', icon: '👥' },
                   { id: 'channel', label: '채널 분석', icon: '📱' },
                   ...(countryFilter === 'all' ? [{ id: 'regional', label: '지역 분석', icon: '🌍' }] : []),
@@ -1257,7 +1252,7 @@ export default function AnalyticsPage() {
                       onClick={() => handleTabChange(tab.id)}
                       className={`group relative px-4 py-2.5 rounded-lg text-sm font-medium transition-all duration-200 flex items-center gap-2 ${
                         activeTab === tab.id
-                          ? 'bg-violet-600 text-white shadow-md scale-105'
+                          ? 'bg-idus-500 text-white shadow-md scale-105'
                           : 'bg-slate-100 dark:bg-slate-800 text-slate-600 dark:text-slate-400 hover:bg-slate-200 dark:hover:bg-slate-700 hover:scale-102'
                       }`}
                     >
@@ -1284,9 +1279,9 @@ export default function AnalyticsPage() {
             {/* P2: Business Brain 연계 버튼 */}
             <button
               onClick={() => router.push('/business-brain?tab=trends&period=30d')}
-              className="px-4 py-2 bg-violet-600 text-white rounded-lg font-medium hover:bg-violet-700 transition-all duration-200 shadow-sm hover:shadow-md flex items-center gap-2 text-sm"
+              className="px-4 py-2 bg-idus-500 text-white rounded-lg font-medium hover:bg-idus-600 transition-all duration-200 shadow-sm hover:shadow-md flex items-center gap-2 text-sm"
             >
-              <Icon icon={BarChart3} size="sm" className="text-white" />
+              <Icon icon={BarChart3} size="sm" className="text-slate-600 dark:text-slate-400" />
               <span>이 성과의 원인 분석하기</span>
               <span>→</span>
             </button>
@@ -1412,9 +1407,9 @@ export default function AnalyticsPage() {
               {/* P2: Business Brain 연계 버튼 */}
               <button
                 onClick={() => router.push('/business-brain?tab=artist-health&period=30d')}
-                className="px-4 py-2 bg-violet-600 text-white rounded-lg font-medium hover:bg-violet-700 transition-all duration-200 shadow-sm hover:shadow-md flex items-center gap-2 text-sm"
+                className="px-4 py-2 bg-idus-500 text-white rounded-lg font-medium hover:bg-idus-600 transition-all duration-200 shadow-sm hover:shadow-md flex items-center gap-2 text-sm"
               >
-                <Icon icon={Palette} size="sm" className="text-white" />
+                <span>🎨</span>
                 <span>작가 성과 분석</span>
                 <span>→</span>
               </button>
@@ -2159,20 +2154,6 @@ export default function AnalyticsPage() {
             countryFilter={countryFilter}
             onArtistClick={openArtistOrdersModal}
           />
-        )}
-
-        {/* 주문 패턴 탭 - 기존 /order-patterns 페이지 통합 (1차 버전: 컴포넌트 임베드) */}
-        {activeTab === 'order-patterns' && (
-          <div className="mt-6">
-            <OrderPatternsPage />
-          </div>
-        )}
-
-        {/* 쿠폰 효과 탭 - 기존 /coupon-analytics 페이지 통합 (1차 버전: 컴포넌트 임베드) */}
-        {activeTab === 'coupon' && (
-          <div className="mt-6">
-            <CouponAnalyticsPage />
-          </div>
         )}
 
         {/* 비교 분석 탭 */}

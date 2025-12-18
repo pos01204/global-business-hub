@@ -294,3 +294,5 @@ export function AIQueryChat({ className = '', onInsightClick }: AIQueryChatProps
 
 export default AIQueryChat
 
+
+

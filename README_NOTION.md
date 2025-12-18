@@ -109,3 +109,5 @@ console.log(data.text);   // 텍스트 형식 데이터
 3. **Rate Limit**: Notion API는 초당 3회 요청 제한이 있음
 
 
+
+

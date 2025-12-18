@@ -1,7 +1,5 @@
 'use client'
 
-import { useEffect } from 'react'
-import { useRouter } from 'next/navigation'
 import { useQuery } from '@tanstack/react-query'
 import { useState } from 'react'
 import { orderPatternsApi } from '@/lib/api'
@@ -124,13 +122,6 @@ interface CountryDetailData {
 // ============================================================
 
 export default function OrderPatternsPage() {
-  const router = useRouter()
-  
-  // 성과 분석 허브로 리다이렉트 (IA 개편안 Phase 1 준수)
-  useEffect(() => {
-    router.replace('/analytics?tab=order-patterns')
-  }, [router])
-
   const [dateRange, setDateRange] = useState({
     from: addDays(new Date(), -90),
     to: new Date(),

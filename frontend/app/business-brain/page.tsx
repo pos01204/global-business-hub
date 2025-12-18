@@ -618,30 +618,32 @@ export default function BusinessBrainPage() {
 
   const isLoading = briefingLoading || healthLoading
 
-  // v6.0: 통합 탭 구조 (IA 개편안 Phase 3 준수: 요약 중심, 상세 분석은 전문 페이지로 위임)
+  // v6.0: 통합 탭 구조 (Phase 4: 쿠폰/리뷰 탭 추가)
   const tabGroups = useMemo(() => [
     {
-      name: '경영 브리핑',
-      description: '비즈니스 현황 요약',
+      name: '개요',
+      description: '비즈니스 현황 한눈에 보기',
       tabs: [
-        { id: 'home', label: '홈', icon: BarChart3, description: 'AI 브리핑 + KPI 요약 + 핵심 인사이트' },
+        { id: 'home', label: '홈', icon: BarChart3, description: 'AI 브리핑 + KPI + 인사이트 + 권장 액션' },
       ]
     },
     {
-      name: '요약 분석',
-      description: '핵심 지표 요약 (상세 분석은 전문 페이지에서)',
+      name: '분석',
+      description: '핵심 비즈니스 분석',
       tabs: [
-        { id: 'customer', label: '고객 요약', icon: Users, description: 'RFM/이탈 요약 → 상세: 고객 분석' },
-        { id: 'artist', label: '작가 요약', icon: Palette, description: '작가 건강도 요약 → 상세: 작가 분석' },
-        { id: 'revenue', label: '매출 요약', icon: TrendingUp, description: '트렌드 요약 → 상세: 성과 분석 허브' },
+        { id: 'customer', label: '고객', icon: Users, description: 'RFM + 이탈 예측 + 신규 유입 + 재구매' },
+        { id: 'artist', label: '작가', icon: Palette, description: '작가 건강도 + 파레토 분석' },
+        { id: 'revenue', label: '매출', icon: TrendingUp, description: '트렌드 + 예측 + 코호트' },
+        { id: 'coupon', label: '쿠폰', icon: Target, description: '쿠폰 성과 + ROI + 전환율 분석' },
+        { id: 'review', label: '리뷰', icon: MessageCircle, description: 'NPS + 평점 + 작가별 리뷰 분석' },
       ]
     },
     {
       name: '인사이트 & 액션',
-      description: 'AI 인사이트 및 전략 제안',
+      description: 'AI 인사이트 및 실행',
       tabs: [
-        { id: 'insight', label: '통합 인사이트', icon: Lightbulb, description: '기회 + 리스크 + 전략 통합' },
-        { id: 'action', label: '액션 & 시뮬레이션', icon: Zap, description: '권장 액션 + What-if 시뮬레이션' },
+        { id: 'insight', label: '인사이트', icon: Lightbulb, description: '기회 + 리스크 + 전략 통합' },
+        { id: 'action', label: '액션', icon: Zap, description: '권장 액션 + What-if 시뮬레이션' },
       ]
     },
     {
@@ -664,18 +666,18 @@ export default function BusinessBrainPage() {
     [tabGroups]
   )
 
-  // 기간 선택이 필요한 탭들 (IA 개편안 Phase 3: 쿠폰/리뷰 상세 탭 제거, 요약 중심)
-  const periodEnabledTabs = ['home', 'customer', 'artist', 'revenue', 'insight', 'action', 'explorer', 'report']
+  // 기간 선택이 필요한 탭들 (Phase 4: 쿠폰/리뷰 탭 추가)
+  const periodEnabledTabs = ['home', 'customer', 'artist', 'revenue', 'coupon', 'review', 'insight', 'action', 'explorer', 'report']
 
   return (
     <div className="p-6 space-y-6 min-h-screen">
-      {/* 헤더 - Business Brain 전용 다크 네이비 스타일 (IA 가이드 9.1.2, 9.2.3 준수) */}
+      {/* 헤더 - idus 브랜드 스타일 */}
       <FadeIn>
-        <div className="relative bg-slate-900 dark:bg-slate-950 rounded-2xl p-4 lg:p-6 mb-6 overflow-hidden shadow-lg border border-slate-800">
-          <div className="absolute top-0 right-0 w-64 h-64 bg-slate-800/60 dark:bg-slate-700/40 rounded-full -translate-y-1/2 translate-x-1/2"></div>
+        <div className="relative bg-idus-500 dark:bg-orange-900/70 rounded-2xl p-4 lg:p-6 mb-6 overflow-hidden shadow-lg dark:shadow-none">
+          <div className="absolute top-0 right-0 w-64 h-64 bg-white/10 dark:bg-white/5 rounded-full -translate-y-1/2 translate-x-1/2"></div>
           <div className="flex items-center justify-between flex-wrap gap-4 relative">
             <div className="flex items-center gap-4">
-              <div className="w-12 h-12 lg:w-14 lg:h-14 bg-slate-800/80 dark:bg-slate-800/80 backdrop-blur rounded-xl flex items-center justify-center shadow-lg">
+              <div className="w-12 h-12 lg:w-14 lg:h-14 bg-white/20 dark:bg-white/10 backdrop-blur rounded-xl flex items-center justify-center shadow-lg dark:shadow-none">
                 <Icon icon={Brain} size="xl" className="text-white" />
               </div>
               <div>
