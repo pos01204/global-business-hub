@@ -279,10 +279,11 @@ router.get('/:userId', async (req: Request, res: Response) => {
       })
     }
     
-    // 데이터 로드
-    const [usersData, ordersData, couponsData, reviewsData] = await Promise.all([
+    // 데이터 로드 (logistics 시트 추가 - 작가 정보가 logistics에 있음)
+    const [usersData, ordersData, logisticsData, couponsData, reviewsData] = await Promise.all([
       sheetsService.getSheetDataAsJson(SHEET_NAMES.USERS, false).catch(() => []),
       sheetsService.getSheetDataAsJson(SHEET_NAMES.ORDER, false).catch(() => []),
+      sheetsService.getSheetDataAsJson(SHEET_NAMES.LOGISTICS, false).catch(() => []),
       sheetsService.getSheetDataAsJson('coupon', false).catch(() => []),
       sheetsService.getSheetDataAsJson(SHEET_NAMES.REVIEW, false).catch(() => []),
     ])
@@ -299,20 +300,49 @@ router.get('/:userId', async (req: Request, res: Response) => {
       })
     }
     
-    // 주문 데이터 필터링 (GMV 컬럼명 정규화 적용)
+    // order_code → logistics 데이터 맵 생성 (작가 정보는 logistics 시트에 있음)
+    const logisticsMap = new Map<string, any[]>()
+    logisticsData.forEach((log: any) => {
+      const orderCode = String(log.order_code || log.ORDER_CODE || log['order_code'] || '')
+      if (!orderCode) return
+      if (!logisticsMap.has(orderCode)) {
+        logisticsMap.set(orderCode, [])
+      }
+      logisticsMap.get(orderCode)!.push(log)
+    })
+    
+    // 주문 데이터 필터링 (GMV 컬럼명 정규화 + logistics 조인)
     const userOrders = ordersData
       .filter((order: any) => String(order.user_id || order.USER_ID) === String(userId))
       .map((order: any) => {
         const orderDate = order.order_created || order.ORDER_CREATED || order['order_created']
+        const orderCode = order.order_code || order.ORDER_CODE || order['order_code']
+        
+        // logistics에서 작가 정보 가져오기
+        const logisticsItems = logisticsMap.get(String(orderCode)) || []
+        const artistNames = new Set<string>()
+        const productNames = new Set<string>()
+        
+        logisticsItems.forEach((log: any) => {
+          const artistName = log['artist_name (kr)'] || log['artist_name(kr)'] || 
+                            log.artist_name_kr || log.artistNameKr || 
+                            log.artist_name || log.artistName || ''
+          const productName = log.product_name || log['product_name'] || ''
+          if (artistName) artistNames.add(artistName)
+          if (productName) productNames.add(productName)
+        })
+        
         return {
-          orderId: order.order_code || order.ORDER_CODE || order['order_code'],
+          orderId: orderCode,
           orderDate,
           totalAmount: getOrderGmv(order) * CURRENCY.USD_TO_KRW,
           couponDiscount: getCouponDiscount(order) * CURRENCY.USD_TO_KRW,
           itemCount: safeNumber(order.quantity || order['구매수량'], 1),
           status: order.order_status || order.STATUS || order['order_status'] || 'unknown',
-          artistName: getArtistName(order),
-          productName: order.product_name || order['product_name'] || '',
+          artistName: Array.from(artistNames).join(', ') || getArtistName(order),
+          artistNames: Array.from(artistNames),
+          productName: Array.from(productNames).join(', ') || order.product_name || order['product_name'] || '',
+          productNames: Array.from(productNames),
           country: order.country || order.COUNTRY || '',
           dayOfWeek: getDayOfWeek(orderDate),
           timeOfDay: getTimeOfDay(orderDate),
@@ -376,21 +406,32 @@ router.get('/:userId', async (req: Request, res: Response) => {
     // 새로운 분석 데이터 계산
     // ============================================================
     
-    // 1. 작가별 구매 집계 (Top Artists)
+    // 1. 작가별 구매 집계 (Top Artists) - artistNames 배열 사용
     const artistOrderMap = new Map<string, { gmv: number, orderCount: number, lastOrder: string }>()
     userOrders.forEach((order: any) => {
-      const artistName = order.artistName
-      if (!artistName) return
+      // artistNames 배열이 있으면 사용, 없으면 artistName 문자열 파싱
+      const artistNames: string[] = order.artistNames && order.artistNames.length > 0
+        ? order.artistNames
+        : (order.artistName ? order.artistName.split(',').map((n: string) => n.trim()).filter(Boolean) : [])
       
-      if (!artistOrderMap.has(artistName)) {
-        artistOrderMap.set(artistName, { gmv: 0, orderCount: 0, lastOrder: '' })
-      }
-      const data = artistOrderMap.get(artistName)!
-      data.gmv += order.totalAmount
-      data.orderCount += 1
-      if (!data.lastOrder || new Date(order.orderDate) > new Date(data.lastOrder)) {
-        data.lastOrder = order.orderDate
-      }
+      if (artistNames.length === 0) return
+      
+      // 주문당 GMV를 작가 수로 나눠서 분배 (간단한 균등 분배)
+      const gmvPerArtist = order.totalAmount / artistNames.length
+      
+      artistNames.forEach((artistName: string) => {
+        if (!artistName) return
+        
+        if (!artistOrderMap.has(artistName)) {
+          artistOrderMap.set(artistName, { gmv: 0, orderCount: 0, lastOrder: '' })
+        }
+        const data = artistOrderMap.get(artistName)!
+        data.gmv += gmvPerArtist
+        data.orderCount += 1
+        if (!data.lastOrder || new Date(order.orderDate) > new Date(data.lastOrder)) {
+          data.lastOrder = order.orderDate
+        }
+      })
     })
     
     const topArtists = Array.from(artistOrderMap.entries())

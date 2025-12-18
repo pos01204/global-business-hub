@@ -1,7 +1,7 @@
 'use client'
 
 import { useQuery } from '@tanstack/react-query'
-import { useState } from 'react'
+import { useState, Component, ErrorInfo, ReactNode } from 'react'
 import { useRouter } from 'next/navigation'
 import { customer360Api } from '@/lib/api'
 import { formatCurrency } from '@/lib/formatters'
@@ -13,8 +13,64 @@ import {
   Search, User, Mail, Globe, Calendar, ShoppingBag, Star,
   Ticket, TrendingUp, Award, Clock, Package, DollarSign,
   ChevronRight, RefreshCw, AlertCircle, Users, BarChart3,
-  Palette, Lightbulb, ExternalLink, Gift, Heart, Activity
+  Palette, Lightbulb, ExternalLink, Gift, Heart, Activity,
+  AlertTriangle
 } from 'lucide-react'
+
+// ============================================================
+// 에러 바운더리
+// ============================================================
+
+interface ErrorBoundaryProps {
+  children: ReactNode
+  fallback?: ReactNode
+}
+
+interface ErrorBoundaryState {
+  hasError: boolean
+  error?: Error
+}
+
+class ErrorBoundary extends Component<ErrorBoundaryProps, ErrorBoundaryState> {
+  constructor(props: ErrorBoundaryProps) {
+    super(props)
+    this.state = { hasError: false }
+  }
+
+  static getDerivedStateFromError(error: Error): ErrorBoundaryState {
+    return { hasError: true, error }
+  }
+
+  componentDidCatch(error: Error, errorInfo: ErrorInfo) {
+    console.error('[Customer360] Error caught:', error, errorInfo)
+  }
+
+  render() {
+    if (this.state.hasError) {
+      return this.props.fallback || (
+        <div className="p-6 text-center">
+          <div className="w-16 h-16 bg-red-100 dark:bg-red-900/30 rounded-2xl flex items-center justify-center mx-auto mb-4">
+            <AlertTriangle className="w-8 h-8 text-red-500" />
+          </div>
+          <h3 className="text-lg font-semibold text-slate-800 dark:text-slate-100 mb-2">
+            오류가 발생했습니다
+          </h3>
+          <p className="text-sm text-slate-500 mb-4">
+            페이지를 새로고침하거나 잠시 후 다시 시도해주세요.
+          </p>
+          <button
+            onClick={() => window.location.reload()}
+            className="px-4 py-2 bg-sky-500 text-white rounded-lg text-sm font-medium hover:bg-sky-600 transition-colors"
+          >
+            페이지 새로고침
+          </button>
+        </div>
+      )
+    }
+
+    return this.props.children
+  }
+}
 import {
   Chart as ChartJS,
   CategoryScale,
@@ -149,6 +205,14 @@ type TabType = 'overview' | 'orders' | 'artists' | 'reviews' | 'coupons'
 // ============================================================
 
 export default function Customer360Page() {
+  return (
+    <ErrorBoundary>
+      <Customer360Content />
+    </ErrorBoundary>
+  )
+}
+
+function Customer360Content() {
   const router = useRouter()
   const [searchQuery, setSearchQuery] = useState('')
   const [selectedUserId, setSelectedUserId] = useState<string | null>(null)
@@ -439,6 +503,8 @@ export default function Customer360Page() {
                       purchasePatterns={purchasePatterns}
                       insights={insights}
                       recommendedActions={recommendedActions}
+                      activityStatus={profile?.activityStatus}
+                      avgPurchaseCycle={purchasePatterns?.avgPurchaseCycle}
                       onArtistClick={setSelectedArtistName}
                       onIssueCoupon={handleIssueCoupon}
                       onGoToLookup={handleGoToLookup}
@@ -531,6 +597,8 @@ function OverviewTab({
   purchasePatterns,
   insights,
   recommendedActions,
+  activityStatus,
+  avgPurchaseCycle,
   onArtistClick,
   onIssueCoupon,
   onGoToLookup,
@@ -541,12 +609,89 @@ function OverviewTab({
   purchasePatterns?: PurchasePatterns
   insights?: Insight[]
   recommendedActions?: RecommendedAction[]
+  activityStatus?: string
+  avgPurchaseCycle?: number
   onArtistClick: (name: string) => void
   onIssueCoupon: () => void
   onGoToLookup: () => void
 }) {
+  // 이탈 위험도 계산 (0-100)
+  const calculateChurnRisk = () => {
+    const recency = rfm?.recency || 0
+    const frequency = rfm?.frequency || 0
+    
+    // 기본 위험도 계산
+    let risk = 0
+    
+    // Recency 기반 (최근 구매가 오래될수록 위험)
+    if (recency > 180) risk += 50
+    else if (recency > 90) risk += 30
+    else if (recency > 60) risk += 15
+    else if (recency > 30) risk += 5
+    
+    // Frequency 기반 (구매 빈도가 낮을수록 위험)
+    if (frequency <= 1) risk += 30
+    else if (frequency <= 2) risk += 20
+    else if (frequency <= 3) risk += 10
+    
+    // 평균 구매 주기 대비 초과 여부
+    if (avgPurchaseCycle && avgPurchaseCycle > 0 && recency > avgPurchaseCycle * 1.5) {
+      risk += 20
+    }
+    
+    return Math.min(100, risk)
+  }
+  
+  const churnRisk = calculateChurnRisk()
+  const getChurnRiskColor = (risk: number) => {
+    if (risk >= 70) return 'text-red-600 dark:text-red-400'
+    if (risk >= 40) return 'text-amber-600 dark:text-amber-400'
+    return 'text-emerald-600 dark:text-emerald-400'
+  }
+  const getChurnRiskBgColor = (risk: number) => {
+    if (risk >= 70) return 'bg-red-500'
+    if (risk >= 40) return 'bg-amber-500'
+    return 'bg-emerald-500'
+  }
+  const getChurnRiskLabel = (risk: number) => {
+    if (risk >= 70) return '높음'
+    if (risk >= 40) return '중간'
+    return '낮음'
+  }
+
   return (
     <div className="space-y-6">
+      {/* 이탈 위험도 게이지 */}
+      <div className="bg-white dark:bg-slate-800 rounded-xl border border-slate-200 dark:border-slate-700 p-4">
+        <h4 className="text-sm font-semibold text-slate-800 dark:text-slate-100 mb-3 flex items-center gap-2">
+          <Icon icon={AlertCircle} size="sm" className="text-amber-500" />
+          이탈 위험도
+        </h4>
+        <div className="flex items-center gap-4">
+          <div className="flex-1">
+            <div className="h-3 bg-slate-200 dark:bg-slate-700 rounded-full overflow-hidden">
+              <div 
+                className={`h-full ${getChurnRiskBgColor(churnRisk)} rounded-full transition-all duration-500`}
+                style={{ width: `${churnRisk}%` }}
+              />
+            </div>
+            <div className="flex justify-between mt-1">
+              <span className="text-xs text-slate-400">낮음</span>
+              <span className="text-xs text-slate-400">높음</span>
+            </div>
+          </div>
+          <div className="text-center min-w-[80px]">
+            <p className={`text-2xl font-bold ${getChurnRiskColor(churnRisk)}`}>{churnRisk}%</p>
+            <p className={`text-xs font-medium ${getChurnRiskColor(churnRisk)}`}>{getChurnRiskLabel(churnRisk)}</p>
+          </div>
+        </div>
+        {churnRisk >= 40 && (
+          <p className="text-xs text-slate-500 mt-3 bg-slate-50 dark:bg-slate-700/50 p-2 rounded-lg">
+            💡 이탈 방지를 위해 재방문 쿠폰 발급이나 개인화된 마케팅 메시지를 고려해보세요.
+          </p>
+        )}
+      </div>
+
       {/* 인사이트 섹션 */}
       {insights && insights.length > 0 && (
         <div className="bg-slate-50 dark:bg-slate-800/50 rounded-xl p-4 border border-slate-200 dark:border-slate-700">
@@ -717,39 +862,152 @@ function OrdersTab({
   orders?: Order[]
   onOrderClick: (orderId: string) => void
 }) {
+  const [currentPage, setCurrentPage] = useState(1)
+  const [sortBy, setSortBy] = useState<'date' | 'amount'>('date')
+  const [sortOrder, setSortOrder] = useState<'asc' | 'desc'>('desc')
+  const [artistFilter, setArtistFilter] = useState<string>('all')
+  const ITEMS_PER_PAGE = 10
+
   if (!orders || orders.length === 0) {
     return <EmptyState message="주문 이력이 없습니다." />
   }
 
+  // 작가 목록 추출 (필터용)
+  const uniqueArtists = Array.from(new Set(orders.map(o => o.artistName).filter(Boolean)))
+
+  // 필터링
+  const filteredOrders = artistFilter === 'all' 
+    ? orders 
+    : orders.filter(o => o.artistName?.includes(artistFilter))
+
+  // 정렬
+  const sortedOrders = [...filteredOrders].sort((a, b) => {
+    if (sortBy === 'date') {
+      const dateA = new Date(a.orderDate).getTime()
+      const dateB = new Date(b.orderDate).getTime()
+      return sortOrder === 'desc' ? dateB - dateA : dateA - dateB
+    } else {
+      return sortOrder === 'desc' ? b.totalAmount - a.totalAmount : a.totalAmount - b.totalAmount
+    }
+  })
+
+  // 페이지네이션
+  const totalPages = Math.ceil(sortedOrders.length / ITEMS_PER_PAGE)
+  const paginatedOrders = sortedOrders.slice(
+    (currentPage - 1) * ITEMS_PER_PAGE,
+    currentPage * ITEMS_PER_PAGE
+  )
+
+  // 상태 배지 색상
+  const getStatusBadge = (status: string) => {
+    const statusLower = status?.toLowerCase() || ''
+    if (statusLower.includes('complete') || statusLower.includes('delivered') || statusLower.includes('완료')) {
+      return 'bg-emerald-100 text-emerald-700 dark:bg-emerald-900/30 dark:text-emerald-400'
+    }
+    if (statusLower.includes('cancel') || statusLower.includes('취소') || statusLower.includes('refund') || statusLower.includes('환불')) {
+      return 'bg-red-100 text-red-700 dark:bg-red-900/30 dark:text-red-400'
+    }
+    if (statusLower.includes('shipping') || statusLower.includes('배송') || statusLower.includes('transit')) {
+      return 'bg-blue-100 text-blue-700 dark:bg-blue-900/30 dark:text-blue-400'
+    }
+    if (statusLower.includes('pending') || statusLower.includes('대기') || statusLower.includes('processing')) {
+      return 'bg-amber-100 text-amber-700 dark:bg-amber-900/30 dark:text-amber-400'
+    }
+    return 'bg-slate-100 text-slate-600 dark:bg-slate-700 dark:text-slate-400'
+  }
+
   return (
-    <div className="space-y-3">
-      <p className="text-sm text-slate-500 mb-4">총 {orders.length}건의 주문</p>
-      {orders.map((order) => (
-        <button
-          key={order.orderId}
-          onClick={() => onOrderClick(order.orderId)}
-          className="w-full flex items-center gap-4 p-4 bg-slate-50 dark:bg-slate-800/50 rounded-xl hover:bg-slate-100 dark:hover:bg-slate-700/50 transition-colors text-left"
+    <div className="space-y-4">
+      {/* 필터 & 정렬 컨트롤 */}
+      <div className="flex flex-wrap items-center gap-3 pb-3 border-b border-slate-200 dark:border-slate-700">
+        <p className="text-sm text-slate-500">총 {filteredOrders.length}건</p>
+        <div className="flex-1" />
+        
+        {/* 작가 필터 */}
+        {uniqueArtists.length > 1 && (
+          <select
+            value={artistFilter}
+            onChange={(e) => { setArtistFilter(e.target.value); setCurrentPage(1); }}
+            className="text-xs px-2 py-1.5 border border-slate-200 dark:border-slate-700 rounded-lg bg-white dark:bg-slate-800 text-slate-700 dark:text-slate-300"
+          >
+            <option value="all">모든 작가</option>
+            {uniqueArtists.map(artist => (
+              <option key={artist} value={artist}>{artist}</option>
+            ))}
+          </select>
+        )}
+
+        {/* 정렬 */}
+        <select
+          value={`${sortBy}-${sortOrder}`}
+          onChange={(e) => {
+            const [newSort, newOrder] = e.target.value.split('-') as ['date' | 'amount', 'asc' | 'desc']
+            setSortBy(newSort)
+            setSortOrder(newOrder)
+          }}
+          className="text-xs px-2 py-1.5 border border-slate-200 dark:border-slate-700 rounded-lg bg-white dark:bg-slate-800 text-slate-700 dark:text-slate-300"
         >
-          <div className="w-10 h-10 bg-sky-100 dark:bg-sky-900/30 rounded-lg flex items-center justify-center">
-            <Icon icon={Package} size="md" className="text-sky-500" />
-          </div>
-          <div className="flex-1 min-w-0">
-            <p className="text-sm font-medium text-sky-600 dark:text-sky-400 truncate">
-              {order.orderId}
-            </p>
-            <p className="text-xs text-slate-500 truncate">
-              {order.artistName || order.productName || '상품 정보 없음'} · {new Date(order.orderDate).toLocaleDateString('ko-KR')}
-            </p>
-          </div>
-          <div className="text-right">
-            <p className="text-sm font-semibold text-slate-800 dark:text-slate-100">
-              {formatCurrency(order.totalAmount)}
-            </p>
-            <p className="text-xs text-slate-500">{order.status}</p>
-          </div>
-          <Icon icon={ChevronRight} size="sm" className="text-slate-400" />
-        </button>
-      ))}
+          <option value="date-desc">최신순</option>
+          <option value="date-asc">오래된순</option>
+          <option value="amount-desc">금액 높은순</option>
+          <option value="amount-asc">금액 낮은순</option>
+        </select>
+      </div>
+
+      {/* 주문 목록 */}
+      <div className="space-y-3">
+        {paginatedOrders.map((order) => (
+          <button
+            key={order.orderId}
+            onClick={() => onOrderClick(order.orderId)}
+            className="w-full flex items-center gap-4 p-4 bg-slate-50 dark:bg-slate-800/50 rounded-xl hover:bg-slate-100 dark:hover:bg-slate-700/50 transition-colors text-left"
+          >
+            <div className="w-10 h-10 bg-sky-100 dark:bg-sky-900/30 rounded-lg flex items-center justify-center">
+              <Icon icon={Package} size="md" className="text-sky-500" />
+            </div>
+            <div className="flex-1 min-w-0">
+              <p className="text-sm font-medium text-sky-600 dark:text-sky-400 truncate">
+                {order.orderId}
+              </p>
+              <p className="text-xs text-slate-500 truncate">
+                {order.artistName || order.productName || '상품 정보 없음'} · {new Date(order.orderDate).toLocaleDateString('ko-KR')}
+              </p>
+            </div>
+            <div className="text-right">
+              <p className="text-sm font-semibold text-slate-800 dark:text-slate-100">
+                {formatCurrency(order.totalAmount)}
+              </p>
+              <span className={`inline-block text-xs px-2 py-0.5 rounded-full mt-1 ${getStatusBadge(order.status)}`}>
+                {order.status || 'N/A'}
+              </span>
+            </div>
+            <Icon icon={ChevronRight} size="sm" className="text-slate-400" />
+          </button>
+        ))}
+      </div>
+
+      {/* 페이지네이션 */}
+      {totalPages > 1 && (
+        <div className="flex items-center justify-center gap-2 pt-4">
+          <button
+            onClick={() => setCurrentPage(p => Math.max(1, p - 1))}
+            disabled={currentPage === 1}
+            className="px-3 py-1.5 text-sm rounded-lg border border-slate-200 dark:border-slate-700 disabled:opacity-50 disabled:cursor-not-allowed hover:bg-slate-100 dark:hover:bg-slate-700"
+          >
+            이전
+          </button>
+          <span className="text-sm text-slate-600 dark:text-slate-400">
+            {currentPage} / {totalPages}
+          </span>
+          <button
+            onClick={() => setCurrentPage(p => Math.min(totalPages, p + 1))}
+            disabled={currentPage === totalPages}
+            className="px-3 py-1.5 text-sm rounded-lg border border-slate-200 dark:border-slate-700 disabled:opacity-50 disabled:cursor-not-allowed hover:bg-slate-100 dark:hover:bg-slate-700"
+          >
+            다음
+          </button>
+        </div>
+      )}
     </div>
   )
 }
