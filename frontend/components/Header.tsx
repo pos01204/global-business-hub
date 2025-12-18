@@ -257,9 +257,9 @@ export default function Header() {
               className="flex items-center gap-2.5 pl-3 pr-2 py-1.5 hover:bg-slate-50 dark:hover:bg-slate-800 rounded-full border border-slate-200 dark:border-slate-700 transition-all hover:border-slate-300 dark:hover:border-slate-600 hover:shadow-sm"
             >
               <BrandAvatar
-                src={session?.user?.image}
-                name={session?.user?.name}
-                email={session?.user?.email}
+                src={session?.user?.image ?? undefined}
+                name={session?.user?.name ?? undefined}
+                email={session?.user?.email ?? undefined}
                 size="sm"
               />
               <div className="hidden md:block text-left max-w-[120px]">
@@ -287,9 +287,9 @@ export default function Header() {
                 <div className="px-4 py-4 bg-gradient-to-br from-slate-50 to-slate-100/50 dark:from-slate-800 dark:to-slate-800/50">
                   <div className="flex items-center gap-3">
                     <BrandAvatar
-                      src={session?.user?.image}
-                      name={session?.user?.name}
-                      email={session?.user?.email}
+                      src={session?.user?.image ?? undefined}
+                      name={session?.user?.name ?? undefined}
+                      email={session?.user?.email ?? undefined}
                       size="md"
                     />
                     <div className="flex-1 min-w-0">
