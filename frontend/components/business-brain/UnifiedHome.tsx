@@ -914,7 +914,7 @@ export function UnifiedHome({
               <Icon icon={Clock} size="xs" className="inline mr-1" />
               마지막 업데이트: {new Date().toLocaleString('ko-KR')}
             </p>
-            <div className="flex items-center gap-2">
+            <div className="flex items-center gap-2 flex-wrap">
               <button
                 onClick={() => onTabChange('customer')}
                 className="px-4 py-2 text-sm font-medium text-slate-600 dark:text-slate-300 bg-white dark:bg-slate-700 rounded-lg border border-slate-200 dark:border-slate-600 hover:bg-slate-50 dark:hover:bg-slate-600 transition-colors"
@@ -932,6 +932,44 @@ export function UnifiedHome({
                 className="px-4 py-2 text-sm font-medium text-white bg-idus-500 rounded-lg hover:bg-idus-600 transition-colors"
               >
                 데이터 탐색기
+              </button>
+            </div>
+          </div>
+        </Card>
+      </FadeInUp>
+
+      {/* 전문 페이지 바로가기 (IA 가이드 11.3 준수) */}
+      <FadeInUp delay={650}>
+        <Card className="p-4 bg-gradient-to-r from-slate-100 to-slate-50 dark:from-slate-800 dark:to-slate-800/50 border border-slate-200 dark:border-slate-700">
+          <div className="flex items-center justify-between flex-wrap gap-4">
+            <div>
+              <h4 className="text-sm font-semibold text-slate-700 dark:text-slate-200">상세 분석 페이지로 이동</h4>
+              <p className="text-xs text-slate-500 dark:text-slate-400">각 전문 페이지에서 더 깊이 있는 분석을 확인하세요</p>
+            </div>
+            <div className="flex items-center gap-2 flex-wrap">
+              <button
+                onClick={() => router.push('/analytics')}
+                className="px-3 py-1.5 text-xs font-medium text-violet-700 dark:text-violet-300 bg-violet-100 dark:bg-violet-900/30 rounded-lg hover:bg-violet-200 dark:hover:bg-violet-900/50 transition-colors flex items-center gap-1"
+              >
+                성과 분석 <Icon icon={ArrowRight} size="xs" />
+              </button>
+              <button
+                onClick={() => router.push('/customer-analytics')}
+                className="px-3 py-1.5 text-xs font-medium text-sky-700 dark:text-sky-300 bg-sky-100 dark:bg-sky-900/30 rounded-lg hover:bg-sky-200 dark:hover:bg-sky-900/50 transition-colors flex items-center gap-1"
+              >
+                고객 분석 <Icon icon={ArrowRight} size="xs" />
+              </button>
+              <button
+                onClick={() => router.push('/review-analytics')}
+                className="px-3 py-1.5 text-xs font-medium text-cyan-700 dark:text-cyan-300 bg-cyan-100 dark:bg-cyan-900/30 rounded-lg hover:bg-cyan-200 dark:hover:bg-cyan-900/50 transition-colors flex items-center gap-1"
+              >
+                리뷰 분석 <Icon icon={ArrowRight} size="xs" />
+              </button>
+              <button
+                onClick={() => router.push('/artist-analytics')}
+                className="px-3 py-1.5 text-xs font-medium text-rose-700 dark:text-rose-300 bg-rose-100 dark:bg-rose-900/30 rounded-lg hover:bg-rose-200 dark:hover:bg-rose-900/50 transition-colors flex items-center gap-1"
+              >
+                작가 분석 <Icon icon={ArrowRight} size="xs" />
               </button>
             </div>
           </div>

@@ -1,5 +1,7 @@
 'use client'
 
+import { useEffect } from 'react'
+import { useRouter } from 'next/navigation'
 import { useQuery } from '@tanstack/react-query'
 import { useState } from 'react'
 import { couponAnalyticsApi } from '@/lib/api'
@@ -81,6 +83,13 @@ interface Insight {
 // ============================================================
 
 export default function CouponAnalyticsPage() {
+  const router = useRouter()
+  
+  // 성과 분석 허브로 리다이렉트 (IA 개편안 Phase 1 준수)
+  useEffect(() => {
+    router.replace('/analytics?tab=coupon')
+  }, [router])
+
   // 기본 날짜 범위: 최근 30일
   const today = new Date()
   const thirtyDaysAgo = new Date(today.getTime() - 30 * 24 * 60 * 60 * 1000)

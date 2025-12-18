@@ -567,125 +567,67 @@ export default function DashboardPage() {
             />
           </div>
 
-          {/* 트렌드 차트 */}
+          {/* 트렌드 요약 카드 (상세 차트는 성과 분석 허브로 이동) */}
           <div className="bg-white dark:bg-slate-900 rounded-2xl border border-slate-200 dark:border-slate-800 p-4 lg:p-6 mb-6 shadow-sm">
-            <div className="flex flex-col gap-4 mb-5">
-              <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
-                <div className="flex items-center gap-3">
-                  <div className="w-10 h-10 bg-idus-500 rounded-xl flex items-center justify-center shadow-sm">
-                    <Icon icon={TrendingUp} size="lg" className="text-white" />
-                  </div>
-                  <div>
-                    <h2 className="text-lg font-bold text-slate-800 dark:text-slate-100">GMV & 주문 추세</h2>
-                    <p className="text-xs text-slate-500 dark:text-slate-400">7일 이동평균 포함</p>
-                  </div>
+            <div className="flex items-center justify-between mb-4">
+              <div className="flex items-center gap-3">
+                <div className="w-10 h-10 bg-violet-500 rounded-xl flex items-center justify-center shadow-sm">
+                  <Icon icon={TrendingUp} size="lg" className="text-white" />
+                </div>
+                <div>
+                  <h2 className="text-lg font-bold text-slate-800 dark:text-slate-100">성과 트렌드 요약</h2>
+                  <p className="text-xs text-slate-500 dark:text-slate-400">상세 분석은 성과 분석 허브에서 확인하세요</p>
                 </div>
               </div>
-              
-              {/* 집계 단위 선택 (날짜 필터는 상단에서 통합 관리) */}
-              <div className="flex items-center justify-end">
-                <AggregationSelector
-                  value={aggregation}
-                  onChange={setAggregation}
-                />
-              </div>
+              <Link 
+                href="/analytics"
+                className="flex items-center gap-2 px-4 py-2 bg-violet-500 text-white rounded-lg hover:bg-violet-600 transition-colors text-sm font-medium"
+              >
+                <Icon icon={BarChart3} size="sm" />
+                성과 분석 허브
+              </Link>
             </div>
+            
             {data.trend && (() => {
-              // Chart.js 데이터를 GMVTrendChart 형식으로 변환
-              const chartData: GMVTrendData[] = data.trend.labels.map((label: string, index: number) => {
-                const item: GMVTrendData = { 
-                  date: label,
-                  gmv: 0,
-                  orders: 0,
-                }
-                
-                // 각 데이터셋에서 해당 인덱스의 값을 추출
+              // 간소화된 통계만 표시
+              const chartData = data.trend.labels.map((label: string, index: number) => {
+                let gmv = 0, orders = 0
                 data.trend.datasets.forEach((dataset: any) => {
-                  if (dataset.data && dataset.data[index] !== undefined && dataset.data[index] !== null) {
-                    const value = dataset.data[index]
-                    
-                    // 정확한 라벨 매칭으로 데이터 추출
-                    if (dataset.label === 'GMV (일별)') {
-                      item.gmv = value
-                    } else if (dataset.label === '주문 건수 (일별)') {
-                      item.orders = value
-                    } else if (dataset.label === 'GMV (7일 이동평균)') {
-                      item.gmvMA7 = value
-                    } else if (dataset.label === '주문 건수 (7일 이동평균)') {
-                      item.ordersMA7 = value
-                    }
+                  if (dataset.data?.[index] !== undefined) {
+                    if (dataset.label === 'GMV (일별)') gmv = dataset.data[index]
+                    if (dataset.label === '주문 건수 (일별)') orders = dataset.data[index]
                   }
                 })
-                
-                return item
+                return { gmv, orders }
               })
               
-              // 통계 계산
               const gmvValues = chartData.map(d => d.gmv).filter(v => v > 0)
               const ordersValues = chartData.map(d => d.orders).filter(v => v > 0)
               
-              const avgGmv = gmvValues.length > 0 
-                ? gmvValues.reduce((a, b) => a + b, 0) / gmvValues.length 
-                : 0
-              const avgOrders = ordersValues.length > 0 
-                ? ordersValues.reduce((a, b) => a + b, 0) / ordersValues.length 
-                : 0
-              
-              const maxGmv = Math.max(...gmvValues, 0)
-              const maxGmvIndex = gmvValues.indexOf(maxGmv)
-              const maxGmvDate = maxGmvIndex >= 0 ? chartData[maxGmvIndex]?.date : undefined
-              
-              const maxOrders = Math.max(...ordersValues, 0)
-              const maxOrdersIndex = ordersValues.indexOf(maxOrders)
-              const maxOrdersDate = maxOrdersIndex >= 0 ? chartData[maxOrdersIndex]?.date : undefined
-              
-              // 변화율 계산 (첫날 대비 마지막날)
-              const firstGmv = gmvValues[0] || 0
-              const lastGmv = gmvValues[gmvValues.length - 1] || 0
-              const gmvChange = firstGmv > 0 ? ((lastGmv - firstGmv) / firstGmv) * 100 : 0
-              
-              const firstOrders = ordersValues[0] || 0
-              const lastOrders = ordersValues[ordersValues.length - 1] || 0
-              const ordersChange = firstOrders > 0 ? ((lastOrders - firstOrders) / firstOrders) * 100 : 0
-              
-              const stats: StatCardData[] = [
-                {
-                  label: '평균 일일 GMV',
-                  value: avgGmv,
-                  change: gmvChange,
-                  trend: gmvChange > 0 ? 'up' : gmvChange < 0 ? 'down' : 'stable',
-                  format: 'currency',
-                },
-                {
-                  label: '평균 일일 주문',
-                  value: avgOrders,
-                  change: ordersChange,
-                  trend: ordersChange > 0 ? 'up' : ordersChange < 0 ? 'down' : 'stable',
-                  format: 'number',
-                },
-                {
-                  label: '최고 GMV',
-                  value: maxGmv,
-                  date: maxGmvDate ? format(new Date(maxGmvDate), 'MM/dd') : undefined,
-                  format: 'currency',
-                },
-                {
-                  label: '최고 주문',
-                  value: maxOrders,
-                  date: maxOrdersDate ? format(new Date(maxOrdersDate), 'MM/dd') : undefined,
-                  format: 'number',
-                },
-              ]
+              const avgGmv = gmvValues.length > 0 ? gmvValues.reduce((a, b) => a + b, 0) / gmvValues.length : 0
+              const avgOrders = ordersValues.length > 0 ? ordersValues.reduce((a, b) => a + b, 0) / ordersValues.length : 0
+              const totalGmv = gmvValues.reduce((a, b) => a + b, 0)
+              const totalOrders = ordersValues.reduce((a, b) => a + b, 0)
               
               return (
-                <>
-                  <StatSummaryCards stats={stats} />
-                  <GMVTrendChart
-                    data={chartData}
-                    height={400}
-                    showMovingAverage={true}
-                  />
-                </>
+                <div className="grid grid-cols-2 lg:grid-cols-4 gap-4">
+                  <div className="bg-slate-50 dark:bg-slate-800/50 rounded-xl p-4">
+                    <p className="text-xs text-slate-500 dark:text-slate-400 mb-1">기간 총 GMV</p>
+                    <p className="text-xl font-bold text-slate-800 dark:text-slate-100">{formatCurrency(totalGmv)}</p>
+                  </div>
+                  <div className="bg-slate-50 dark:bg-slate-800/50 rounded-xl p-4">
+                    <p className="text-xs text-slate-500 dark:text-slate-400 mb-1">기간 총 주문</p>
+                    <p className="text-xl font-bold text-slate-800 dark:text-slate-100">{totalOrders.toLocaleString()}건</p>
+                  </div>
+                  <div className="bg-slate-50 dark:bg-slate-800/50 rounded-xl p-4">
+                    <p className="text-xs text-slate-500 dark:text-slate-400 mb-1">일평균 GMV</p>
+                    <p className="text-xl font-bold text-slate-800 dark:text-slate-100">{formatCurrency(avgGmv)}</p>
+                  </div>
+                  <div className="bg-slate-50 dark:bg-slate-800/50 rounded-xl p-4">
+                    <p className="text-xs text-slate-500 dark:text-slate-400 mb-1">일평균 주문</p>
+                    <p className="text-xl font-bold text-slate-800 dark:text-slate-100">{Math.round(avgOrders).toLocaleString()}건</p>
+                  </div>
+                </div>
               )
             })()}
           </div>
