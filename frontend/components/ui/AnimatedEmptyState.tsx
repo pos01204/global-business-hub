@@ -65,7 +65,7 @@ const AnimatedIcon = ({ type }: { type: string }) => {
 
 type AnimationType = 'search' | 'data' | 'error' | 'filter' | 'chart' | 'customer' | 'product'
 
-interface AnimatedEmptyStateProps {
+export interface AnimatedEmptyStateProps {
   type?: AnimationType
   title: string
   description: string
