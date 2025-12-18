@@ -243,18 +243,21 @@ export const countryCodeMap: Record<string, { iso: string; lat: number; lng: num
 export function convertToCountryData(
   rawData: { country: string; value: number }[]
 ): CountryData[] {
-  return rawData
-    .map(item => {
-      const countryInfo = countryCodeMap[item.country]
-      if (!countryInfo) return null
-      return {
-        iso: countryInfo.iso,
-        name: item.country,
-        value: item.value,
-        lat: countryInfo.lat,
-        lng: countryInfo.lng,
-      }
+  const result: CountryData[] = []
+
+  for (const item of rawData) {
+    const countryInfo = countryCodeMap[item.country]
+    if (!countryInfo) continue
+
+    result.push({
+      iso: countryInfo.iso,
+      name: item.country,
+      value: item.value,
+      lat: countryInfo.lat,
+      lng: countryInfo.lng,
     })
-    .filter((item): item is CountryData => item !== null)
+  }
+
+  return result
 }
 
