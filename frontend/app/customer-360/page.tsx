@@ -136,37 +136,37 @@ export default function Customer360Page() {
           )}
         </div>
 
-          {/* 검색 결과 */}
-          {searchResults?.data?.results && searchResults.data.results.length > 0 && (
-            <div className="mt-2 max-w-md bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-xl shadow-lg overflow-hidden">
-              {searchResults.data.results.map((result: any) => (
-                <button
-                  key={result.userId}
-                  onClick={() => {
-                    setSelectedUserId(result.userId)
-                    setSearchQuery('')
-                  }}
-                  className="w-full flex items-center gap-3 px-4 py-3 hover:bg-slate-50 dark:hover:bg-slate-700 transition-colors text-left border-b border-slate-100 dark:border-slate-700 last:border-0"
-                >
-                  <div className="w-8 h-8 bg-blue-100 dark:bg-blue-900/30 rounded-full flex items-center justify-center">
-                    <Icon icon={User} size="sm" className="text-blue-500" />
-                  </div>
-                  <div className="flex-1 min-w-0">
-                    <p className="text-sm font-medium text-slate-800 dark:text-slate-100 truncate">
-                      ID: {result.userId}
-                    </p>
-                    <p className="text-xs text-slate-500 truncate">
-                      {result.email || 'N/A'} · {result.country || 'N/A'}
-                    </p>
-                  </div>
-                  <Icon icon={ChevronRight} size="sm" className="text-slate-400" />
-                </button>
-              ))}
-            </div>
-          )}
-        </div>
+        {/* 검색 결과 */}
+        {searchResults?.data?.results && searchResults.data.results.length > 0 && (
+          <div className="mt-2 max-w-md bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-xl shadow-lg overflow-hidden">
+            {searchResults.data.results.map((result: any) => (
+              <button
+                key={result.userId}
+                onClick={() => {
+                  setSelectedUserId(result.userId)
+                  setSearchQuery('')
+                }}
+                className="w-full flex items-center gap-3 px-4 py-3 hover:bg-slate-50 dark:hover:bg-slate-700 transition-colors text-left border-b border-slate-100 dark:border-slate-700 last:border-0"
+              >
+                <div className="w-8 h-8 bg-blue-100 dark:bg-blue-900/30 rounded-full flex items-center justify-center">
+                  <Icon icon={User} size="sm" className="text-blue-500" />
+                </div>
+                <div className="flex-1 min-w-0">
+                  <p className="text-sm font-medium text-slate-800 dark:text-slate-100 truncate">
+                    ID: {result.userId}
+                  </p>
+                  <p className="text-xs text-slate-500 truncate">
+                    {result.email || 'N/A'} · {result.country || 'N/A'}
+                  </p>
+                </div>
+                <Icon icon={ChevronRight} size="sm" className="text-slate-400" />
+              </button>
+            ))}
+          </div>
+        )}
+      </div>
 
-        {/* 고객 상세 */}
+      {/* 고객 상세 */}
         {selectedUserId && (
           <>
             {customerLoading ? (
@@ -402,23 +402,22 @@ export default function Customer360Page() {
               </div>
             )}
           </>
-        )}
+      )}
 
-        {/* 초기 상태 */}
-        {!selectedUserId && (
-          <div className="text-center py-16">
-            <div className="w-20 h-20 bg-blue-100 dark:bg-blue-900/30 rounded-2xl flex items-center justify-center mx-auto mb-4">
-              <Icon icon={Search} size="xl" className="text-blue-500" />
-            </div>
-            <h3 className="text-lg font-semibold text-slate-800 dark:text-slate-100 mb-2">
-              고객을 검색하세요
-            </h3>
-            <p className="text-sm text-slate-500">
-              이메일 또는 이름으로 검색하여 고객의 360° 뷰를 확인할 수 있습니다.
-            </p>
+      {/* 초기 상태 */}
+      {!selectedUserId && (
+        <div className="text-center py-16">
+          <div className="w-20 h-20 bg-blue-100 dark:bg-blue-900/30 rounded-2xl flex items-center justify-center mx-auto mb-4">
+            <Icon icon={Search} size="xl" className="text-blue-500" />
           </div>
-        )}
-      </div>
+          <h3 className="text-lg font-semibold text-slate-800 dark:text-slate-100 mb-2">
+            고객을 검색하세요
+          </h3>
+          <p className="text-sm text-slate-500">
+            이메일 또는 이름으로 검색하여 고객의 360° 뷰를 확인할 수 있습니다.
+          </p>
+        </div>
+      )}
     </div>
   )
 }
