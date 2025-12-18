@@ -21,7 +21,7 @@ declare module 'react-simple-maps' {
 
   export const Geographies: React.ComponentType<GeographiesProps>
 
-  export interface GeographyProps {
+  export interface GeographyProps extends React.SVGAttributes<SVGPathElement> {
     geography: any
     style?: Record<string, React.CSSProperties>
     onMouseEnter?: (event: React.MouseEvent<SVGPathElement, MouseEvent>) => void
