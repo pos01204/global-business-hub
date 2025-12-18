@@ -22,15 +22,15 @@ import {
   Legend,
   ArcElement,
 } from 'chart.js'
-import { 
+import {
   Palette, BarChart3, Calendar, Lightbulb, CheckCircle,
   TrendingUp, TrendingDown, ArrowRight
 } from 'lucide-react'
 // ✅ 공통 유틸리티 import (Phase 1 표준화)
 import { formatCurrency, formatChange } from '@/lib/formatters'
-// IA 개편안 Phase 1: 주문 패턴/쿠폰 효과 탭 통합
-import { OrderPatternsContent } from '../order-patterns/page'
-import { CouponAnalyticsContent } from '../coupon-analytics/page'
+// IA 개편안 Phase 1: 주문 패턴/쿠폰 효과 탭 통합 (별도 컴포넌트로 분리)
+import { OrderPatternsContent } from '../order-patterns/OrderPatternsContent'
+import { CouponAnalyticsContent } from '../coupon-analytics/CouponAnalyticsContent'
 
 ChartJS.register(
   CategoryScale,
