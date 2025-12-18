@@ -23,6 +23,84 @@ function safeNumber(value: any, defaultValue: number = 0): number {
 }
 
 /**
+ * GMV 값 추출 (컬럼명 정규화)
+ * Raw Data 컬럼명: 'Total GMV' (공백 포함, 대문자)
+ * 다양한 변환 케이스를 모두 처리
+ */
+function getOrderGmv(order: any): number {
+  const gmvValue = 
+    order['Total GMV'] ||           // 원본 컬럼명 (공백 포함)
+    order['total GMV'] ||           // 소문자 시작
+    order['Total_GMV'] ||           // 언더스코어 변환
+    order.total_gmv ||              // 소문자 + 언더스코어
+    order.TOTAL_GMV ||              // 대문자 + 언더스코어
+    order.totalGmv ||               // camelCase
+    order.TotalGMV ||               // PascalCase
+    order['total gmv'] ||           // 소문자 + 공백
+    order.gmv ||                    // 단순 gmv
+    order.GMV ||                    // 대문자 GMV
+    0
+  return safeNumber(gmvValue)
+}
+
+/**
+ * 쿠폰 할인액 추출 (order 시트에서)
+ */
+function getCouponDiscount(order: any): number {
+  const couponValue =
+    order['아이디어스 쿠폰비 (Item)'] ||
+    order['아이디어스_쿠폰비_(Item)'] ||
+    order.coupon_discount ||
+    order.couponDiscount ||
+    0
+  return safeNumber(couponValue)
+}
+
+/**
+ * 작가명 추출 (컬럼명 정규화)
+ */
+function getArtistName(order: any): string {
+  return (
+    order['artist_name (kr)'] ||
+    order['artist_name(kr)'] ||
+    order.artist_name_kr ||
+    order.artistNameKr ||
+    order.artist_name ||
+    order.artistName ||
+    ''
+  )
+}
+
+/**
+ * 요일 추출 (0=일요일, 1=월요일, ...)
+ */
+function getDayOfWeek(dateStr: string): string {
+  const days = ['일요일', '월요일', '화요일', '수요일', '목요일', '금요일', '토요일']
+  try {
+    const date = new Date(dateStr)
+    return days[date.getDay()]
+  } catch {
+    return '알 수 없음'
+  }
+}
+
+/**
+ * 시간대 추출
+ */
+function getTimeOfDay(dateStr: string): string {
+  try {
+    const date = new Date(dateStr)
+    const hour = date.getHours()
+    if (hour >= 0 && hour < 6) return '새벽 (0-6시)'
+    if (hour >= 6 && hour < 12) return '오전 (6-12시)'
+    if (hour >= 12 && hour < 18) return '오후 (12-18시)'
+    return '저녁 (18-24시)'
+  } catch {
+    return '알 수 없음'
+  }
+}
+
+/**
  * RFM 점수 계산
  */
 function calculateRFMScore(recencyDays: number, frequency: number, monetaryKrw: number): {
@@ -69,6 +147,24 @@ function calculateRFMScore(recencyDays: number, frequency: number, monetaryKrw: 
   else if (r >= 3) segment = 'Promising'
   
   return { r, f, m, score, segment }
+}
+
+/**
+ * RFM 세그먼트 설명
+ */
+function getSegmentDescription(segment: string): string {
+  const descriptions: Record<string, string> = {
+    'Champions': '최고의 고객입니다. 자주 구매하고, 최근에도 구매했으며, 높은 금액을 지출합니다.',
+    'Loyal Customers': '충성 고객입니다. 자주 구매하는 편이며 꾸준한 관계를 유지하고 있습니다.',
+    'New Customers': '신규 고객입니다. 최근에 첫 구매를 했으며, 재구매를 유도할 필요가 있습니다.',
+    'Potential Loyalists': '잠재적 충성 고객입니다. 적절한 관리로 Champions로 성장할 수 있습니다.',
+    'At Risk': '이탈 위험 고객입니다. 이전에는 활발했으나 최근 구매가 줄었습니다. 재활성화가 필요합니다.',
+    'Can\'t Lose Them': '잃어서는 안 되는 고객입니다. 높은 가치를 가졌으나 최근 활동이 없습니다.',
+    'Hibernating': '휴면 고객입니다. 오랫동안 구매가 없습니다. 재활성화 캠페인을 고려하세요.',
+    'Promising': '유망한 고객입니다. 최근 구매가 있으며, 더 많은 참여를 유도할 수 있습니다.',
+    'Others': '일반 고객입니다.',
+  }
+  return descriptions[segment] || '분류되지 않은 고객입니다.'
 }
 
 /**
@@ -203,18 +299,25 @@ router.get('/:userId', async (req: Request, res: Response) => {
       })
     }
     
-    // 주문 데이터 필터링
+    // 주문 데이터 필터링 (GMV 컬럼명 정규화 적용)
     const userOrders = ordersData
       .filter((order: any) => String(order.user_id || order.USER_ID) === String(userId))
-      .map((order: any) => ({
-        orderId: order.order_code || order.ORDER_CODE,
-        orderDate: order.order_created || order.ORDER_CREATED,
-        totalAmount: safeNumber(order.total_gmv) * CURRENCY.USD_TO_KRW,
-        itemCount: safeNumber(order.quantity, 1),
-        status: order.order_status || order.STATUS || 'unknown',
-        artistName: order['artist_name (kr)'] || order.artist_name,
-        productName: order.product_name,
-      }))
+      .map((order: any) => {
+        const orderDate = order.order_created || order.ORDER_CREATED || order['order_created']
+        return {
+          orderId: order.order_code || order.ORDER_CODE || order['order_code'],
+          orderDate,
+          totalAmount: getOrderGmv(order) * CURRENCY.USD_TO_KRW,
+          couponDiscount: getCouponDiscount(order) * CURRENCY.USD_TO_KRW,
+          itemCount: safeNumber(order.quantity || order['구매수량'], 1),
+          status: order.order_status || order.STATUS || order['order_status'] || 'unknown',
+          artistName: getArtistName(order),
+          productName: order.product_name || order['product_name'] || '',
+          country: order.country || order.COUNTRY || '',
+          dayOfWeek: getDayOfWeek(orderDate),
+          timeOfDay: getTimeOfDay(orderDate),
+        }
+      })
       .sort((a: any, b: any) => new Date(b.orderDate).getTime() - new Date(a.orderDate).getTime())
     
     // 쿠폰 사용 이력 (userId로 필터링 - 실제 데이터 구조에 따라 조정 필요)
@@ -269,6 +372,169 @@ router.get('/:userId', async (req: Request, res: Response) => {
       activityStatus = 'churned'
     }
     
+    // ============================================================
+    // 새로운 분석 데이터 계산
+    // ============================================================
+    
+    // 1. 작가별 구매 집계 (Top Artists)
+    const artistOrderMap = new Map<string, { gmv: number, orderCount: number, lastOrder: string }>()
+    userOrders.forEach((order: any) => {
+      const artistName = order.artistName
+      if (!artistName) return
+      
+      if (!artistOrderMap.has(artistName)) {
+        artistOrderMap.set(artistName, { gmv: 0, orderCount: 0, lastOrder: '' })
+      }
+      const data = artistOrderMap.get(artistName)!
+      data.gmv += order.totalAmount
+      data.orderCount += 1
+      if (!data.lastOrder || new Date(order.orderDate) > new Date(data.lastOrder)) {
+        data.lastOrder = order.orderDate
+      }
+    })
+    
+    const topArtists = Array.from(artistOrderMap.entries())
+      .map(([name, data]) => ({
+        name,
+        gmv: Math.round(data.gmv),
+        orderCount: data.orderCount,
+        lastOrder: data.lastOrder,
+      }))
+      .sort((a, b) => b.gmv - a.gmv)
+      .slice(0, 10)
+    
+    // 작가 목록 (전체)
+    const artistList = Array.from(artistOrderMap.keys())
+    
+    // 2. 쿠폰 통계
+    const totalCouponDiscount = userOrders.reduce((sum: number, o: any) => sum + (o.couponDiscount || 0), 0)
+    const ordersWithCoupon = userOrders.filter((o: any) => o.couponDiscount > 0).length
+    const couponStats = {
+      totalSavings: Math.round(totalCouponDiscount),
+      usageCount: ordersWithCoupon,
+      usageRate: frequency > 0 ? Math.round((ordersWithCoupon / frequency) * 100 * 10) / 10 : 0,
+    }
+    
+    // 3. 구매 패턴 분석
+    const dayOfWeekCounts: Record<string, number> = {}
+    const timeOfDayCounts: Record<string, number> = {}
+    
+    userOrders.forEach((order: any) => {
+      if (order.dayOfWeek) {
+        dayOfWeekCounts[order.dayOfWeek] = (dayOfWeekCounts[order.dayOfWeek] || 0) + 1
+      }
+      if (order.timeOfDay) {
+        timeOfDayCounts[order.timeOfDay] = (timeOfDayCounts[order.timeOfDay] || 0) + 1
+      }
+    })
+    
+    // 선호 요일/시간대 찾기
+    const preferredDayOfWeek = Object.entries(dayOfWeekCounts)
+      .sort((a, b) => b[1] - a[1])[0]?.[0] || '알 수 없음'
+    const preferredTimeOfDay = Object.entries(timeOfDayCounts)
+      .sort((a, b) => b[1] - a[1])[0]?.[0] || '알 수 없음'
+    
+    // 평균 구매 주기 계산
+    let avgPurchaseCycle = 0
+    if (userOrders.length >= 2) {
+      const sortedDates = userOrders
+        .map((o: any) => new Date(o.orderDate).getTime())
+        .sort((a, b) => a - b)
+      
+      let totalDays = 0
+      for (let i = 1; i < sortedDates.length; i++) {
+        totalDays += (sortedDates[i] - sortedDates[i-1]) / (1000 * 60 * 60 * 24)
+      }
+      avgPurchaseCycle = Math.round(totalDays / (sortedDates.length - 1))
+    }
+    
+    // 고객 가입 후 기간 (월)
+    const customerCreatedAt = user.CREATED_AT || user.created_at
+    let customerMonths = 0
+    if (customerCreatedAt) {
+      const createdDate = new Date(customerCreatedAt)
+      customerMonths = Math.max(1, Math.floor((now.getTime() - createdDate.getTime()) / (1000 * 60 * 60 * 24 * 30)))
+    }
+    
+    const purchaseFrequencyPerMonth = customerMonths > 0 ? Math.round((frequency / customerMonths) * 10) / 10 : frequency
+    
+    const purchasePatterns = {
+      preferredDayOfWeek,
+      preferredTimeOfDay,
+      avgPurchaseCycle,
+      purchaseFrequencyPerMonth,
+      dayOfWeekDistribution: dayOfWeekCounts,
+      timeOfDayDistribution: timeOfDayCounts,
+    }
+    
+    // 4. 인사이트 생성
+    const insights: Array<{ type: 'info' | 'warning' | 'success', message: string }> = []
+    
+    // 세그먼트 기반 인사이트
+    insights.push({
+      type: 'info',
+      message: `이 고객은 "${rfm.segment}" 세그먼트에 속합니다.`
+    })
+    
+    // 활동 상태 기반 인사이트
+    if (activityStatus === 'churned') {
+      insights.push({
+        type: 'warning',
+        message: `최근 ${recencyDays}일간 구매가 없어 이탈 위험이 높습니다. 재활성화 캠페인을 고려하세요.`
+      })
+    } else if (activityStatus === 'inactive') {
+      insights.push({
+        type: 'warning',
+        message: `최근 ${recencyDays}일간 구매가 없습니다. 리마인더 이메일을 고려하세요.`
+      })
+    } else {
+      insights.push({
+        type: 'success',
+        message: `활성 고객입니다. 최근 ${recencyDays}일 전에 구매했습니다.`
+      })
+    }
+    
+    // 구매 주기 기반 인사이트
+    if (avgPurchaseCycle > 0 && recencyDays > avgPurchaseCycle * 1.5) {
+      insights.push({
+        type: 'warning',
+        message: `평균 구매 주기(${avgPurchaseCycle}일)를 크게 초과했습니다.`
+      })
+    }
+    
+    // 선호 작가 인사이트
+    if (topArtists.length > 0) {
+      insights.push({
+        type: 'info',
+        message: `선호 작가(${topArtists[0].name})의 신규 작품 출시 시 알림을 고려하세요.`
+      })
+    }
+    
+    // 5. 권장 액션
+    const recommendedActions: Array<{ label: string, action: string, params?: any }> = []
+    
+    if (activityStatus === 'churned' || activityStatus === 'inactive') {
+      recommendedActions.push({
+        label: '재방문 쿠폰 발급',
+        action: 'issue_coupon',
+        params: { type: 'reactivation', userId }
+      })
+    }
+    
+    recommendedActions.push({
+      label: '통합 검색에서 조회',
+      action: 'navigate',
+      params: { path: `/lookup?type=user_id&query=${userId}` }
+    })
+    
+    if (userReviews.length === 0 && frequency > 0) {
+      recommendedActions.push({
+        label: '리뷰 작성 요청',
+        action: 'request_review',
+        params: { userId }
+      })
+    }
+    
     res.json({
       success: true,
       data: {
@@ -289,6 +555,8 @@ router.get('/:userId', async (req: Request, res: Response) => {
           scores: { r: rfm.r, f: rfm.f, m: rfm.m },
           score: rfm.score,
           segment: rfm.segment,
+          // 세그먼트 설명 추가
+          segmentDescription: getSegmentDescription(rfm.segment),
         },
         stats: {
           totalOrders: frequency,
@@ -296,14 +564,24 @@ router.get('/:userId', async (req: Request, res: Response) => {
           avgOrderValue,
           totalReviews: userReviews.length,
           avgRating: userReviews.length > 0 
-            ? userReviews.reduce((sum: number, r: any) => sum + r.rating, 0) / userReviews.length
+            ? Math.round((userReviews.reduce((sum: number, r: any) => sum + r.rating, 0) / userReviews.length) * 10) / 10
             : null,
-          couponsUsed: userCoupons.length,
+          couponsUsed: couponStats.usageCount,
+          couponSavings: couponStats.totalSavings,
+          artistDiversity: artistList.length,
+          purchaseFrequencyPerMonth: purchasePatterns.purchaseFrequencyPerMonth,
         },
-        orders: userOrders.slice(0, 20), // 최근 20개
+        orders: userOrders.slice(0, 50), // 최근 50개로 확장
         coupons: userCoupons.slice(0, 10),
-        reviews: userReviews.slice(0, 10),
+        reviews: userReviews.slice(0, 20), // 최근 20개로 확장
         ltv,
+        // 새로운 분석 데이터
+        topArtists,
+        artistList,
+        couponStats,
+        purchasePatterns,
+        insights,
+        recommendedActions,
       }
     })
   } catch (error: any) {
@@ -341,7 +619,7 @@ router.get('/segments/summary', async (req: Request, res: Response) => {
       
       const userData = userOrderMap.get(uid)!
       userData.orders.push(order)
-      userData.totalGmv += safeNumber(order.total_gmv) * CURRENCY.USD_TO_KRW
+      userData.totalGmv += getOrderGmv(order) * CURRENCY.USD_TO_KRW
     })
     
     // 세그먼트별 집계
