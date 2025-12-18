@@ -93,14 +93,14 @@ export default function Customer360Page() {
     enabled: !!selectedUserId,
   })
 
-  const customer = customerData?.data
-  const profile = customer?.profile as CustomerProfile | undefined
-  const rfm = customer?.rfm as RFMData | undefined
-  const stats = customer?.stats as CustomerStats | undefined
-  const orders = customer?.orders as Order[] | undefined
-  const reviews = customer?.reviews as Review[] | undefined
+  const customer = customerData?.data;
+  const profile = customer?.profile as CustomerProfile | undefined;
+  const rfm = customer?.rfm as RFMData | undefined;
+  const stats = customer?.stats as CustomerStats | undefined;
+  const orders = customer?.orders as Order[] | undefined;
+  const reviews = customer?.reviews as Review[] | undefined;
   // JSX 직전 `as` 캐스팅으로 인한 파싱 이슈를 피하기 위해 타입 애너테이션 사용
-  const ltv: LTV | undefined = customer?.ltv
+  const ltv: LTV | undefined = customer?.ltv;
 
   return (
     <div className="animate-fade-in">
