@@ -4,7 +4,7 @@ import { useVirtualizer } from '@tanstack/react-virtual'
 import { useRef, useCallback } from 'react'
 import { cn } from '@/lib/utils'
 
-interface VirtualizedListProps<T> {
+export interface VirtualizedListProps<T> {
   items: T[]
   renderItem: (item: T, index: number) => React.ReactNode
   estimateSize?: number
