@@ -35,6 +35,7 @@ export interface CountryGMVMapProps {
   showMarkers?: boolean
   valueFormat?: (value: number) => string
   title?: string
+  showLegend?: boolean
 }
 
 const colorSchemes = {
@@ -52,6 +53,7 @@ export function CountryGMVMap({
   showMarkers = true,
   valueFormat = (v) => `₩${(v / 1000000).toFixed(1)}M`,
   title,
+  showLegend = true,
 }: CountryGMVMapProps) {
   const [hoveredCountry, setHoveredCountry] = useState<CountryData | null>(null)
   
@@ -165,21 +167,23 @@ export function CountryGMVMap({
       )}
       
       {/* 범례 */}
-      <div className="absolute bottom-4 left-4 bg-white/90 dark:bg-slate-900/90 rounded-lg shadow-sm p-2 z-10">
-        <div className="flex items-center gap-1">
-          {colorSchemes[colorScheme].map((color, i) => (
-            <div
-              key={i}
-              className="w-6 h-3 rounded-sm"
-              style={{ backgroundColor: color }}
-            />
-          ))}
+      {showLegend && (
+        <div className="absolute bottom-4 left-4 bg-white/90 dark:bg-slate-900/90 rounded-lg shadow-sm p-2 z-10">
+          <div className="flex items-center gap-1">
+            {colorSchemes[colorScheme].map((color, i) => (
+              <div
+                key={i}
+                className="w-6 h-3 rounded-sm"
+                style={{ backgroundColor: color }}
+              />
+            ))}
+          </div>
+          <div className="flex justify-between text-xs text-slate-500 mt-1">
+            <span>₩0</span>
+            <span>{valueFormat(maxValue)}</span>
+          </div>
         </div>
-        <div className="flex justify-between text-xs text-slate-500 mt-1">
-          <span>₩0</span>
-          <span>{valueFormat(maxValue)}</span>
-        </div>
-      </div>
+      )}
     </div>
   )
 }

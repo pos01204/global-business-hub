@@ -95,6 +95,20 @@ export const hoverEffects = {
   `.trim().replace(/\s+/g, ' '),
 }
 
+// Framer Motion용 카드 hover variants (EnhancedKPICard에서 사용)
+export const cardHoverVariants = {
+  initial: {
+    y: 0,
+    scale: 1,
+    boxShadow: '0 0 0 rgba(15,23,42,0)',
+  },
+  hover: {
+    y: -4,
+    scale: 1.01,
+    boxShadow: '0 20px 25px -5px rgba(15,23,42,0.15)',
+  },
+}
+
 // 조합 헬퍼
 export const combineHoverEffects = (...effects: string[]) => {
   return effects.join(' ')

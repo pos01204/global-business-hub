@@ -205,4 +205,8 @@ export function CompositeTooltip({
 // Export
 // ============================================================
 
+// 기본 커스텀 툴팁 (default)
 export default CustomChartTooltip
+
+// 기존 코드 호환용 alias (Recharts 커스텀 툴팁)
+export const CustomTooltip = CustomChartTooltip
