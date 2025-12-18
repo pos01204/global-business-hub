@@ -277,14 +277,16 @@ router.get('/rfm', async (req, res) => {
       }
     });
 
-    // 평균 주문 금액 계산
+    // 평균 주문 금액 계산 및 전체 유저 ID 보존
     Object.keys(segments).forEach(seg => {
       const s = segments[seg];
       s.avgOrderValue = s.count > 0 ? Math.round(s.totalRevenue / s.count) : 0;
-      // 상위 20명만 반환
+      // 전체 유저 ID 목록 보존 (쿠폰 발급용)
+      (s as any).allUserIds = s.customers.map(c => c.userId);
+      // 미리보기용 상위 고객만 정렬 (전체 목록은 allUserIds에 보존)
       s.customers = s.customers
         .sort((a, b) => b.monetary - a.monetary)
-        .slice(0, 20);
+        .slice(0, 50); // 미리보기용 50명으로 확장
     });
 
     // 세그먼트 정보와 합치기
@@ -292,6 +294,8 @@ router.get('/rfm', async (req, res) => {
       segment: key,
       ...RFM_SEGMENTS[key as keyof typeof RFM_SEGMENTS],
       ...data,
+      // 전체 유저 ID 목록 포함
+      allUserIds: (data as any).allUserIds || [],
     }));
 
     console.log(`[CustomerAnalytics] RFM analysis complete: ${customerCount} customers`);
@@ -464,9 +468,15 @@ router.get('/churn-risk', async (req, res) => {
       }
     });
 
-    // 정렬 및 제한
+    // 정렬
     highRisk.sort((a, b) => b.riskScore - a.riskScore);
     mediumRisk.sort((a, b) => b.riskScore - a.riskScore);
+    lowRisk.sort((a, b) => b.riskScore - a.riskScore);
+
+    // 전체 유저 ID 목록 추출 (쿠폰 발급용)
+    const highRiskUserIds = highRisk.map(c => c.userId);
+    const mediumRiskUserIds = mediumRisk.map(c => c.userId);
+    const lowRiskUserIds = lowRisk.map(c => c.userId);
 
     res.json({
       success: true,
@@ -477,13 +487,227 @@ router.get('/churn-risk', async (req, res) => {
         lowRiskCount: lowRisk.length,
         potentialRevenueLoss: highRisk.reduce((sum, c) => sum + c.totalAmount, 0),
       },
+      // 미리보기용 상위 고객 (50명)
       highRisk: highRisk.slice(0, 50),
       mediumRisk: mediumRisk.slice(0, 50),
-      lowRisk: lowRisk.slice(0, 20),
+      lowRisk: lowRisk.slice(0, 50),
+      // 전체 유저 ID 목록 (쿠폰 발급용)
+      allUserIds: {
+        highRisk: highRiskUserIds,
+        mediumRisk: mediumRiskUserIds,
+        lowRisk: lowRiskUserIds,
+      },
     });
   } catch (error: any) {
     console.error('[CustomerAnalytics] Churn risk error:', error?.message);
     res.status(500).json({ error: 'Failed to analyze churn risk', details: error?.message });
+  }
+});
+
+/**
+ * 특정 세그먼트의 전체 유저 ID 조회 (쿠폰 발급용 경량 API)
+ * GET /api/customer-analytics/segment/:segmentName/users
+ * @param segmentName - RFM 세그먼트명 또는 이탈위험 레벨 (Champions, NeedsAttention, highRisk, mediumRisk, lowRisk)
+ * @query type - 'rfm' | 'churn' (기본값: rfm)
+ */
+router.get('/segment/:segmentName/users', async (req, res) => {
+  try {
+    const { segmentName } = req.params;
+    const { type = 'rfm' } = req.query;
+    
+    console.log(`[CustomerAnalytics] Get segment users: ${segmentName} (type: ${type})`);
+    
+    const logisticsData = await sheetsService.getSheetDataAsJson(SHEET_NAMES.LOGISTICS, true);
+    
+    // user_locale 시트에서 지역 정보 로드
+    let userLocaleMap = new Map<string, { country: string; region: string }>();
+    try {
+      const userLocaleData = await sheetsService.getSheetDataAsJson(SHEET_NAMES.USER_LOCALE, false);
+      userLocaleData.forEach((row: any) => {
+        const userId = String(row.user_id || '');
+        if (userId) {
+          userLocaleMap.set(userId, {
+            country: row.country_code || '',
+            region: row.region || '',
+          });
+        }
+      });
+    } catch (e) {
+      console.warn('[CustomerAnalytics] Segment users: user_locale not available');
+    }
+    
+    // 고객별 집계
+    const customerMap = new Map<string, {
+      userId: string;
+      orders: { date: Date; amount: number; orderCode: string }[];
+      country: string;
+      lastOrderDate: Date;
+      totalAmount: number;
+    }>();
+
+    const now = new Date();
+
+    logisticsData.forEach((row: any) => {
+      const userId = String(row.user_id || '');
+      if (!userId) return;
+
+      const orderDate = new Date(row.order_created);
+      if (isNaN(orderDate.getTime())) return;
+
+      const amount = getGmvKrw(row);
+      const locale = userLocaleMap.get(userId);
+      const country = locale?.country || row.country || 'Unknown';
+
+      if (!customerMap.has(userId)) {
+        customerMap.set(userId, {
+          userId,
+          orders: [],
+          country,
+          lastOrderDate: orderDate,
+          totalAmount: 0,
+        });
+      }
+
+      const customer = customerMap.get(userId)!;
+      
+      // 중복 주문 제거
+      const existingOrder = customer.orders.find(o => o.orderCode === row.order_code);
+      if (!existingOrder) {
+        customer.orders.push({
+          date: orderDate,
+          amount,
+          orderCode: row.order_code,
+        });
+        customer.totalAmount += amount;
+      }
+
+      if (orderDate > customer.lastOrderDate) {
+        customer.lastOrderDate = orderDate;
+      }
+    });
+
+    let userIds: string[] = [];
+    let totalCount = 0;
+    let segmentLabel = segmentName;
+
+    if (type === 'churn') {
+      // 이탈 위험 분석
+      const riskLevels: { [key: string]: string[] } = {
+        highRisk: [],
+        mediumRisk: [],
+        lowRisk: [],
+      };
+
+      customerMap.forEach((customer) => {
+        const recencyDays = Math.floor((now.getTime() - customer.lastOrderDate.getTime()) / (1000 * 60 * 60 * 24));
+        const frequency = customer.orders.length;
+        
+        // 평균 구매 주기 계산
+        let avgPurchaseCycle = 0;
+        if (customer.orders.length >= 2) {
+          const sortedOrders = customer.orders.sort((a, b) => a.date.getTime() - b.date.getTime());
+          let totalDays = 0;
+          for (let i = 1; i < sortedOrders.length; i++) {
+            totalDays += Math.floor((sortedOrders[i].date.getTime() - sortedOrders[i-1].date.getTime()) / (1000 * 60 * 60 * 24));
+          }
+          avgPurchaseCycle = totalDays / (sortedOrders.length - 1);
+        }
+
+        // 이탈 위험 점수 계산
+        let riskScore = 0;
+        if (recencyDays > 90) riskScore += 40;
+        else if (recencyDays > 60) riskScore += 30;
+        else if (recencyDays > 30) riskScore += 15;
+        
+        if (avgPurchaseCycle > 0 && recencyDays > avgPurchaseCycle * 1.5) riskScore += 25;
+        if (customer.totalAmount > 200000 && recencyDays > 30) riskScore += 20;
+        if (frequency === 1 && recencyDays > 30) riskScore += 15;
+
+        if (riskScore >= 50) {
+          riskLevels.highRisk.push(customer.userId);
+        } else if (riskScore >= 25) {
+          riskLevels.mediumRisk.push(customer.userId);
+        } else if (riskScore > 0) {
+          riskLevels.lowRisk.push(customer.userId);
+        }
+      });
+
+      if (segmentName in riskLevels) {
+        userIds = riskLevels[segmentName as keyof typeof riskLevels];
+        totalCount = userIds.length;
+        const labels: { [key: string]: string } = {
+          highRisk: '높은 위험',
+          mediumRisk: '중간 위험',
+          lowRisk: '낮은 위험',
+        };
+        segmentLabel = labels[segmentName] || segmentName;
+      }
+    } else {
+      // RFM 세그먼트 분석
+      // 평균 계산
+      let totalRecency = 0;
+      let totalFrequency = 0;
+      let totalMonetary = 0;
+      let customerCount = 0;
+
+      customerMap.forEach((customer) => {
+        const recencyDays = Math.floor((now.getTime() - customer.lastOrderDate.getTime()) / (1000 * 60 * 60 * 24));
+        totalRecency += recencyDays;
+        totalFrequency += customer.orders.length;
+        totalMonetary += customer.totalAmount;
+        customerCount++;
+      });
+
+      const avgRecency = totalRecency / customerCount || 30;
+      const avgFrequency = totalFrequency / customerCount || 1;
+      const avgMonetary = totalMonetary / customerCount || 50000;
+
+      // 세그먼트별 유저 분류
+      const segmentUsers: { [key: string]: string[] } = {};
+      Object.keys(RFM_SEGMENTS).forEach(seg => {
+        segmentUsers[seg] = [];
+      });
+
+      customerMap.forEach((customer) => {
+        const recencyDays = Math.floor((now.getTime() - customer.lastOrderDate.getTime()) / (1000 * 60 * 60 * 24));
+        const frequency = customer.orders.length;
+        const monetary = customer.totalAmount;
+
+        const { R, F, M } = calculateRFMScore(recencyDays, frequency, monetary, avgRecency, avgFrequency, avgMonetary);
+        const segment = getSegment(R, F, M);
+
+        if (segmentUsers[segment]) {
+          segmentUsers[segment].push(customer.userId);
+        }
+      });
+
+      if (segmentName in segmentUsers) {
+        userIds = segmentUsers[segmentName];
+        totalCount = userIds.length;
+        segmentLabel = RFM_SEGMENTS[segmentName as keyof typeof RFM_SEGMENTS]?.label || segmentName;
+      }
+    }
+
+    if (totalCount === 0) {
+      return res.status(404).json({
+        success: false,
+        error: `세그먼트 '${segmentName}'를 찾을 수 없습니다.`,
+      });
+    }
+
+    console.log(`[CustomerAnalytics] Segment ${segmentName}: ${totalCount} users`);
+
+    res.json({
+      success: true,
+      segment: segmentName,
+      segmentLabel,
+      type,
+      totalCount,
+      userIds,
+    });
+  } catch (error: any) {
+    console.error('[CustomerAnalytics] Segment users error:', error?.message);
+    res.status(500).json({ error: 'Failed to get segment users', details: error?.message });
   }
 });
 

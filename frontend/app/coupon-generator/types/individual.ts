@@ -23,6 +23,8 @@ export interface RFMSegment {
     monetary: number;
     rfmScore: string;
   }>;
+  // 전체 유저 ID 목록 (쿠폰 발급용)
+  allUserIds?: string[];
 }
 
 // 이탈 위험 고객 타입
@@ -40,6 +42,12 @@ export interface ChurnRiskData {
   highRisk: ChurnRiskCustomer[];
   mediumRisk: ChurnRiskCustomer[];
   lowRisk: ChurnRiskCustomer[];
+  // 전체 유저 ID 목록 (쿠폰 발급용)
+  allUserIds?: {
+    highRisk: string[];
+    mediumRisk: string[];
+    lowRisk: string[];
+  };
 }
 
 // 세그먼트 선택 상태

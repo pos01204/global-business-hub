@@ -987,15 +987,23 @@ export const customerAnalyticsApi = {
     return response.data
   },
 
-  // RFM 세그먼테이션
+  // RFM 세그먼테이션 (전체 유저 ID 포함)
   getRFM: async () => {
     const response = await api.get('/api/customer-analytics/rfm')
     return response.data
   },
 
-  // 이탈 위험 분석
+  // 이탈 위험 분석 (전체 유저 ID 포함)
   getChurnRisk: async () => {
     const response = await api.get('/api/customer-analytics/churn-risk')
+    return response.data
+  },
+
+  // 특정 세그먼트의 전체 유저 ID 조회 (쿠폰 발급용 경량 API)
+  getSegmentUsers: async (segmentName: string, type: 'rfm' | 'churn' = 'rfm') => {
+    const response = await api.get(`/api/customer-analytics/segment/${encodeURIComponent(segmentName)}/users`, {
+      params: { type },
+    })
     return response.data
   },
 
