@@ -18,7 +18,7 @@ import {
   Placement,
 } from '@floating-ui/react'
 
-interface RichTooltipProps {
+export interface RichTooltipProps {
   children: ReactElement
   content: React.ReactNode
   placement?: Placement
@@ -86,7 +86,7 @@ export function RichTooltip({
 }
 
 // KPI 설명 툴팁
-interface KPITooltipProps {
+export interface KPITooltipProps {
   children: ReactElement
   title: string
   description: string
