@@ -21,7 +21,7 @@ const presets = [
   { label: '올해', getValue: () => ({ from: startOfYear(new Date()), to: new Date() }) },
 ]
 
-interface DateRangePickerProps {
+export interface DateRangePickerProps {
   value: DateRange | undefined
   onChange: (range: DateRange | undefined) => void
   placeholder?: string
