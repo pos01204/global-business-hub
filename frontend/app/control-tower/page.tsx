@@ -424,11 +424,31 @@ export default function ControlTowerPage() {
           </div>
           <PipelineSankey
             data={createPipelineSankeyData([
-              { id: 'unreceived', label: '미입고', value: pipeline.unreceived?.orderCount || 0 },
-              { id: 'artistShipping', label: '작가 발송', value: pipeline.artistShipping?.orderCount || 0 },
-              { id: 'awaitingInspection', label: '검수 대기', value: pipeline.awaitingInspection?.orderCount || 0 },
-              { id: 'inspectionComplete', label: '검수 완료', value: pipeline.inspectionComplete?.orderCount || 0 },
-              { id: 'internationalShipping', label: '국제배송', value: pipeline.internationalShipping?.orderCount || 0 },
+              {
+                name: pipeline.unreceived?.title ?? '미입고',
+                count: pipeline.unreceived?.orderCount ?? 0,
+                criticalCount: pipeline.unreceived?.criticalCount ?? 0,
+              },
+              {
+                name: pipeline.artistShipping?.title ?? '작가 발송',
+                count: pipeline.artistShipping?.orderCount ?? 0,
+                criticalCount: pipeline.artistShipping?.criticalCount ?? 0,
+              },
+              {
+                name: pipeline.awaitingInspection?.title ?? '검수 대기',
+                count: pipeline.awaitingInspection?.orderCount ?? 0,
+                criticalCount: pipeline.awaitingInspection?.criticalCount ?? 0,
+              },
+              {
+                name: pipeline.inspectionComplete?.title ?? '검수 완료',
+                count: pipeline.inspectionComplete?.orderCount ?? 0,
+                criticalCount: pipeline.inspectionComplete?.criticalCount ?? 0,
+              },
+              {
+                name: pipeline.internationalShipping?.title ?? '국제배송',
+                count: pipeline.internationalShipping?.orderCount ?? 0,
+                criticalCount: pipeline.internationalShipping?.criticalCount ?? 0,
+              },
             ])}
             height={300}
           />
