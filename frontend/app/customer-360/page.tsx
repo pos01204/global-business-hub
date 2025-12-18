@@ -99,7 +99,8 @@ export default function Customer360Page() {
   const stats = customer?.stats as CustomerStats | undefined
   const orders = customer?.orders as Order[] | undefined
   const reviews = customer?.reviews as Review[] | undefined
-  const ltv = customer?.ltv as LTV | undefined
+  // SWC/TSX 파서가 JSX 직전의 `as` + union 타입을 잘못 파싱하는 이슈를 방지하기 위해 괄호로 감싸서 명시적으로 종료
+  const ltv = customer?.ltv as (LTV | undefined)
 
   return (
     <div className="animate-fade-in">
