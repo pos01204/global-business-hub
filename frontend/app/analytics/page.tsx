@@ -1148,7 +1148,6 @@ export default function AnalyticsPage() {
         title="성과 분석 허브"
         description="GMV, 주문, 쿠폰, 채널 통합 분석"
         icon="📈"
-        pageId="analytics"
         variant="analytics"
       />
 

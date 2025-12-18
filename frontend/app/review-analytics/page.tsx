@@ -179,8 +179,7 @@ export default function ReviewAnalyticsPage() {
         title="리뷰 분석"
         description="NPS 및 고객 만족도 분석"
         icon="⭐"
-        pageId="review-analytics"
-        variant="analytics"
+        variant="customer"
       />
 
       {/* 날짜 필터 - Phase 2: DateRangePicker 적용 */}

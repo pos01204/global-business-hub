@@ -74,8 +74,7 @@ export default function LookupPage() {
         title="통합 검색"
         description="주문번호, 송장번호, 사용자 ID 등으로 통합 검색합니다"
         icon="🔍"
-        pageId="lookup"
-        variant="default"
+        variant="support"
       />
 
       {/* 검색 폼 */}

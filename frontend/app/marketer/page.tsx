@@ -20,8 +20,7 @@ export default function MarketerPage() {
         title="퍼포먼스 마케터"
         description="글로벌 마케팅 캘린더 & AI 콘텐츠 생성 도구"
         icon="🎯"
-        pageId="marketer"
-        variant="default"
+        variant="tools"
       />
 
       {/* 탭 네비게이션 */}

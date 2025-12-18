@@ -60,8 +60,7 @@ export default function CustomerAnalyticsPage() {
         title="고객 분석"
         description="RFM 세그먼테이션, 이탈 예측, 코호트 분석, LTV"
         icon="👥"
-        pageId="customer-analytics"
-        variant="analytics"
+        variant="customer"
       />
 
       {/* 탭 네비게이션 - 공통 Tabs 컴포넌트 사용 */}

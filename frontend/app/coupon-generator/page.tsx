@@ -44,8 +44,7 @@ function CouponGeneratorContent() {
         title="쿠폰 생성/발급"
         description="마케팅 캠페인용 쿠폰 쿼리를 쉽게 생성하고 발급하세요"
         icon="🎟️"
-        pageId="coupon-generator"
-        variant="default"
+        variant="tools"
       />
 
       {/* 탭 선택 - 공통 컴포넌트 사용 */}

@@ -1,23 +1,67 @@
 'use client'
 
-import Image from 'next/image'
-import { getHeaderIllust, BRAND_ASSETS } from '@/lib/brand-assets'
-
 interface PageHeaderProps {
   title: string
   description: string
   icon: string
-  /** 페이지 식별자 (일러스트 매핑용) */
-  pageId?: string
-  variant?: 'default' | 'logistics' | 'analytics' | 'qc' | 'cost'
+  /** 
+   * 메뉴 카테고리별 색상 variant
+   * - default: idus 오렌지 (대시보드)
+   * - logistics: 그린/티얼 (물류 운영)
+   * - support: 뉴트럴 블루/그레이 (업무 지원)
+   * - analytics: 보라/인디고 (성과 분석 허브)
+   * - customer: 블루/시안 (고객 인사이트 허브)
+   * - artist: 보라/로즈 (작가 & 상품 분석)
+   * - finance: 그린/에메랄드 (재무 분석)
+   * - insight: 다크블루/네이비 (경영 인사이트)
+   * - tools: 뉴트럴 화이트/그레이 + idus 포인트 (도구)
+   */
+  variant?: 'default' | 'logistics' | 'support' | 'analytics' | 'customer' | 'artist' | 'finance' | 'insight' | 'tools'
   children?: React.ReactNode
 }
 
-// idus 스타일 장식 패턴 + 브랜드 일러스트
-function DecorationPattern({ variant, pageId }: { variant: string; pageId?: string }) {
-  // 페이지별 일러스트 가져오기
-  const illustSrc = pageId ? getHeaderIllust(pageId) : BRAND_ASSETS.lines.byType.analytics
+// 메뉴 카테고리별 색상 매핑
+const variantStyles = {
+  default: {
+    gradient: 'from-idus-500 to-idus-600 dark:from-orange-700 dark:to-orange-800',
+    descColor: 'text-orange-100 dark:text-orange-200/80',
+  },
+  logistics: {
+    gradient: 'from-teal-500 to-emerald-600 dark:from-teal-700 dark:to-emerald-800',
+    descColor: 'text-teal-100 dark:text-teal-200/80',
+  },
+  support: {
+    gradient: 'from-slate-500 to-slate-600 dark:from-slate-700 dark:to-slate-800',
+    descColor: 'text-slate-200 dark:text-slate-300/80',
+  },
+  analytics: {
+    gradient: 'from-violet-500 to-indigo-600 dark:from-violet-700 dark:to-indigo-800',
+    descColor: 'text-violet-100 dark:text-violet-200/80',
+  },
+  customer: {
+    gradient: 'from-sky-500 to-cyan-600 dark:from-sky-700 dark:to-cyan-800',
+    descColor: 'text-sky-100 dark:text-sky-200/80',
+  },
+  artist: {
+    gradient: 'from-purple-500 to-rose-500 dark:from-purple-700 dark:to-rose-700',
+    descColor: 'text-purple-100 dark:text-purple-200/80',
+  },
+  finance: {
+    gradient: 'from-emerald-500 to-green-600 dark:from-emerald-700 dark:to-green-800',
+    descColor: 'text-emerald-100 dark:text-emerald-200/80',
+  },
+  insight: {
+    gradient: 'from-blue-700 to-slate-800 dark:from-blue-900 dark:to-slate-900',
+    descColor: 'text-blue-200 dark:text-blue-300/80',
+  },
+  tools: {
+    gradient: 'from-slate-600 to-slate-700 dark:from-slate-700 dark:to-slate-800',
+    descColor: 'text-slate-200 dark:text-slate-300/80',
+  },
+}
 
+// idus 스타일 장식 패턴 (일러스트 제거, 원 패턴만 유지)
+function DecorationPattern() {
   return (
     <div className="absolute inset-0 overflow-hidden pointer-events-none" aria-hidden="true">
       {/* 큰 원 장식 */}
@@ -28,16 +72,6 @@ function DecorationPattern({ variant, pageId }: { variant: string; pageId?: stri
       <div className="absolute top-1/4 right-1/4 w-3 h-3 bg-white/20 dark:bg-white/10 rounded-full"></div>
       <div className="absolute top-1/3 right-1/3 w-2 h-2 bg-white/15 dark:bg-white/[0.08] rounded-full"></div>
       <div className="absolute bottom-1/4 right-1/2 w-4 h-4 bg-white/10 dark:bg-white/5 rounded-full"></div>
-      
-      {/* 브랜드 일러스트 */}
-      <div className="absolute right-4 lg:right-8 top-1/2 -translate-y-1/2 w-24 h-24 lg:w-32 lg:h-32 opacity-20 dark:opacity-15">
-        <Image
-          src={illustSrc}
-          alt=""
-          fill
-          className="object-contain dark:brightness-110"
-        />
-      </div>
       
       {/* 그라데이션 오버레이 */}
       <div className="absolute inset-0 bg-gradient-to-br from-transparent via-transparent to-black/10 dark:to-black/20"></div>
@@ -50,13 +84,14 @@ export default function PageHeader({
   title,
   description,
   icon,
-  pageId,
   variant = 'default',
   children
 }: PageHeaderProps) {
+  const styles = variantStyles[variant]
+  
   return (
-    <div className="relative bg-gradient-to-r from-idus-500 to-idus-600 dark:from-orange-700 dark:to-orange-800 rounded-2xl p-4 lg:p-6 mb-6 overflow-hidden shadow-lg dark:shadow-none">
-      <DecorationPattern variant={variant} pageId={pageId} />
+    <div className={`relative bg-gradient-to-r ${styles.gradient} rounded-2xl p-4 lg:p-6 mb-6 overflow-hidden shadow-lg dark:shadow-none`}>
+      <DecorationPattern />
       
       <div className="relative flex items-center justify-between flex-wrap gap-4">
         <div className="flex items-center gap-3 lg:gap-4">
@@ -65,7 +100,7 @@ export default function PageHeader({
           </div>
           <div>
             <h1 className="text-xl lg:text-2xl font-extrabold text-white tracking-tight">{title}</h1>
-            <p className="text-idus-100 dark:text-orange-200/80 text-xs lg:text-sm font-medium">{description}</p>
+            <p className={`${styles.descColor} text-xs lg:text-sm font-medium`}>{description}</p>
           </div>
         </div>
         

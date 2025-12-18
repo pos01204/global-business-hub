@@ -30,8 +30,7 @@ export default function CostAnalysisPage() {
         title="비용 & 손익"
         description="물류 비용 분석 및 손익 시뮬레이션"
         icon="💰"
-        pageId="cost-analysis"
-        variant="cost"
+        variant="finance"
       >
         {/* 빠른 요약 카드 */}
         <div className="hidden lg:flex items-center gap-3">

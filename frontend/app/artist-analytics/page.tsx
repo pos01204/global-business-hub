@@ -50,8 +50,7 @@ export default function ArtistAnalyticsPage() {
         title="작가 분석"
         description="작가 포트폴리오 관리 및 셀렉션 최적화"
         icon="🎨"
-        pageId="artist-analytics"
-        variant="analytics"
+        variant="artist"
       />
 
       {/* 필터 바 - 공통 Select 컴포넌트 사용 */}

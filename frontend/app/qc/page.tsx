@@ -32,8 +32,7 @@ export default function QCPage() {
         title="QC 관리"
         description="일본어 작품 한글 번역 및 이미지 QC 관리"
         icon="✅"
-        pageId="qc"
-        variant="qc"
+        variant="support"
       />
 
       {/* 탭 네비게이션 - 모바일 최적화 */}

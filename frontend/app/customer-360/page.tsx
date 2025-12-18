@@ -20,6 +20,7 @@ import {
 import { hoverEffects } from '@/lib/hover-effects'
 import { showToast } from '@/lib/toast'
 import PageHeader from '@/components/PageHeader'
+import { BrandAvatar } from '@/components/brand'
 
 // ============================================================
 // 에러 바운더리
@@ -284,8 +285,7 @@ function Customer360Content() {
         title="고객 360° 뷰"
         description="개별 고객 심층 분석 및 CRM"
         icon="👤"
-        pageId="customer-360"
-        variant="analytics"
+        variant="customer"
       />
 
       {/* 검색 영역 */}
@@ -349,9 +349,12 @@ function Customer360Content() {
                 <div className="flex flex-col lg:flex-row lg:items-start gap-6">
                   {/* 아바타 + 기본 정보 */}
                   <div className="flex items-start gap-4 flex-1">
-                    <div className="w-16 h-16 lg:w-20 lg:h-20 bg-gradient-to-br from-sky-500 to-cyan-600 rounded-2xl flex items-center justify-center text-white text-2xl lg:text-3xl font-bold shadow-lg">
-                      {(profile?.email || profile?.name || '?')[0].toUpperCase()}
-                    </div>
+                    <BrandAvatar
+                      name={profile?.name ?? undefined}
+                      email={profile?.email ?? undefined}
+                      size="2xl"
+                      className="shadow-lg rounded-2xl"
+                    />
                     <div className="flex-1 min-w-0">
                       <div className="flex flex-wrap items-center gap-2 mb-1">
                         <h2 className="text-xl font-bold text-slate-800 dark:text-slate-100">

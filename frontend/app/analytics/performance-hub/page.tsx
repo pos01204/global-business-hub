@@ -53,7 +53,6 @@ export default function PerformanceHubPage() {
           title="성과 분석 허브"
           description="GMV, 주문, 쿠폰 성과를 한눈에 확인하세요"
           icon="📈"
-          pageId="performance-hub"
           variant="analytics"
         >
           <div className="flex items-center gap-2 text-sm text-white/80">

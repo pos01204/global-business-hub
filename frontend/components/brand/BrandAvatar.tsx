@@ -12,7 +12,7 @@ interface BrandAvatarProps {
   /** 사용자 이메일 (프로필 선택에 사용) */
   email?: string
   /** 아바타 크기 */
-  size?: 'xs' | 'sm' | 'md' | 'lg' | 'xl'
+  size?: 'xs' | 'sm' | 'md' | 'lg' | 'xl' | '2xl'
   /** 추가 클래스명 */
   className?: string
   /** 테두리 표시 여부 */
@@ -27,6 +27,7 @@ const sizeMap = {
   md: { container: 'w-10 h-10', image: 40, text: 'text-sm', status: 'w-2.5 h-2.5' },
   lg: { container: 'w-12 h-12', image: 48, text: 'text-base', status: 'w-3 h-3' },
   xl: { container: 'w-16 h-16', image: 64, text: 'text-lg', status: 'w-3.5 h-3.5' },
+  '2xl': { container: 'w-20 h-20', image: 80, text: 'text-xl', status: 'w-4 h-4' },
 }
 
 const statusColors = {

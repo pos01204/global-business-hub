@@ -320,7 +320,6 @@ export default function LogisticsPage() {
         title="물류 추적"
         description="진행 중인 모든 주문의 물류 현황을 추적합니다"
         icon="🚚"
-        pageId="logistics"
         variant="logistics"
       />
 

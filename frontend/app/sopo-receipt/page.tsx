@@ -198,48 +198,40 @@ export default function SopoReceiptPage() {
 
   return (
     <div className="animate-fade-in">
-      {/* 페이지 헤더 - 업무 지원 (뉴트럴 블루/그레이 계열, IA 개편안 9.1.2) */}
-      <div className="relative bg-gradient-to-r from-slate-600 to-slate-800 dark:from-slate-700 dark:to-slate-900 rounded-2xl p-4 lg:p-6 mb-6 overflow-hidden shadow-lg dark:shadow-none">
-        <div className="absolute top-0 right-0 w-64 h-64 bg-white/10 dark:bg-white/5 rounded-full -translate-y-1/2 translate-x-1/2"></div>
-        <div className="flex items-center justify-between flex-wrap gap-4">
-          <div className="flex items-center gap-4">
-            <div className="w-12 h-12 lg:w-14 lg:h-14 bg-white/20 dark:bg-white/10 backdrop-blur rounded-xl flex items-center justify-center shadow-lg dark:shadow-none">
-              <Icon icon={Package} size="xl" className="text-white" />
-            </div>
-            <div>
-              <h1 className="text-xl lg:text-2xl font-extrabold text-white tracking-tight">소포수령증</h1>
-              <p className="text-idus-100 dark:text-orange-200/80 text-xs lg:text-sm font-medium">해외 배송 주문 소포수령증 발급 자동화</p>
-            </div>
+      {/* 페이지 헤더 - 업무 지원 (뉴트럴 블루/그레이 계열) */}
+      <PageHeader
+        title="소포수령증"
+        description="해외 배송 주문 소포수령증 발급 자동화"
+        icon="📦"
+        variant="support"
+      >
+        {/* 기간 선택 & 액션 */}
+        <div className="flex items-center gap-3 flex-wrap">
+          <div className="flex items-center gap-2">
+            <label className="text-sm font-medium text-white/90">기간:</label>
+            <select
+              value={selectedPeriod}
+              onChange={(e) => setSelectedPeriod(e.target.value)}
+              className="px-3 py-2 bg-white/20 backdrop-blur border border-white/30 rounded-lg text-white text-sm focus:ring-2 focus:ring-white/50 focus:border-white/50"
+            >
+              {generatePeriodOptions().map(period => (
+                <option key={period} value={period} className="text-gray-900">{formatPeriodDisplay(period)}</option>
+              ))}
+            </select>
           </div>
           
-          {/* 기간 선택 & 액션 */}
-          <div className="flex items-center gap-3 flex-wrap">
-            <div className="flex items-center gap-2">
-              <label className="text-sm font-medium text-white/90">기간:</label>
-              <select
-                value={selectedPeriod}
-                onChange={(e) => setSelectedPeriod(e.target.value)}
-                className="px-3 py-2 bg-white/20 backdrop-blur border border-white/30 rounded-lg text-white text-sm focus:ring-2 focus:ring-white/50 focus:border-white/50"
-              >
-                {generatePeriodOptions().map(period => (
-                  <option key={period} value={period} className="text-gray-900">{formatPeriodDisplay(period)}</option>
-                ))}
-              </select>
-            </div>
-            
-            {/* JotForm 동기화 버튼 */}
-            <button
-              onClick={() => syncJotformMutation.mutate()}
-              disabled={syncJotformMutation.isPending}
-              className="px-4 py-2 text-sm bg-white/20 backdrop-blur border border-white/30 text-white rounded-lg hover:bg-white/30 disabled:opacity-50 flex items-center gap-2 transition-colors"
-              title="JotForm 신청 데이터 동기화"
-            >
-              <Icon icon={syncJotformMutation.isPending ? Clock : RefreshCw} size="sm" className={syncJotformMutation.isPending ? 'animate-spin' : ''} />
-              JotForm 동기화
-            </button>
-          </div>
+          {/* JotForm 동기화 버튼 */}
+          <button
+            onClick={() => syncJotformMutation.mutate()}
+            disabled={syncJotformMutation.isPending}
+            className="px-4 py-2 text-sm bg-white/20 backdrop-blur border border-white/30 text-white rounded-lg hover:bg-white/30 disabled:opacity-50 flex items-center gap-2 transition-colors"
+            title="JotForm 신청 데이터 동기화"
+          >
+            <Icon icon={syncJotformMutation.isPending ? Clock : RefreshCw} size="sm" className={syncJotformMutation.isPending ? 'animate-spin' : ''} />
+            JotForm 동기화
+          </button>
         </div>
-      </div>
+      </PageHeader>
 
       {/* 탭 네비게이션 - 모바일 최적화 */}
       <div className="mb-6">

@@ -169,7 +169,6 @@ export default function UnreceivedPage() {
         title="미입고 관리"
         description="'결제 완료' 상태의 주문 중 '처리완료'되지 않은 개별 작품 목록"
         icon="📦"
-        pageId="unreceived"
         variant="logistics"
       />
 

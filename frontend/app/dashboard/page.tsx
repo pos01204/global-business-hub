@@ -178,8 +178,7 @@ export default function DashboardPage() {
         title="대시보드"
         description="Global Business 핵심 현황"
         icon="📊"
-        pageId="dashboard"
-        variant="analytics"
+        variant="default"
       >
         {/* AI 빠른 질문 */}
         <Link 

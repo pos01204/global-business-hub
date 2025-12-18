@@ -172,7 +172,6 @@ export default function SettlementPage() {
         title="물류비 정산"
         description="물류비 정산서 업로드 및 비용 분석"
         icon="📋"
-        pageId="settlement"
         variant="logistics"
       />
 

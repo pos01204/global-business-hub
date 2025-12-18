@@ -214,7 +214,6 @@ export default function ControlTowerPage() {
         title="물류 관제 센터"
         description="주문 단위로 5단계 물류 파이프라인 현황을 모니터링합니다"
         icon="🚚"
-        pageId="control-tower"
         variant="logistics"
       />
 
