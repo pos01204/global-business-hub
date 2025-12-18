@@ -70,7 +70,7 @@ export type { KPICardProps } from './KPICard'
 
 // DataTable
 export { DataTable } from './DataTable'
-export type { DataTableProps, Column } from './DataTable'
+export type { DataTableProps } from './DataTable'
 
 // Pagination
 export { Pagination } from './Pagination'
