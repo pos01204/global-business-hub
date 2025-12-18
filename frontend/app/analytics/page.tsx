@@ -2048,7 +2048,12 @@ export default function AnalyticsPage() {
                 <span className="text-xs text-slate-400 ml-2">인터랙티브 지도</span>
               </div>
               <CountryGMVMap
-                data={convertToCountryData(data.regionalPerformance)}
+                data={convertToCountryData(
+                  data.regionalPerformance.map((r: any) => ({
+                    country: r.country,               // ISO 2자리 코드 (예: JP, US)
+                    value: r.totalSalesInKrw as number, // KRW 기준 매출
+                  }))
+                )}
                 height={400}
                 showLegend={true}
               />

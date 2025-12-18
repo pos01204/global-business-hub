@@ -27,7 +27,6 @@ import {
 // ✅ 공통 비즈니스 규칙 import (Phase 1 표준화)
 import { LOGISTICS_CRITICAL_DAYS } from '@/config/businessRules'
 // ✅ Phase 2: 고도화 컴포넌트
-import { PipelineSankey, createPipelineSankeyData } from '@/components/charts'
 import { hoverEffects } from '@/lib/hover-effects'
 
 interface CriticalOrder {
@@ -411,47 +410,6 @@ export default function ControlTowerPage() {
               </div>
             ))}
           </div>
-        </div>
-      )}
-
-      {/* 파이프라인 Sankey 다이어그램 - Phase 2 고도화 */}
-      {pipeline && (
-        <div className="bg-white dark:bg-slate-900 rounded-xl border border-slate-200 dark:border-slate-800 p-5 mb-6 shadow-sm">
-          <div className="flex items-center gap-2 mb-4">
-            <Icon icon={Activity} size="sm" className="text-indigo-500 dark:text-indigo-400" />
-            <h2 className="font-semibold text-slate-700 dark:text-slate-300">물류 파이프라인 플로우</h2>
-            <span className="text-xs text-slate-400 dark:text-slate-500 ml-2">Sankey 다이어그램</span>
-          </div>
-          <PipelineSankey
-            data={createPipelineSankeyData([
-              {
-                name: pipeline.unreceived?.title ?? '미입고',
-                count: pipeline.unreceived?.orderCount ?? 0,
-                criticalCount: pipeline.unreceived?.criticalCount ?? 0,
-              },
-              {
-                name: pipeline.artistShipping?.title ?? '작가 발송',
-                count: pipeline.artistShipping?.orderCount ?? 0,
-                criticalCount: pipeline.artistShipping?.criticalCount ?? 0,
-              },
-              {
-                name: pipeline.awaitingInspection?.title ?? '검수 대기',
-                count: pipeline.awaitingInspection?.orderCount ?? 0,
-                criticalCount: pipeline.awaitingInspection?.criticalCount ?? 0,
-              },
-              {
-                name: pipeline.inspectionComplete?.title ?? '검수 완료',
-                count: pipeline.inspectionComplete?.orderCount ?? 0,
-                criticalCount: pipeline.inspectionComplete?.criticalCount ?? 0,
-              },
-              {
-                name: pipeline.internationalShipping?.title ?? '국제배송',
-                count: pipeline.internationalShipping?.orderCount ?? 0,
-                criticalCount: pipeline.internationalShipping?.criticalCount ?? 0,
-              },
-            ])}
-            height={300}
-          />
         </div>
       )}
 

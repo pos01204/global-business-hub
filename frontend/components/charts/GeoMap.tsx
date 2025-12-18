@@ -222,22 +222,27 @@ export function AsiaRegionMap({
 // 국가 코드 매핑 헬퍼
 // ========================================
 
+// Analytics API의 지역 분석(country)은 ISO 2자리 코드(JP, US 등)를 사용합니다.
+// world-atlas GeoJSON은 ISO_A3(3자리) 코드를 사용하므로, 2→3자리 매핑과 좌표를 정의합니다.
 export const countryCodeMap: Record<string, { iso: string; lat: number; lng: number }> = {
-  '일본': { iso: 'JPN', lat: 36.2048, lng: 138.2529 },
-  '대만': { iso: 'TWN', lat: 23.6978, lng: 120.9605 },
-  '미국': { iso: 'USA', lat: 37.0902, lng: -95.7129 },
-  '싱가포르': { iso: 'SGP', lat: 1.3521, lng: 103.8198 },
-  '홍콩': { iso: 'HKG', lat: 22.3193, lng: 114.1694 },
-  '태국': { iso: 'THA', lat: 15.8700, lng: 100.9925 },
-  '말레이시아': { iso: 'MYS', lat: 4.2105, lng: 101.9758 },
-  '베트남': { iso: 'VNM', lat: 14.0583, lng: 108.2772 },
-  '인도네시아': { iso: 'IDN', lat: -0.7893, lng: 113.9213 },
-  '필리핀': { iso: 'PHL', lat: 12.8797, lng: 121.7740 },
-  '호주': { iso: 'AUS', lat: -25.2744, lng: 133.7751 },
-  '캐나다': { iso: 'CAN', lat: 56.1304, lng: -106.3468 },
-  '영국': { iso: 'GBR', lat: 55.3781, lng: -3.4360 },
-  '독일': { iso: 'DEU', lat: 51.1657, lng: 10.4515 },
-  '프랑스': { iso: 'FRA', lat: 46.2276, lng: 2.2137 },
+  JP: { iso: 'JPN', lat: 36.2048, lng: 138.2529 },
+  TW: { iso: 'TWN', lat: 23.6978, lng: 120.9605 },
+  US: { iso: 'USA', lat: 37.0902, lng: -95.7129 },
+  SG: { iso: 'SGP', lat: 1.3521, lng: 103.8198 },
+  HK: { iso: 'HKG', lat: 22.3193, lng: 114.1694 },
+  TH: { iso: 'THA', lat: 15.87, lng: 100.9925 },
+  MY: { iso: 'MYS', lat: 4.2105, lng: 101.9758 },
+  VN: { iso: 'VNM', lat: 14.0583, lng: 108.2772 },
+  ID: { iso: 'IDN', lat: -0.7893, lng: 113.9213 },
+  PH: { iso: 'PHL', lat: 12.8797, lng: 121.774 },
+  AU: { iso: 'AUS', lat: -25.2744, lng: 133.7751 },
+  CA: { iso: 'CAN', lat: 56.1304, lng: -106.3468 },
+  GB: { iso: 'GBR', lat: 55.3781, lng: -3.436 },
+  DE: { iso: 'DEU', lat: 51.1657, lng: 10.4515 },
+  FR: { iso: 'FRA', lat: 46.2276, lng: 2.2137 },
+  ES: { iso: 'ESP', lat: 40.4637, lng: -3.7492 },
+  IT: { iso: 'ITA', lat: 41.8719, lng: 12.5674 },
+  SE: { iso: 'SWE', lat: 60.1282, lng: 18.6435 },
 }
 
 export function convertToCountryData(
