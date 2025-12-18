@@ -3,7 +3,10 @@
 import { useState, useEffect, useRef, useCallback } from 'react'
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
 import { qcApi } from '@/lib/api'
-import { EnhancedLoadingPage } from '@/components/ui'
+import { EnhancedLoadingPage, AnimatedEmptyState } from '@/components/ui'
+// ✅ Phase 2: 고도화 컴포넌트
+import { showToast } from '@/lib/toast'
+import { hoverEffects } from '@/lib/hover-effects'
 
 export default function TextQCTab() {
   const [statusFilter, setStatusFilter] = useState<string>('all')
@@ -43,33 +46,48 @@ export default function TextQCTab() {
   })
 
   const handleApprove = useCallback((id: string) => {
-    if (confirm('이 항목을 승인하시겠습니까?')) {
-      updateStatusMutation.mutate({
+    showToast.promise(
+      updateStatusMutation.mutateAsync({
         id,
         status: 'approved',
         needsRevision: false,
-      })
-    }
+      }),
+      {
+        loading: '승인 처리 중...',
+        success: '항목이 승인되었습니다',
+        error: '승인 처리 중 오류가 발생했습니다',
+      }
+    )
   }, [updateStatusMutation])
 
   const handleNeedsRevision = useCallback((id: string) => {
-    if (confirm('이 항목을 수정 필요로 표시하시겠습니까?')) {
-      updateStatusMutation.mutate({
+    showToast.promise(
+      updateStatusMutation.mutateAsync({
         id,
         status: 'needs_revision',
         needsRevision: true,
-      })
-    }
+      }),
+      {
+        loading: '수정 필요 표시 중...',
+        success: '수정 필요로 표시되었습니다',
+        error: '처리 중 오류가 발생했습니다',
+      }
+    )
   }, [updateStatusMutation])
 
   const handleExclude = useCallback((id: string) => {
-    if (confirm('이 항목을 QC 비대상으로 표시하시겠습니까?')) {
-      updateStatusMutation.mutate({
+    showToast.promise(
+      updateStatusMutation.mutateAsync({
         id,
         status: 'excluded',
         needsRevision: false,
-      })
-    }
+      }),
+      {
+        loading: 'QC 비대상 표시 중...',
+        success: 'QC 비대상으로 표시되었습니다',
+        error: '처리 중 오류가 발생했습니다',
+      }
+    )
   }, [updateStatusMutation])
 
   // 일괄 처리 함수들
@@ -97,32 +115,59 @@ export default function TextQCTab() {
 
   const handleBulkApprove = useCallback(async () => {
     if (selectedItems.size === 0) return
-    if (!confirm(`${selectedItems.size}개 항목을 일괄 승인하시겠습니까?`)) return
     
-    for (const id of selectedItems) {
-      await updateStatusMutation.mutateAsync({ id, status: 'approved', needsRevision: false })
+    const count = selectedItems.size
+    const loadingToast = showToast.loading(`${count}개 항목 일괄 승인 중...`)
+    
+    try {
+      for (const id of selectedItems) {
+        await updateStatusMutation.mutateAsync({ id, status: 'approved', needsRevision: false })
+      }
+      showToast.dismiss(loadingToast)
+      showToast.success(`${count}개 항목이 일괄 승인되었습니다`)
+      setSelectedItems(new Set())
+    } catch (error) {
+      showToast.dismiss(loadingToast)
+      showToast.error('일괄 승인 중 오류가 발생했습니다')
     }
-    setSelectedItems(new Set())
   }, [selectedItems, updateStatusMutation])
 
   const handleBulkNeedsRevision = useCallback(async () => {
     if (selectedItems.size === 0) return
-    if (!confirm(`${selectedItems.size}개 항목을 일괄 수정 필요로 표시하시겠습니까?`)) return
     
-    for (const id of selectedItems) {
-      await updateStatusMutation.mutateAsync({ id, status: 'needs_revision', needsRevision: true })
+    const count = selectedItems.size
+    const loadingToast = showToast.loading(`${count}개 항목 일괄 수정 필요 표시 중...`)
+    
+    try {
+      for (const id of selectedItems) {
+        await updateStatusMutation.mutateAsync({ id, status: 'needs_revision', needsRevision: true })
+      }
+      showToast.dismiss(loadingToast)
+      showToast.success(`${count}개 항목이 수정 필요로 표시되었습니다`)
+      setSelectedItems(new Set())
+    } catch (error) {
+      showToast.dismiss(loadingToast)
+      showToast.error('일괄 처리 중 오류가 발생했습니다')
     }
-    setSelectedItems(new Set())
   }, [selectedItems, updateStatusMutation])
 
   const handleBulkExclude = useCallback(async () => {
     if (selectedItems.size === 0) return
-    if (!confirm(`${selectedItems.size}개 항목을 일괄 비대상으로 표시하시겠습니까?`)) return
     
-    for (const id of selectedItems) {
-      await updateStatusMutation.mutateAsync({ id, status: 'excluded', needsRevision: false })
+    const count = selectedItems.size
+    const loadingToast = showToast.loading(`${count}개 항목 일괄 비대상 표시 중...`)
+    
+    try {
+      for (const id of selectedItems) {
+        await updateStatusMutation.mutateAsync({ id, status: 'excluded', needsRevision: false })
+      }
+      showToast.dismiss(loadingToast)
+      showToast.success(`${count}개 항목이 비대상으로 표시되었습니다`)
+      setSelectedItems(new Set())
+    } catch (error) {
+      showToast.dismiss(loadingToast)
+      showToast.error('일괄 처리 중 오류가 발생했습니다')
     }
-    setSelectedItems(new Set())
   }, [selectedItems, updateStatusMutation])
 
   // 키보드 단축키

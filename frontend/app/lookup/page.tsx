@@ -7,8 +7,10 @@ import { useSearchParams, useRouter } from 'next/navigation'
 import OrderDetailModal from '@/components/OrderDetailModal'
 import CustomerDetailModal from '@/components/CustomerDetailModal'
 import { Icon } from '@/components/ui/Icon'
-import { EnhancedLoadingPage } from '@/components/ui'
+import { EnhancedLoadingPage, AnimatedEmptyState } from '@/components/ui'
 import { Search } from 'lucide-react'
+// ✅ Phase 2: 고도화 컴포넌트
+import { hoverEffects } from '@/lib/hover-effects'
 
 export default function LookupPage() {
   const searchParams = useSearchParams()
@@ -229,9 +231,11 @@ export default function LookupPage() {
                 </table>
               </div>
             ) : (
-              <div className="text-center py-8 text-muted-color">
-                검색 결과가 없습니다.
-              </div>
+              <AnimatedEmptyState
+                type="search"
+                title="검색 결과가 없습니다"
+                description="다른 검색어로 다시 시도해 보세요."
+              />
             )}
           </div>
         )}

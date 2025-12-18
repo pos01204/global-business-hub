@@ -1,120 +1,208 @@
 'use client'
 
 import React from 'react'
-import { format } from 'date-fns'
+import { formatCurrency } from '@/lib/formatters'
 
-interface TooltipProps {
+// ============================================================
+// 공통 차트 툴팁 컴포넌트 (Recharts용)
+// ============================================================
+
+export interface ChartTooltipProps {
   active?: boolean
-  payload?: Array<{
-    name: string
-    value: number
-    color: string
-    dataKey: string
-  }>
+  payload?: any[]
   label?: string
+  valueFormatter?: (value: number) => string
+  labelFormatter?: (label: string) => string
+  className?: string
 }
 
-const formatCurrency = (value: number): string => {
-  if (value >= 1000000) {
-    return `₩${(value / 1000000).toFixed(1)}M`
-  }
-  if (value >= 1000) {
-    return `₩${(value / 1000).toFixed(0)}K`
-  }
-  return `₩${value.toLocaleString()}`
-}
-
-const formatDate = (dateStr: string): string => {
-  try {
-    const date = new Date(dateStr)
-    return format(date, 'yyyy년 MM월 dd일')
-  } catch {
-    return dateStr
-  }
-}
-
-export function CustomTooltip({ active, payload, label }: TooltipProps) {
+/**
+ * Recharts용 커스텀 툴팁 컴포넌트
+ * 통일된 스타일과 포맷팅 제공
+ */
+export function CustomChartTooltip({
+  active,
+  payload,
+  label,
+  valueFormatter = formatCurrency,
+  labelFormatter = (l) => l,
+  className = '',
+}: ChartTooltipProps) {
   if (!active || !payload || payload.length === 0) {
     return null
   }
 
-  const gmvEntry = payload.find((p) => p.dataKey === 'gmv' || p.name === 'GMV')
-  const ordersEntry = payload.find((p) => p.dataKey === 'orders' || p.name === '주문 건수')
-  const gmvMAEntry = payload.find((p) => p.name?.includes('GMV') && p.name?.includes('이동평균'))
-  const ordersMAEntry = payload.find((p) => p.name?.includes('주문') && p.name?.includes('이동평균'))
-
   return (
-    <div className="bg-white dark:bg-slate-900 rounded-lg shadow-xl p-4 border border-slate-200 dark:border-slate-800 min-w-[200px]">
-      <p className="font-semibold text-slate-900 dark:text-slate-100 mb-3 pb-2 border-b border-slate-200 dark:border-slate-700">
-        {label ? formatDate(label) : ''}
-      </p>
-      
-      <div className="space-y-2">
-        {/* GMV */}
-        {gmvEntry && (
-          <div className="flex items-center justify-between gap-4">
+    <div
+      className={`
+        bg-white dark:bg-slate-800 
+        border border-slate-200 dark:border-slate-700 
+        rounded-lg shadow-lg 
+        px-4 py-3 
+        text-sm
+        ${className}
+      `}
+    >
+      {label && (
+        <p className="font-semibold text-slate-800 dark:text-slate-200 mb-2 border-b border-slate-100 dark:border-slate-700 pb-2">
+          {labelFormatter(label)}
+        </p>
+      )}
+      <div className="space-y-1.5">
+        {payload.map((entry: any, index: number) => (
+          <div key={index} className="flex items-center justify-between gap-4">
             <div className="flex items-center gap-2">
-              <div
-                className="w-3 h-3 rounded"
-                style={{ backgroundColor: '#F78C3A' }}
+              <span
+                className="w-3 h-3 rounded-full"
+                style={{ backgroundColor: entry.color }}
               />
-              <span className="text-sm text-slate-600 dark:text-slate-400">GMV</span>
+              <span className="text-slate-600 dark:text-slate-400">
+                {entry.name || entry.dataKey}
+              </span>
             </div>
-            <span className="font-bold text-slate-900 dark:text-slate-100">
-              {formatCurrency(gmvEntry.value)}
+            <span className="font-semibold text-slate-800 dark:text-slate-200">
+              {typeof entry.value === 'number'
+                ? valueFormatter(entry.value)
+                : entry.value}
             </span>
           </div>
-        )}
-        
-        {/* 주문 건수 */}
-        {ordersEntry && (
-          <div className="flex items-center justify-between gap-4">
-            <div className="flex items-center gap-2">
-              <div
-                className="w-3 h-3 rounded"
-                style={{ backgroundColor: '#3B82F6' }}
-              />
-              <span className="text-sm text-slate-600 dark:text-slate-400">주문 건수</span>
-            </div>
-            <span className="font-bold text-slate-900 dark:text-slate-100">
-              {ordersEntry.value}건
-            </span>
-          </div>
-        )}
-        
-        {/* GMV 이동평균 */}
-        {gmvMAEntry && (
-          <div className="flex items-center justify-between gap-4 pt-2 border-t border-slate-200 dark:border-slate-700">
-            <div className="flex items-center gap-2">
-              <div
-                className="w-3 h-3 rounded-full border-2"
-                style={{ borderColor: '#D97706', backgroundColor: 'transparent' }}
-              />
-              <span className="text-xs text-slate-500 dark:text-slate-500">GMV (7일 이동평균)</span>
-            </div>
-            <span className="font-semibold text-sm text-slate-700 dark:text-slate-300">
-              {formatCurrency(gmvMAEntry.value)}
-            </span>
-          </div>
-        )}
-        
-        {/* 주문 건수 이동평균 */}
-        {ordersMAEntry && (
-          <div className="flex items-center justify-between gap-4">
-            <div className="flex items-center gap-2">
-              <div
-                className="w-3 h-3 rounded-full border-2"
-                style={{ borderColor: '#1E40AF', backgroundColor: 'transparent' }}
-              />
-              <span className="text-xs text-slate-500 dark:text-slate-500">주문 건수 (7일 이동평균)</span>
-            </div>
-            <span className="font-semibold text-sm text-slate-700 dark:text-slate-300">
-              {ordersMAEntry.value}건
-            </span>
-          </div>
-        )}
+        ))}
       </div>
     </div>
   )
 }
 
+// ============================================================
+// GMV 전용 툴팁
+// ============================================================
+
+export function GMVTooltip(props: ChartTooltipProps) {
+  return (
+    <CustomChartTooltip
+      {...props}
+      valueFormatter={(value) => {
+        if (value >= 100000000) return `₩${(value / 100000000).toFixed(1)}억`
+        if (value >= 10000) return `₩${(value / 10000).toFixed(0)}만`
+        return `₩${value.toLocaleString()}`
+      }}
+    />
+  )
+}
+
+// ============================================================
+// 퍼센트 전용 툴팁
+// ============================================================
+
+export function PercentTooltip(props: ChartTooltipProps) {
+  return (
+    <CustomChartTooltip
+      {...props}
+      valueFormatter={(value) => `${value.toFixed(1)}%`}
+    />
+  )
+}
+
+// ============================================================
+// 주문 수 전용 툴팁
+// ============================================================
+
+export function OrderCountTooltip(props: ChartTooltipProps) {
+  return (
+    <CustomChartTooltip
+      {...props}
+      valueFormatter={(value) => `${value.toLocaleString()}건`}
+    />
+  )
+}
+
+// ============================================================
+// 날짜 레이블 포맷터
+// ============================================================
+
+export function DateLabelFormatter(label: string): string {
+  // YYYY-MM-DD 형식을 MM월 DD일로 변환
+  if (/^\d{4}-\d{2}-\d{2}$/.test(label)) {
+    const [, month, day] = label.split('-')
+    return `${parseInt(month)}월 ${parseInt(day)}일`
+  }
+  // YYYY-MM 형식을 YYYY년 MM월로 변환
+  if (/^\d{4}-\d{2}$/.test(label)) {
+    const [year, month] = label.split('-')
+    return `${year}년 ${parseInt(month)}월`
+  }
+  return label
+}
+
+// ============================================================
+// 복합 툴팁 (GMV + 주문수)
+// ============================================================
+
+export function CompositeTooltip({
+  active,
+  payload,
+  label,
+  labelFormatter = DateLabelFormatter,
+}: ChartTooltipProps) {
+  if (!active || !payload || payload.length === 0) {
+    return null
+  }
+
+  return (
+    <div className="bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-lg shadow-lg px-4 py-3 text-sm">
+      {label && (
+        <p className="font-semibold text-slate-800 dark:text-slate-200 mb-2 border-b border-slate-100 dark:border-slate-700 pb-2">
+          {labelFormatter(label)}
+        </p>
+      )}
+      <div className="space-y-1.5">
+        {payload.map((entry: any, index: number) => {
+          let formattedValue = entry.value
+          
+          // 데이터 키에 따라 포맷팅
+          if (entry.dataKey?.toLowerCase().includes('gmv') || 
+              entry.dataKey?.toLowerCase().includes('revenue') ||
+              entry.dataKey?.toLowerCase().includes('amount')) {
+            if (entry.value >= 100000000) {
+              formattedValue = `₩${(entry.value / 100000000).toFixed(1)}억`
+            } else if (entry.value >= 10000) {
+              formattedValue = `₩${(entry.value / 10000).toFixed(0)}만`
+            } else {
+              formattedValue = `₩${entry.value.toLocaleString()}`
+            }
+          } else if (entry.dataKey?.toLowerCase().includes('rate') ||
+                     entry.dataKey?.toLowerCase().includes('percent')) {
+            formattedValue = `${entry.value.toFixed(1)}%`
+          } else if (entry.dataKey?.toLowerCase().includes('order') ||
+                     entry.dataKey?.toLowerCase().includes('count')) {
+            formattedValue = `${entry.value.toLocaleString()}건`
+          } else if (typeof entry.value === 'number') {
+            formattedValue = entry.value.toLocaleString()
+          }
+
+          return (
+            <div key={index} className="flex items-center justify-between gap-4">
+              <div className="flex items-center gap-2">
+                <span
+                  className="w-3 h-3 rounded-full"
+                  style={{ backgroundColor: entry.color }}
+                />
+                <span className="text-slate-600 dark:text-slate-400">
+                  {entry.name || entry.dataKey}
+                </span>
+              </div>
+              <span className="font-semibold text-slate-800 dark:text-slate-200">
+                {formattedValue}
+              </span>
+            </div>
+          )
+        })}
+      </div>
+    </div>
+  )
+}
+
+// ============================================================
+// Export
+// ============================================================
+
+export default CustomChartTooltip

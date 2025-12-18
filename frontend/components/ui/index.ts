@@ -119,3 +119,25 @@ export type { AggregationSelectorProps, AggregationType } from './AggregationSel
 export { UnifiedDateFilter } from './UnifiedDateFilter'
 export type { UnifiedDateFilterProps } from './UnifiedDateFilter'
 export { LoadingStates } from './LoadingStates'
+
+// === Phase 2: 고도화 컴포넌트 ===
+
+// Rich Tooltip (floating-ui 기반)
+export { RichTooltip, KPITooltip } from './RichTooltip'
+export type { RichTooltipProps, KPITooltipProps } from './RichTooltip'
+
+// Date Range Picker (react-day-picker 기반)
+export { DateRangePicker } from './DateRangePicker'
+export type { DateRangePickerProps } from './DateRangePicker'
+
+// Advanced Data Table (TanStack Table 기반)
+export { AdvancedDataTable } from './DataTable'
+export type { AdvancedDataTableProps } from './DataTable'
+
+// Virtualized List (@tanstack/react-virtual 기반)
+export { VirtualizedList } from './VirtualizedList'
+export type { VirtualizedListProps } from './VirtualizedList'
+
+// Animated Empty State (Lottie 기반)
+export { AnimatedEmptyState } from './AnimatedEmptyState'
+export type { AnimatedEmptyStateProps } from './AnimatedEmptyState'

@@ -5,7 +5,7 @@ import { dashboardApi, controlTowerApi, artistAnalyticsApi, businessBrainApi, an
 import Link from 'next/link'
 import { useState, useEffect } from 'react'
 import { format } from 'date-fns'
-import { EnhancedKPICard, Tooltip, EnhancedLoadingPage, UnifiedDateFilter, AggregationSelector } from '@/components/ui'
+import { EnhancedKPICard, Tooltip, EnhancedLoadingPage, UnifiedDateFilter, AggregationSelector, KPITooltip } from '@/components/ui'
 import type { PeriodPreset, AggregationType } from '@/components/ui'
 import { Icon } from '@/components/ui/Icon'
 import { iconMap, emojiToIconMap } from '@/lib/icon-mapping'
@@ -19,6 +19,9 @@ import {
 } from 'lucide-react'
 // ✅ 공통 유틸리티 import (Phase 1 표준화)
 import { formatCurrency, formatChange } from '@/lib/formatters'
+// ✅ Phase 2: 고도화 컴포넌트
+import { hoverEffects } from '@/lib/hover-effects'
+import { showToast } from '@/lib/toast'
 
 export default function DashboardPage() {
   const [startDate, setStartDate] = useState<string>('')
@@ -987,58 +990,58 @@ export default function DashboardPage() {
               
               <div className="grid grid-cols-2 gap-3">
                 <Tooltip content="미입고 주문 관리 및 처리">
-                  <Link href="/unreceived" className="flex items-center gap-3 p-3 bg-slate-50 dark:bg-slate-800 rounded-xl border border-slate-200 dark:border-slate-700 hover:border-idus-300 dark:hover:border-idus-600 hover:bg-idus-50 dark:hover:bg-idus-900/20 hover:shadow-md transition-all group">
-                    <Icon icon={Package} size="md" className="text-slate-600 dark:text-slate-400 group-hover:text-idus-600 dark:group-hover:text-idus-400 group-hover:scale-110 transition-transform" />
-                    <span className="font-medium text-sm text-slate-700 dark:text-slate-300 group-hover:text-idus-600 dark:group-hover:text-idus-400">미입고 관리</span>
+                  <Link href="/unreceived" className={`flex items-center gap-3 p-3 bg-slate-50 dark:bg-slate-800 rounded-xl border border-slate-200 dark:border-slate-700 group ${hoverEffects.card}`}>
+                    <Icon icon={Package} size="md" className="text-slate-600 dark:text-slate-400 group-hover:text-indigo-600 dark:group-hover:text-indigo-400 group-hover:scale-110 transition-transform" />
+                    <span className="font-medium text-sm text-slate-700 dark:text-slate-300 group-hover:text-indigo-600 dark:group-hover:text-indigo-400">미입고 관리</span>
                   </Link>
                 </Tooltip>
                 
                 <Tooltip content="비용 분석 및 정책 시뮬레이션">
-                  <Link href="/cost-analysis" className="flex items-center gap-3 p-3 bg-slate-50 dark:bg-slate-800 rounded-xl border border-slate-200 dark:border-slate-700 hover:border-idus-300 dark:hover:border-idus-600 hover:bg-idus-50 dark:hover:bg-idus-900/20 hover:shadow-md transition-all group">
-                    <Icon icon={DollarSign} size="md" className="text-slate-600 dark:text-slate-400 group-hover:text-idus-600 dark:group-hover:text-idus-400 group-hover:scale-110 transition-transform" />
-                    <span className="font-medium text-sm text-slate-700 dark:text-slate-300 group-hover:text-idus-600 dark:group-hover:text-idus-400">비용 분석</span>
+                  <Link href="/cost-analysis" className={`flex items-center gap-3 p-3 bg-slate-50 dark:bg-slate-800 rounded-xl border border-slate-200 dark:border-slate-700 group ${hoverEffects.card}`}>
+                    <Icon icon={DollarSign} size="md" className="text-slate-600 dark:text-slate-400 group-hover:text-indigo-600 dark:group-hover:text-indigo-400 group-hover:scale-110 transition-transform" />
+                    <span className="font-medium text-sm text-slate-700 dark:text-slate-300 group-hover:text-indigo-600 dark:group-hover:text-indigo-400">비용 분석</span>
                   </Link>
                 </Tooltip>
                 
                 <Tooltip content="일일/주간/월간 성과 분석">
-                  <Link href="/analytics" className="flex items-center gap-3 p-3 bg-slate-50 dark:bg-slate-800 rounded-xl border border-slate-200 dark:border-slate-700 hover:border-idus-300 dark:hover:border-idus-600 hover:bg-idus-50 dark:hover:bg-idus-900/20 hover:shadow-md transition-all group">
-                    <Icon icon={TrendingUp} size="md" className="text-slate-600 dark:text-slate-400 group-hover:text-idus-600 dark:group-hover:text-idus-400 group-hover:scale-110 transition-transform" />
-                    <span className="font-medium text-sm text-slate-700 dark:text-slate-300 group-hover:text-idus-600 dark:group-hover:text-idus-400">성과 분석</span>
+                  <Link href="/analytics" className={`flex items-center gap-3 p-3 bg-slate-50 dark:bg-slate-800 rounded-xl border border-slate-200 dark:border-slate-700 group ${hoverEffects.card}`}>
+                    <Icon icon={TrendingUp} size="md" className="text-slate-600 dark:text-slate-400 group-hover:text-indigo-600 dark:group-hover:text-indigo-400 group-hover:scale-110 transition-transform" />
+                    <span className="font-medium text-sm text-slate-700 dark:text-slate-300 group-hover:text-indigo-600 dark:group-hover:text-indigo-400">성과 분석</span>
                   </Link>
                 </Tooltip>
                 
                 <Tooltip content="통합 검색 및 조회">
-                  <Link href="/lookup" className="flex items-center gap-3 p-3 bg-slate-50 dark:bg-slate-800 rounded-xl border border-slate-200 dark:border-slate-700 hover:border-idus-300 dark:hover:border-idus-600 hover:bg-idus-50 dark:hover:bg-idus-900/20 hover:shadow-md transition-all group">
-                    <Icon icon={iconMap.search} size="md" className="text-slate-600 dark:text-slate-400 group-hover:text-idus-600 dark:group-hover:text-idus-400 group-hover:scale-110 transition-transform" />
-                    <span className="font-medium text-sm text-slate-700 dark:text-slate-300 group-hover:text-idus-600 dark:group-hover:text-idus-400">통합 검색</span>
+                  <Link href="/lookup" className={`flex items-center gap-3 p-3 bg-slate-50 dark:bg-slate-800 rounded-xl border border-slate-200 dark:border-slate-700 group ${hoverEffects.card}`}>
+                    <Icon icon={iconMap.search} size="md" className="text-slate-600 dark:text-slate-400 group-hover:text-indigo-600 dark:group-hover:text-indigo-400 group-hover:scale-110 transition-transform" />
+                    <span className="font-medium text-sm text-slate-700 dark:text-slate-300 group-hover:text-indigo-600 dark:group-hover:text-indigo-400">통합 검색</span>
                   </Link>
                 </Tooltip>
                 
                 <Tooltip content="물류 파이프라인 관제">
-                  <Link href="/control-tower" className="flex items-center gap-3 p-3 bg-slate-50 dark:bg-slate-800 rounded-xl border border-slate-200 dark:border-slate-700 hover:border-idus-300 dark:hover:border-idus-600 hover:bg-idus-50 dark:hover:bg-idus-900/20 hover:shadow-md transition-all group">
-                    <Icon icon={Activity} size="md" className="text-slate-600 dark:text-slate-400 group-hover:text-idus-600 dark:group-hover:text-idus-400 group-hover:scale-110 transition-transform" />
-                    <span className="font-medium text-sm text-slate-700 dark:text-slate-300 group-hover:text-idus-600 dark:group-hover:text-idus-400">물류 관제</span>
+                  <Link href="/control-tower" className={`flex items-center gap-3 p-3 bg-slate-50 dark:bg-slate-800 rounded-xl border border-slate-200 dark:border-slate-700 group ${hoverEffects.card}`}>
+                    <Icon icon={Activity} size="md" className="text-slate-600 dark:text-slate-400 group-hover:text-indigo-600 dark:group-hover:text-indigo-400 group-hover:scale-110 transition-transform" />
+                    <span className="font-medium text-sm text-slate-700 dark:text-slate-300 group-hover:text-indigo-600 dark:group-hover:text-indigo-400">물류 관제</span>
                   </Link>
                 </Tooltip>
                 
                 <Tooltip content="작가 분석 및 현황">
-                  <Link href="/artist-analytics" className="flex items-center gap-3 p-3 bg-slate-50 dark:bg-slate-800 rounded-xl border border-slate-200 dark:border-slate-700 hover:border-idus-300 dark:hover:border-idus-600 hover:bg-idus-50 dark:hover:bg-idus-900/20 hover:shadow-md transition-all group">
-                    <Icon icon={Palette} size="md" className="text-slate-600 dark:text-slate-400 group-hover:text-idus-600 dark:group-hover:text-idus-400 group-hover:scale-110 transition-transform" />
-                    <span className="font-medium text-sm text-slate-700 dark:text-slate-300 group-hover:text-idus-600 dark:group-hover:text-idus-400">작가 분석</span>
+                  <Link href="/artist-analytics" className={`flex items-center gap-3 p-3 bg-slate-50 dark:bg-slate-800 rounded-xl border border-slate-200 dark:border-slate-700 group ${hoverEffects.card}`}>
+                    <Icon icon={Palette} size="md" className="text-slate-600 dark:text-slate-400 group-hover:text-indigo-600 dark:group-hover:text-indigo-400 group-hover:scale-110 transition-transform" />
+                    <span className="font-medium text-sm text-slate-700 dark:text-slate-300 group-hover:text-indigo-600 dark:group-hover:text-indigo-400">작가 분석</span>
                   </Link>
                 </Tooltip>
                 
                 <Tooltip content="AI 어시스턴트 채팅">
-                  <Link href="/chat" className="flex items-center gap-3 p-3 bg-slate-50 dark:bg-slate-800 rounded-xl border border-slate-200 dark:border-slate-700 hover:border-idus-300 dark:hover:border-idus-600 hover:bg-idus-50 dark:hover:bg-idus-900/20 hover:shadow-md transition-all group">
-                    <Icon icon={MessageCircle} size="md" className="text-slate-600 dark:text-slate-400 group-hover:text-idus-600 dark:group-hover:text-idus-400 group-hover:scale-110 transition-transform" />
-                    <span className="font-medium text-sm text-slate-700 dark:text-slate-300 group-hover:text-idus-600 dark:group-hover:text-idus-400">AI 채팅</span>
+                  <Link href="/chat" className={`flex items-center gap-3 p-3 bg-slate-50 dark:bg-slate-800 rounded-xl border border-slate-200 dark:border-slate-700 group ${hoverEffects.card}`}>
+                    <Icon icon={MessageCircle} size="md" className="text-slate-600 dark:text-slate-400 group-hover:text-indigo-600 dark:group-hover:text-indigo-400 group-hover:scale-110 transition-transform" />
+                    <span className="font-medium text-sm text-slate-700 dark:text-slate-300 group-hover:text-indigo-600 dark:group-hover:text-indigo-400">AI 채팅</span>
                   </Link>
                 </Tooltip>
                 
                 <Tooltip content="정산 관리 및 내역">
-                  <Link href="/settlement" className="flex items-center gap-3 p-3 bg-slate-50 dark:bg-slate-800 rounded-xl border border-slate-200 dark:border-slate-700 hover:border-idus-300 dark:hover:border-idus-600 hover:bg-idus-50 dark:hover:bg-idus-900/20 hover:shadow-md transition-all group">
-                    <Icon icon={FileText} size="md" className="text-slate-600 dark:text-slate-400 group-hover:text-idus-600 dark:group-hover:text-idus-400 group-hover:scale-110 transition-transform" />
-                    <span className="font-medium text-sm text-slate-700 dark:text-slate-300 group-hover:text-idus-600 dark:group-hover:text-idus-400">정산 관리</span>
+                  <Link href="/settlement" className={`flex items-center gap-3 p-3 bg-slate-50 dark:bg-slate-800 rounded-xl border border-slate-200 dark:border-slate-700 group ${hoverEffects.card}`}>
+                    <Icon icon={FileText} size="md" className="text-slate-600 dark:text-slate-400 group-hover:text-indigo-600 dark:group-hover:text-indigo-400 group-hover:scale-110 transition-transform" />
+                    <span className="font-medium text-sm text-slate-700 dark:text-slate-300 group-hover:text-indigo-600 dark:group-hover:text-indigo-400">정산 관리</span>
                   </Link>
                 </Tooltip>
               </div>

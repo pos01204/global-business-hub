@@ -4,6 +4,8 @@ import { useState, useMemo, useCallback } from 'react'
 import { calendarApi } from '@/lib/api'
 import { EnhancedLoadingPage } from '@/components/ui'
 import StrategyModal from './StrategyModal'
+// ✅ Phase 2: 고도화 컴포넌트
+import { showToast } from '@/lib/toast'
 
 // 국가 정보
 const COUNTRIES: Record<string, { name: string; tier: number; flag: string; region: string }> = {
@@ -386,11 +388,11 @@ export default function MarketingCalendarTab() {
         setStrategy(response.data)
         setSelectedHoliday(null)
       } else {
-        alert('전략 생성에 실패했습니다.')
+        showToast.error('전략 생성에 실패했습니다.')
       }
     } catch (error) {
       console.error('전략 생성 오류:', error)
-      alert('전략 생성 중 오류가 발생했습니다.')
+      showToast.error('전략 생성 중 오류가 발생했습니다.')
     } finally {
       setIsGenerating(false)
     }

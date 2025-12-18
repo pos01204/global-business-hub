@@ -4,8 +4,11 @@ import { useState, useCallback } from 'react'
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
 import { sopoReceiptApi } from '@/lib/api'
 import { Icon } from '@/components/ui/Icon'
-import { EnhancedLoadingPage } from '@/components/ui'
+import { EnhancedLoadingPage, AnimatedEmptyState } from '@/components/ui'
 import { Package, Upload, Users, FileText, BarChart3, CheckCircle, Clock, RefreshCw, AlertTriangle, Mail, Download, X, Calendar } from 'lucide-react'
+// ✅ Phase 2: 고도화 컴포넌트
+import { showToast } from '@/lib/toast'
+import { hoverEffects } from '@/lib/hover-effects'
 
 // 탭 타입
 type SopoTab = 'upload' | 'artists' | 'tracking' | 'history'
@@ -472,12 +475,17 @@ export default function SopoReceiptPage() {
                         alert('발송할 작가를 선택해주세요.')
                         return
                       }
-                      if (confirm(`${selectedArtists.size}명에게 안내 이메일을 발송하시겠습니까?`)) {
-                        notifyMutation.mutate({
+                      showToast.promise(
+                        notifyMutation.mutateAsync({
                           period: selectedPeriod,
                           artistNames: Array.from(selectedArtists),
-                        })
-                      }
+                        }),
+                        {
+                          loading: `${selectedArtists.size}명에게 안내 이메일 발송 중...`,
+                          success: '안내 이메일이 발송되었습니다',
+                          error: '이메일 발송 중 오류가 발생했습니다',
+                        }
+                      )
                     }}
                     disabled={notifyMutation.isPending || selectedArtists.size === 0}
                     className="px-6 py-2 bg-idus-500 text-white rounded-lg hover:bg-idus-600 disabled:bg-gray-300 disabled:cursor-not-allowed transition-colors flex items-center gap-2"
@@ -682,12 +690,17 @@ export default function SopoReceiptPage() {
                             {record.applicationStatus === 'pending' && record.notificationSentAt && record.artistEmail && (
                               <button
                                 onClick={() => {
-                                  if (confirm(`${record.artistName} 작가님에게 리마인더를 발송하시겠습니까?`)) {
-                                    reminderMutation.mutate({
+                                  showToast.promise(
+                                    reminderMutation.mutateAsync({
                                       period: selectedPeriod,
                                       artistNames: [record.artistName],
-                                    })
-                                  }
+                                    }),
+                                    {
+                                      loading: `${record.artistName} 작가님에게 리마인더 발송 중...`,
+                                      success: '리마인더가 발송되었습니다',
+                                      error: '리마인더 발송 중 오류가 발생했습니다',
+                                    }
+                                  )
                                 }}
                                 disabled={reminderMutation.isPending}
                                 className="text-xs text-orange-600 hover:text-orange-800 disabled:opacity-50"
@@ -698,12 +711,17 @@ export default function SopoReceiptPage() {
                             {record.applicationStatus === 'pending' && !record.notificationSentAt && record.artistEmail && (
                               <button
                                 onClick={() => {
-                                  if (confirm(`${record.artistName} 작가님에게 안내를 발송하시겠습니까?`)) {
-                                    notifyMutation.mutate({
+                                  showToast.promise(
+                                    notifyMutation.mutateAsync({
                                       period: selectedPeriod,
                                       artistNames: [record.artistName],
-                                    })
-                                  }
+                                    }),
+                                    {
+                                      loading: `${record.artistName} 작가님에게 안내 발송 중...`,
+                                      success: '안내가 발송되었습니다',
+                                      error: '안내 발송 중 오류가 발생했습니다',
+                                    }
+                                  )
                                 }}
                                 disabled={notifyMutation.isPending}
                                 className="text-xs text-blue-600 hover:text-blue-800 disabled:opacity-50"
@@ -717,19 +735,23 @@ export default function SopoReceiptPage() {
                     </tbody>
                   </table>
                   {filteredTrackingRecords.length === 0 && (
-                    <div className="p-8 text-center text-slate-500 dark:text-slate-400">
-                      {searchQuery || statusFilter !== 'all' 
-                        ? '검색 조건에 맞는 데이터가 없습니다.'
-                        : '해당 기간의 트래킹 데이터가 없습니다.'}
-                    </div>
+                    <AnimatedEmptyState
+                      type={searchQuery || statusFilter !== 'all' ? 'filter' : 'data'}
+                      title={searchQuery || statusFilter !== 'all' 
+                        ? '검색 조건에 맞는 데이터가 없습니다'
+                        : '해당 기간의 트래킹 데이터가 없습니다'}
+                      description="검색 조건을 변경하거나 데이터를 업로드해 주세요."
+                    />
                   )}
                 </div>
               </>
             ) : (
-              <div className="bg-white dark:bg-slate-800 rounded-2xl shadow-sm border border-slate-200 dark:border-slate-700 p-12 text-center">
-                <Icon icon={FileText} size="xl" className="mx-auto mb-4 text-slate-400 dark:text-slate-500" />
-                <h3 className="text-lg font-medium text-slate-900 dark:text-slate-100 mb-2">트래킹 데이터가 없습니다</h3>
-                <p className="text-slate-500 dark:text-slate-400">해당 기간의 선적 데이터를 먼저 업로드해주세요.</p>
+              <div className="bg-white dark:bg-slate-800 rounded-2xl shadow-sm border border-slate-200 dark:border-slate-700 p-12">
+                <AnimatedEmptyState
+                  type="data"
+                  title="트래킹 데이터가 없습니다"
+                  description="해당 기간의 선적 데이터를 먼저 업로드해주세요."
+                />
               </div>
             )}
           </div>

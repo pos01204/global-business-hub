@@ -3,6 +3,8 @@
 import { useState } from 'react'
 import { useMutation } from '@tanstack/react-query'
 import { qcApi } from '@/lib/api'
+// ✅ Phase 2: 고도화 컴포넌트
+import { showToast } from '@/lib/toast'
 
 export default function CSVUploadTab() {
   const [textFile, setTextFile] = useState<File | null>(null)
@@ -18,11 +20,8 @@ export default function CSVUploadTab() {
     mutationFn: () => qcApi.sync(),
     onSuccess: (data) => {
       const stats = data.stats
-      alert(
-        `Google Sheets 동기화 완료!\n\n` +
-        `텍스트 QC: ${stats.text.added > 0 ? `+${stats.text.added}개 추가` : '변경 없음'}\n` +
-        `이미지 QC: ${stats.image.added > 0 ? `+${stats.image.added}개 추가` : '변경 없음'}\n` +
-        `아카이브: ${stats.archive.added > 0 ? `+${stats.archive.added}개 추가` : '변경 없음'}`
+      showToast.success(
+        `Google Sheets 동기화 완료! 텍스트 QC: ${stats.text.added > 0 ? `+${stats.text.added}개` : '변경 없음'}, 이미지 QC: ${stats.image.added > 0 ? `+${stats.image.added}개` : '변경 없음'}, 아카이브: ${stats.archive.added > 0 ? `+${stats.archive.added}개` : '변경 없음'}`
       )
       // 페이지 새로고침하여 최신 데이터 반영
       window.location.reload()
@@ -31,7 +30,7 @@ export default function CSVUploadTab() {
       console.error('[QC] 동기화 오류:', error);
       const errorMessage = error.response?.data?.message || error.message || '알 수 없는 오류';
       const statusCode = error.response?.status;
-      alert(`동기화 실패: ${errorMessage}${statusCode ? ` (${statusCode})` : ''}`)
+      showToast.error(`동기화 실패: ${errorMessage}${statusCode ? ` (${statusCode})` : ''}`)
     },
   })
 
@@ -48,10 +47,10 @@ export default function CSVUploadTab() {
         ...prev,
       ])
       setTextFile(null)
-      alert(`업로드 완료!\n- 가져온 항목: ${data.imported}개\n- 스킵된 항목: ${data.skipped}개\n- 중복 항목: ${data.duplicates}개`)
+      showToast.success(`업로드 완료! 가져온 항목: ${data.imported}개, 스킵: ${data.skipped}개, 중복: ${data.duplicates}개`)
     },
     onError: (error: any) => {
-      alert(`업로드 실패: ${error.response?.data?.message || error.message}`)
+      showToast.error(`업로드 실패: ${error.response?.data?.message || error.message}`)
     },
   })
 
@@ -69,18 +68,18 @@ export default function CSVUploadTab() {
       ])
       setImageFile(null)
       const message = data.updated 
-        ? `업로드 완료!\n- 가져온 항목: ${data.imported}개\n- 업데이트된 항목: ${data.updated}개\n- 스킵된 항목: ${data.skipped}개\n- 중복 항목: ${data.duplicates}개`
-        : `업로드 완료!\n- 가져온 항목: ${data.imported}개\n- 스킵된 항목: ${data.skipped}개\n- 중복 항목: ${data.duplicates}개`
-      alert(message)
+        ? `업로드 완료! 가져온 항목: ${data.imported}개, 업데이트: ${data.updated}개, 스킵: ${data.skipped}개, 중복: ${data.duplicates}개`
+        : `업로드 완료! 가져온 항목: ${data.imported}개, 스킵: ${data.skipped}개, 중복: ${data.duplicates}개`
+      showToast.success(message)
     },
     onError: (error: any) => {
-      alert(`업로드 실패: ${error.response?.data?.message || error.message}`)
+      showToast.error(`업로드 실패: ${error.response?.data?.message || error.message}`)
     },
   })
 
   const handleTextUpload = () => {
     if (!textFile) {
-      alert('파일을 선택해주세요.')
+      showToast.warning('파일을 선택해주세요.')
       return
     }
     textUploadMutation.mutate(textFile)
@@ -88,7 +87,7 @@ export default function CSVUploadTab() {
 
   const handleImageUpload = () => {
     if (!imageFile) {
-      alert('파일을 선택해주세요.')
+      showToast.warning('파일을 선택해주세요.')
       return
     }
     imageUploadMutation.mutate(imageFile)

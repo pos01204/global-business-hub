@@ -4,7 +4,7 @@ import { useQuery } from '@tanstack/react-query'
 import { useState } from 'react'
 import { couponAnalyticsApi } from '@/lib/api'
 import { formatCurrency, formatPercent } from '@/lib/formatters'
-import { EnhancedLoadingPage } from '@/components/ui'
+import { EnhancedLoadingPage, DateRangePicker, AnimatedEmptyState } from '@/components/ui'
 import { Icon } from '@/components/ui/Icon'
 import { Tooltip } from '@/components/ui/Tooltip'
 import {
@@ -14,6 +14,8 @@ import {
   Calendar
 } from 'lucide-react'
 import { addDays, format } from 'date-fns'
+// ✅ Phase 2: 고도화 컴포넌트
+import { hoverEffects } from '@/lib/hover-effects'
 import {
   Chart as ChartJS,
   CategoryScale,
@@ -179,39 +181,16 @@ export function CouponAnalyticsContent() {
         </div>
       </div>
 
-      {/* 날짜 필터 & 빠른 선택 */}
-      <div className="mb-6 flex flex-wrap items-center gap-4">
-        <div className="flex items-center gap-2">
-          <label className="text-sm font-medium text-slate-600 dark:text-slate-400">기간:</label>
-          <input
-            type="date"
-            value={startDate}
-            onChange={(e) => setDateRange({ ...dateRange, from: new Date(e.target.value) })}
-            className="px-3 py-2 border border-slate-200 dark:border-slate-700 rounded-lg text-sm bg-white dark:bg-slate-800 text-slate-800 dark:text-slate-200"
-          />
-          <span className="text-slate-400">~</span>
-          <input
-            type="date"
-            value={endDate}
-            onChange={(e) => setDateRange({ ...dateRange, to: new Date(e.target.value) })}
-            className="px-3 py-2 border border-slate-200 dark:border-slate-700 rounded-lg text-sm bg-white dark:bg-slate-800 text-slate-800 dark:text-slate-200"
-          />
-        </div>
-        <div className="flex gap-2">
-          {periodOptions.map((option) => (
-            <button
-              key={option.days}
-              onClick={() => setDateRange({ from: addDays(new Date(), -option.days), to: new Date() })}
-              className={`px-3 py-1.5 text-sm rounded-lg transition-colors ${
-                selectedDays === option.days
-                  ? 'bg-idus-500 text-white'
-                  : 'bg-white dark:bg-slate-800 text-slate-600 dark:text-slate-300 border border-slate-200 dark:border-slate-700 hover:bg-slate-50 dark:hover:bg-slate-700'
-              }`}
-            >
-              {option.label}
-            </button>
-          ))}
-        </div>
+      {/* 날짜 필터 - Phase 2: DateRangePicker 적용 */}
+      <div className="mb-6">
+        <DateRangePicker
+          value={dateRange}
+          onChange={(range) => {
+            if (range?.from && range?.to) {
+              setDateRange({ from: range.from, to: range.to })
+            }
+          }}
+        />
       </div>
 
       {/* 핵심 요약 배너 */}

@@ -4,6 +4,8 @@ import Link from 'next/link'
 import Image from 'next/image'
 import { usePathname } from 'next/navigation'
 import { useState } from 'react'
+// ✅ Phase 2: 고도화 컴포넌트
+import { hoverEffects } from '@/lib/hover-effects'
 
 // 브랜드 리소스 경로
 const BRAND_PATH = '/brand/Rebranding Design Resources/Rebranding Design Resources'
@@ -119,10 +121,10 @@ function NavItemComponent({
         href={item.href}
         className={`
           relative flex items-center gap-3 px-3 py-2.5 rounded-lg
-          transition-all duration-200
+          transition-all duration-300 ease-out
           ${isActive
-            ? 'bg-orange-50 dark:bg-orange-900/20 text-[#F78C3A] font-medium before:absolute before:left-0 before:top-1/2 before:-translate-y-1/2 before:w-1 before:h-6 before:bg-[#F78C3A] before:rounded-r-full'
-            : 'text-slate-600 dark:text-slate-400 hover:bg-slate-50 dark:hover:bg-slate-800 hover:text-slate-900 dark:hover:text-slate-200'
+            ? 'bg-orange-50 dark:bg-orange-900/20 text-[#F78C3A] font-medium before:absolute before:left-0 before:top-1/2 before:-translate-y-1/2 before:w-1 before:h-6 before:bg-[#F78C3A] before:rounded-r-full shadow-sm'
+            : `text-slate-600 dark:text-slate-400 hover:bg-indigo-50 dark:hover:bg-indigo-900/20 hover:text-indigo-600 dark:hover:text-indigo-400 hover:shadow-sm hover:-translate-y-0.5`
           }
         `}
       >

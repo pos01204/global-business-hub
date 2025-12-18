@@ -1,10 +1,13 @@
 'use client'
 
-import { useState } from 'react'
+import { useState, useMemo } from 'react'
 import { useQuery } from '@tanstack/react-query'
 import { artistAnalyticsApi } from '@/lib/api'
-import { EnhancedLoadingPage } from '@/components/ui'
+import { EnhancedLoadingPage, DataTable, AnimatedEmptyState } from '@/components/ui'
 import ArtistDetailModal from './ArtistDetailModal'
+// ✅ Phase 2: 고도화 컴포넌트
+import { showToast } from '@/lib/toast'
+import { hoverEffects } from '@/lib/hover-effects'
 
 interface PerformanceTabProps {
   dateRange: string
@@ -166,81 +169,108 @@ export default function PerformanceTab({ dateRange, countryFilter }: Performance
         </div>
       </div>
 
-      {/* 테이블 */}
-      <div className="card overflow-x-auto">
-        <table className="w-full text-sm">
-          <thead>
-            <tr className="border-b border-gray-200">
-              <th className="text-left py-3 px-4 font-medium text-gray-600">순위</th>
-              <th className="text-left py-3 px-4 font-medium text-gray-600">작가명</th>
-              <th
-                className="text-right py-3 px-4 font-medium text-gray-600 cursor-pointer hover:text-violet-600"
-                onClick={() => handleSort('gmv')}
-              >
-                매출 {sortBy === 'gmv' && (sortOrder === 'desc' ? '↓' : '↑')}
-              </th>
-              <th
-                className="text-right py-3 px-4 font-medium text-gray-600 cursor-pointer hover:text-violet-600"
-                onClick={() => handleSort('orders')}
-              >
-                주문수 {sortBy === 'orders' && (sortOrder === 'desc' ? '↓' : '↑')}
-              </th>
-              <th className="text-right py-3 px-4 font-medium text-gray-600">판매작품</th>
-              <th className="text-right py-3 px-4 font-medium text-gray-600">AOV</th>
-              <th
-                className="text-right py-3 px-4 font-medium text-gray-600 cursor-pointer hover:text-violet-600"
-                onClick={() => handleSort('growth')}
-              >
-                성장률 {sortBy === 'growth' && (sortOrder === 'desc' ? '↓' : '↑')}
-              </th>
-              <th className="text-center py-3 px-4 font-medium text-gray-600">세그먼트</th>
-              <th className="text-center py-3 px-4 font-medium text-gray-600">건강도</th>
-              <th className="text-center py-3 px-4 font-medium text-gray-600">상세</th>
-            </tr>
-          </thead>
-          <tbody>
-            {data.artists
-              .filter((artist: any) => 
-                !searchQuery || artist.artistName.toLowerCase().includes(searchQuery.toLowerCase())
-              )
-              .map((artist: any) => (
-              <tr key={artist.artistName} className="border-b border-gray-100 hover:bg-gray-50">
-                <td className="py-3 px-4 font-medium">{artist.rank}</td>
-                <td className="py-3 px-4">
+      {/* Phase 2: DataTable 적용 */}
+      <div className="card">
+        {data.artists && data.artists.length > 0 ? (
+          <DataTable
+            data={data.artists.filter((artist: any) => 
+              !searchQuery || artist.artistName.toLowerCase().includes(searchQuery.toLowerCase())
+            )}
+            columns={[
+              {
+                accessorKey: 'rank',
+                header: '순위',
+                cell: ({ row }) => <span className="font-medium">{row.original.rank}</span>,
+              },
+              {
+                accessorKey: 'artistName',
+                header: '작가명',
+                cell: ({ row }) => (
                   <button
-                    onClick={() => setSelectedArtist(artist.artistName)}
+                    onClick={() => setSelectedArtist(row.original.artistName)}
                     className="text-violet-600 hover:underline font-medium"
                   >
-                    {artist.artistName}
+                    {row.original.artistName}
                   </button>
-                </td>
-                <td className="py-3 px-4 text-right font-semibold">{formatCurrency(artist.totalGmv)}</td>
-                <td className="py-3 px-4 text-right">{artist.orderCount}건</td>
-                <td className="py-3 px-4 text-right">{artist.productCount}개</td>
-                <td className="py-3 px-4 text-right">{formatCurrency(artist.aov)}</td>
-                <td className="py-3 px-4 text-right">
-                  <span className={artist.growthRate >= 0 ? 'text-green-600' : 'text-red-600'}>
-                    {artist.growthRate >= 0 ? '+' : ''}{artist.growthRate}%
+                ),
+              },
+              {
+                accessorKey: 'totalGmv',
+                header: '매출',
+                cell: ({ row }) => (
+                  <span className="font-semibold">{formatCurrency(row.original.totalGmv)}</span>
+                ),
+              },
+              {
+                accessorKey: 'orderCount',
+                header: '주문수',
+                cell: ({ row }) => <span>{row.original.orderCount}건</span>,
+              },
+              {
+                accessorKey: 'productCount',
+                header: '판매작품',
+                cell: ({ row }) => <span>{row.original.productCount}개</span>,
+              },
+              {
+                accessorKey: 'aov',
+                header: 'AOV',
+                cell: ({ row }) => <span>{formatCurrency(row.original.aov)}</span>,
+              },
+              {
+                accessorKey: 'growthRate',
+                header: '성장률',
+                cell: ({ row }) => (
+                  <span className={row.original.growthRate >= 0 ? 'text-green-600' : 'text-red-600'}>
+                    {row.original.growthRate >= 0 ? '+' : ''}{row.original.growthRate}%
                   </span>
-                </td>
-                <td className="py-3 px-4 text-center">{getSegmentBadge(artist.segment)}</td>
-                <td className="py-3 px-4 text-center">{getHealthBadge(artist.healthStatus)}</td>
-                <td className="py-3 px-4 text-center">
+                ),
+              },
+              {
+                accessorKey: 'segment',
+                header: '세그먼트',
+                cell: ({ row }) => getSegmentBadge(row.original.segment),
+              },
+              {
+                accessorKey: 'healthStatus',
+                header: '건강도',
+                cell: ({ row }) => getHealthBadge(row.original.healthStatus),
+              },
+              {
+                id: 'actions',
+                header: '상세',
+                cell: ({ row }) => (
                   <button
-                    onClick={() => setSelectedArtist(artist.artistName)}
-                    className="text-gray-400 hover:text-violet-600"
+                    onClick={() => setSelectedArtist(row.original.artistName)}
+                    className="text-gray-400 hover:text-violet-600 transition-colors"
                   >
                     👁️
                   </button>
-                </td>
-              </tr>
-            ))}
-          </tbody>
-        </table>
+                ),
+              },
+            ]}
+            searchPlaceholder="작가 검색..."
+            pageSize={20}
+          />
+        ) : (
+          <AnimatedEmptyState
+            type="data"
+            title="작가 데이터가 없습니다"
+            description="선택한 기간 및 필터 조건에 해당하는 작가 데이터가 없습니다."
+          />
+        )}
       </div>
 
-      {/* 페이지네이션 */}
-      {data.pagination && (
+      {/* 페이지네이션 (DataTable에 내장되어 있으므로 기존 페이지네이션 제거) */}
+      {data.pagination && data.artists.length > 0 && (
+        <div className="flex items-center justify-end">
+          <p className="text-sm text-gray-500">
+            총 {data.pagination.total}명
+          </p>
+        </div>
+      )}
+
+      {/* 기존 페이지네이션 (서버 사이드용으로 유지) */}
+      {data.pagination && data.pagination.totalPages > 1 && (
         <div className="flex items-center justify-between">
           <p className="text-sm text-gray-500">
             총 {data.pagination.total}명 중 {(page - 1) * 20 + 1}-{Math.min(page * 20, data.pagination.total)}

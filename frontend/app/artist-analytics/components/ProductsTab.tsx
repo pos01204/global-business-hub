@@ -3,7 +3,9 @@
 import { useState } from 'react'
 import { useQuery } from '@tanstack/react-query'
 import { artistAnalyticsApi } from '@/lib/api'
-import { EnhancedLoadingPage } from '@/components/ui'
+import { EnhancedLoadingPage, DataTable, AnimatedEmptyState } from '@/components/ui'
+// ✅ Phase 2: 고도화 컴포넌트
+import { hoverEffects } from '@/lib/hover-effects'
 
 interface ProductsTabProps {
   dateRange: string
@@ -108,14 +110,14 @@ export default function ProductsTab({ dateRange }: ProductsTabProps) {
           </div>
         </div>
 
-        {/* Top 판매 작품 테이블 */}
+        {/* Top 판매 작품 테이블 - Phase 2: DataTable 적용 */}
         <div className="card lg:col-span-2">
           <div className="flex items-center justify-between mb-4">
             <h3 className="text-lg font-semibold">🏆 Top 판매 작품</h3>
             <div className="flex gap-2">
               <button
                 onClick={() => setSortBy('gmv')}
-                className={`px-3 py-1 rounded-lg text-sm ${
+                className={`px-3 py-1 rounded-lg text-sm ${hoverEffects.button} ${
                   sortBy === 'gmv' ? 'bg-violet-600 text-white' : 'bg-gray-100'
                 }`}
               >
@@ -123,7 +125,7 @@ export default function ProductsTab({ dateRange }: ProductsTabProps) {
               </button>
               <button
                 onClick={() => setSortBy('quantity')}
-                className={`px-3 py-1 rounded-lg text-sm ${
+                className={`px-3 py-1 rounded-lg text-sm ${hoverEffects.button} ${
                   sortBy === 'quantity' ? 'bg-violet-600 text-white' : 'bg-gray-100'
                 }`}
               >
@@ -131,57 +133,81 @@ export default function ProductsTab({ dateRange }: ProductsTabProps) {
               </button>
             </div>
           </div>
-          <div className="overflow-x-auto max-h-96">
-            <table className="w-full text-sm">
-              <thead className="sticky top-0 bg-white">
-                <tr className="border-b">
-                  <th className="text-left py-2 px-2">순위</th>
-                  <th className="text-left py-2 px-2">작품명</th>
-                  <th className="text-left py-2 px-2">작가</th>
-                  <th className="text-right py-2 px-2">매출</th>
-                  <th className="text-right py-2 px-2">판매량</th>
-                  <th className="text-center py-2 px-2">평점</th>
-                  <th className="text-center py-2 px-2">국가</th>
-                </tr>
-              </thead>
-              <tbody>
-                {products.slice(0, 20).map((product: any) => (
-                  <tr key={product.productId} className="border-b border-gray-100 hover:bg-gray-50">
-                    <td className="py-2 px-2 font-medium">{product.rank}</td>
-                    <td className="py-2 px-2">
-                      {product.productUrl ? (
-                        <a
-                          href={product.productUrl}
-                          target="_blank"
-                          rel="noopener noreferrer"
-                          className="text-violet-600 hover:underline"
-                        >
-                          {product.productName.length > 20
-                            ? product.productName.slice(0, 20) + '...'
-                            : product.productName}
-                        </a>
-                      ) : (
-                        <span>
-                          {product.productName.length > 20
-                            ? product.productName.slice(0, 20) + '...'
-                            : product.productName}
-                        </span>
-                      )}
-                    </td>
-                    <td className="py-2 px-2 text-gray-600">{product.artistName}</td>
-                    <td className="py-2 px-2 text-right font-semibold">{formatCurrency(product.gmv)}</td>
-                    <td className="py-2 px-2 text-right">{product.quantity}개</td>
-                    <td className="py-2 px-2 text-center">
-                      {product.avgRating ? `⭐ ${product.avgRating}` : '-'}
-                    </td>
-                    <td className="py-2 px-2 text-center text-xs text-gray-500">
-                      {product.countries.slice(0, 2).join(', ')}
-                    </td>
-                  </tr>
-                ))}
-              </tbody>
-            </table>
-          </div>
+          {products && products.length > 0 ? (
+            <DataTable
+              data={products.slice(0, 20)}
+              columns={[
+                {
+                  accessorKey: 'rank',
+                  header: '순위',
+                  cell: ({ row }) => <span className="font-medium">{row.original.rank}</span>,
+                },
+                {
+                  accessorKey: 'productName',
+                  header: '작품명',
+                  cell: ({ row }) => (
+                    row.original.productUrl ? (
+                      <a
+                        href={row.original.productUrl}
+                        target="_blank"
+                        rel="noopener noreferrer"
+                        className="text-violet-600 hover:underline"
+                      >
+                        {row.original.productName.length > 20
+                          ? row.original.productName.slice(0, 20) + '...'
+                          : row.original.productName}
+                      </a>
+                    ) : (
+                      <span>
+                        {row.original.productName.length > 20
+                          ? row.original.productName.slice(0, 20) + '...'
+                          : row.original.productName}
+                      </span>
+                    )
+                  ),
+                },
+                {
+                  accessorKey: 'artistName',
+                  header: '작가',
+                  cell: ({ row }) => <span className="text-gray-600">{row.original.artistName}</span>,
+                },
+                {
+                  accessorKey: 'gmv',
+                  header: '매출',
+                  cell: ({ row }) => <span className="font-semibold">{formatCurrency(row.original.gmv)}</span>,
+                },
+                {
+                  accessorKey: 'quantity',
+                  header: '판매량',
+                  cell: ({ row }) => <span>{row.original.quantity}개</span>,
+                },
+                {
+                  accessorKey: 'avgRating',
+                  header: '평점',
+                  cell: ({ row }) => (
+                    <span>{row.original.avgRating ? `⭐ ${row.original.avgRating}` : '-'}</span>
+                  ),
+                },
+                {
+                  accessorKey: 'countries',
+                  header: '국가',
+                  cell: ({ row }) => (
+                    <span className="text-xs text-gray-500">
+                      {row.original.countries.slice(0, 2).join(', ')}
+                    </span>
+                  ),
+                },
+              ]}
+              searchPlaceholder="작품 검색..."
+              pageSize={10}
+            />
+          ) : (
+            <AnimatedEmptyState
+              type="product"
+              title="판매 작품이 없습니다"
+              description="선택한 기간에 판매된 작품이 없습니다."
+            />
+          )}
         </div>
       </div>
     </div>

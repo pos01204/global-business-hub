@@ -1,12 +1,15 @@
 'use client'
 
-import { useState } from 'react'
+import { useState, useMemo } from 'react'
 import { useRouter } from 'next/navigation'
 import { useQuery, useMutation } from '@tanstack/react-query'
 import { customerAnalyticsApi } from '@/lib/api'
-import { Tabs, TabPanel, EnhancedLoadingPage } from '@/components/ui'
+import { Tabs, TabPanel, EnhancedLoadingPage, VirtualizedList, DataTable } from '@/components/ui'
 import { Icon } from '@/components/ui/Icon'
-import { Users, RefreshCw, AlertTriangle, BarChart3, DollarSign, Ticket, TrendingUp } from 'lucide-react'
+import { Users, RefreshCw, AlertTriangle, BarChart3, DollarSign, Ticket, TrendingUp, Search } from 'lucide-react'
+// ✅ Phase 2: 고도화 컴포넌트
+import { hoverEffects } from '@/lib/hover-effects'
+import { showToast } from '@/lib/toast'
 import {
   Chart as ChartJS,
   CategoryScale,
@@ -261,36 +264,55 @@ function RFMTab() {
           </div>
           <p className="text-sm text-slate-600 mb-4">{selectedData.description}</p>
           
-          <div className="overflow-x-auto">
-            <table className="w-full text-sm">
-              <thead>
-                <tr className="border-b border-slate-200">
-                  <th className="text-left py-2 px-3 font-medium text-slate-600">고객 ID</th>
-                  <th className="text-left py-2 px-3 font-medium text-slate-600">국가</th>
-                  <th className="text-right py-2 px-3 font-medium text-slate-600">최근 구매</th>
-                  <th className="text-right py-2 px-3 font-medium text-slate-600">구매 횟수</th>
-                  <th className="text-right py-2 px-3 font-medium text-slate-600">총 금액</th>
-                  <th className="text-center py-2 px-3 font-medium text-slate-600">RFM</th>
-                </tr>
-              </thead>
-              <tbody>
-                {selectedData.customers.slice(0, 10).map((customer: any, idx: number) => (
-                  <tr key={idx} className="border-b border-slate-100 hover:bg-slate-50">
-                    <td className="py-2 px-3 font-mono text-xs">{customer.userId}</td>
-                    <td className="py-2 px-3">{customer.country}</td>
-                    <td className="py-2 px-3 text-right">{customer.recencyDays}일 전</td>
-                    <td className="py-2 px-3 text-right">{customer.frequency}회</td>
-                    <td className="py-2 px-3 text-right">{(customer.monetary / 10000).toFixed(1)}만원</td>
-                    <td className="py-2 px-3 text-center">
-                      <span className="px-2 py-1 bg-slate-100 rounded text-xs font-mono">
-                        {customer.rfmScore}
-                      </span>
-                    </td>
-                  </tr>
-                ))}
-              </tbody>
-            </table>
-          </div>
+          {/* Phase 2: DataTable 적용 */}
+          <DataTable
+            data={selectedData.customers}
+            columns={[
+              {
+                accessorKey: 'userId',
+                header: '고객 ID',
+                cell: ({ row }) => (
+                  <span className="font-mono text-xs">{row.original.userId}</span>
+                ),
+              },
+              {
+                accessorKey: 'country',
+                header: '국가',
+              },
+              {
+                accessorKey: 'recencyDays',
+                header: '최근 구매',
+                cell: ({ row }) => (
+                  <span className="text-right">{row.original.recencyDays}일 전</span>
+                ),
+              },
+              {
+                accessorKey: 'frequency',
+                header: '구매 횟수',
+                cell: ({ row }) => (
+                  <span className="text-right">{row.original.frequency}회</span>
+                ),
+              },
+              {
+                accessorKey: 'monetary',
+                header: '총 금액',
+                cell: ({ row }) => (
+                  <span className="text-right">{(row.original.monetary / 10000).toFixed(1)}만원</span>
+                ),
+              },
+              {
+                accessorKey: 'rfmScore',
+                header: 'RFM',
+                cell: ({ row }) => (
+                  <span className="px-2 py-1 bg-slate-100 dark:bg-slate-700 rounded text-xs font-mono">
+                    {row.original.rfmScore}
+                  </span>
+                ),
+              },
+            ]}
+            searchPlaceholder="고객 검색..."
+            pageSize={20}
+          />
         </div>
       )}
     </div>
@@ -636,59 +658,60 @@ function ChurnRiskTab() {
           </div>
         </div>
 
-        <div className="overflow-x-auto">
-          <table className="w-full text-sm">
-            <thead>
-              <tr className="border-b border-slate-200">
-                <th className="text-left py-2 px-3 font-medium text-slate-600">고객 ID</th>
-                <th className="text-left py-2 px-3 font-medium text-slate-600">국가</th>
-                <th className="text-right py-2 px-3 font-medium text-slate-600">미구매</th>
-                <th className="text-right py-2 px-3 font-medium text-slate-600">구매 횟수</th>
-                <th className="text-right py-2 px-3 font-medium text-slate-600">누적 금액</th>
-                <th className="text-center py-2 px-3 font-medium text-slate-600">위험도</th>
-                <th className="text-left py-2 px-3 font-medium text-slate-600">위험 요인</th>
-              </tr>
-            </thead>
-            <tbody>
-              {data.highRisk.slice(0, 20).map((customer: any, idx: number) => (
-                <tr key={idx} className="border-b border-slate-100 hover:bg-red-50">
-                  <td className="py-2 px-3 font-mono text-xs">{customer.userId}</td>
-                  <td className="py-2 px-3">{customer.country}</td>
-                  <td className="py-2 px-3 text-right text-red-600 font-medium">
-                    {customer.recencyDays}일
-                  </td>
-                  <td className="py-2 px-3 text-right">{customer.frequency}회</td>
-                  <td className="py-2 px-3 text-right">
-                    {(customer.totalAmount / 10000).toFixed(1)}만원
-                  </td>
-                  <td className="py-2 px-3 text-center">
-                    <div className="flex items-center justify-center gap-1">
-                      <div className="w-16 h-2 bg-slate-200 rounded-full overflow-hidden">
-                        <div
-                          className="h-full bg-red-500 rounded-full"
-                          style={{ width: `${customer.riskScore}%` }}
-                        />
-                      </div>
-                      <span className="text-xs text-red-600 font-medium">{customer.riskScore}</span>
-                    </div>
-                  </td>
-                  <td className="py-2 px-3">
-                    <div className="flex flex-wrap gap-1">
-                      {customer.riskFactors.map((factor: string, i: number) => (
-                        <span
-                          key={i}
-                          className="px-1.5 py-0.5 bg-red-100 text-red-700 rounded text-xs"
-                        >
-                          {factor}
-                        </span>
-                      ))}
-                    </div>
-                  </td>
-                </tr>
-              ))}
-            </tbody>
-          </table>
-        </div>
+        {/* Phase 2: DataTable 적용 - 높은 위험 고객 */}
+        <DataTable
+          data={data.highRisk}
+          columns={[
+            {
+              accessorKey: 'userId',
+              header: '고객 ID',
+              cell: ({ row }) => <span className="font-mono text-xs">{row.original.userId}</span>,
+            },
+            { accessorKey: 'country', header: '국가' },
+            {
+              accessorKey: 'recencyDays',
+              header: '미구매',
+              cell: ({ row }) => <span className="text-red-600 font-medium">{row.original.recencyDays}일</span>,
+            },
+            {
+              accessorKey: 'frequency',
+              header: '구매 횟수',
+              cell: ({ row }) => <span>{row.original.frequency}회</span>,
+            },
+            {
+              accessorKey: 'totalAmount',
+              header: '누적 금액',
+              cell: ({ row }) => <span>{(row.original.totalAmount / 10000).toFixed(1)}만원</span>,
+            },
+            {
+              accessorKey: 'riskScore',
+              header: '위험도',
+              cell: ({ row }) => (
+                <div className="flex items-center gap-1">
+                  <div className="w-16 h-2 bg-slate-200 rounded-full overflow-hidden">
+                    <div className="h-full bg-red-500 rounded-full" style={{ width: `${row.original.riskScore}%` }} />
+                  </div>
+                  <span className="text-xs text-red-600 font-medium">{row.original.riskScore}</span>
+                </div>
+              ),
+            },
+            {
+              accessorKey: 'riskFactors',
+              header: '위험 요인',
+              cell: ({ row }) => (
+                <div className="flex flex-wrap gap-1">
+                  {row.original.riskFactors?.map((factor: string, i: number) => (
+                    <span key={i} className="px-1.5 py-0.5 bg-red-100 dark:bg-red-900/30 text-red-700 dark:text-red-300 rounded text-xs">
+                      {factor}
+                    </span>
+                  ))}
+                </div>
+              ),
+            },
+          ]}
+          searchPlaceholder="높은 위험 고객 검색..."
+          pageSize={20}
+        />
       </div>
 
       {/* 중간 위험 고객 목록 */}
@@ -710,41 +733,46 @@ function ChurnRiskTab() {
           </div>
         </div>
 
-        <div className="overflow-x-auto">
-          <table className="w-full text-sm">
-            <thead>
-              <tr className="border-b border-slate-200">
-                <th className="text-left py-2 px-3 font-medium text-slate-600">고객 ID</th>
-                <th className="text-left py-2 px-3 font-medium text-slate-600">국가</th>
-                <th className="text-right py-2 px-3 font-medium text-slate-600">미구매</th>
-                <th className="text-right py-2 px-3 font-medium text-slate-600">구매 횟수</th>
-                <th className="text-right py-2 px-3 font-medium text-slate-600">누적 금액</th>
-                <th className="text-center py-2 px-3 font-medium text-slate-600">위험도</th>
-              </tr>
-            </thead>
-            <tbody>
-              {data.mediumRisk.slice(0, 10).map((customer: any, idx: number) => (
-                <tr key={idx} className="border-b border-slate-100 hover:bg-yellow-50">
-                  <td className="py-2 px-3 font-mono text-xs">{customer.userId}</td>
-                  <td className="py-2 px-3">{customer.country}</td>
-                  <td className="py-2 px-3 text-right text-yellow-600 font-medium">
-                    {customer.recencyDays}일
-                  </td>
-                  <td className="py-2 px-3 text-right">{customer.frequency}회</td>
-                  <td className="py-2 px-3 text-right">
-                    {(customer.totalAmount / 10000).toFixed(1)}만원
-                  </td>
-                  <td className="py-2 px-3 text-center">
-                    <div className="flex items-center justify-center gap-1">
-                      <div className="w-16 h-2 bg-slate-200 rounded-full overflow-hidden">
-                        <div
-                          className="h-full bg-yellow-500 rounded-full"
-                          style={{ width: `${customer.riskScore}%` }}
-                        />
-                      </div>
-                      <span className="text-xs text-yellow-600 font-medium">{customer.riskScore}</span>
-                    </div>
-                  </td>
+        {/* Phase 2: DataTable 적용 - 중간 위험 고객 */}
+        <DataTable
+          data={data.mediumRisk}
+          columns={[
+            {
+              accessorKey: 'userId',
+              header: '고객 ID',
+              cell: ({ row }) => <span className="font-mono text-xs">{row.original.userId}</span>,
+            },
+            { accessorKey: 'country', header: '국가' },
+            {
+              accessorKey: 'recencyDays',
+              header: '미구매',
+              cell: ({ row }) => <span className="text-yellow-600 font-medium">{row.original.recencyDays}일</span>,
+            },
+            {
+              accessorKey: 'frequency',
+              header: '구매 횟수',
+              cell: ({ row }) => <span>{row.original.frequency}회</span>,
+            },
+            {
+              accessorKey: 'totalAmount',
+              header: '누적 금액',
+              cell: ({ row }) => <span>{(row.original.totalAmount / 10000).toFixed(1)}만원</span>,
+            },
+            {
+              accessorKey: 'riskScore',
+              header: '위험도',
+              cell: ({ row }) => (
+                <div className="flex items-center gap-1">
+                  <div className="w-16 h-2 bg-slate-200 rounded-full overflow-hidden">
+                    <div className="h-full bg-yellow-500 rounded-full" style={{ width: `${row.original.riskScore}%` }} />
+                  </div>
+                  <span className="text-xs text-yellow-600 font-medium">{row.original.riskScore}</span>
+                </div>
+              ),
+            },
+          ]}
+          searchPlaceholder="중간 위험 고객 검색..."
+          pageSize={10
                 </tr>
               ))}
             </tbody>

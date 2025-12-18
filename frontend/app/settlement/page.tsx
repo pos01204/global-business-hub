@@ -8,6 +8,9 @@ import { EnhancedLoadingPage } from '@/components/ui'
 import { DollarSign, Calendar, Truck, TrendingUp, RefreshCw } from 'lucide-react'
 // ✅ 공통 유틸리티 import (Phase 1 표준화)
 import { formatCurrency } from '@/lib/formatters'
+// ✅ Phase 2: 고도화 컴포넌트
+import { showToast } from '@/lib/toast'
+import { hoverEffects } from '@/lib/hover-effects'
 
 // 탭 타입
 type SettlementTab = 'upload' | 'list' | 'country' | 'carrier' | 'weight' | 'trend' | 'validate' | 'crossValidate' | 'simulate'
@@ -147,7 +150,7 @@ export default function SettlementPage() {
     if (file && (file.type === 'text/csv' || file.name.endsWith('.csv'))) {
       uploadMutation.mutate(file)
     } else {
-      alert('CSV 파일만 업로드 가능합니다.')
+      showToast.error('CSV 파일만 업로드 가능합니다.')
     }
   }, [uploadMutation])
 

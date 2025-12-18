@@ -1,12 +1,13 @@
 'use client'
 
 import React, { useState, useEffect, memo } from 'react'
-import { motion, useSpring, useTransform } from 'framer-motion'
+import { motion, useSpring, useTransform, AnimatePresence } from 'framer-motion'
 import { Icon } from './Icon'
 import { Tooltip } from './Tooltip'
-import { TrendingUp, TrendingDown, Info } from 'lucide-react'
+import { TrendingUp, TrendingDown, Info, Sparkles } from 'lucide-react'
 import { LucideIcon } from 'lucide-react'
 import { cn } from '@/lib/utils'
+import { hoverEffects, cardHoverVariants } from '@/lib/hover-effects'
 
 export interface EnhancedKPICardProps {
   title: string
@@ -18,6 +19,23 @@ export interface EnhancedKPICardProps {
   className?: string
   suffix?: string
   prefix?: string
+  variant?: 'default' | 'gradient' | 'glass' | 'bordered'
+  accentColor?: 'blue' | 'green' | 'purple' | 'orange' | 'red'
+}
+
+const accentColors = {
+  blue: 'from-blue-500/10 to-indigo-500/10 border-blue-200 dark:border-blue-800',
+  green: 'from-emerald-500/10 to-teal-500/10 border-emerald-200 dark:border-emerald-800',
+  purple: 'from-purple-500/10 to-pink-500/10 border-purple-200 dark:border-purple-800',
+  orange: 'from-orange-500/10 to-amber-500/10 border-orange-200 dark:border-orange-800',
+  red: 'from-red-500/10 to-rose-500/10 border-red-200 dark:border-red-800',
+}
+
+const variantStyles = {
+  default: 'bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700',
+  gradient: 'bg-gradient-to-br border',
+  glass: 'bg-white/70 dark:bg-slate-800/70 backdrop-blur-md border border-white/20 dark:border-slate-700/50',
+  bordered: 'bg-white dark:bg-slate-800 border-2 border-slate-300 dark:border-slate-600',
 }
 
 export const EnhancedKPICard = memo(function EnhancedKPICard({
@@ -30,9 +48,12 @@ export const EnhancedKPICard = memo(function EnhancedKPICard({
   className,
   suffix,
   prefix,
+  variant = 'default',
+  accentColor = 'blue',
 }: EnhancedKPICardProps) {
   const [showDetail, setShowDetail] = useState(false)
   const [displayValue, setDisplayValue] = useState(0)
+  const [isHovered, setIsHovered] = useState(false)
   const isPositive = change !== undefined && change > 0
 
   // 숫자 카운트업 애니메이션
@@ -97,16 +118,36 @@ export const EnhancedKPICard = memo(function EnhancedKPICard({
 
   return (
     <motion.div
-      initial={{ opacity: 0, y: 20 }}
-      animate={{ opacity: 1, y: 0 }}
-      transition={{ duration: 0.3 }}
+      variants={cardHoverVariants}
+      initial="initial"
+      animate={isHovered ? "hover" : "initial"}
+      whileHover="hover"
+      transition={{ duration: 0.25, ease: "easeOut" }}
       className={cn(
-        'bg-white dark:bg-slate-800 rounded-lg p-6 border border-slate-200 dark:border-slate-700 shadow-md hover:shadow-lg transition-all group',
+        'rounded-xl p-6 shadow-md transition-all duration-300 group relative overflow-hidden',
+        variantStyles[variant],
+        variant === 'gradient' && accentColors[accentColor],
+        hoverEffects.card,
         className
       )}
-      onMouseEnter={() => setShowDetail(true)}
-      onMouseLeave={() => setShowDetail(false)}
+      onMouseEnter={() => {
+        setShowDetail(true)
+        setIsHovered(true)
+      }}
+      onMouseLeave={() => {
+        setShowDetail(false)
+        setIsHovered(false)
+      }}
     >
+      {/* 호버 시 배경 그라데이션 효과 */}
+      <motion.div
+        className={cn(
+          'absolute inset-0 bg-gradient-to-br opacity-0 pointer-events-none',
+          accentColors[accentColor]
+        )}
+        animate={{ opacity: isHovered ? 0.5 : 0 }}
+        transition={{ duration: 0.3 }}
+      />
       <div className="flex items-center justify-between mb-4">
         <div className="flex items-center gap-2">
           <h3 className="text-sm font-medium text-slate-600 dark:text-slate-400">
@@ -190,19 +231,40 @@ export const EnhancedKPICard = memo(function EnhancedKPICard({
       )}
 
       {/* 호버 시 상세 정보 표시 */}
-      {showDetail && detailInfo && (
-        <motion.div
-          initial={{ opacity: 0, y: -10 }}
-          animate={{ opacity: 1, y: 0 }}
-          exit={{ opacity: 0, y: -10 }}
-          transition={{ duration: 0.2 }}
-          className="mt-4 pt-4 border-t border-slate-200 dark:border-slate-700"
-        >
-          <p className="text-xs text-slate-500 dark:text-slate-400">
-            {detailInfo}
-          </p>
-        </motion.div>
-      )}
+      <AnimatePresence>
+        {showDetail && detailInfo && (
+          <motion.div
+            initial={{ opacity: 0, height: 0, marginTop: 0 }}
+            animate={{ opacity: 1, height: 'auto', marginTop: 16 }}
+            exit={{ opacity: 0, height: 0, marginTop: 0 }}
+            transition={{ duration: 0.25, ease: "easeInOut" }}
+            className="pt-4 border-t border-slate-200 dark:border-slate-700 relative z-10"
+          >
+            <div className="flex items-start gap-2">
+              <Sparkles className="w-3.5 h-3.5 text-amber-500 flex-shrink-0 mt-0.5" />
+              <p className="text-xs text-slate-500 dark:text-slate-400 leading-relaxed">
+                {detailInfo}
+              </p>
+            </div>
+          </motion.div>
+        )}
+      </AnimatePresence>
+
+      {/* 호버 시 상단 액센트 라인 */}
+      <motion.div
+        className={cn(
+          'absolute top-0 left-0 right-0 h-1 rounded-t-xl',
+          accentColor === 'blue' && 'bg-gradient-to-r from-blue-500 to-indigo-500',
+          accentColor === 'green' && 'bg-gradient-to-r from-emerald-500 to-teal-500',
+          accentColor === 'purple' && 'bg-gradient-to-r from-purple-500 to-pink-500',
+          accentColor === 'orange' && 'bg-gradient-to-r from-orange-500 to-amber-500',
+          accentColor === 'red' && 'bg-gradient-to-r from-red-500 to-rose-500',
+        )}
+        initial={{ scaleX: 0 }}
+        animate={{ scaleX: isHovered ? 1 : 0 }}
+        transition={{ duration: 0.3 }}
+        style={{ transformOrigin: 'left' }}
+      />
     </motion.div>
   )
 })

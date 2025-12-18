@@ -7,6 +7,8 @@ import { Card } from '@/components/ui/Card'
 import { Badge } from '@/components/ui/Badge'
 import { FileText, Download, Loader2, CheckCircle, AlertCircle } from 'lucide-react'
 import { PDFReportGenerator } from '@/lib/reports/PDFGenerator'
+// ✅ Phase 2: 고도화 컴포넌트
+import { showToast } from '@/lib/toast'
 
 // FadeIn 컴포넌트
 function FadeIn({ children, delay = 0, className = '' }: { children: React.ReactNode; delay?: number; className?: string }) {
@@ -48,9 +50,8 @@ export function ReportGenerator({ period, healthScore, briefing, insights }: Rep
           
           // PDF로 인쇄 옵션 제공
           setTimeout(() => {
-            if (confirm('리포트를 PDF로 저장하시겠습니까?')) {
-              newWindow.print()
-            }
+            showToast.info('브라우저 인쇄 기능을 통해 PDF로 저장할 수 있습니다.')
+            newWindow.print()
           }, 500)
         }
       }
@@ -59,7 +60,7 @@ export function ReportGenerator({ period, healthScore, briefing, insights }: Rep
 
   const handleGenerateReport = () => {
     if (selectedSections.length === 0) {
-      alert('최소 하나 이상의 섹션을 선택해주세요.')
+      showToast.warning('최소 하나 이상의 섹션을 선택해주세요.')
       return
     }
 
@@ -73,7 +74,7 @@ export function ReportGenerator({ period, healthScore, briefing, insights }: Rep
   // PDF 직접 생성 (jsPDF 사용)
   const handleDirectPdfDownload = async () => {
     if (selectedSections.length === 0) {
-      alert('최소 하나 이상의 섹션을 선택해주세요.')
+      showToast.warning('최소 하나 이상의 섹션을 선택해주세요.')
       return
     }
 
@@ -167,7 +168,7 @@ export function ReportGenerator({ period, healthScore, briefing, insights }: Rep
 
   const handleDownloadPDF = () => {
     if (selectedSections.length === 0) {
-      alert('최소 하나 이상의 섹션을 선택해주세요.')
+      showToast.warning('최소 하나 이상의 섹션을 선택해주세요.')
       return
     }
 

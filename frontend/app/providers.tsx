@@ -4,6 +4,7 @@ import { QueryClient, QueryClientProvider } from '@tanstack/react-query'
 import { SessionProvider } from 'next-auth/react'
 import { useState } from 'react'
 import { ThemeProvider } from '@/contexts/ThemeContext'
+import { Toaster } from 'sonner'
 
 export function Providers({ children }: { children: React.ReactNode }) {
   const [queryClient] = useState(
@@ -33,7 +34,24 @@ export function Providers({ children }: { children: React.ReactNode }) {
   return (
     <SessionProvider>
       <ThemeProvider>
-        <QueryClientProvider client={queryClient}>{children}</QueryClientProvider>
+        <QueryClientProvider client={queryClient}>
+          {children}
+          {/* 전역 토스트 알림 */}
+          <Toaster
+            position="top-right"
+            expand={true}
+            richColors
+            closeButton
+            duration={4000}
+            toastOptions={{
+              classNames: {
+                toast: 'font-sans shadow-lg border',
+                title: 'font-medium',
+                description: 'text-sm opacity-80',
+              },
+            }}
+          />
+        </QueryClientProvider>
       </ThemeProvider>
     </SessionProvider>
   )

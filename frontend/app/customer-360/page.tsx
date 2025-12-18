@@ -5,7 +5,7 @@ import { useState, Component, ErrorInfo, ReactNode } from 'react'
 import { useRouter } from 'next/navigation'
 import { customer360Api } from '@/lib/api'
 import { formatCurrency } from '@/lib/formatters'
-import { EnhancedLoadingPage } from '@/components/ui'
+import { EnhancedLoadingPage, AnimatedEmptyState } from '@/components/ui'
 import { Icon } from '@/components/ui/Icon'
 import OrderDetailModal from '@/components/OrderDetailModal'
 import ArtistOrdersModal from '@/components/ArtistOrdersModal'
@@ -16,6 +16,9 @@ import {
   Palette, Lightbulb, ExternalLink, Gift, Heart, Activity,
   AlertTriangle
 } from 'lucide-react'
+// ✅ Phase 2: 고도화 컴포넌트
+import { hoverEffects } from '@/lib/hover-effects'
+import { showToast } from '@/lib/toast'
 
 // ============================================================
 // 에러 바운더리

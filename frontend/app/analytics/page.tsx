@@ -2,7 +2,7 @@
 
 import { useQuery } from '@tanstack/react-query'
 import { analyticsApi, customersApi, logisticsPerformanceApi, comparisonApi, dashboardApi } from '@/lib/api'
-import { useState, useEffect } from 'react'
+import { useState, useEffect, useMemo } from 'react'
 import { useRouter, useSearchParams } from 'next/navigation'
 import CustomerDetailModal from '@/components/CustomerDetailModal'
 import OrderDetailModal from '@/components/OrderDetailModal'
@@ -10,7 +10,7 @@ import ArtistOrdersModal from '@/components/ArtistOrdersModal'
 import { Tooltip } from '@/components/ui/Tooltip'
 import { Icon } from '@/components/ui/Icon'
 import { EnhancedLoadingPage } from '@/components/ui'
-import { EnhancedBarChart } from '@/components/charts'
+import { EnhancedBarChart, CountryGMVMap, convertToCountryData } from '@/components/charts'
 import { Bar, Doughnut, Chart, Pie } from 'react-chartjs-2'
 import {
   Chart as ChartJS,
@@ -24,13 +24,15 @@ import {
 } from 'chart.js'
 import {
   Palette, BarChart3, Calendar, Lightbulb, CheckCircle,
-  TrendingUp, TrendingDown, ArrowRight
+  TrendingUp, TrendingDown, ArrowRight, Globe
 } from 'lucide-react'
 // ✅ 공통 유틸리티 import (Phase 1 표준화)
 import { formatCurrency, formatChange } from '@/lib/formatters'
 // IA 개편안 Phase 1: 주문 패턴/쿠폰 효과 탭 통합 (별도 컴포넌트로 분리)
 import { OrderPatternsContent } from '../order-patterns/OrderPatternsContent'
 import { CouponAnalyticsContent } from '../coupon-analytics/CouponAnalyticsContent'
+// ✅ Phase 2: 고도화 컴포넌트
+import { hoverEffects } from '@/lib/hover-effects'
 
 ChartJS.register(
   CategoryScale,
@@ -2038,6 +2040,20 @@ export default function AnalyticsPage() {
 
       {activeTab === 'regional' && data && data.regionalPerformance && (
           <div className="space-y-6">
+            {/* 국가별 GMV 지도 - Phase 2 고도화 */}
+            <div className="card">
+              <div className="flex items-center gap-2 mb-4">
+                <Icon icon={Globe} size="md" className="text-indigo-500" />
+                <h2 className="text-xl font-semibold">국가별 GMV 지도</h2>
+                <span className="text-xs text-slate-400 ml-2">인터랙티브 지도</span>
+              </div>
+              <CountryGMVMap
+                data={convertToCountryData(data.regionalPerformance)}
+                height={400}
+                showLegend={true}
+              />
+            </div>
+
             {/* 지역 성과 차트 */}
             <div className="card">
               <h2 className="text-xl font-semibold mb-4">🌍 지역 성과 (매출액 기준)</h2>

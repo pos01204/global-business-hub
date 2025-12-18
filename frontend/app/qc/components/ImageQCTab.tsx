@@ -3,7 +3,10 @@
 import { useState, useEffect, useCallback } from 'react'
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
 import { qcApi } from '@/lib/api'
-import { EnhancedLoadingPage } from '@/components/ui'
+import { EnhancedLoadingPage, AnimatedEmptyState } from '@/components/ui'
+// ✅ Phase 2: 고도화 컴포넌트
+import { showToast } from '@/lib/toast'
+import { hoverEffects } from '@/lib/hover-effects'
 
 interface ImageModalProps {
   item: any
@@ -195,46 +198,66 @@ export default function ImageQCTab() {
   })
 
   const handleExclude = useCallback((id: string) => {
-    if (confirm('이 항목을 QC 비대상으로 표시하시겠습니까?')) {
-      updateStatusMutation.mutate({
+    showToast.promise(
+      updateStatusMutation.mutateAsync({
         id,
         status: 'excluded',
         needsRevision: false,
-      })
-    }
+      }),
+      {
+        loading: 'QC 비대상 처리 중...',
+        success: 'QC 비대상으로 표시되었습니다',
+        error: '처리 중 오류가 발생했습니다',
+      }
+    )
   }, [updateStatusMutation])
 
   const handleApproveFromThumbnail = useCallback((id: string, e: React.MouseEvent) => {
     e.stopPropagation() // 이미지 클릭 이벤트 방지
-    if (confirm('이 항목을 승인하시겠습니까?')) {
-      updateStatusMutation.mutate({
+    showToast.promise(
+      updateStatusMutation.mutateAsync({
         id,
         status: 'approved',
         needsRevision: false,
-      })
-    }
+      }),
+      {
+        loading: '승인 처리 중...',
+        success: '이미지가 승인되었습니다',
+        error: '승인 처리 중 오류가 발생했습니다',
+      }
+    )
   }, [updateStatusMutation])
 
   const handleNeedsRevisionFromThumbnail = useCallback((id: string, e: React.MouseEvent) => {
     e.stopPropagation() // 이미지 클릭 이벤트 방지
-    if (confirm('이 항목을 수정 필요로 표시하시겠습니까?')) {
-      updateStatusMutation.mutate({
+    showToast.promise(
+      updateStatusMutation.mutateAsync({
         id,
         status: 'needs_revision',
         needsRevision: true,
-      })
-    }
+      }),
+      {
+        loading: '수정 필요 표시 중...',
+        success: '수정 필요로 표시되었습니다',
+        error: '처리 중 오류가 발생했습니다',
+      }
+    )
   }, [updateStatusMutation])
 
   const handleExcludeFromThumbnail = useCallback((id: string, e: React.MouseEvent) => {
     e.stopPropagation() // 이미지 클릭 이벤트 방지
-    if (confirm('이 항목을 QC 비대상으로 표시하시겠습니까?')) {
-      updateStatusMutation.mutate({
+    showToast.promise(
+      updateStatusMutation.mutateAsync({
         id,
         status: 'excluded',
         needsRevision: false,
-      })
-    }
+      }),
+      {
+        loading: 'QC 비대상 처리 중...',
+        success: 'QC 비대상으로 표시되었습니다',
+        error: '처리 중 오류가 발생했습니다',
+      }
+    )
   }, [updateStatusMutation])
 
   const handleImageClick = (item: any, index: number) => {
@@ -475,13 +498,18 @@ export default function ImageQCTab() {
                   <button
                     onClick={(e) => {
                       e.stopPropagation()
-                      if (confirm('이 항목을 QC 대상으로 복원하시겠습니까?')) {
-                        updateStatusMutation.mutate({
+                      showToast.promise(
+                        updateStatusMutation.mutateAsync({
                           id: item.id,
                           status: 'pending',
                           needsRevision: false,
-                        })
-                      }
+                        }),
+                        {
+                          loading: 'QC 대상으로 복원 중...',
+                          success: 'QC 대상으로 복원되었습니다',
+                          error: '복원 중 오류가 발생했습니다',
+                        }
+                      )
                     }}
                     disabled={updateStatusMutation.isPending}
                     className="w-full px-2 py-1.5 text-xs font-medium bg-blue-500 hover:bg-blue-600 text-white rounded transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
@@ -549,26 +577,36 @@ export default function ImageQCTab() {
         onApprove={
           selectedImage
             ? () => {
-                if (confirm('이 항목을 승인하시겠습니까?')) {
-                  updateStatusMutation.mutate({
+                showToast.promise(
+                  updateStatusMutation.mutateAsync({
                     id: selectedImage.id,
                     status: 'approved',
                     needsRevision: false,
-                  })
-                }
+                  }),
+                  {
+                    loading: '승인 처리 중...',
+                    success: '이미지가 승인되었습니다',
+                    error: '승인 처리 중 오류가 발생했습니다',
+                  }
+                )
               }
             : undefined
         }
         onNeedsRevision={
           selectedImage
             ? () => {
-                if (confirm('이 항목을 수정 필요로 표시하시겠습니까?')) {
-                  updateStatusMutation.mutate({
+                showToast.promise(
+                  updateStatusMutation.mutateAsync({
                     id: selectedImage.id,
                     status: 'needs_revision',
                     needsRevision: true,
-                  })
-                }
+                  }),
+                  {
+                    loading: '수정 필요 표시 중...',
+                    success: '수정 필요로 표시되었습니다',
+                    error: '처리 중 오류가 발생했습니다',
+                  }
+                )
               }
             : undefined
         }

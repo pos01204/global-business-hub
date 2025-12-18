@@ -4,7 +4,10 @@
 import { useState } from 'react'
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
 import { qcApi } from '@/lib/api'
-import { EnhancedLoadingPage } from '@/components/ui'
+import { EnhancedLoadingPage, AnimatedEmptyState } from '@/components/ui'
+// ✅ Phase 2: 고도화 컴포넌트
+import { showToast } from '@/lib/toast'
+import { hoverEffects } from '@/lib/hover-effects'
 
 export default function ArtistsNotificationTab() {
   const [notificationHistory, setNotificationHistory] = useState<Array<{
@@ -47,29 +50,29 @@ export default function ArtistsNotificationTab() {
       // 작가 알람 명단 새로고침
       queryClient.invalidateQueries({ queryKey: ['qc', 'artists', 'notifications'] })
       // 성공 메시지 표시
-      alert(result.message || `${result.artistName} 작가에게 알람이 발송되었습니다.`)
+      showToast.success(result.message || `${result.artistName} 작가에게 알람이 발송되었습니다.`)
     },
     onError: (error: any) => {
       // 오류 시 초기화
       setSendingArtistId(null)
-      alert(`알람 발송 실패: ${error.response?.data?.message || error.message || '알 수 없는 오류가 발생했습니다.'}`)
+      showToast.error(`알람 발송 실패: ${error.response?.data?.message || error.message || '알 수 없는 오류가 발생했습니다.'}`)
     },
   })
 
   const handleNotify = (artist: any) => {
     const items = artist.items.map((item: any) => item.id)
-    const emailInfo = artist.artistEmail 
-      ? `\n📧 발송 메일: ${artist.artistEmail}`
-      : '\n⚠️ 메일 주소가 없어 이메일은 발송되지 않습니다.'
     
-    const message = `작가 "${artist.artistName}"에게 알람을 발송하시겠습니까?\n${emailInfo}\n\n수정 필요 항목:\n- 텍스트 QC: ${artist.textQCItems}개\n- 이미지 QC: ${artist.imageQCItems}개\n\n총 ${items.length}개 항목에 대한 알람이 발송됩니다.`
-
-    if (confirm(message)) {
-      notifyMutation.mutate({
+    showToast.promise(
+      notifyMutation.mutateAsync({
         artistId: artist.artistId,
         items,
-      })
-    }
+      }),
+      {
+        loading: `${artist.artistName} 작가에게 알람 발송 중...`,
+        success: `${artist.artistName} 작가에게 알람이 발송되었습니다`,
+        error: '알람 발송 중 오류가 발생했습니다',
+      }
+    )
   }
 
   if (isLoading) {

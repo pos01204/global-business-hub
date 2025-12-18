@@ -2,7 +2,7 @@
 
 import { useQuery } from '@tanstack/react-query'
 import { controlTowerApi } from '@/lib/api'
-import { useState } from 'react'
+import { useState, useMemo } from 'react'
 import Link from 'next/link'
 import OrderDetailModal from '@/components/OrderDetailModal'
 import { Icon } from '@/components/ui/Icon'
@@ -26,6 +26,9 @@ import {
 } from 'lucide-react'
 // ✅ 공통 비즈니스 규칙 import (Phase 1 표준화)
 import { LOGISTICS_CRITICAL_DAYS } from '@/config/businessRules'
+// ✅ Phase 2: 고도화 컴포넌트
+import { PipelineSankey, createPipelineSankeyData } from '@/components/charts'
+import { hoverEffects } from '@/lib/hover-effects'
 
 interface CriticalOrder {
   orderCode: string
@@ -411,11 +414,32 @@ export default function ControlTowerPage() {
         </div>
       )}
 
+      {/* 파이프라인 Sankey 다이어그램 - Phase 2 고도화 */}
+      {pipeline && (
+        <div className="bg-white dark:bg-slate-900 rounded-xl border border-slate-200 dark:border-slate-800 p-5 mb-6 shadow-sm">
+          <div className="flex items-center gap-2 mb-4">
+            <Icon icon={Activity} size="sm" className="text-indigo-500 dark:text-indigo-400" />
+            <h2 className="font-semibold text-slate-700 dark:text-slate-300">물류 파이프라인 플로우</h2>
+            <span className="text-xs text-slate-400 dark:text-slate-500 ml-2">Sankey 다이어그램</span>
+          </div>
+          <PipelineSankey
+            data={createPipelineSankeyData([
+              { id: 'unreceived', label: '미입고', value: pipeline.unreceived?.orderCount || 0 },
+              { id: 'artistShipping', label: '작가 발송', value: pipeline.artistShipping?.orderCount || 0 },
+              { id: 'awaitingInspection', label: '검수 대기', value: pipeline.awaitingInspection?.orderCount || 0 },
+              { id: 'inspectionComplete', label: '검수 완료', value: pipeline.inspectionComplete?.orderCount || 0 },
+              { id: 'internationalShipping', label: '국제배송', value: pipeline.internationalShipping?.orderCount || 0 },
+            ])}
+            height={300}
+          />
+        </div>
+      )}
+
       {/* 파이프라인 흐름도 - 시각적 개선 */}
       <div className="bg-white dark:bg-slate-900 rounded-xl border border-slate-200 dark:border-slate-800 p-5 mb-6 shadow-sm">
         <div className="flex items-center gap-2 mb-4">
           <Icon icon={GitBranch} size="sm" className="text-slate-500 dark:text-slate-400" />
-          <h2 className="font-semibold text-slate-700 dark:text-slate-300">물류 파이프라인 흐름</h2>
+          <h2 className="font-semibold text-slate-700 dark:text-slate-300">물류 파이프라인 상세</h2>
         </div>
         
         <div className="flex items-center gap-2 overflow-x-auto pb-2 scrollbar-hide">
