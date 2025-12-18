@@ -11,6 +11,7 @@ import {
   ShoppingBag, DollarSign, Users, Award, Clock, Globe
 } from 'lucide-react'
 import { addDays, format } from 'date-fns'
+import PageHeader from '@/components/PageHeader'
 
 export default function PerformanceHubPage() {
   const startDate = format(addDays(new Date(), -30), 'yyyy-MM-dd')
@@ -47,24 +48,19 @@ export default function PerformanceHubPage() {
   return (
     <div className="min-h-screen bg-gradient-to-br from-indigo-50 via-white to-purple-50 dark:from-slate-950 dark:via-slate-900 dark:to-indigo-950">
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
-        {/* 헤더 */}
-        <div className="mb-8">
-          <div className="flex items-center gap-3 mb-2">
-            <div className="w-14 h-14 bg-gradient-to-br from-indigo-500 to-purple-600 rounded-2xl flex items-center justify-center shadow-lg">
-              <Icon icon={BarChart3} size="xl" className="text-white" />
-            </div>
-            <div>
-              <h1 className="text-3xl font-bold text-slate-800 dark:text-slate-100">성과 분석 허브</h1>
-              <p className="text-sm text-slate-500 dark:text-slate-400">
-                GMV, 주문, 쿠폰 성과를 한눈에 확인하세요
-              </p>
-            </div>
-          </div>
-          <div className="flex items-center gap-2 mt-4 text-sm text-slate-500">
-            <Icon icon={Calendar} size="sm" />
+        {/* 페이지 헤더 - 브랜드 일러스트 포함 */}
+        <PageHeader
+          title="성과 분석 허브"
+          description="GMV, 주문, 쿠폰 성과를 한눈에 확인하세요"
+          icon="📈"
+          pageId="performance-hub"
+          variant="analytics"
+        >
+          <div className="flex items-center gap-2 text-sm text-white/80">
+            <Icon icon={Calendar} size="sm" className="text-white/70" />
             <span>최근 30일 기준 ({startDate} ~ {endDate})</span>
           </div>
-        </div>
+        </PageHeader>
 
         {/* 핵심 KPI 요약 */}
         <div className="grid grid-cols-2 md:grid-cols-4 gap-4 mb-8">

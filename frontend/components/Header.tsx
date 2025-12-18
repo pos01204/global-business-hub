@@ -6,6 +6,7 @@ import { useRouter } from 'next/navigation'
 import { useSession, signOut } from 'next-auth/react'
 import Image from 'next/image'
 import { ThemeToggle } from './ui/ThemeToggle'
+import { BrandAvatar } from './brand'
 
 interface Notification {
   id: string
@@ -255,19 +256,12 @@ export default function Header() {
               onClick={() => setShowUserMenu(!showUserMenu)}
               className="flex items-center gap-2.5 pl-3 pr-2 py-1.5 hover:bg-slate-50 dark:hover:bg-slate-800 rounded-full border border-slate-200 dark:border-slate-700 transition-all hover:border-slate-300 dark:hover:border-slate-600 hover:shadow-sm"
             >
-              {session?.user?.image ? (
-                <Image
-                  src={session.user.image}
-                  alt={session.user.name || ''}
-                  width={28}
-                  height={28}
-                  className="rounded-full ring-2 ring-white dark:ring-slate-800"
-                />
-              ) : (
-                <div className="w-7 h-7 bg-gradient-to-br from-[#F78C3A] to-[#E67729] rounded-full flex items-center justify-center text-white font-semibold text-xs shadow-sm">
-                  {session?.user?.name?.[0] || session?.user?.email?.[0] || 'U'}
-                </div>
-              )}
+              <BrandAvatar
+                src={session?.user?.image}
+                name={session?.user?.name}
+                email={session?.user?.email}
+                size="sm"
+              />
               <div className="hidden md:block text-left max-w-[120px]">
                 <p className="text-sm font-medium text-slate-800 dark:text-slate-200 truncate leading-tight">
                   {session?.user?.name || '사용자'}
@@ -292,19 +286,12 @@ export default function Header() {
                 {/* 프로필 헤더 */}
                 <div className="px-4 py-4 bg-gradient-to-br from-slate-50 to-slate-100/50 dark:from-slate-800 dark:to-slate-800/50">
                   <div className="flex items-center gap-3">
-                    {session?.user?.image ? (
-                      <Image
-                        src={session.user.image}
-                        alt={session.user.name || ''}
-                        width={44}
-                        height={44}
-                        className="rounded-full ring-2 ring-white dark:ring-slate-700 shadow-sm"
-                      />
-                    ) : (
-                      <div className="w-11 h-11 bg-gradient-to-br from-[#F78C3A] to-[#E67729] rounded-full flex items-center justify-center text-white font-bold text-lg shadow-sm">
-                        {session?.user?.name?.[0] || session?.user?.email?.[0] || 'U'}
-                      </div>
-                    )}
+                    <BrandAvatar
+                      src={session?.user?.image}
+                      name={session?.user?.name}
+                      email={session?.user?.email}
+                      size="md"
+                    />
                     <div className="flex-1 min-w-0">
                       <p className="text-sm font-semibold text-slate-900 dark:text-slate-100 truncate">
                         {session?.user?.name || '사용자'}

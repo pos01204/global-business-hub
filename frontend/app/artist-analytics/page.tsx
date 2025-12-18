@@ -10,6 +10,7 @@ import SelectionTab from './components/SelectionTab'
 import { Tabs, TabPanel, Select } from '@/components/ui'
 import { Icon } from '@/components/ui/Icon'
 import { BarChart3, Award, Package, TrendingUp, Users, AlertTriangle, Palette } from 'lucide-react'
+import PageHeader from '@/components/PageHeader'
 
 type TabType = 'overview' | 'performance' | 'products' | 'trend' | 'health' | 'selection'
 
@@ -44,20 +45,14 @@ export default function ArtistAnalyticsPage() {
 
   return (
     <div className="animate-fade-in">
-      {/* 페이지 헤더 - 작가 & 상품 분석 (보라/로즈 계열, IA 개편안 9.1.2) */}
-      <div className="relative bg-gradient-to-r from-violet-500 to-rose-500 dark:from-violet-600 dark:to-rose-600 rounded-2xl p-4 lg:p-6 mb-6 overflow-hidden shadow-lg dark:shadow-none">
-        <div className="absolute top-0 right-0 w-64 h-64 bg-white/10 dark:bg-white/5 rounded-full -translate-y-1/2 translate-x-1/2"></div>
-        <div className="absolute bottom-0 left-0 w-32 h-32 bg-white/5 dark:bg-white/[0.02] rounded-full translate-y-1/2 -translate-x-1/2"></div>
-        <div className="flex items-center gap-3 lg:gap-4">
-          <div className="w-12 h-12 lg:w-14 lg:h-14 bg-white/20 dark:bg-white/10 backdrop-blur rounded-xl flex items-center justify-center shadow-lg dark:shadow-none">
-            <Icon icon={Palette} size="xl" className="text-white" />
-          </div>
-          <div>
-            <h1 className="text-xl lg:text-2xl font-extrabold text-white tracking-tight">작가 분석</h1>
-            <p className="text-white/80 dark:text-white/70 text-xs lg:text-sm">작가 포트폴리오 관리 및 셀렉션 최적화</p>
-          </div>
-        </div>
-      </div>
+      {/* 페이지 헤더 - 브랜드 일러스트 포함 */}
+      <PageHeader
+        title="작가 분석"
+        description="작가 포트폴리오 관리 및 셀렉션 최적화"
+        icon="🎨"
+        pageId="artist-analytics"
+        variant="analytics"
+      />
 
       {/* 필터 바 - 공통 Select 컴포넌트 사용 */}
       <div className="flex flex-wrap gap-4 mb-6">

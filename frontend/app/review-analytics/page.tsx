@@ -13,6 +13,7 @@ import {
   ThumbsUp, ThumbsDown, Minus, ArrowUpRight, ArrowDownRight, Info,
   Globe, Palette, Calendar
 } from 'lucide-react'
+import PageHeader from '@/components/PageHeader'
 import { addDays, format } from 'date-fns'
 // ✅ Phase 2: 고도화 컴포넌트
 import { hoverEffects } from '@/lib/hover-effects'
@@ -173,19 +174,14 @@ export default function ReviewAnalyticsPage() {
 
   return (
     <div className="animate-fade-in">
-      {/* 페이지 헤더 - 고객 인사이트 허브 (블루/시안 계열, IA 개편안 Phase 4) */}
-      <div className="relative bg-gradient-to-r from-sky-500 to-cyan-500 dark:from-sky-600 dark:to-cyan-600 rounded-2xl p-4 lg:p-6 mb-6 overflow-hidden shadow-lg dark:shadow-none">
-        <div className="absolute top-0 right-0 w-64 h-64 bg-white/10 dark:bg-white/5 rounded-full -translate-y-1/2 translate-x-1/2"></div>
-        <div className="flex items-center gap-4">
-          <div className="w-12 h-12 lg:w-14 lg:h-14 bg-white/20 dark:bg-white/10 backdrop-blur rounded-xl flex items-center justify-center shadow-lg dark:shadow-none">
-            <Icon icon={Star} size="xl" className="text-white" />
-          </div>
-          <div>
-            <h1 className="text-xl lg:text-2xl font-extrabold text-white tracking-tight">리뷰 분석</h1>
-            <p className="text-idus-100 dark:text-orange-200/80 text-xs lg:text-sm font-medium">NPS 및 고객 만족도 분석</p>
-          </div>
-        </div>
-      </div>
+      {/* 페이지 헤더 - 브랜드 일러스트 포함 */}
+      <PageHeader
+        title="리뷰 분석"
+        description="NPS 및 고객 만족도 분석"
+        icon="⭐"
+        pageId="review-analytics"
+        variant="analytics"
+      />
 
       {/* 날짜 필터 - Phase 2: DateRangePicker 적용 */}
       <div className="mb-6">

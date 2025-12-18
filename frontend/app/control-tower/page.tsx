@@ -28,6 +28,7 @@ import {
 import { LOGISTICS_CRITICAL_DAYS } from '@/config/businessRules'
 // ✅ Phase 2: 고도화 컴포넌트
 import { hoverEffects } from '@/lib/hover-effects'
+import PageHeader from '@/components/PageHeader'
 
 interface CriticalOrder {
   orderCode: string
@@ -208,22 +209,14 @@ export default function ControlTowerPage() {
 
   return (
     <div className="animate-fade-in">
-      {/* 페이지 헤더 - 물류 운영 (그린/티얼 계열, IA 개편안 9.1.2) */}
-      <div className="relative bg-gradient-to-r from-emerald-500 to-teal-500 dark:from-emerald-600 dark:to-teal-600 rounded-2xl p-4 lg:p-6 mb-6 overflow-hidden shadow-lg dark:shadow-none">
-        <div className="absolute top-0 right-0 w-64 h-64 bg-white/10 dark:bg-white/5 rounded-full -translate-y-1/2 translate-x-1/2"></div>
-        <div className="absolute bottom-0 left-0 w-32 h-32 bg-white/5 rounded-full translate-y-1/2 -translate-x-1/2"></div>
-        <div className="flex items-center gap-4 relative z-10">
-          <div className="w-12 h-12 lg:w-14 lg:h-14 bg-white/20 dark:bg-white/10 backdrop-blur rounded-xl flex items-center justify-center shadow-lg dark:shadow-none">
-            <Icon icon={Activity} size="xl" className="text-white" />
-          </div>
-          <div>
-            <h1 className="text-xl lg:text-2xl font-extrabold text-white tracking-tight">물류 관제 센터</h1>
-            <p className="text-idus-100 dark:text-orange-200/80 text-xs lg:text-sm font-medium">
-              주문 단위로 5단계 물류 파이프라인 현황을 모니터링합니다
-            </p>
-          </div>
-        </div>
-      </div>
+      {/* 페이지 헤더 - 브랜드 일러스트 포함 */}
+      <PageHeader
+        title="물류 관제 센터"
+        description="주문 단위로 5단계 물류 파이프라인 현황을 모니터링합니다"
+        icon="🚚"
+        pageId="control-tower"
+        variant="logistics"
+      />
 
       {/* 핵심 지표 요약 - 통합 카드 섹션 */}
       <div className="bg-white dark:bg-slate-900 rounded-xl border border-slate-200 dark:border-slate-800 p-5 lg:p-6 mb-6 shadow-sm">

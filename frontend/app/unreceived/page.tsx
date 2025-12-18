@@ -9,6 +9,7 @@ import { Icon } from '@/components/ui/Icon'
 import { EnhancedLoadingPage } from '@/components/ui'
 import { Package, MessageCircle, AlertTriangle, Filter } from 'lucide-react'
 import { cn } from '@/lib/utils'
+import PageHeader from '@/components/PageHeader'
 
 // 경과일에 따른 위험도 배지 (한 줄로 표시)
 function DelayBadge({ days }: { days: number }) {
@@ -163,19 +164,14 @@ export default function UnreceivedPage() {
 
   return (
     <div className="animate-fade-in">
-      {/* 페이지 헤더 - 물류 운영 (그린/티얼 계열, IA 개편안 9.1.2) */}
-      <div className="relative bg-gradient-to-r from-emerald-500 to-teal-500 dark:from-emerald-600 dark:to-teal-600 rounded-2xl p-4 lg:p-6 mb-6 overflow-hidden shadow-lg dark:shadow-none">
-        <div className="absolute top-0 right-0 w-64 h-64 bg-white/10 dark:bg-white/5 rounded-full -translate-y-1/2 translate-x-1/2"></div>
-        <div className="flex items-center gap-4">
-          <div className="w-12 h-12 lg:w-14 lg:h-14 bg-white/20 dark:bg-white/10 backdrop-blur rounded-xl flex items-center justify-center shadow-lg dark:shadow-none">
-            <Icon icon={Package} size="xl" className="text-white" />
-          </div>
-          <div>
-            <h1 className="text-xl lg:text-2xl font-extrabold text-white tracking-tight">미입고 관리</h1>
-            <p className="text-idus-100 dark:text-orange-200/80 text-xs lg:text-sm font-medium">'결제 완료' 상태의 주문 중 '처리완료'되지 않은 개별 작품 목록</p>
-          </div>
-        </div>
-      </div>
+      {/* 페이지 헤더 - 브랜드 일러스트 포함 */}
+      <PageHeader
+        title="미입고 관리"
+        description="'결제 완료' 상태의 주문 중 '처리완료'되지 않은 개별 작품 목록"
+        icon="📦"
+        pageId="unreceived"
+        variant="logistics"
+      />
 
       {/* 긴급 알림 배너 - 강화 */}
       {criticalCount > 0 && (

@@ -33,6 +33,7 @@ import { OrderPatternsContent } from '../order-patterns/OrderPatternsContent'
 import { CouponAnalyticsContent } from '../coupon-analytics/CouponAnalyticsContent'
 // ✅ Phase 2: 고도화 컴포넌트
 import { hoverEffects } from '@/lib/hover-effects'
+import PageHeader from '@/components/PageHeader'
 
 ChartJS.register(
   CategoryScale,
@@ -1142,19 +1143,14 @@ export default function AnalyticsPage() {
 
   return (
     <div className="animate-fade-in">
-      {/* 페이지 헤더 - 성과 분석 허브 (보라/인디고 계열, IA 개편안 Phase 1) */}
-      <div className="relative bg-gradient-to-r from-violet-600 to-indigo-600 dark:from-violet-700 dark:to-indigo-700 rounded-2xl p-4 lg:p-6 mb-6 overflow-hidden shadow-lg dark:shadow-none">
-        <div className="absolute top-0 right-0 w-64 h-64 bg-white/10 dark:bg-white/5 rounded-full -translate-y-1/2 translate-x-1/2"></div>
-        <div className="flex items-center gap-4">
-          <div className="w-12 h-12 lg:w-14 lg:h-14 bg-white/20 dark:bg-white/10 backdrop-blur rounded-xl flex items-center justify-center shadow-lg dark:shadow-none">
-            <Icon icon={BarChart3} size="xl" className="text-white" />
-          </div>
-          <div>
-            <h1 className="text-xl lg:text-2xl font-extrabold text-white tracking-tight">성과 분석 허브</h1>
-            <p className="text-violet-100 dark:text-violet-200/80 text-xs lg:text-sm font-medium">GMV, 주문, 쿠폰, 채널 통합 분석</p>
-          </div>
-        </div>
-      </div>
+      {/* 페이지 헤더 - 브랜드 일러스트 포함 */}
+      <PageHeader
+        title="성과 분석 허브"
+        description="GMV, 주문, 쿠폰, 채널 통합 분석"
+        icon="📈"
+        pageId="analytics"
+        variant="analytics"
+      />
 
       {/* 필터 */}
       <div className="card mb-6">

@@ -9,6 +9,7 @@ import QCArchiveTab from './components/QCArchiveTab'
 import { TabPanel } from '@/components/ui'
 import { Icon } from '@/components/ui/Icon'
 import { Upload, FileText, Image as ImageIcon, Users, BookOpen, CheckCircle, FileText as FileTextIcon } from 'lucide-react'
+import PageHeader from '@/components/PageHeader'
 
 // 탭 타입 정의
 type QCTab = 'upload' | 'text' | 'image' | 'artists' | 'archive'
@@ -26,19 +27,14 @@ export default function QCPage() {
 
   return (
     <div className="animate-fade-in">
-      {/* 페이지 헤더 - 업무 지원 (뉴트럴 블루/그레이 계열, IA 개편안 9.1.2) */}
-      <div className="relative bg-gradient-to-r from-slate-600 to-slate-800 dark:from-slate-700 dark:to-slate-900 rounded-2xl p-4 lg:p-6 mb-6 overflow-hidden shadow-lg dark:shadow-none">
-        <div className="absolute top-0 right-0 w-64 h-64 bg-white/10 dark:bg-white/5 rounded-full -translate-y-1/2 translate-x-1/2"></div>
-        <div className="flex items-center gap-4">
-          <div className="w-12 h-12 lg:w-14 lg:h-14 bg-white/20 dark:bg-white/10 backdrop-blur rounded-xl flex items-center justify-center shadow-lg dark:shadow-none">
-            <Icon icon={CheckCircle} size="xl" className="text-white" />
-          </div>
-          <div>
-            <h1 className="text-xl lg:text-2xl font-extrabold text-white tracking-tight">QC 관리</h1>
-            <p className="text-idus-100 dark:text-orange-200/80 text-xs lg:text-sm font-medium">일본어 작품 한글 번역 및 이미지 QC 관리</p>
-          </div>
-        </div>
-      </div>
+      {/* 페이지 헤더 - 브랜드 일러스트 포함 */}
+      <PageHeader
+        title="QC 관리"
+        description="일본어 작품 한글 번역 및 이미지 QC 관리"
+        icon="✅"
+        pageId="qc"
+        variant="qc"
+      />
 
       {/* 탭 네비게이션 - 모바일 최적화 */}
       <div className="mb-6">

@@ -1,10 +1,23 @@
 'use client'
 
 import { motion } from 'framer-motion'
+import Image from 'next/image'
 import { Search, Database, AlertCircle, Filter, BarChart3, Users, Package } from 'lucide-react'
+import { BRAND_ASSETS, getLineIllust } from '@/lib/brand-assets'
+
+// 브랜드 이모션 매핑
+const brandEmotionMap: Record<string, { emotion: string; line: keyof typeof BRAND_ASSETS.lines.byType }> = {
+  search: { emotion: BRAND_ASSETS.emotions.cheer, line: 'search' },
+  data: { emotion: BRAND_ASSETS.emotions.cheer, line: 'loading' },
+  error: { emotion: BRAND_ASSETS.emotions.sad, line: 'error' },
+  filter: { emotion: BRAND_ASSETS.emotions.cheer, line: 'search' },
+  chart: { emotion: BRAND_ASSETS.emotions.like, line: 'analytics' },
+  customer: { emotion: BRAND_ASSETS.emotions.cheer, line: 'loading' },
+  product: { emotion: BRAND_ASSETS.emotions.cheer, line: 'package' },
+}
 
 // 애니메이션 아이콘 컴포넌트 (Lottie 대신 Framer Motion 사용)
-const AnimatedIcon = ({ type }: { type: string }) => {
+const AnimatedIcon = ({ type, useBrandIcon = false }: { type: string; useBrandIcon?: boolean }) => {
   const iconMap: Record<string, React.ReactNode> = {
     search: <Search className="w-16 h-16" />,
     data: <Database className="w-16 h-16" />,
@@ -13,6 +26,46 @@ const AnimatedIcon = ({ type }: { type: string }) => {
     chart: <BarChart3 className="w-16 h-16" />,
     customer: <Users className="w-16 h-16" />,
     product: <Package className="w-16 h-16" />,
+  }
+
+  // 브랜드 아이콘 사용 시
+  if (useBrandIcon) {
+    const brandAssets = brandEmotionMap[type] || brandEmotionMap.data
+    return (
+      <motion.div
+        initial={{ scale: 0.8, opacity: 0 }}
+        animate={{ scale: 1, opacity: 1 }}
+        transition={{ duration: 0.5, ease: 'easeOut' }}
+        className="relative flex flex-col items-center gap-2"
+      >
+        {/* 라인 일러스트 */}
+        <motion.div
+          animate={{ y: [0, -5, 0] }}
+          transition={{ duration: 3, repeat: Infinity, ease: 'easeInOut' }}
+          className="relative w-20 h-20 opacity-60"
+        >
+          <Image
+            src={getLineIllust(brandAssets.line)}
+            alt=""
+            fill
+            className="object-contain"
+          />
+        </motion.div>
+        {/* 이모션 아이콘 */}
+        <motion.div
+          animate={{ scale: [1, 1.1, 1] }}
+          transition={{ duration: 2, repeat: Infinity, ease: 'easeInOut' }}
+          className="relative w-14 h-14"
+        >
+          <Image
+            src={brandAssets.emotion}
+            alt=""
+            fill
+            className="object-contain"
+          />
+        </motion.div>
+      </motion.div>
+    )
   }
 
   return (
@@ -78,6 +131,8 @@ export interface AnimatedEmptyStateProps {
     onClick: () => void
   }
   size?: 'sm' | 'md' | 'lg'
+  /** 브랜드 이모션 아이콘 사용 여부 */
+  useBrandIcon?: boolean
 }
 
 const sizeConfig = {
@@ -111,6 +166,7 @@ export function AnimatedEmptyState({
   action,
   secondaryAction,
   size = 'md',
+  useBrandIcon = false,
 }: AnimatedEmptyStateProps) {
   const config = sizeConfig[size]
 
@@ -123,7 +179,7 @@ export function AnimatedEmptyState({
     >
       {/* 애니메이션 아이콘 */}
       <div className={`${config.icon} flex items-center justify-center mb-6`}>
-        <AnimatedIcon type={type} />
+        <AnimatedIcon type={type} useBrandIcon={useBrandIcon} />
       </div>
 
       {/* 텍스트 */}

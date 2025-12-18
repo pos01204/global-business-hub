@@ -22,6 +22,9 @@ import { formatCurrency, formatChange } from '@/lib/formatters'
 // ✅ Phase 2: 고도화 컴포넌트
 import { hoverEffects } from '@/lib/hover-effects'
 import { showToast } from '@/lib/toast'
+// ✅ 브랜드 컴포넌트
+import PageHeader from '@/components/PageHeader'
+import { BrandFeedback } from '@/components/brand'
 
 export default function DashboardPage() {
   const [startDate, setStartDate] = useState<string>('')
@@ -170,32 +173,23 @@ export default function DashboardPage() {
 
   return (
     <div className="space-y-6">
-      {/* 페이지 헤더 - idus 브랜드 스타일 */}
-      <div className="relative bg-idus-500 dark:bg-orange-900/70 rounded-2xl p-4 lg:p-6 mb-6 overflow-hidden shadow-lg dark:shadow-none">
-        <div className="absolute top-0 right-0 w-64 h-64 bg-white/10 dark:bg-white/5 rounded-full -translate-y-1/2 translate-x-1/2"></div>
-        <div className="relative flex items-center justify-between flex-wrap gap-4">
-          <div className="flex items-center gap-4">
-            <div className="w-12 h-12 lg:w-14 lg:h-14 bg-white/20 dark:bg-white/10 backdrop-blur rounded-xl flex items-center justify-center shadow-lg dark:shadow-none">
-              <Icon icon={BarChart3} size="xl" className="text-white" />
-            </div>
-            <div>
-              <h1 className="text-xl lg:text-2xl font-extrabold text-white tracking-tight">대시보드</h1>
-              <p className="text-idus-100 dark:text-orange-200/80 text-xs lg:text-sm font-medium">
-                Global Business 핵심 현황
-              </p>
-            </div>
-          </div>
-          
-          {/* AI 빠른 질문 */}
-          <Link 
-            href="/chat"
-            className="flex items-center justify-center gap-2 px-4 py-2.5 bg-white/20 dark:bg-white/10 backdrop-blur text-white rounded-lg hover:bg-white/30 dark:hover:bg-white/20 transition-all shadow-sm hover:shadow-md border border-white/30"
-          >
-            <Icon icon={MessageCircle} size="sm" className="text-white" />
-            <span className="text-sm font-medium">AI에게 질문</span>
-          </Link>
-        </div>
-      </div>
+      {/* 페이지 헤더 - 브랜드 일러스트 포함 */}
+      <PageHeader
+        title="대시보드"
+        description="Global Business 핵심 현황"
+        icon="📊"
+        pageId="dashboard"
+        variant="analytics"
+      >
+        {/* AI 빠른 질문 */}
+        <Link 
+          href="/chat"
+          className="flex items-center justify-center gap-2 px-4 py-2.5 bg-white/20 dark:bg-white/10 backdrop-blur text-white rounded-lg hover:bg-white/30 dark:hover:bg-white/20 transition-all shadow-sm hover:shadow-md border border-white/30"
+        >
+          <Icon icon={MessageCircle} size="sm" className="text-white" />
+          <span className="text-sm font-medium">AI에게 질문</span>
+        </Link>
+      </PageHeader>
 
       {/* 통합 날짜 필터 */}
       <UnifiedDateFilter
@@ -499,7 +493,7 @@ export default function DashboardPage() {
         </Link>
       )}
 
-      {/* KPI 카드 - 6개 (시선 정지점: GMV를 Primary로 강조) */}
+      {/* KPI 카드 - 6개 (시선 정지점: GMV를 Primary로 강조, 브랜드 이모션 피드백 적용) */}
       {data && (
         <>
           <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-6 gap-3 lg:gap-4">
@@ -514,6 +508,7 @@ export default function DashboardPage() {
               detailInfo={`전기간 대비 ${formatChange(data.kpis.gmv.change, { isRatio: true })} 변화`}
               isPrimary={true}
               accentColor="orange"
+              showBrandFeedback={true}
             />
 
             {/* 주문 건수 */}
@@ -526,6 +521,7 @@ export default function DashboardPage() {
               tooltip="선택한 기간 동안 발생한 총 주문 건수"
               detailInfo={`전기간 대비 ${formatChange(data.kpis.orderCount.change, { isRatio: true })} 변화`}
               accentColor="blue"
+              showBrandFeedback={true}
             />
 
             {/* AOV */}
@@ -538,6 +534,7 @@ export default function DashboardPage() {
               tooltip="Average Order Value: 평균 주문 금액"
               detailInfo={`전기간 대비 ${formatChange(data.kpis.aov.change, { isRatio: true })} 변화`}
               accentColor="purple"
+              showBrandFeedback={true}
             />
 
             {/* 판매 작품 수 */}
@@ -550,6 +547,7 @@ export default function DashboardPage() {
               tooltip="선택한 기간 동안 판매된 작품 수"
               detailInfo={`전기간 대비 ${formatChange(data.kpis.itemCount.change, { isRatio: true })} 변화`}
               accentColor="purple"
+              showBrandFeedback={true}
             />
 
             {/* 신규 고객 */}
@@ -562,6 +560,7 @@ export default function DashboardPage() {
               tooltip="선택한 기간 동안 신규로 가입한 고객 수"
               detailInfo={`전기간 대비 ${formatChange(data.kpis.newCustomers?.change, { isRatio: true })} 변화`}
               accentColor="green"
+              showBrandFeedback={true}
             />
 
             {/* 배송 완료율 - 낮으면 긴급 표시 */}
@@ -575,6 +574,7 @@ export default function DashboardPage() {
               detailInfo={`전기간 대비 ${(data.kpis.deliveryRate?.change ?? 0) >= 0 ? '+' : ''}${(data.kpis.deliveryRate?.change ?? 0).toFixed(1)}%p 변화`}
               accentColor={(data.kpis.deliveryRate?.value ?? 0) < 80 ? 'red' : 'green'}
               isUrgent={(data.kpis.deliveryRate?.value ?? 0) < 70}
+              showBrandFeedback={true}
             />
           </div>
 

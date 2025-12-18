@@ -8,6 +8,7 @@ import CountryAnalysisTab from './components/CountryAnalysisTab'
 import PolicySimulatorTab from './components/PolicySimulatorTab'
 import { Icon } from '@/components/ui/Icon'
 import { BarChart3, Calculator, FileText, Globe, Target, DollarSign } from 'lucide-react'
+import PageHeader from '@/components/PageHeader'
 
 type CostAnalysisTab = 'dashboard' | 'simulator' | 'rates' | 'country' | 'policy'
 
@@ -24,45 +25,26 @@ export default function CostAnalysisPage() {
 
   return (
     <div className="animate-fade-in">
-      {/* 페이지 헤더 - 재무 분석 (그린/에메랄드 계열, IA 개편안 9.1.2) */}
-      <div className="relative bg-gradient-to-r from-emerald-600 to-emerald-800 dark:from-emerald-700 dark:to-emerald-900 rounded-2xl p-4 lg:p-6 mb-6 overflow-hidden shadow-lg dark:shadow-none">
-        <div className="absolute top-0 right-0 w-64 h-64 bg-white/10 dark:bg-white/5 rounded-full -translate-y-1/2 translate-x-1/2"></div>
-        <div className="absolute bottom-0 left-0 w-32 h-32 bg-white/5 rounded-full translate-y-1/2 -translate-x-1/2"></div>
-        
-        <div className="relative">
-          <div className="flex items-center gap-4 mb-3">
-            <div className="w-12 h-12 lg:w-14 lg:h-14 bg-white/20 dark:bg-white/10 backdrop-blur rounded-xl flex items-center justify-center shadow-lg dark:shadow-none">
-              <Icon icon={DollarSign} size="xl" className="text-white" />
-            </div>
-            <div>
-              <h1 className="text-xl lg:text-2xl font-extrabold text-white tracking-tight">비용 & 손익</h1>
-              <p className="text-emerald-100 dark:text-emerald-200/80 text-xs lg:text-sm font-medium">
-                물류 비용 분석 및 손익 시뮬레이션
-              </p>
-            </div>
+      {/* 페이지 헤더 - 브랜드 일러스트 포함 */}
+      <PageHeader
+        title="비용 & 손익"
+        description="물류 비용 분석 및 손익 시뮬레이션"
+        icon="💰"
+        pageId="cost-analysis"
+        variant="cost"
+      >
+        {/* 빠른 요약 카드 */}
+        <div className="hidden lg:flex items-center gap-3">
+          <div className="bg-white/10 dark:bg-white/5 backdrop-blur-sm rounded-xl px-4 py-2 border border-white/20 dark:border-white/10">
+            <p className="text-white/70 text-xs">핵심 시장</p>
+            <p className="text-white font-bold">🇯🇵 🇭🇰 🇸🇬</p>
           </div>
-          
-          {/* 빠른 요약 카드 */}
-          <div className="grid grid-cols-2 md:grid-cols-4 gap-3 mt-4">
-            <div className="bg-white/10 dark:bg-white/5 backdrop-blur-sm rounded-xl px-4 py-3 border border-white/20 dark:border-white/10">
-              <p className="text-emerald-100 dark:text-emerald-200/70 text-xs">핵심 시장</p>
-              <p className="text-white font-bold text-lg">🇯🇵 🇭🇰 🇸🇬</p>
-            </div>
-            <div className="bg-white/10 dark:bg-white/5 backdrop-blur-sm rounded-xl px-4 py-3 border border-white/20 dark:border-white/10">
-              <p className="text-emerald-100 dark:text-emerald-200/70 text-xs">지원 국가</p>
-              <p className="text-white font-bold text-lg">45개국</p>
-            </div>
-            <div className="bg-white/10 dark:bg-white/5 backdrop-blur-sm rounded-xl px-4 py-3 border border-white/20 dark:border-white/10">
-              <p className="text-emerald-100 dark:text-emerald-200/70 text-xs">주요 운송사</p>
-              <p className="text-white font-bold text-lg">LGL 제휴</p>
-            </div>
-            <div className="bg-white/10 dark:bg-white/5 backdrop-blur-sm rounded-xl px-4 py-3 border border-white/20 dark:border-white/10">
-              <p className="text-emerald-100 dark:text-emerald-200/70 text-xs">데이터 기준</p>
-              <p className="text-white font-bold text-lg">실시간</p>
-            </div>
+          <div className="bg-white/10 dark:bg-white/5 backdrop-blur-sm rounded-xl px-4 py-2 border border-white/20 dark:border-white/10">
+            <p className="text-white/70 text-xs">지원 국가</p>
+            <p className="text-white font-bold">45개국</p>
           </div>
         </div>
-      </div>
+      </PageHeader>
 
       {/* 탭 네비게이션 - 모던 카드 스타일 */}
       <div className="mb-6">

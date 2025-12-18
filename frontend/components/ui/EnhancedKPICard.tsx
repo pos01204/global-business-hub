@@ -8,6 +8,7 @@ import { TrendingUp, TrendingDown, Info, Sparkles } from 'lucide-react'
 import { LucideIcon } from 'lucide-react'
 import { cn } from '@/lib/utils'
 import { hoverEffects, cardHoverVariants } from '@/lib/hover-effects'
+import { BrandFeedback } from '@/components/brand'
 
 export interface EnhancedKPICardProps {
   title: string
@@ -25,6 +26,8 @@ export interface EnhancedKPICardProps {
   isPrimary?: boolean
   /** 긴급/경고 상태 펄스 애니메이션 */
   isUrgent?: boolean
+  /** 브랜드 이모션 피드백 표시 */
+  showBrandFeedback?: boolean
 }
 
 const accentColors = {
@@ -57,6 +60,7 @@ export const EnhancedKPICard = memo(function EnhancedKPICard({
   accentColor = 'blue',
   isPrimary = false,
   isUrgent = false,
+  showBrandFeedback = false,
 }: EnhancedKPICardProps) {
   const [showDetail, setShowDetail] = useState(false)
   const [displayValue, setDisplayValue] = useState(0)
@@ -237,7 +241,9 @@ export const EnhancedKPICard = memo(function EnhancedKPICard({
               : 'text-danger dark:text-danger'
           )}
         >
-          {isPositive ? (
+          {showBrandFeedback ? (
+            <BrandFeedback change={change} size="sm" showLabel={false} />
+          ) : isPositive ? (
             <TrendingUp className="w-4 h-4" />
           ) : (
             <TrendingDown className="w-4 h-4" />

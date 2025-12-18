@@ -9,6 +9,7 @@ import { Package, Upload, Users, FileText, BarChart3, CheckCircle, Clock, Refres
 // ✅ Phase 2: 고도화 컴포넌트
 import { showToast } from '@/lib/toast'
 import { hoverEffects } from '@/lib/hover-effects'
+import PageHeader from '@/components/PageHeader'
 
 // 탭 타입
 type SopoTab = 'upload' | 'artists' | 'tracking' | 'history'
