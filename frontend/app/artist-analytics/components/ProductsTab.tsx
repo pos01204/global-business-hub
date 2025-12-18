@@ -34,6 +34,9 @@ export default function ProductsTab({ dateRange }: ProductsTabProps) {
 
   const { summary, products, priceDistribution } = data
 
+  // DataTable 제네릭 타입: API에서 내려오는 개별 상품 타입
+  type TopProduct = (typeof products)[number]
+
   // 가격대별 분포 데이터
   const priceRanges = [
     { key: 'under30k', label: '~₩3만', data: priceDistribution.under30k, color: 'bg-emerald-500', bgLight: 'bg-emerald-50' },
@@ -134,7 +137,7 @@ export default function ProductsTab({ dateRange }: ProductsTabProps) {
             </div>
           </div>
           {products && products.length > 0 ? (
-            <DataTable
+            <DataTable<TopProduct>
               data={products.slice(0, 20)}
               columns={[
                 {
@@ -145,26 +148,27 @@ export default function ProductsTab({ dateRange }: ProductsTabProps) {
                 {
                   accessorKey: 'productName',
                   header: '작품명',
-                  cell: ({ row }) => (
-                    row.original.productUrl ? (
+                  cell: ({ row }) => {
+                    const product = row.original
+                    const name = product.productName
+                    const truncated =
+                      typeof name === 'string' && name.length > 20
+                        ? name.slice(0, 20) + '...'
+                        : name
+
+                    return product.productUrl ? (
                       <a
-                        href={row.original.productUrl}
+                        href={product.productUrl}
                         target="_blank"
                         rel="noopener noreferrer"
                         className="text-violet-600 hover:underline"
                       >
-                        {row.original.productName.length > 20
-                          ? row.original.productName.slice(0, 20) + '...'
-                          : row.original.productName}
+                        {truncated}
                       </a>
                     ) : (
-                      <span>
-                        {row.original.productName.length > 20
-                          ? row.original.productName.slice(0, 20) + '...'
-                          : row.original.productName}
-                      </span>
+                      <span>{truncated}</span>
                     )
-                  ),
+                  },
                 },
                 {
                   accessorKey: 'artistName',
