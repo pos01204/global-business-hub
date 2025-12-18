@@ -374,7 +374,7 @@ export function TremorKPICard({
             <Text>{progressValue.toLocaleString()}</Text>
             <Text>{progressMax.toLocaleString()}</Text>
           </Flex>
-          <ProgressBar value={(progressValue / progressMax) * 100} className="mt-2" color={color} />
+          <ProgressBar value={(progressValue / progressMax) * 100} className="mt-2" color={color as any} />
         </div>
       )}
     </Card>
