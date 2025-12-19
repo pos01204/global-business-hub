@@ -45,6 +45,14 @@ export default function TextQCTab() {
     },
   })
 
+  // 에러 메시지 추출 헬퍼
+  const getErrorMessage = (error: any, defaultMsg: string): string => {
+    if (error?.response?.data?.message) return error.response.data.message
+    if (error?.response?.data?.error) return error.response.data.error
+    if (error?.message) return error.message
+    return defaultMsg
+  }
+
   const handleApprove = useCallback((id: string) => {
     showToast.promise(
       updateStatusMutation.mutateAsync({
@@ -55,7 +63,7 @@ export default function TextQCTab() {
       {
         loading: '승인 처리 중...',
         success: '항목이 승인되었습니다',
-        error: '승인 처리 중 오류가 발생했습니다',
+        error: (err: any) => getErrorMessage(err, '승인 처리 중 오류가 발생했습니다'),
       }
     )
   }, [updateStatusMutation])
@@ -70,7 +78,7 @@ export default function TextQCTab() {
       {
         loading: '수정 필요 표시 중...',
         success: '수정 필요로 표시되었습니다',
-        error: '처리 중 오류가 발생했습니다',
+        error: (err: any) => getErrorMessage(err, '처리 중 오류가 발생했습니다'),
       }
     )
   }, [updateStatusMutation])
@@ -85,7 +93,7 @@ export default function TextQCTab() {
       {
         loading: 'QC 비대상 표시 중...',
         success: 'QC 비대상으로 표시되었습니다',
-        error: '처리 중 오류가 발생했습니다',
+        error: (err: any) => getErrorMessage(err, '처리 중 오류가 발생했습니다'),
       }
     )
   }, [updateStatusMutation])

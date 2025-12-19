@@ -1107,21 +1107,66 @@ router.get('/image/list', async (req, res) => {
 /**
  * QC 상태 업데이트
  * PUT /api/qc/:type/:id/status
+ * 
+ * 개선: 데이터가 없을 경우 자동 동기화 후 재시도
  */
 router.put('/:type/:id/status', async (req, res) => {
   try {
     const { type, id } = req.params;
     const { status, needsRevision } = req.body;
 
+    console.log(`[QC] 상태 업데이트 요청: type=${type}, id=${id}, status=${status}`);
+
     if (type !== 'text' && type !== 'image') {
-      return res.status(400).json({ error: '잘못된 타입입니다.' });
+      return res.status(400).json({ error: '잘못된 타입입니다. text 또는 image만 허용됩니다.' });
     }
 
     const store = type === 'text' ? qcDataStore.text : qcDataStore.image;
-    const item = store.get(id);
+    let item = store.get(id);
+
+    // 데이터가 없을 경우 자동 동기화 후 재시도
+    if (!item) {
+      console.log(`[QC] 항목을 찾을 수 없음. 자동 동기화 시도: ${id}`);
+      console.log(`[QC] 현재 저장된 항목 수: text=${qcDataStore.text.size}, image=${qcDataStore.image.size}`);
+      
+      // 동기화 시도
+      try {
+        if (type === 'text') {
+          await loadTextQCData();
+        } else {
+          await loadImageQCData();
+        }
+        
+        // 다시 검색
+        item = store.get(id);
+        
+        if (item) {
+          console.log(`[QC] 동기화 후 항목 발견: ${id}`);
+        }
+      } catch (syncError) {
+        console.error('[QC] 동기화 실패:', syncError);
+      }
+    }
 
     if (!item) {
-      return res.status(404).json({ error: 'QC 항목을 찾을 수 없습니다.' });
+      // 아카이브에서도 검색
+      const archiveItem = qcDataStore.archive.get(id);
+      if (archiveItem) {
+        return res.status(400).json({ 
+          error: '이미 처리된 항목입니다.',
+          message: `이 항목은 이미 ${archiveItem.status} 상태로 처리되었습니다.`,
+          currentStatus: archiveItem.status
+        });
+      }
+      
+      console.log(`[QC] 항목을 찾을 수 없음: ${id}`);
+      console.log(`[QC] 저장된 키 샘플 (최대 5개):`, Array.from(store.keys()).slice(0, 5));
+      
+      return res.status(404).json({ 
+        error: 'QC 항목을 찾을 수 없습니다.',
+        message: `ID '${id}'에 해당하는 ${type} QC 항목이 없습니다. 페이지를 새로고침하거나 동기화를 시도해주세요.`,
+        suggestion: 'POST /api/qc/sync 호출로 데이터를 동기화할 수 있습니다.'
+      });
     }
 
     item.status = status || item.status;
@@ -1145,9 +1190,11 @@ router.put('/:type/:id/status', async (req, res) => {
       qcDataStore.archive.set(id, item);
       store.delete(id);
       
-      // Google Sheets 아카이브에 저장 (비동기)
-      saveToArchiveSheet(item).catch((error) => {
-        console.error('[QC] 아카이브 시트 저장 실패:', error);
+      // Google Sheets 아카이브에 저장 (비동기) - 실패해도 응답은 성공
+      saveToArchiveSheet(item).then(() => {
+        console.log(`[QC] 아카이브 시트 저장 완료: ${id}`);
+      }).catch((error) => {
+        console.error('[QC] 아카이브 시트 저장 실패 (메모리에는 저장됨):', error.message);
       });
       
       res.json({ success: true, item, archived: true, message: 'QC 승인 및 아카이브 완료' });
@@ -1157,16 +1204,20 @@ router.put('/:type/:id/status', async (req, res) => {
     store.set(id, item);
 
     // Google Sheets에 상태 저장 (비동기, 실패해도 메모리 업데이트는 유지)
-    saveQCStatusToSheets(type as 'text' | 'image', item).catch((error) => {
-      console.error('[QC] Google Sheets 상태 저장 실패:', error);
+    saveQCStatusToSheets(type as 'text' | 'image', item).then(() => {
+      console.log(`[QC] Google Sheets 상태 저장 완료: ${id}`);
+    }).catch((error) => {
+      console.error('[QC] Google Sheets 상태 저장 실패 (메모리에는 저장됨):', error.message);
     });
 
+    console.log(`[QC] 상태 업데이트 완료: ${id} -> ${status}`);
     res.json({ success: true, item });
   } catch (error: any) {
     console.error('[QC] 상태 업데이트 오류:', error);
     res.status(500).json({
       error: '상태 업데이트 중 오류가 발생했습니다.',
       message: error.message,
+      stack: process.env.NODE_ENV === 'development' ? error.stack : undefined
     });
   }
 });
