@@ -369,9 +369,10 @@ router.get('/cohort', async (_req, res) => {
  * GET /api/business-brain/rfm
  * RFM 세분화 분석 결과
  */
-router.get('/rfm', async (_req, res) => {
+router.get('/rfm', async (req, res) => {
   try {
-    console.log('[BusinessBrain] RFM 분석 요청')
+    const { period = '30d' } = req.query
+    console.log(`[BusinessBrain] RFM 분석 요청 (${period})`)
     
     const agent = new BusinessBrainAgent()
     const result = await agent.runRFMAnalysis()
@@ -379,6 +380,7 @@ router.get('/rfm', async (_req, res) => {
     res.json({
       success: true,
       ...result,
+      period,
     })
   } catch (error: any) {
     console.error('[BusinessBrain] RFM 분석 오류:', error)
@@ -393,9 +395,10 @@ router.get('/rfm', async (_req, res) => {
  * GET /api/business-brain/pareto
  * 파레토 분석 결과
  */
-router.get('/pareto', async (_req, res) => {
+router.get('/pareto', async (req, res) => {
   try {
-    console.log('[BusinessBrain] 파레토 분석 요청')
+    const { period = '30d' } = req.query
+    console.log(`[BusinessBrain] 파레토 분석 요청 (${period})`)
     
     const agent = new BusinessBrainAgent()
     const result = await agent.runParetoAnalysis()
@@ -403,6 +406,7 @@ router.get('/pareto', async (_req, res) => {
     res.json({
       success: true,
       ...result,
+      period,
     })
   } catch (error: any) {
     console.error('[BusinessBrain] 파레토 분석 오류:', error)

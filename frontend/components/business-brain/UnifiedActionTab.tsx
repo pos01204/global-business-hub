@@ -607,11 +607,13 @@ export function UnifiedActionTab({
                 onComplete={onActionComplete ? () => onActionComplete(action.id) : undefined}
                 onCancel={onActionCancel ? () => onActionCancel(action.id) : undefined}
                 onViewTargets={(act) => {
-                  // 대상 ID 목록 모달 표시 또는 상세 페이지 이동
-                  console.log('View targets for action:', act.id, act.targetIds)
+                  // 대상 ID 목록 모달 표시 - 카드 내 ID 섹션이 이미 표시됨
+                  if (act.targetIds && act.targetIds.length > 0) {
+                    alert(`${act.targetType === 'customer' ? '고객' : act.targetType === 'artist' ? '작가' : '상품'} ID 목록:\n${act.targetIds.slice(0, 20).join('\n')}${act.targetIds.length > 20 ? `\n... 외 ${act.targetIds.length - 20}개` : ''}`)
+                  }
                 }}
                 onDownloadTargets={(act) => {
-                  console.log('Download targets for action:', act.id)
+                  // CSV 다운로드는 ActionCard 내부에서 처리됨
                 }}
               />
             ))

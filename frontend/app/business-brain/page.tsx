@@ -907,7 +907,7 @@ export default function BusinessBrainPage() {
               isLoading={insightsLoading || checksLoading}
               period={selectedPeriod}
               onActionClick={(action) => {
-                console.log('Action clicked:', action)
+                // 인사이트에서 액션 클릭 시 액션 탭으로 이동
                 handleTabChange('action')
               }}
             />
@@ -944,10 +944,11 @@ export default function BusinessBrainPage() {
           {/* v6.0: 데이터 탐색기 */}
           {activeTab === 'explorer' && (
             <DataExplorer
-              customerCount={comprehensiveData?.summary?.customers || 892}
-              artistCount={comprehensiveData?.summary?.artists || 245}
-              productCount={1234}
-              countryCount={15}
+              customerCount={comprehensiveData?.summary?.customers}
+              artistCount={comprehensiveData?.summary?.artists}
+              productCount={comprehensiveData?.summary?.products}
+              countryCount={comprehensiveData?.summary?.countries}
+              period={selectedPeriod}
             />
           )}
 
@@ -1005,28 +1006,31 @@ export default function BusinessBrainPage() {
             />
           )}
 
-          {/* v5.0: 커맨드 센터 탭 */}
+          {/* v5.0: 커맨드 센터 탭 (레거시 - command 탭으로 대체) */}
           {activeTab === 'command-center' && (
             <CommandCenter
               isLoading={isLoading}
               onKPIClick={(kpiId) => {
-                console.log('KPI clicked:', kpiId)
                 // 관련 탭으로 이동
-                if (kpiId === 'gmv') handleTabChange('trends')
-                else if (kpiId === 'customers') handleTabChange('rfm')
+                if (kpiId === 'gmv' || kpiId === 'revenue') handleTabChange('revenue')
+                else if (kpiId === 'customers' || kpiId === 'orders') handleTabChange('customer')
+                else if (kpiId === 'artists') handleTabChange('artist')
+                else handleTabChange('insight')
               }}
               onAlertClick={(alertId) => {
-                console.log('Alert clicked:', alertId)
+                // 알림 클릭 시 인사이트 탭으로 이동
+                handleTabChange('insight')
               }}
             />
           )}
 
-          {/* v5.0: 액션 허브 탭 */}
+          {/* v5.0: 액션 허브 탭 (레거시 - action 탭으로 대체) */}
           {activeTab === 'action-hub' && (
             <ActionHub
               isLoading={insightsLoading}
               onActionComplete={(actionId) => {
-                console.log('Action completed:', actionId)
+                // 액션 완료 시 알림 표시
+                alert(`액션 ${actionId}가 완료되었습니다.`)
               }}
             />
           )}

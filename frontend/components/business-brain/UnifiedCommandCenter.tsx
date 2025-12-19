@@ -331,23 +331,45 @@ export function UnifiedCommandCenter({ period, onPeriodChange }: UnifiedCommandC
       {/* AI 질의 섹션 */}
       {activeSection === 'chat' && (
         <Card className="p-6">
-          <div className="text-center py-12">
-            <MessageCircle className="w-12 h-12 mx-auto text-gray-400 mb-4" />
-            <h3 className="text-lg font-medium text-gray-900 dark:text-gray-100 mb-2">
-              AI 질의 기능
-            </h3>
-            <p className="text-gray-500 dark:text-gray-400 mb-4">
-              비즈니스 데이터에 대해 자연어로 질문하세요.
-            </p>
-            <div className="max-w-md mx-auto">
-              <input
-                type="text"
-                placeholder="예: 이번 달 매출 현황은 어떤가요?"
-                className="w-full px-4 py-2 border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-800 text-gray-900 dark:text-gray-100"
-                disabled
-              />
-              <p className="text-sm text-gray-400 mt-2">
-                AI 질의 기능은 준비 중입니다.
+          <div className="space-y-6">
+            <div className="text-center">
+              <div className="w-16 h-16 mx-auto mb-4 bg-gradient-to-br from-indigo-100 to-purple-100 dark:from-indigo-900/30 dark:to-purple-900/30 rounded-2xl flex items-center justify-center">
+                <MessageCircle className="w-8 h-8 text-indigo-600 dark:text-indigo-400" />
+              </div>
+              <h3 className="text-lg font-semibold text-slate-800 dark:text-slate-100 mb-2">
+                AI 비즈니스 어시스턴트
+              </h3>
+              <p className="text-slate-500 dark:text-slate-400 mb-4">
+                비즈니스 데이터에 대해 자연어로 질문하세요.
+              </p>
+            </div>
+            
+            {/* 빠른 질문 예시 */}
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
+              {[
+                { q: '이번 달 GMV 현황은?', icon: '📊' },
+                { q: 'VIP 고객 중 이탈 위험은?', icon: '⚠️' },
+                { q: '상위 작가 매출 기여도는?', icon: '🎨' },
+                { q: '전월 대비 주문 변화는?', icon: '📈' },
+              ].map((item, idx) => (
+                <button
+                  key={idx}
+                  onClick={() => {
+                    // AI 질의 페이지로 이동 (플로팅 채팅 활성화)
+                    const chatButton = document.querySelector('[data-ai-chat-toggle]') as HTMLButtonElement
+                    if (chatButton) chatButton.click()
+                  }}
+                  className="flex items-center gap-3 p-4 bg-slate-50 dark:bg-slate-800 rounded-xl hover:bg-slate-100 dark:hover:bg-slate-700 transition-colors text-left"
+                >
+                  <span className="text-2xl">{item.icon}</span>
+                  <span className="text-sm text-slate-700 dark:text-slate-300">{item.q}</span>
+                </button>
+              ))}
+            </div>
+
+            <div className="pt-4 border-t border-slate-200 dark:border-slate-700">
+              <p className="text-xs text-slate-400 text-center">
+                💡 우측 하단의 "AI에게 질문" 버튼을 클릭하여 대화를 시작하세요.
               </p>
             </div>
           </div>

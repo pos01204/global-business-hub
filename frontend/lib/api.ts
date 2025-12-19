@@ -1353,14 +1353,18 @@ export const businessBrainApi = {
   },
 
   // RFM 세분화 분석
-  getRFMAnalysis: async () => {
-    const response = await api.get('/api/business-brain/rfm')
+  getRFMAnalysis: async (period?: string) => {
+    const response = await api.get('/api/business-brain/rfm', {
+      params: period ? { period } : undefined
+    })
     return response.data
   },
 
   // 파레토 분석
-  getParetoAnalysis: async () => {
-    const response = await api.get('/api/business-brain/pareto')
+  getParetoAnalysis: async (period?: string) => {
+    const response = await api.get('/api/business-brain/pareto', {
+      params: period ? { period } : undefined
+    })
     return response.data
   },
 
