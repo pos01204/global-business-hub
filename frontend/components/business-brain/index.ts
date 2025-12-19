@@ -43,6 +43,15 @@ export { DataExplorer } from './DataExplorer'
 export { UnifiedReportTab } from './UnifiedReportTab'
 export { KeyboardShortcutHelp } from './KeyboardShortcutHelp'
 
+// v6.1: 커맨드 센터 및 고도화 컴포넌트
+export { BusinessIQScoreCard } from './BusinessIQScoreCard'
+export type { BusinessIQScoreData } from './BusinessIQScoreCard'
+export { DailyBriefingPanel } from './DailyBriefingPanel'
+export type { DailyBriefingData } from './DailyBriefingPanel'
+export { TriggerRuleManager } from './TriggerRuleManager'
+export type { TriggerRule } from './TriggerRuleManager'
+export { UnifiedCommandCenter } from './UnifiedCommandCenter'
+
 // 위젯
 export { BrainWidget } from './BrainWidget'
 

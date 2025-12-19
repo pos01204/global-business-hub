@@ -55,7 +55,8 @@ import {
   UnifiedActionTab,
   DataExplorer,
   UnifiedReportTab,
-  KeyboardShortcutHelp
+  KeyboardShortcutHelp,
+  UnifiedCommandCenter
 } from '@/components/business-brain'
 
 // 기간 프리셋 타입
@@ -380,8 +381,8 @@ export default function BusinessBrainPage() {
   const router = useRouter()
   const tabFromUrl = searchParams.get('tab')
   
-  // v6.0: 기본 탭을 'home'으로 변경
-  const [activeTab, setActiveTab] = useState(tabFromUrl || 'home')
+  // v6.1: 기본 탭을 'command'로 변경 (커맨드 센터)
+  const [activeTab, setActiveTab] = useState(tabFromUrl || 'command')
   const [selectedPeriod, setSelectedPeriod] = useState<PeriodPreset>('30d')
   const [countryFilter, setCountryFilter] = useState<string>('all')
   
@@ -409,8 +410,8 @@ export default function BusinessBrainPage() {
       if ((e.target as HTMLElement).tagName === 'INPUT' || (e.target as HTMLElement).tagName === 'TEXTAREA') return
       
       const tabMap: Record<string, string> = {
-        '1': 'home', '2': 'customer', '3': 'artist', '4': 'revenue',
-        '5': 'insight', '6': 'action', '7': 'explorer', '8': 'report'
+        '1': 'command', '2': 'home', '3': 'customer', '4': 'artist', '5': 'revenue',
+        '6': 'insight', '7': 'action', '8': 'explorer', '9': 'report'
       }
       
       if (tabMap[e.key]) {
@@ -618,30 +619,31 @@ export default function BusinessBrainPage() {
 
   const isLoading = briefingLoading || healthLoading
 
-  // IA 개편안 Phase 3: 요약 중심 탭 구조 (상세 분석은 전문 페이지로 위임)
+  // v6.1: 커맨드 센터 중심 탭 구조 (고도화)
   const tabGroups = useMemo(() => [
     {
-      name: '경영 브리핑',
-      description: '비즈니스 현황 요약',
+      name: '커맨드 센터',
+      description: '비즈니스 인텔리전스 통합 관제',
       tabs: [
+        { id: 'command', label: '커맨드 센터', icon: Brain, description: 'IQ 스코어 + 일일 브리핑 + 알림 + AI 질의' },
         { id: 'home', label: '홈', icon: BarChart3, description: 'AI 브리핑 + KPI 요약 + 핵심 인사이트' },
       ]
     },
     {
-      name: '요약 분석',
-      description: '핵심 지표 요약 (상세 분석은 전문 페이지에서)',
+      name: '인텔리전스',
+      description: '도메인별 심층 분석',
       tabs: [
-        { id: 'customer', label: '고객 요약', icon: Users, description: 'RFM/이탈 요약 → 상세: 고객 분석' },
-        { id: 'artist', label: '작가 요약', icon: Palette, description: '작가 건강도 요약 → 상세: 작가 분석' },
-        { id: 'revenue', label: '매출 요약', icon: TrendingUp, description: '트렌드 요약 → 상세: 성과 분석 허브' },
+        { id: 'customer', label: '고객', icon: Users, description: 'RFM/이탈 예측/CLV + 처방' },
+        { id: 'artist', label: '작가', icon: Palette, description: '작가 건강도 + 성과 예측 + 포트폴리오' },
+        { id: 'revenue', label: '매출', icon: TrendingUp, description: 'GMV 예측 + 기여도 분석 + 시즌 패턴' },
       ]
     },
     {
       name: '인사이트 & 액션',
       description: 'AI 인사이트 및 전략 제안',
       tabs: [
-        { id: 'insight', label: '통합 인사이트', icon: Lightbulb, description: '기회 + 리스크 + 전략 통합' },
-        { id: 'action', label: '액션 & 시뮬레이션', icon: Zap, description: '권장 액션 + What-if 시뮬레이션' },
+        { id: 'insight', label: '자동 인사이트', icon: Lightbulb, description: '기회 + 리스크 + 이상 탐지' },
+        { id: 'action', label: '처방 & 시뮬레이션', icon: Zap, description: '액션 처방 + What-if 시나리오' },
       ]
     },
     {
@@ -664,8 +666,8 @@ export default function BusinessBrainPage() {
     [tabGroups]
   )
 
-  // IA 개편안 Phase 3: 요약 중심 탭 (쿠폰/리뷰 상세 탭 제거)
-  const periodEnabledTabs = ['home', 'customer', 'artist', 'revenue', 'insight', 'action', 'explorer', 'report']
+  // v6.1: 커맨드 센터 포함 탭 목록
+  const periodEnabledTabs = ['command', 'home', 'customer', 'artist', 'revenue', 'insight', 'action', 'explorer', 'report']
 
   return (
     <div className="p-6 space-y-6 min-h-screen">
@@ -815,6 +817,14 @@ export default function BusinessBrainPage() {
         </FadeIn>
       ) : (
         <>
+          {/* v6.1: 커맨드 센터 탭 */}
+          {activeTab === 'command' && (
+            <UnifiedCommandCenter
+              period={selectedPeriod}
+              onPeriodChange={setSelectedPeriod}
+            />
+          )}
+
           {/* v6.0: 통합 홈 탭 */}
           {activeTab === 'home' && (
             <UnifiedHome

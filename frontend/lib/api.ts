@@ -1644,6 +1644,119 @@ export const businessBrainApi = {
     })
     return response.data
   },
+
+  // ==================== v6.0: Business Brain 고도화 API ====================
+
+  // 비즈니스 IQ 스코어 (IH01)
+  getIQScore: async (period: '7d' | '30d' | '90d' | '180d' | '365d' = '30d') => {
+    const response = await api.get('/api/business-brain/iq-score', { params: { period } })
+    return response.data
+  },
+
+  // 일일 자동 브리핑 (AI01)
+  getDailyBriefing: async (date?: string) => {
+    const response = await api.get('/api/business-brain/daily-briefing', { 
+      params: date ? { date } : {} 
+    })
+    return response.data
+  },
+
+  // 트리거 규칙 목록 조회
+  getTriggers: async () => {
+    const response = await api.get('/api/business-brain/triggers')
+    return response.data
+  },
+
+  // 트리거 규칙 생성
+  createTrigger: async (trigger: {
+    name: string
+    metric: string
+    condition: {
+      type: 'threshold' | 'change' | 'anomaly' | 'trend'
+      operator: '>' | '<' | '>=' | '<=' | '==' | 'between'
+      value: number | [number, number]
+      period?: string
+    }
+    severity?: 'critical' | 'warning' | 'info'
+    actions?: Array<{
+      type: 'notification' | 'email' | 'slack' | 'auto-action'
+      target: string
+      message: string
+    }>
+    enabled?: boolean
+  }) => {
+    const response = await api.post('/api/business-brain/triggers', trigger)
+    return response.data
+  },
+
+  // 트리거 규칙 수정
+  updateTrigger: async (id: string, updates: Partial<{
+    name: string
+    metric: string
+    condition: any
+    severity: 'critical' | 'warning' | 'info'
+    actions: any[]
+    enabled: boolean
+  }>) => {
+    const response = await api.put(`/api/business-brain/triggers/${id}`, updates)
+    return response.data
+  },
+
+  // 트리거 규칙 삭제
+  deleteTrigger: async (id: string) => {
+    const response = await api.delete(`/api/business-brain/triggers/${id}`)
+    return response.data
+  },
+
+  // 활성 알림 목록 조회
+  getAlerts: async () => {
+    const response = await api.get('/api/business-brain/alerts')
+    return response.data
+  },
+
+  // 알림 확인
+  acknowledgeAlert: async (id: string) => {
+    const response = await api.post(`/api/business-brain/alerts/${id}/acknowledge`)
+    return response.data
+  },
+
+  // 강화된 기여도 분석 (AT01+)
+  getAttribution: async (
+    period: '7d' | '30d' | '90d' | '180d' | '365d' = '30d',
+    dimension: 'country' | 'artist' | 'product' = 'country'
+  ) => {
+    const response = await api.get('/api/business-brain/attribution', {
+      params: { period, dimension }
+    })
+    return response.data
+  },
+
+  // 도메인별 처방 분석 (PX01)
+  getPrescriptions: async (
+    domain: 'customer' | 'artist' | 'marketing' | 'logistics',
+    period: '7d' | '30d' | '90d' | '180d' | '365d' = '30d'
+  ) => {
+    const response = await api.get(`/api/business-brain/prescriptions/${domain}`, {
+      params: { period }
+    })
+    return response.data
+  },
+
+  // 작가 인텔리전스
+  getArtistIntelligence: async (period: '7d' | '30d' | '90d' | '180d' | '365d' = '30d') => {
+    const response = await api.get('/api/business-brain/artist-intelligence', {
+      params: { period }
+    })
+    return response.data
+  },
+
+  // 물류 인텔리전스
+  getLogisticsIntelligence: async (period: '7d' | '30d' | '90d' | '180d' | '365d' = '30d') => {
+    const response = await api.get('/api/business-brain/logistics-intelligence', {
+      params: { period }
+    })
+    return response.data
+  },
 }
 
 // ==================== 관리자 API ====================
