@@ -17,6 +17,8 @@ import PageHeader from '@/components/PageHeader'
 import { addDays, format } from 'date-fns'
 // ✅ Phase 2: 고도화 컴포넌트
 import { hoverEffects } from '@/lib/hover-effects'
+// ✅ Phase 3: 리뷰 분석 고도화 컴포넌트
+import { ReviewAnomalyAlert, ReviewQualityScore, ReviewTranslation, ComplaintPatternCard, ReviewImpactAnalysis } from '@/components/review'
 import {
   Chart as ChartJS,
   CategoryScale,
@@ -84,11 +86,11 @@ export default function ReviewAnalyticsPage() {
     from: thirtyDaysAgo,
     to: today,
   })
-  const [activeTab, setActiveTab] = useState<'overview' | 'distribution' | 'comparison' | 'insights' | 'trend' | 'list'>((tabFromUrl as any) || 'overview')
+  const [activeTab, setActiveTab] = useState<'overview' | 'distribution' | 'quality' | 'comparison' | 'insights' | 'impact' | 'trend' | 'list'>((tabFromUrl as any) || 'overview')
 
   // URL 쿼리 파라미터 변경 시 탭 업데이트 (9.3.1 딥링크 지원)
   useEffect(() => {
-    if (tabFromUrl && ['overview', 'distribution', 'comparison', 'insights', 'trend', 'list'].includes(tabFromUrl)) {
+    if (tabFromUrl && ['overview', 'distribution', 'quality', 'comparison', 'insights', 'impact', 'trend', 'list'].includes(tabFromUrl)) {
       setActiveTab(tabFromUrl as any)
     }
   }, [tabFromUrl])
@@ -155,6 +157,39 @@ export default function ReviewAnalyticsPage() {
     queryKey: ['review-content-analysis', startDate, endDate],
     queryFn: () => reviewAnalyticsApi.getContentAnalysis(startDate, endDate),
     enabled: activeTab === 'overview' || activeTab === 'comparison',
+  })
+
+  // ✅ Phase 3: 신규 API 쿼리
+  const { data: qualityScoreData, isLoading: qualityLoading } = useQuery({
+    queryKey: ['review-quality-score', startDate, endDate],
+    queryFn: () => reviewAnalyticsApi.getQualityScore(startDate, endDate),
+    enabled: activeTab === 'overview',
+  })
+
+  const { data: anomaliesData, isLoading: anomaliesLoading } = useQuery({
+    queryKey: ['review-anomalies', startDate, endDate],
+    queryFn: () => reviewAnalyticsApi.getAnomalies(startDate, endDate),
+    enabled: activeTab === 'overview',
+  })
+
+  const { data: weeklyNPSData, isLoading: weeklyNPSLoading } = useQuery({
+    queryKey: ['review-weekly-nps', endDate],
+    queryFn: () => reviewAnalyticsApi.getWeeklyNPS(endDate),
+    enabled: activeTab === 'overview',
+  })
+
+  // ✅ Phase 3: 불만 패턴 분석
+  const { data: complaintPatternsData, isLoading: complaintLoading } = useQuery({
+    queryKey: ['review-complaint-patterns', startDate, endDate],
+    queryFn: () => reviewAnalyticsApi.getComplaintPatterns(startDate, endDate, 10),
+    enabled: activeTab === 'insights',
+  })
+
+  // ✅ Phase 3: 리뷰-재구매 상관 분석
+  const { data: impactAnalysisData, isLoading: impactLoading } = useQuery({
+    queryKey: ['review-impact-analysis', startDate, endDate],
+    queryFn: () => reviewAnalyticsApi.getImpactAnalysis(startDate, endDate),
+    enabled: activeTab === 'impact',
   })
 
   const isLoading = npsLoading || distLoading || countryLoading || artistLoading || insightsLoading || trendLoading || productLoading || contentLoading
@@ -224,12 +259,14 @@ export default function ReviewAnalyticsPage() {
       <div className="mb-6">
         <div className="flex gap-2 flex-wrap">
           {[
-            { id: 'overview', label: 'NPS 개요', icon: BarChart3 },
+            { id: 'overview', label: '📊 개요', icon: BarChart3 },
+            { id: 'trend', label: '📈 트렌드', icon: TrendingUp },
+            { id: 'quality', label: '🔍 품질 분석', icon: Award },
+            { id: 'comparison', label: '🌍 비교', icon: Globe },
+            { id: 'insights', label: '💡 인사이트', icon: Lightbulb },
+            { id: 'impact', label: '🔗 영향 분석', icon: TrendingUp },
             { id: 'distribution', label: '평점 분포', icon: PieChart },
-            { id: 'trend', label: '트렌드', icon: TrendingUp },
-            { id: 'comparison', label: '비교 분석', icon: Globe },
-            { id: 'insights', label: '인사이트', icon: Lightbulb },
-            { id: 'list', label: '리뷰 목록', icon: MessageSquare },
+            { id: 'list', label: '📝 리뷰', icon: MessageSquare },
           ].map((tab) => (
             <button
               key={tab.id}
@@ -250,7 +287,89 @@ export default function ReviewAnalyticsPage() {
         {/* NPS 개요 탭 */}
         {activeTab === 'overview' && (
           <div className="space-y-6">
-            {/* NPS 스코어 카드 */}
+            {/* ✅ Phase 3: 이상 탐지 알림 */}
+            {anomaliesData?.data?.anomalies && anomaliesData.data.anomalies.length > 0 && (
+              <div className="space-y-3">
+                {anomaliesData.data.anomalies.slice(0, 3).map((anomaly: any, idx: number) => (
+                  <ReviewAnomalyAlert
+                    key={idx}
+                    type={anomaly.type}
+                    target={anomaly.target}
+                    targetName={anomaly.targetName}
+                    metric={anomaly.metric}
+                    currentValue={anomaly.currentValue}
+                    expectedValue={anomaly.expectedValue}
+                    deviation={anomaly.deviation}
+                    affectedReviews={anomaly.affectedReviews}
+                    detectedAt={format(new Date(anomaly.detectedAt), 'yyyy-MM-dd HH:mm')}
+                    mainIssues={anomaly.mainIssues}
+                    sampleReviews={anomaly.sampleReviews}
+                    detailLink={anomaly.target === 'artist' ? `/review-analytics?tab=comparison` : undefined}
+                    dismissible
+                  />
+                ))}
+              </div>
+            )}
+
+            {/* ✅ Phase 3: 주간 NPS 변화 요약 */}
+            {weeklyNPSData?.data && (
+              <div className="bg-gradient-to-r from-sky-50 to-indigo-50 dark:from-sky-900/20 dark:to-indigo-900/20 rounded-2xl border border-sky-200 dark:border-sky-800 p-4">
+                <div className="flex flex-wrap items-center justify-between gap-4">
+                  <div className="flex items-center gap-3">
+                    <div className="w-10 h-10 bg-sky-500 rounded-xl flex items-center justify-center">
+                      <Icon icon={TrendingUp} size="md" className="text-white" />
+                    </div>
+                    <div>
+                      <p className="text-sm text-slate-600 dark:text-slate-400">최근 7일 NPS</p>
+                      <div className="flex items-center gap-2">
+                        <span className="text-2xl font-bold text-slate-800 dark:text-slate-100">
+                          {weeklyNPSData.data.currentWeek?.nps || 0}점
+                        </span>
+                        <span className={`text-sm font-medium ${
+                          weeklyNPSData.data.change > 0 ? 'text-emerald-600' : 
+                          weeklyNPSData.data.change < 0 ? 'text-red-500' : 'text-slate-500'
+                        }`}>
+                          {weeklyNPSData.data.change > 0 ? '+' : ''}{weeklyNPSData.data.change}점
+                          <span className="text-slate-400 ml-1">vs 전주</span>
+                        </span>
+                      </div>
+                    </div>
+                  </div>
+                  <div className="flex items-center gap-4 text-sm">
+                    <div className="text-center">
+                      <p className="text-slate-500 dark:text-slate-400">평균 평점</p>
+                      <p className="font-semibold text-slate-800 dark:text-slate-100">
+                        {weeklyNPSData.data.currentWeek?.avgRating || 0}점
+                      </p>
+                    </div>
+                    <div className="text-center">
+                      <p className="text-slate-500 dark:text-slate-400">리뷰 수</p>
+                      <p className="font-semibold text-slate-800 dark:text-slate-100">
+                        {weeklyNPSData.data.currentWeek?.totalReviews || 0}건
+                      </p>
+                    </div>
+                    {/* 미니 스파크라인 (일별 NPS) */}
+                    {weeklyNPSData.data.daily && weeklyNPSData.data.daily.length > 0 && (
+                      <div className="hidden md:flex items-end gap-1 h-8">
+                        {weeklyNPSData.data.daily.map((day: any, i: number) => (
+                          <Tooltip key={i} content={`${day.date}: NPS ${day.nps}, ${day.reviews}건`}>
+                            <div 
+                              className={`w-4 rounded-t transition-all ${
+                                day.nps >= 50 ? 'bg-emerald-400' : 
+                                day.nps >= 0 ? 'bg-amber-400' : 'bg-red-400'
+                              }`}
+                              style={{ height: `${Math.max(8, Math.min(32, (day.nps + 100) / 200 * 32))}px` }}
+                            />
+                          </Tooltip>
+                        ))}
+                      </div>
+                    )}
+                  </div>
+                </div>
+              </div>
+            )}
+
+            {/* NPS 스코어 카드 + 품질 점수 */}
             <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
               {/* 메인 NPS 게이지 */}
               <div className="lg:col-span-2 bg-white dark:bg-slate-900 rounded-2xl border border-slate-200 dark:border-slate-800 p-6 shadow-sm">
@@ -296,6 +415,18 @@ export default function ReviewAnalyticsPage() {
                 </div>
               </div>
             </div>
+
+            {/* ✅ Phase 3: 리뷰 품질 점수 */}
+            {qualityScoreData?.data && (
+              <ReviewQualityScore
+                score={qualityScoreData.data.score}
+                grade={qualityScoreData.data.grade}
+                components={qualityScoreData.data.components}
+                change={qualityScoreData.data.change}
+                trend={qualityScoreData.data.trend}
+                period={`${startDate} ~ ${endDate}`}
+              />
+            )}
 
             {/* NPS 분류 (10점 만점 기준) */}
             <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
@@ -772,6 +903,258 @@ export default function ReviewAnalyticsPage() {
           </div>
         )}
 
+        {/* 품질 분석 탭 (Phase 2) */}
+        {activeTab === 'quality' && (
+          <div className="space-y-6">
+            {/* 리뷰 품질 점수 */}
+            {qualityScoreData?.data && (
+              <ReviewQualityScore
+                score={qualityScoreData.data.score}
+                grade={qualityScoreData.data.grade}
+                components={qualityScoreData.data.components}
+                change={qualityScoreData.data.change}
+                trend={qualityScoreData.data.trend}
+                period={`${startDate} ~ ${endDate}`}
+              />
+            )}
+
+            {/* 작가별 품질 리스크 테이블 */}
+            <div className="bg-white dark:bg-slate-900 rounded-2xl border border-slate-200 dark:border-slate-800 p-6 shadow-sm">
+              <div className="flex items-center justify-between mb-4">
+                <div className="flex items-center gap-2">
+                  <Icon icon={AlertTriangle} size="md" className="text-amber-500" />
+                  <h3 className="text-lg font-semibold text-slate-800 dark:text-slate-100">작가별 품질 리스크</h3>
+                </div>
+                <span className="text-xs text-slate-500 dark:text-slate-400">
+                  NPS 20점 이상 하락 또는 평점 1점 이상 하락 작가
+                </span>
+              </div>
+              
+              {byArtist && byArtist.length > 0 ? (
+                <div className="overflow-x-auto">
+                  <table className="w-full">
+                    <thead>
+                      <tr className="border-b border-slate-200 dark:border-slate-700">
+                        <th className="text-left py-3 px-2 text-sm font-medium text-slate-500">작가명</th>
+                        <th className="text-right py-3 px-2 text-sm font-medium text-slate-500">리뷰 수</th>
+                        <th className="text-right py-3 px-2 text-sm font-medium text-slate-500">평균 평점</th>
+                        <th className="text-right py-3 px-2 text-sm font-medium text-slate-500">NPS</th>
+                        <th className="text-center py-3 px-2 text-sm font-medium text-slate-500">리스크</th>
+                      </tr>
+                    </thead>
+                    <tbody>
+                      {byArtist
+                        .filter((artist: any) => artist.npsScore < 30 || parseFloat(artist.avgRating) < 7)
+                        .slice(0, 10)
+                        .map((artist: any, idx: number) => {
+                          const isHighRisk = artist.npsScore < 0 || parseFloat(artist.avgRating) < 5
+                          const isMediumRisk = artist.npsScore < 30 || parseFloat(artist.avgRating) < 7
+                          
+                          return (
+                            <tr 
+                              key={artist.artistName} 
+                              className={`border-b border-slate-100 dark:border-slate-800 last:border-0 ${
+                                isHighRisk ? 'bg-red-50 dark:bg-red-900/10' : 
+                                isMediumRisk ? 'bg-amber-50 dark:bg-amber-900/10' : ''
+                              }`}
+                            >
+                              <td className="py-3 px-2 text-sm font-medium text-slate-800 dark:text-slate-100">
+                                {artist.artistName}
+                              </td>
+                              <td className="py-3 px-2 text-sm text-right text-slate-600 dark:text-slate-400">
+                                {artist.reviewCount}건
+                              </td>
+                              <td className="py-3 px-2 text-sm text-right">
+                                <span className="flex items-center justify-end gap-1">
+                                  <Icon icon={Star} size="xs" className="text-amber-400" />
+                                  <span className={parseFloat(artist.avgRating) < 7 ? 'text-red-600 font-semibold' : ''}>
+                                    {artist.avgRating}
+                                  </span>
+                                </span>
+                              </td>
+                              <td className="py-3 px-2 text-sm text-right">
+                                <span className={`font-semibold ${
+                                  artist.npsScore >= 50 ? 'text-emerald-600' :
+                                  artist.npsScore >= 0 ? 'text-amber-600' :
+                                  'text-red-600'
+                                }`}>
+                                  {artist.npsScore}
+                                </span>
+                              </td>
+                              <td className="py-3 px-2 text-center">
+                                <span className={`text-xs px-2 py-1 rounded-full font-medium ${
+                                  isHighRisk ? 'bg-red-100 text-red-700 dark:bg-red-900/30 dark:text-red-300' :
+                                  isMediumRisk ? 'bg-amber-100 text-amber-700 dark:bg-amber-900/30 dark:text-amber-300' :
+                                  'bg-slate-100 text-slate-600 dark:bg-slate-800 dark:text-slate-400'
+                                }`}>
+                                  {isHighRisk ? '높음' : isMediumRisk ? '주의' : '양호'}
+                                </span>
+                              </td>
+                            </tr>
+                          )
+                        })}
+                    </tbody>
+                  </table>
+                  {byArtist.filter((artist: any) => artist.npsScore < 30 || parseFloat(artist.avgRating) < 7).length === 0 && (
+                    <div className="text-center py-8 text-slate-500">
+                      <Icon icon={ThumbsUp} size="lg" className="mx-auto mb-2 text-emerald-500" />
+                      <p>품질 리스크가 있는 작가가 없습니다!</p>
+                    </div>
+                  )}
+                </div>
+              ) : (
+                <div className="text-center py-8 text-slate-500">
+                  <p>작가별 데이터가 없습니다.</p>
+                </div>
+              )}
+            </div>
+
+            {/* TOP/BOTTOM 작가 비교 */}
+            <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+              {/* TOP 작가 */}
+              <div className="bg-white dark:bg-slate-900 rounded-2xl border border-slate-200 dark:border-slate-800 p-6 shadow-sm">
+                <div className="flex items-center gap-2 mb-4">
+                  <div className="w-8 h-8 bg-emerald-100 dark:bg-emerald-900/30 rounded-lg flex items-center justify-center">
+                    <Icon icon={ThumbsUp} size="sm" className="text-emerald-500" />
+                  </div>
+                  <h3 className="text-lg font-semibold text-slate-800 dark:text-slate-100">TOP 5 작가 (NPS)</h3>
+                </div>
+                <div className="space-y-3">
+                  {byArtist?.slice(0, 5).map((artist: any, idx: number) => (
+                    <div 
+                      key={artist.artistName}
+                      className="flex items-center justify-between p-3 bg-emerald-50 dark:bg-emerald-900/10 rounded-lg"
+                    >
+                      <div className="flex items-center gap-3">
+                        <span className={`w-6 h-6 rounded-full flex items-center justify-center text-xs font-bold ${
+                          idx === 0 ? 'bg-amber-400 text-white' :
+                          idx === 1 ? 'bg-slate-300 text-slate-700' :
+                          idx === 2 ? 'bg-orange-300 text-orange-800' :
+                          'bg-slate-200 text-slate-600'
+                        }`}>
+                          {idx + 1}
+                        </span>
+                        <span className="font-medium text-slate-800 dark:text-slate-100">{artist.artistName}</span>
+                      </div>
+                      <div className="flex items-center gap-4 text-sm">
+                        <span className="text-slate-500">{artist.reviewCount}건</span>
+                        <span className="font-bold text-emerald-600">NPS {artist.npsScore}</span>
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              </div>
+
+              {/* BOTTOM 작가 */}
+              <div className="bg-white dark:bg-slate-900 rounded-2xl border border-slate-200 dark:border-slate-800 p-6 shadow-sm">
+                <div className="flex items-center gap-2 mb-4">
+                  <div className="w-8 h-8 bg-red-100 dark:bg-red-900/30 rounded-lg flex items-center justify-center">
+                    <Icon icon={ThumbsDown} size="sm" className="text-red-500" />
+                  </div>
+                  <h3 className="text-lg font-semibold text-slate-800 dark:text-slate-100">개선 필요 작가 (NPS)</h3>
+                </div>
+                <div className="space-y-3">
+                  {byArtist?.slice(-5).reverse().map((artist: any, idx: number) => (
+                    <div 
+                      key={artist.artistName}
+                      className="flex items-center justify-between p-3 bg-red-50 dark:bg-red-900/10 rounded-lg"
+                    >
+                      <div className="flex items-center gap-3">
+                        <span className="w-6 h-6 rounded-full bg-red-200 text-red-700 flex items-center justify-center text-xs font-bold">
+                          {byArtist.length - 4 + idx}
+                        </span>
+                        <span className="font-medium text-slate-800 dark:text-slate-100">{artist.artistName}</span>
+                      </div>
+                      <div className="flex items-center gap-4 text-sm">
+                        <span className="text-slate-500">{artist.reviewCount}건</span>
+                        <span className={`font-bold ${artist.npsScore < 0 ? 'text-red-600' : 'text-amber-600'}`}>
+                          NPS {artist.npsScore}
+                        </span>
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              </div>
+            </div>
+
+            {/* 리뷰 품질 구성요소 상세 */}
+            {contentAnalysis && (
+              <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+                <div className="bg-white dark:bg-slate-900 rounded-2xl border border-slate-200 dark:border-slate-800 p-6 shadow-sm">
+                  <div className="flex items-center gap-2 mb-4">
+                    <Icon icon={MessageSquare} size="md" className="text-blue-500" />
+                    <h3 className="text-lg font-semibold text-slate-800 dark:text-slate-100">리뷰 상세도 분석</h3>
+                  </div>
+                  <div className="space-y-4">
+                    <div className="flex justify-between items-center">
+                      <span className="text-slate-600 dark:text-slate-400">평균 리뷰 길이</span>
+                      <span className="font-semibold text-slate-800 dark:text-slate-100">
+                        {contentAnalysis.contentAnalysis?.avgReviewLength || 0}자
+                      </span>
+                    </div>
+                    <div className="flex justify-between items-center">
+                      <span className="text-slate-600 dark:text-slate-400">상세 리뷰 (100자+)</span>
+                      <span className="font-semibold text-emerald-600">
+                        {contentAnalysis.contentAnalysis?.detailedReviews || 0}건 ({contentAnalysis.contentAnalysis?.detailedReviewRate || 0}%)
+                      </span>
+                    </div>
+                    <div className="pt-2">
+                      <p className="text-xs text-slate-500 mb-2">길이별 분포</p>
+                      <div className="grid grid-cols-3 gap-2">
+                        <div className="text-center p-2 bg-red-50 dark:bg-red-900/20 rounded-lg">
+                          <p className="text-xs text-slate-500">짧음 (&lt;50자)</p>
+                          <p className="font-semibold text-red-600">{contentAnalysis.contentAnalysis?.lengthDistribution?.short || 0}건</p>
+                        </div>
+                        <div className="text-center p-2 bg-amber-50 dark:bg-amber-900/20 rounded-lg">
+                          <p className="text-xs text-slate-500">보통 (50-99자)</p>
+                          <p className="font-semibold text-amber-600">{contentAnalysis.contentAnalysis?.lengthDistribution?.medium || 0}건</p>
+                        </div>
+                        <div className="text-center p-2 bg-emerald-50 dark:bg-emerald-900/20 rounded-lg">
+                          <p className="text-xs text-slate-500">상세 (100자+)</p>
+                          <p className="font-semibold text-emerald-600">{contentAnalysis.contentAnalysis?.lengthDistribution?.long || 0}건</p>
+                        </div>
+                      </div>
+                    </div>
+                  </div>
+                </div>
+
+                <div className="bg-white dark:bg-slate-900 rounded-2xl border border-slate-200 dark:border-slate-800 p-6 shadow-sm">
+                  <div className="flex items-center gap-2 mb-4">
+                    <Icon icon={Award} size="md" className="text-violet-500" />
+                    <h3 className="text-lg font-semibold text-slate-800 dark:text-slate-100">이미지 리뷰 분석</h3>
+                  </div>
+                  <div className="space-y-4">
+                    <div className="flex justify-between items-center">
+                      <span className="text-slate-600 dark:text-slate-400">이미지 포함 리뷰</span>
+                      <span className="font-semibold text-slate-800 dark:text-slate-100">
+                        {contentAnalysis.imageAnalysis?.totalWithImages || 0}건 ({contentAnalysis.imageAnalysis?.imageRate || 0}%)
+                      </span>
+                    </div>
+                    <div className="flex justify-between items-center">
+                      <span className="text-slate-600 dark:text-slate-400">총 이미지 수</span>
+                      <span className="font-semibold text-violet-600">
+                        {contentAnalysis.imageAnalysis?.totalImages || 0}개
+                      </span>
+                    </div>
+                    <div className="flex justify-between items-center">
+                      <span className="text-slate-600 dark:text-slate-400">평균 이미지 수</span>
+                      <span className="font-semibold text-slate-800 dark:text-slate-100">
+                        {contentAnalysis.imageAnalysis?.avgImageCount || 0}개/리뷰
+                      </span>
+                    </div>
+                    <div className="w-full bg-slate-200 dark:bg-slate-700 rounded-full h-2">
+                      <div
+                        className="bg-violet-500 h-2 rounded-full transition-all"
+                        style={{ width: `${Math.min(parseFloat(contentAnalysis.imageAnalysis?.imageRate || '0'), 100)}%` }}
+                      />
+                    </div>
+                  </div>
+                </div>
+              </div>
+            )}
+          </div>
+        )}
+
         {/* 비교 분석 탭 */}
         {activeTab === 'comparison' && (
           <div className="space-y-6">
@@ -954,17 +1337,174 @@ export default function ReviewAnalyticsPage() {
 
         {/* 인사이트 탭 */}
         {activeTab === 'insights' && (
-          <div className="space-y-4">
-            {insights && insights.length > 0 ? (
-              insights.map((insight, idx) => (
-                <InsightCard key={idx} insight={insight} />
-              ))
+          <div className="space-y-6">
+            {/* 불만 패턴 분석 (Phase 3) */}
+            {complaintPatternsData?.data && (
+              <ComplaintPatternCard
+                patterns={complaintPatternsData.data.patterns || []}
+                period={`${startDate} ~ ${endDate}`}
+                totalNegativeReviews={complaintPatternsData.data.totalNegativeReviews || 0}
+                isLoading={complaintLoading}
+              />
+            )}
+
+            {/* AI 인사이트 */}
+            <div className="bg-white dark:bg-slate-900 rounded-2xl border border-slate-200 dark:border-slate-800 p-6 shadow-sm">
+              <div className="flex items-center gap-2 mb-4">
+                <Icon icon={Lightbulb} size="md" className="text-amber-500" />
+                <h3 className="text-lg font-semibold text-slate-800 dark:text-slate-100">AI 인사이트</h3>
+              </div>
+              <div className="space-y-4">
+                {insights && insights.length > 0 ? (
+                  insights.map((insight, idx) => (
+                    <InsightCard key={idx} insight={insight} />
+                  ))
+                ) : (
+                  <div className="text-center py-8 text-slate-500">
+                    <Icon icon={Lightbulb} size="xl" className="mx-auto mb-4 opacity-50" />
+                    <p>분석할 데이터가 충분하지 않습니다.</p>
+                  </div>
+                )}
+              </div>
+            </div>
+          </div>
+        )}
+
+        {/* 영향 분석 탭 (Phase 3) */}
+        {activeTab === 'impact' && (
+          <div className="space-y-6">
+            {/* 리뷰-재구매 상관 분석 */}
+            {impactAnalysisData?.data ? (
+              <ReviewImpactAnalysis
+                ratingRepurchase={impactAnalysisData.data.ratingRepurchase || []}
+                correlation={impactAnalysisData.data.correlation || 0}
+                pValue={impactAnalysisData.data.pValue || 1}
+                insight={impactAnalysisData.data.insight}
+                period={`${startDate} ~ ${endDate}`}
+                isLoading={impactLoading}
+              />
+            ) : impactLoading ? (
+              <div className="bg-white dark:bg-slate-900 rounded-2xl border border-slate-200 dark:border-slate-800 p-6 shadow-sm">
+                <div className="animate-pulse">
+                  <div className="h-6 bg-slate-200 dark:bg-slate-700 rounded w-48 mb-4" />
+                  <div className="h-48 bg-slate-200 dark:bg-slate-700 rounded mb-4" />
+                  <div className="h-16 bg-slate-200 dark:bg-slate-700 rounded" />
+                </div>
+              </div>
             ) : (
-              <div className="text-center py-12 text-slate-500">
-                <Icon icon={Lightbulb} size="xl" className="mx-auto mb-4 opacity-50" />
-                <p>분석할 데이터가 충분하지 않습니다.</p>
+              <div className="bg-white dark:bg-slate-900 rounded-2xl border border-slate-200 dark:border-slate-800 p-6 shadow-sm text-center py-12">
+                <Icon icon={TrendingUp} size="xl" className="mx-auto mb-4 opacity-50 text-slate-400" />
+                <p className="text-slate-500">영향 분석 데이터를 불러오는 중입니다...</p>
               </div>
             )}
+
+            {/* 비즈니스 인사이트 요약 */}
+            <div className="bg-gradient-to-r from-sky-50 to-indigo-50 dark:from-sky-900/20 dark:to-indigo-900/20 rounded-2xl border border-sky-200 dark:border-sky-800 p-6">
+              <div className="flex items-start gap-3">
+                <div className="w-10 h-10 bg-sky-500 rounded-xl flex items-center justify-center flex-shrink-0">
+                  <Icon icon={Lightbulb} size="md" className="text-white" />
+                </div>
+                <div>
+                  <h3 className="text-lg font-semibold text-slate-800 dark:text-slate-100 mb-2">
+                    비즈니스 활용 가이드
+                  </h3>
+                  <ul className="space-y-2 text-sm text-slate-600 dark:text-slate-400">
+                    <li className="flex items-start gap-2">
+                      <span className="text-emerald-500 font-bold">•</span>
+                      <span>
+                        <strong>Promoter 고객 유지</strong>: 9-10점 리뷰 고객에게 로열티 프로그램 제공으로 재구매율 극대화
+                      </span>
+                    </li>
+                    <li className="flex items-start gap-2">
+                      <span className="text-amber-500 font-bold">•</span>
+                      <span>
+                        <strong>Passive 고객 전환</strong>: 7-8점 리뷰 고객에게 개인화된 후속 마케팅으로 Promoter 전환 유도
+                      </span>
+                    </li>
+                    <li className="flex items-start gap-2">
+                      <span className="text-red-500 font-bold">•</span>
+                      <span>
+                        <strong>Detractor 대응</strong>: 6점 이하 리뷰 고객에게 신속한 CS 대응으로 이탈 방지
+                      </span>
+                    </li>
+                    <li className="flex items-start gap-2">
+                      <span className="text-sky-500 font-bold">•</span>
+                      <span>
+                        <strong>리뷰 품질 개선</strong>: 상세 리뷰 작성 유도로 신규 고객 구매 전환율 향상
+                      </span>
+                    </li>
+                  </ul>
+                </div>
+              </div>
+            </div>
+
+            {/* 영향 분석 메트릭스 */}
+            <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+              <div className="bg-white dark:bg-slate-900 rounded-2xl border border-slate-200 dark:border-slate-800 p-5 shadow-sm">
+                <div className="flex items-center gap-3 mb-3">
+                  <div className="w-10 h-10 bg-emerald-100 dark:bg-emerald-900/30 rounded-xl flex items-center justify-center">
+                    <Icon icon={ThumbsUp} size="md" className="text-emerald-500" />
+                  </div>
+                  <div>
+                    <p className="text-sm text-slate-500">Promoter 가치</p>
+                    <p className="text-xl font-bold text-slate-800 dark:text-slate-100">
+                      {impactAnalysisData?.data?.ratingRepurchase ? (
+                        (() => {
+                          const promoters = impactAnalysisData.data.ratingRepurchase.filter((d: any) => d.rating >= 9)
+                          const detractors = impactAnalysisData.data.ratingRepurchase.filter((d: any) => d.rating <= 6)
+                          const promoterAvg = promoters.length > 0 
+                            ? promoters.reduce((sum: number, d: any) => sum + d.repurchaseRate, 0) / promoters.length 
+                            : 0
+                          const detractorAvg = detractors.length > 0 
+                            ? detractors.reduce((sum: number, d: any) => sum + d.repurchaseRate, 0) / detractors.length 
+                            : 1
+                          return detractorAvg > 0 ? `${(promoterAvg / detractorAvg).toFixed(1)}x` : '-'
+                        })()
+                      ) : '-'}
+                    </p>
+                  </div>
+                </div>
+                <p className="text-xs text-slate-500">Detractor 대비 재구매율</p>
+              </div>
+
+              <div className="bg-white dark:bg-slate-900 rounded-2xl border border-slate-200 dark:border-slate-800 p-5 shadow-sm">
+                <div className="flex items-center gap-3 mb-3">
+                  <div className="w-10 h-10 bg-sky-100 dark:bg-sky-900/30 rounded-xl flex items-center justify-center">
+                    <Icon icon={Star} size="md" className="text-sky-500" />
+                  </div>
+                  <div>
+                    <p className="text-sm text-slate-500">상관계수</p>
+                    <p className="text-xl font-bold text-slate-800 dark:text-slate-100">
+                      {impactAnalysisData?.data?.correlation?.toFixed(2) || '-'}
+                    </p>
+                  </div>
+                </div>
+                <p className="text-xs text-slate-500">평점-재구매율 상관관계</p>
+              </div>
+
+              <div className="bg-white dark:bg-slate-900 rounded-2xl border border-slate-200 dark:border-slate-800 p-5 shadow-sm">
+                <div className="flex items-center gap-3 mb-3">
+                  <div className="w-10 h-10 bg-violet-100 dark:bg-violet-900/30 rounded-xl flex items-center justify-center">
+                    <Icon icon={BarChart3} size="md" className="text-violet-500" />
+                  </div>
+                  <div>
+                    <p className="text-sm text-slate-500">통계적 유의성</p>
+                    <p className={`text-xl font-bold ${
+                      impactAnalysisData?.data?.pValue < 0.05 
+                        ? 'text-emerald-600' 
+                        : 'text-slate-500'
+                    }`}>
+                      {impactAnalysisData?.data?.pValue 
+                        ? impactAnalysisData.data.pValue < 0.001 
+                          ? 'p < 0.001' 
+                          : `p = ${impactAnalysisData.data.pValue.toFixed(3)}`
+                        : '-'}
+                    </p>
+                  </div>
+                </div>
+                <p className="text-xs text-slate-500">분석 결과 신뢰도</p>
+              </div>
+            </div>
           </div>
         )}
 
@@ -1384,10 +1924,17 @@ function ReviewListTab() {
                 </button>
               </div>
 
-              {/* 리뷰 내용 */}
-              <p className="text-slate-700 dark:text-slate-300 mb-6 leading-relaxed">
-                {selectedReview.content || '(내용 없음)'}
-              </p>
+              {/* 리뷰 내용 (번역 지원) */}
+              {selectedReview.content ? (
+                <ReviewTranslation
+                  originalContent={selectedReview.content}
+                  originalLanguage={selectedReview.country === 'JP' ? 'ja' : 'en'}
+                  autoTranslate={false}
+                  className="mb-6"
+                />
+              ) : (
+                <p className="text-slate-500 dark:text-slate-400 mb-6">(내용 없음)</p>
+              )}
 
               {/* 메타 정보 */}
               <div className="border-t border-slate-200 dark:border-slate-700 pt-4 space-y-2">

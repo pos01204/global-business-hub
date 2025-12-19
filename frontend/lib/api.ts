@@ -1969,6 +1969,56 @@ export const reviewAnalyticsApi = {
     })
     return response.data
   },
+
+  /**
+   * 리뷰 품질 점수
+   */
+  getQualityScore: async (startDate: string, endDate: string) => {
+    const response = await api.get('/api/review-analytics/quality-score', {
+      params: { startDate, endDate },
+    })
+    return response.data
+  },
+
+  /**
+   * 리뷰 이상 탐지
+   */
+  getAnomalies: async (startDate: string, endDate: string) => {
+    const response = await api.get('/api/review-analytics/anomalies', {
+      params: { startDate, endDate },
+    })
+    return response.data
+  },
+
+  /**
+   * 주간 NPS 변화
+   */
+  getWeeklyNPS: async (endDate: string) => {
+    const response = await api.get('/api/review-analytics/weekly-nps', {
+      params: { endDate },
+    })
+    return response.data
+  },
+
+  /**
+   * 불만 패턴 분석
+   */
+  getComplaintPatterns: async (startDate: string, endDate: string, limit: number = 10) => {
+    const response = await api.get('/api/review-analytics/complaint-patterns', {
+      params: { startDate, endDate, limit },
+    })
+    return response.data
+  },
+
+  /**
+   * 리뷰-재구매 상관 분석
+   */
+  getImpactAnalysis: async (startDate: string, endDate: string) => {
+    const response = await api.get('/api/review-analytics/impact-analysis', {
+      params: { startDate, endDate },
+    })
+    return response.data
+  },
 }
 
 // ==================== 주문 패턴 분석 API (개선 버전) ====================
