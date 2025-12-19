@@ -188,7 +188,10 @@ export function UnifiedCommandCenter({ period, onPeriodChange }: UnifiedCommandC
             ) : iqScoreData?.data ? (
               <BusinessIQScoreCard 
                 data={iqScoreData.data as BusinessIQScoreData}
-                onDetailClick={() => {}}
+                onDetailClick={() => {
+                  // Business Brain 홈 탭의 고객/작가/매출 분석으로 이동
+                  window.location.href = '/business-brain?tab=customer'
+                }}
               />
             ) : (
               <Card className="p-6">

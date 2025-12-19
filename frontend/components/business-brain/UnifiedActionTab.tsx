@@ -1,13 +1,15 @@
 'use client'
 
-import { useState, useMemo } from 'react'
+import { useState, useMemo, useCallback } from 'react'
 import { Card } from '@/components/ui/Card'
 import { Badge } from '@/components/ui/Badge'
 import { Icon } from '@/components/ui/Icon'
+import { Tooltip } from '@/components/ui/Tooltip'
 import { 
   Zap, Play, Pause, CheckCircle, Clock, AlertTriangle,
   ArrowRight, Filter, Download, RefreshCw, Target,
-  TrendingUp, DollarSign, Users, ChevronDown
+  TrendingUp, DollarSign, Users, ChevronDown, Copy, FileDown,
+  Eye, ExternalLink, X
 } from 'lucide-react'
 
 // 서브탭 타입
@@ -29,6 +31,8 @@ interface Action {
   dueDate?: string
   progress?: number
   metrics?: { label: string; value: string }[]
+  targetIds?: string[]  // 대상 고객/작가/상품 ID 목록
+  targetType?: 'customer' | 'artist' | 'product'  // 대상 타입
 }
 
 // 카테고리 설정
@@ -103,18 +107,51 @@ function ActionCard({
   action, 
   onStart, 
   onComplete,
-  onCancel
+  onCancel,
+  onViewTargets,
+  onDownloadTargets
 }: { 
   action: Action
   onStart?: () => void
   onComplete?: () => void
   onCancel?: () => void
+  onViewTargets?: (action: Action) => void
+  onDownloadTargets?: (action: Action) => void
 }) {
   const [isExpanded, setIsExpanded] = useState(false)
+  const [copySuccess, setCopySuccess] = useState(false)
   const category = categoryConfig[action.category]
   const status = statusConfig[action.status]
   const priority = priorityConfig[action.priority]
   const effort = effortConfig[action.effort]
+
+  const handleCopyIds = useCallback(async () => {
+    if (action.targetIds && action.targetIds.length > 0) {
+      try {
+        await navigator.clipboard.writeText(action.targetIds.join('\n'))
+        setCopySuccess(true)
+        setTimeout(() => setCopySuccess(false), 2000)
+      } catch (err) {
+        console.error('복사 실패:', err)
+      }
+    }
+  }, [action.targetIds])
+
+  const handleDownloadCsv = useCallback(() => {
+    if (action.targetIds && action.targetIds.length > 0) {
+      const targetTypeLabel = action.targetType === 'customer' ? '고객' : 
+                              action.targetType === 'artist' ? '작가' : '상품'
+      const header = `${targetTypeLabel}_ID`
+      const csvContent = [header, ...action.targetIds].join('\n')
+      const blob = new Blob([csvContent], { type: 'text/csv;charset=utf-8;' })
+      const link = document.createElement('a')
+      link.href = URL.createObjectURL(blob)
+      link.download = `${action.id}_${targetTypeLabel}_목록_${new Date().toISOString().split('T')[0]}.csv`
+      link.click()
+      URL.revokeObjectURL(link.href)
+    }
+    onDownloadTargets?.(action)
+  }, [action, onDownloadTargets])
   
   return (
     <Card className="overflow-hidden bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700">
@@ -183,11 +220,81 @@ function ActionCard({
               <p className="text-xs font-medium text-slate-500 uppercase mb-2">관련 지표</p>
               <div className="grid grid-cols-2 lg:grid-cols-4 gap-3">
                 {action.metrics.map((metric, idx) => (
-                  <div key={idx} className="p-3 bg-white dark:bg-slate-800 rounded-lg border border-slate-200 dark:border-slate-700">
+                  <div 
+                    key={idx} 
+                    className="p-3 bg-white dark:bg-slate-800 rounded-lg border border-slate-200 dark:border-slate-700 cursor-pointer hover:border-idus-300 dark:hover:border-idus-700 transition-colors"
+                    onClick={(e) => {
+                      e.stopPropagation()
+                      onViewTargets?.(action)
+                    }}
+                  >
                     <p className="text-xs text-slate-500 mb-1">{metric.label}</p>
                     <p className="font-semibold text-slate-800 dark:text-slate-100">{metric.value}</p>
+                    {action.targetIds && action.targetIds.length > 0 && metric.label.includes('대상') && (
+                      <p className="text-xs text-idus-500 mt-1 flex items-center gap-1">
+                        <Eye className="w-3 h-3" />
+                        클릭하여 ID 확인
+                      </p>
+                    )}
                   </div>
                 ))}
+              </div>
+            </div>
+          )}
+
+          {/* 대상 ID 관리 (targetIds가 있는 경우) */}
+          {action.targetIds && action.targetIds.length > 0 && (
+            <div className="mb-4 p-4 bg-blue-50 dark:bg-blue-900/20 rounded-lg border border-blue-200 dark:border-blue-800">
+              <div className="flex items-center justify-between mb-3">
+                <div className="flex items-center gap-2">
+                  <Users className="w-4 h-4 text-blue-600 dark:text-blue-400" />
+                  <span className="text-sm font-medium text-blue-800 dark:text-blue-200">
+                    대상 {action.targetType === 'customer' ? '고객' : action.targetType === 'artist' ? '작가' : '상품'} ID 
+                    <Badge className="ml-2 bg-blue-200 dark:bg-blue-800 text-blue-800 dark:text-blue-200">
+                      {action.targetIds.length}개
+                    </Badge>
+                  </span>
+                </div>
+                <div className="flex items-center gap-2">
+                  <Tooltip content={copySuccess ? '복사 완료!' : 'ID 목록 복사'}>
+                    <button
+                      onClick={(e) => { e.stopPropagation(); handleCopyIds(); }}
+                      className={`p-2 rounded-lg transition-colors ${
+                        copySuccess 
+                          ? 'bg-emerald-100 text-emerald-600' 
+                          : 'bg-blue-100 dark:bg-blue-800 text-blue-600 dark:text-blue-300 hover:bg-blue-200 dark:hover:bg-blue-700'
+                      }`}
+                    >
+                      {copySuccess ? <CheckCircle className="w-4 h-4" /> : <Copy className="w-4 h-4" />}
+                    </button>
+                  </Tooltip>
+                  <Tooltip content="CSV 다운로드">
+                    <button
+                      onClick={(e) => { e.stopPropagation(); handleDownloadCsv(); }}
+                      className="p-2 bg-blue-100 dark:bg-blue-800 text-blue-600 dark:text-blue-300 rounded-lg hover:bg-blue-200 dark:hover:bg-blue-700 transition-colors"
+                    >
+                      <FileDown className="w-4 h-4" />
+                    </button>
+                  </Tooltip>
+                </div>
+              </div>
+              {/* ID 미리보기 */}
+              <div className="max-h-24 overflow-y-auto">
+                <div className="flex flex-wrap gap-2">
+                  {action.targetIds.slice(0, 10).map((id, idx) => (
+                    <span 
+                      key={idx}
+                      className="px-2 py-1 bg-white dark:bg-slate-800 rounded text-xs font-mono text-slate-700 dark:text-slate-300 border border-blue-200 dark:border-blue-700"
+                    >
+                      {id}
+                    </span>
+                  ))}
+                  {action.targetIds.length > 10 && (
+                    <span className="px-2 py-1 text-xs text-blue-600 dark:text-blue-400">
+                      +{action.targetIds.length - 10}개 더...
+                    </span>
+                  )}
+                </div>
               </div>
             </div>
           )}
@@ -203,7 +310,7 @@ function ActionCard({
           )}
           
           {/* 액션 버튼 */}
-          <div className="flex items-center gap-2">
+          <div className="flex items-center gap-2 flex-wrap">
             {action.status === 'pending' && onStart && (
               <button 
                 onClick={(e) => { e.stopPropagation(); onStart(); }}
@@ -222,13 +329,29 @@ function ActionCard({
                 완료 처리
               </button>
             )}
+            {action.status === 'in-progress' && (
+              <button 
+                onClick={(e) => { e.stopPropagation(); /* 일시 정지 로직 */ }}
+                className="flex items-center gap-2 px-4 py-2 bg-amber-100 dark:bg-amber-900/30 text-amber-700 dark:text-amber-300 rounded-lg hover:bg-amber-200 dark:hover:bg-amber-900/50 transition-colors text-sm font-medium"
+              >
+                <Icon icon={Pause} size="xs" />
+                일시 정지
+              </button>
+            )}
             {(action.status === 'pending' || action.status === 'in-progress') && onCancel && (
               <button 
                 onClick={(e) => { e.stopPropagation(); onCancel(); }}
                 className="flex items-center gap-2 px-4 py-2 bg-slate-100 dark:bg-slate-700 text-slate-700 dark:text-slate-300 rounded-lg hover:bg-slate-200 dark:hover:bg-slate-600 transition-colors text-sm font-medium"
               >
+                <Icon icon={X} size="xs" />
                 취소
               </button>
+            )}
+            {action.status === 'completed' && (
+              <span className="flex items-center gap-2 px-4 py-2 bg-emerald-100 dark:bg-emerald-900/30 text-emerald-700 dark:text-emerald-300 rounded-lg text-sm font-medium">
+                <CheckCircle className="w-4 h-4" />
+                완료됨
+              </span>
             )}
           </div>
         </div>
@@ -298,7 +421,7 @@ export function UnifiedActionTab({
                        []
     
     if (!Array.isArray(rawActions) || rawActions.length === 0) {
-      // 기본 더미 데이터 제공
+      // 기본 더미 데이터 제공 - 실제 환경에서는 API에서 targetIds 포함 데이터를 받아야 함
       return [
         {
           id: 'action-1',
@@ -310,7 +433,9 @@ export function UnifiedActionTab({
           expectedImpact: '매출 15% 증가 예상',
           effort: 'medium' as const,
           dueDate: '2024-01-15',
-          metrics: [{ label: '대상 고객', value: '142명' }, { label: '예상 ROI', value: '320%' }]
+          metrics: [{ label: '대상 고객', value: '142명' }, { label: '예상 ROI', value: '320%' }],
+          targetType: 'customer' as const,
+          targetIds: ['VIP-001', 'VIP-002', 'VIP-003', 'VIP-004', 'VIP-005'] // 예시 ID
         },
         {
           id: 'action-2',
@@ -321,7 +446,9 @@ export function UnifiedActionTab({
           status: 'pending' as const,
           expectedImpact: '이탈률 25% 감소 예상',
           effort: 'low' as const,
-          metrics: [{ label: '대상 고객', value: '89명' }, { label: '예상 절감', value: '$8,500' }]
+          metrics: [{ label: '대상 고객', value: '89명' }, { label: '예상 절감', value: '$8,500' }],
+          targetType: 'customer' as const,
+          targetIds: ['RISK-001', 'RISK-002', 'RISK-003'] // 예시 ID
         },
         {
           id: 'action-3',
@@ -331,7 +458,9 @@ export function UnifiedActionTab({
           priority: 'medium' as const,
           status: 'pending' as const,
           expectedImpact: '작가 매출 20% 증가 예상',
-          effort: 'high' as const
+          effort: 'high' as const,
+          targetType: 'artist' as const,
+          targetIds: ['ARTIST-001', 'ARTIST-002', 'ARTIST-003', 'ARTIST-004', 'ARTIST-005', 'ARTIST-006', 'ARTIST-007', 'ARTIST-008', 'ARTIST-009', 'ARTIST-010', 'ARTIST-011', 'ARTIST-012'] // 예시 ID
         }
       ] as Action[]
     }
@@ -477,6 +606,13 @@ export function UnifiedActionTab({
                 onStart={onActionStart ? () => onActionStart(action.id) : undefined}
                 onComplete={onActionComplete ? () => onActionComplete(action.id) : undefined}
                 onCancel={onActionCancel ? () => onActionCancel(action.id) : undefined}
+                onViewTargets={(act) => {
+                  // 대상 ID 목록 모달 표시 또는 상세 페이지 이동
+                  console.log('View targets for action:', act.id, act.targetIds)
+                }}
+                onDownloadTargets={(act) => {
+                  console.log('Download targets for action:', act.id)
+                }}
               />
             ))
           ) : (

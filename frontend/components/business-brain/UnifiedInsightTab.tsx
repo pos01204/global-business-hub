@@ -325,9 +325,9 @@ export function UnifiedInsightTab({
           id: 'default-3',
           type: 'info',
           priority: 'low',
-          title: '주말 매출 패턴 분석',
-          description: '토요일 오후 2-6시 사이 주문량이 평일 대비 40% 높습니다.',
-          action: '주말 프로모션 강화'
+          title: '국가별 매출 분포 분석',
+          description: '주요 국가(미국, 일본)에서의 매출 집중도가 높습니다. 시장 다각화를 고려해보세요.',
+          action: '신규 시장 진출 검토'
         }
       )
     }

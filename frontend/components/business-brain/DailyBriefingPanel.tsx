@@ -26,6 +26,9 @@ export interface DailyBriefingData {
     message: string
     metric: string
     action: string
+    currentValue?: number | string
+    threshold?: number | string
+    deviation?: number
   }>
   todaysFocus: Array<{
     priority: number
@@ -115,8 +118,9 @@ export function DailyBriefingPanel({
                     month: 'long', 
                     day: 'numeric',
                     weekday: 'long'
-                  })} 브리핑
+                  })} 기준 브리핑
                 </span>
+                <Badge variant="info" size="sm">전일 데이터 기준</Badge>
               </div>
               <h2 className={`text-xl font-bold ${weatherStyle.text}`}>
                 {data.headline}
@@ -201,6 +205,28 @@ export function DailyBriefingPanel({
                         }`}>
                           {alert.message}
                         </p>
+                        {/* 현재값/임계값 근거 표시 */}
+                        {(alert.currentValue !== undefined || alert.threshold !== undefined) && (
+                          <div className="flex items-center gap-4 mt-2 text-xs">
+                            {alert.currentValue !== undefined && (
+                              <span className="text-slate-600 dark:text-slate-400">
+                                현재값: <span className="font-medium text-slate-800 dark:text-slate-200">{alert.currentValue}</span>
+                              </span>
+                            )}
+                            {alert.threshold !== undefined && (
+                              <span className="text-slate-600 dark:text-slate-400">
+                                임계값: <span className="font-medium text-slate-800 dark:text-slate-200">{alert.threshold}</span>
+                              </span>
+                            )}
+                            {alert.deviation !== undefined && (
+                              <span className={`font-medium ${
+                                alert.deviation > 0 ? 'text-red-600 dark:text-red-400' : 'text-emerald-600 dark:text-emerald-400'
+                              }`}>
+                                ({alert.deviation > 0 ? '+' : ''}{alert.deviation.toFixed(1)}%)
+                              </span>
+                            )}
+                          </div>
+                        )}
                         <div className="flex items-center justify-between mt-2">
                           <span className="text-xs text-slate-500">{alert.metric}</span>
                           <span className="text-xs text-indigo-600 dark:text-indigo-400 flex items-center gap-1">

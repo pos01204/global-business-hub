@@ -1937,8 +1937,19 @@ function extractUrgentAlerts(anomalies: any, insights: any[]): Array<{
   message: string
   metric: string
   action: string
+  currentValue?: number | string
+  threshold?: number | string
+  deviation?: number
 }> {
-  const alerts: Array<{ severity: 'critical' | 'warning'; message: string; metric: string; action: string }> = []
+  const alerts: Array<{ 
+    severity: 'critical' | 'warning'
+    message: string
+    metric: string
+    action: string
+    currentValue?: number | string
+    threshold?: number | string
+    deviation?: number
+  }> = []
   if (anomalies?.anomalies) {
     anomalies.anomalies.forEach((anomaly: any) => {
       if (anomaly.severity === 'critical' || anomaly.severity === 'high') {
@@ -1946,7 +1957,10 @@ function extractUrgentAlerts(anomalies: any, insights: any[]): Array<{
           severity: anomaly.severity === 'critical' ? 'critical' : 'warning',
           message: anomaly.description || `${anomaly.metric} 이상 감지`,
           metric: anomaly.metric,
-          action: '상세 분석 확인'
+          action: '상세 분석 확인',
+          currentValue: anomaly.value,
+          threshold: anomaly.expected,
+          deviation: anomaly.deviation || (anomaly.expected ? ((anomaly.value - anomaly.expected) / anomaly.expected * 100) : undefined)
         })
       }
     })
@@ -1956,7 +1970,9 @@ function extractUrgentAlerts(anomalies: any, insights: any[]): Array<{
       severity: 'warning',
       message: insight.description || insight.title,
       metric: insight.metric?.name || '',
-      action: insight.recommendedAction || '대응 필요'
+      action: insight.recommendedAction || '대응 필요',
+      currentValue: insight.metric?.value,
+      threshold: insight.metric?.threshold
     })
   })
   return alerts.slice(0, 5)
@@ -2165,31 +2181,51 @@ router.get('/iq-score', async (req, res) => {
     
     const agent = new BusinessBrainAgent()
     const healthScore = await agent.calculateHealthScore(period as any)
-    const analyticsDepth = calculateAnalyticsDepth()
-    const insightQuality = await calculateInsightQuality(agent)
-    const actionConversion = 60
-    const predictionAccuracy = 70
-    const dataMaturity = 85
     
-    const score = Math.round(
-      dataMaturity * 0.20 + analyticsDepth * 0.25 + insightQuality * 0.25 + actionConversion * 0.15 + predictionAccuracy * 0.15
-    )
+    // 건강도 점수를 기반으로 구성 요소 계산 (일관성 유지)
+    const baseScore = healthScore?.score?.overall || 50
+    
+    // 건강도의 세부 점수를 IQ 스코어 구성요소로 매핑
+    const dataMaturity = healthScore?.dimensions?.data?.score || Math.round(baseScore * 1.1)
+    const analyticsDepth = healthScore?.dimensions?.analytics?.score || calculateAnalyticsDepth()
+    const insightQuality = await calculateInsightQuality(agent)
+    const actionConversion = healthScore?.dimensions?.operations?.score || 60
+    const predictionAccuracy = healthScore?.dimensions?.growth?.score || 70
+    
+    // 최종 점수는 건강도와 동일하게 유지하여 일관성 확보
+    const score = baseScore
     const grade = getGrade(score)
     const previousScore = businessBrainCache.get(`iq-score-previous-${period}`) || score
     const change = score - (previousScore as number)
     businessBrainCache.set(`iq-score-previous-${period}`, score, 24 * 60 * 60 * 1000)
     const trend = change > 2 ? 'improving' : change < -2 ? 'declining' : 'stable'
-    const improvements = generateImprovements({ dataMaturity, analyticsDepth, insightQuality, actionConversion, predictionAccuracy })
+    const improvements = generateImprovements({ 
+      dataMaturity: Math.min(100, dataMaturity), 
+      analyticsDepth: Math.min(100, analyticsDepth), 
+      insightQuality: Math.min(100, insightQuality), 
+      actionConversion: Math.min(100, actionConversion), 
+      predictionAccuracy: Math.min(100, predictionAccuracy) 
+    })
     
     res.json({
       success: true,
       data: {
-        score, grade,
-        components: { dataMaturity: Math.round(dataMaturity), analyticsDepth: Math.round(analyticsDepth), insightQuality: Math.round(insightQuality), actionConversion: Math.round(actionConversion), predictionAccuracy: Math.round(predictionAccuracy) },
-        trend, change,
+        score, 
+        grade,
+        components: { 
+          dataMaturity: Math.min(100, Math.round(dataMaturity)), 
+          analyticsDepth: Math.min(100, Math.round(analyticsDepth)), 
+          insightQuality: Math.min(100, Math.round(insightQuality)), 
+          actionConversion: Math.min(100, Math.round(actionConversion)), 
+          predictionAccuracy: Math.min(100, Math.round(predictionAccuracy)) 
+        },
+        trend, 
+        change,
         benchmarks: { industry: 65, topPerformers: 85 },
         improvements,
-        healthScore
+        healthScore,
+        // 일관성 알림: IQ 스코어 = 건강도 점수
+        note: '비즈니스 IQ 스코어는 건강도 점수와 동일한 기준으로 계산됩니다.'
       },
       period,
       calculatedAt: new Date().toISOString()

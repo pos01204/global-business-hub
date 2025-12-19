@@ -1,15 +1,18 @@
 'use client'
 
-import { useState, useMemo, useCallback } from 'react'
+import { useState, useMemo, useCallback, useEffect } from 'react'
+import { useQuery } from '@tanstack/react-query'
 import { Card } from '@/components/ui/Card'
 import { Badge } from '@/components/ui/Badge'
 import { Icon } from '@/components/ui/Icon'
+import { Spinner } from '@/components/ui/Spinner'
 import { 
   Search, Users, Palette, Package, Globe, 
   ChevronRight, ChevronDown, ArrowLeft, Filter,
-  Download, X, TrendingUp, TrendingDown, BarChart3
+  Download, X, TrendingUp, TrendingDown, BarChart3, RefreshCw
 } from 'lucide-react'
 import { EChartsPieChart, EChartsTrendChart, EChartsBarChart } from './charts'
+import { businessBrainApi, analyticsApi } from '@/lib/api'
 
 // 탐색 차원 타입
 type ExploreDimension = 'customer' | 'artist' | 'product' | 'country'
@@ -29,6 +32,13 @@ interface ExploreResult {
   characteristics: { label: string; value: string }[]
   distribution: { name: string; value: number; color?: string }[]
   trend: { date: string; value: number }[]
+}
+
+// 세그먼트 옵션 타입
+interface SegmentOption {
+  value: string
+  label: string
+  count: number
 }
 
 // 차원 설정
@@ -59,33 +69,23 @@ const dimensionConfig = {
   }
 }
 
-// 세그먼트 옵션 (예시)
-const segmentOptions = {
+// 기본 세그먼트 옵션 (API 데이터가 없을 때 사용)
+const defaultSegmentOptions: Record<ExploreDimension, SegmentOption[]> = {
   customer: [
-    { value: 'vip', label: 'VIP', count: 150 },
-    { value: 'loyal', label: 'Loyal', count: 320 },
-    { value: 'regular', label: 'Regular', count: 280 },
-    { value: 'new', label: 'New', count: 142 },
-    { value: 'at-risk', label: 'At Risk', count: 58 }
+    { value: 'vip', label: 'VIP', count: 0 },
+    { value: 'loyal', label: 'Loyal', count: 0 },
+    { value: 'regular', label: 'Regular', count: 0 },
+    { value: 'new', label: 'New', count: 0 },
+    { value: 'at-risk', label: 'At Risk', count: 0 }
   ],
   artist: [
-    { value: 'top', label: '상위 작가', count: 50 },
-    { value: 'active', label: '활동 작가', count: 180 },
-    { value: 'new', label: '신규 작가', count: 45 },
-    { value: 'inactive', label: '비활동 작가', count: 25 }
+    { value: 'top', label: '상위 작가', count: 0 },
+    { value: 'active', label: '활동 작가', count: 0 },
+    { value: 'new', label: '신규 작가', count: 0 },
+    { value: 'inactive', label: '비활동 작가', count: 0 }
   ],
-  product: [
-    { value: 'jewelry', label: '주얼리', count: 450 },
-    { value: 'home', label: '홈데코', count: 320 },
-    { value: 'fashion', label: '패션', count: 280 },
-    { value: 'art', label: '아트', count: 184 }
-  ],
-  country: [
-    { value: 'us', label: '미국', count: 450 },
-    { value: 'jp', label: '일본', count: 280 },
-    { value: 'kr', label: '한국', count: 180 },
-    { value: 'other', label: '기타', count: 90 }
-  ]
+  product: [],
+  country: []
 }
 
 // 포맷팅 함수
@@ -161,13 +161,32 @@ function FilterChip({
 function SegmentList({
   dimension,
   onSelect,
-  selectedValue
+  selectedValue,
+  options,
+  isLoading
 }: {
   dimension: ExploreDimension
   onSelect: (value: string, label: string) => void
   selectedValue?: string
+  options: SegmentOption[]
+  isLoading?: boolean
 }) {
-  const options = segmentOptions[dimension]
+  if (isLoading) {
+    return (
+      <div className="flex items-center justify-center py-8">
+        <Spinner size="md" />
+      </div>
+    )
+  }
+
+  if (options.length === 0) {
+    return (
+      <div className="text-center py-8 text-slate-500 dark:text-slate-400">
+        <Icon icon={BarChart3} size="xl" className="mx-auto mb-3 opacity-50" />
+        <p>해당 차원의 데이터가 없습니다.</p>
+      </div>
+    )
+  }
   
   return (
     <div className="space-y-2">
@@ -307,20 +326,108 @@ interface DataExplorerProps {
   productCount?: number
   countryCount?: number
   onExplore?: (dimension: ExploreDimension, filters: ExploreFilter[]) => Promise<ExploreResult>
+  period?: string
 }
 
 export function DataExplorer({
-  customerCount = 892,
-  artistCount = 245,
-  productCount = 1234,
-  countryCount = 15,
-  onExplore
+  customerCount,
+  artistCount,
+  productCount,
+  countryCount,
+  onExplore,
+  period = '30d'
 }: DataExplorerProps) {
   const [selectedDimension, setSelectedDimension] = useState<ExploreDimension | null>(null)
   const [filters, setFilters] = useState<ExploreFilter[]>([])
   const [searchQuery, setSearchQuery] = useState('')
   const [isExploring, setIsExploring] = useState(false)
   const [result, setResult] = useState<ExploreResult | null>(null)
+
+  // API에서 고객 세그먼트 데이터 조회
+  const { data: rfmData, isLoading: rfmLoading } = useQuery({
+    queryKey: ['business-brain', 'rfm', period],
+    queryFn: () => businessBrainApi.getRFMAnalysis(period),
+    staleTime: 10 * 60 * 1000,
+    enabled: selectedDimension === 'customer'
+  })
+
+  // API에서 작가 데이터 조회
+  const { data: paretoData, isLoading: paretoLoading } = useQuery({
+    queryKey: ['business-brain', 'pareto', period],
+    queryFn: () => businessBrainApi.getParetoAnalysis(period),
+    staleTime: 10 * 60 * 1000,
+    enabled: selectedDimension === 'artist'
+  })
+
+  // API에서 국가별 데이터 조회
+  const { data: analyticsData, isLoading: analyticsLoading } = useQuery({
+    queryKey: ['analytics', 'regional', period],
+    queryFn: () => analyticsApi.getData(period, 'all'),
+    staleTime: 10 * 60 * 1000,
+    enabled: selectedDimension === 'country'
+  })
+
+  // 세그먼트 옵션 생성 - API 데이터 기반
+  const segmentOptions = useMemo<Record<ExploreDimension, SegmentOption[]>>(() => {
+    const options: Record<ExploreDimension, SegmentOption[]> = {
+      customer: [],
+      artist: [],
+      product: [],
+      country: []
+    }
+
+    // 고객 세그먼트 (RFM 기반)
+    if (rfmData?.data?.segments) {
+      const segments = rfmData.data.segments
+      options.customer = [
+        { value: 'champions', label: 'Champions (VIP)', count: segments.champions?.length || 0 },
+        { value: 'loyal', label: 'Loyal Customers', count: segments.loyal?.length || 0 },
+        { value: 'potential', label: 'Potential Loyalists', count: segments.potential?.length || 0 },
+        { value: 'recent', label: 'Recent Customers', count: segments.recent?.length || 0 },
+        { value: 'at_risk', label: 'At Risk', count: segments.at_risk?.length || 0 },
+        { value: 'hibernating', label: 'Hibernating', count: segments.hibernating?.length || 0 },
+        { value: 'lost', label: 'Lost', count: segments.lost?.length || 0 },
+      ].filter(s => s.count > 0)
+    }
+
+    // 작가 세그먼트 (Pareto 기반)
+    if (paretoData?.data?.artistConcentration?.topArtists) {
+      const topArtists = paretoData.data.artistConcentration.topArtists
+      options.artist = [
+        { value: 'top10', label: '상위 10% 작가', count: Math.ceil(topArtists.length * 0.1) },
+        { value: 'top20', label: '상위 20% 작가', count: Math.ceil(topArtists.length * 0.2) },
+        { value: 'mid', label: '중위권 작가', count: Math.ceil(topArtists.length * 0.5) },
+        { value: 'all', label: '전체 작가', count: topArtists.length },
+      ]
+    }
+
+    // 국가별 세그먼트
+    if (analyticsData?.regionalPerformance) {
+      options.country = analyticsData.regionalPerformance.map((region: any) => ({
+        value: region.country?.toLowerCase() || region.region?.toLowerCase() || 'unknown',
+        label: region.country || region.region || '알 수 없음',
+        count: region.orders || region.orderCount || 0
+      }))
+    }
+
+    return options
+  }, [rfmData, paretoData, analyticsData])
+
+  // 카운트 계산
+  const counts = useMemo(() => ({
+    customer: customerCount ?? (rfmData?.data?.totalCustomers || segmentOptions.customer.reduce((sum, s) => sum + s.count, 0)),
+    artist: artistCount ?? (paretoData?.data?.artistConcentration?.topArtists?.length || segmentOptions.artist.reduce((sum, s) => sum + s.count, 0)),
+    product: productCount ?? 0,
+    country: countryCount ?? segmentOptions.country.length
+  }), [customerCount, artistCount, productCount, countryCount, rfmData, paretoData, segmentOptions])
+
+  // 현재 차원의 로딩 상태
+  const isLoadingSegments = useMemo(() => {
+    if (selectedDimension === 'customer') return rfmLoading
+    if (selectedDimension === 'artist') return paretoLoading
+    if (selectedDimension === 'country') return analyticsLoading
+    return false
+  }, [selectedDimension, rfmLoading, paretoLoading, analyticsLoading])
 
   // 차원 선택 핸들러
   const handleDimensionSelect = useCallback((dimension: ExploreDimension) => {
@@ -485,25 +592,25 @@ export function DataExplorer({
         <div className="grid grid-cols-2 lg:grid-cols-4 gap-4">
           <DimensionCard
             dimension="customer"
-            count={customerCount}
+            count={counts.customer}
             onClick={() => handleDimensionSelect('customer')}
             isSelected={false}
           />
           <DimensionCard
             dimension="artist"
-            count={artistCount}
+            count={counts.artist}
             onClick={() => handleDimensionSelect('artist')}
             isSelected={false}
           />
           <DimensionCard
             dimension="product"
-            count={productCount}
+            count={counts.product}
             onClick={() => handleDimensionSelect('product')}
             isSelected={false}
           />
           <DimensionCard
             dimension="country"
-            count={countryCount}
+            count={counts.country}
             onClick={() => handleDimensionSelect('country')}
             isSelected={false}
           />
@@ -515,13 +622,16 @@ export function DataExplorer({
         <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
           {/* 세그먼트 선택 */}
           <Card className="p-5 bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700">
-            <h3 className="font-semibold text-slate-800 dark:text-slate-100 mb-4">
+            <h3 className="font-semibold text-slate-800 dark:text-slate-100 mb-4 flex items-center gap-2">
               {dimensionConfig[selectedDimension].label} 세그먼트
+              {isLoadingSegments && <Spinner size="sm" />}
             </h3>
             <SegmentList
               dimension={selectedDimension}
               onSelect={handleAddFilter}
               selectedValue={filters[filters.length - 1]?.value}
+              options={segmentOptions[selectedDimension]}
+              isLoading={isLoadingSegments}
             />
           </Card>
 
