@@ -1896,8 +1896,10 @@ function generateImprovements(components: Record<string, number>): Array<{
 function generateHeadline(briefing: any, healthScore: any, date: string): string {
   const dateFormatted = new Date(date).toLocaleDateString('ko-KR', { month: 'long', day: 'numeric' })
   let sentiment = ''
-  if (healthScore?.score?.overall >= 80) sentiment = '호조'
-  else if (healthScore?.score?.overall >= 60) sentiment = '안정'
+  // BusinessHealthScore 타입: overall이 직접 존재
+  const overallScore = healthScore?.overall || 50
+  if (overallScore >= 80) sentiment = '호조'
+  else if (overallScore >= 60) sentiment = '안정'
   else sentiment = '주의 필요'
   const keyMetric = briefing?.keyMetrics?.[0]
   const metricInfo = keyMetric ? `, ${keyMetric.name} ${keyMetric.change > 0 ? '+' : ''}${keyMetric.change?.toFixed(1)}%` : ''
@@ -1913,14 +1915,15 @@ function extractKeyHighlights(briefing: any, healthScore: any, insights: any[]):
   metric?: { value: number; change: number }
 }> {
   const highlights: Array<{ type: 'positive' | 'negative' | 'neutral'; icon: string; title: string; detail: string; metric?: { value: number; change: number } }> = []
-  if (healthScore?.score?.overall) {
-    const score = healthScore.score.overall
+  // BusinessHealthScore 타입: overall이 직접 존재
+  if (healthScore?.overall) {
+    const score = healthScore.overall
     highlights.push({
       type: score >= 70 ? 'positive' : score >= 50 ? 'neutral' : 'negative',
       icon: score >= 70 ? '💪' : score >= 50 ? '📊' : '⚠️',
-      title: `비즈니스 건강도 ${score}점`,
-      detail: healthScore.summary || '전반적인 비즈니스 상태입니다.',
-      metric: { value: score, change: healthScore.change || 0 }
+      title: `비즈니스 건강도 ${Math.round(score)}점`,
+      detail: '전반적인 비즈니스 상태입니다.',
+      metric: { value: score, change: 0 }
     })
   }
   insights.slice(0, 3).forEach((insight: any) => {
@@ -2023,7 +2026,8 @@ function determineBusinessWeather(healthScore: any, anomalies: any): {
   confidence: number
   factors: string[]
 } {
-  const score = healthScore?.score?.overall || 50
+  // BusinessHealthScore 타입: overall이 직접 존재
+  const score = healthScore?.overall || 50
   const anomalyCount = anomalies?.anomalies?.length || 0
   const criticalCount = anomalies?.anomalies?.filter((a: any) => a.severity === 'critical').length || 0
   let overall: 'sunny' | 'cloudy' | 'rainy' | 'stormy'
@@ -2123,13 +2127,15 @@ function generateMarketingPrescriptions(insights: any[]): any[] {
 // 물류 처방 생성
 function generateLogisticsPrescriptions(healthScore: any): any[] {
   const prescriptions: any[] = []
-  const deliveryRate = healthScore?.metrics?.deliveryCompletion || 100
-  if (deliveryRate < 95) {
+  // BusinessHealthScore 타입: dimensions.operations.score 사용
+  const operationsScore = healthScore?.dimensions?.operations?.score || 100
+  // 운영 점수가 낮으면 배송 관련 처방 생성
+  if (operationsScore < 80) {
     prescriptions.push({
       target: '배송 완료율 개선',
       targetType: 'logistics',
-      currentMetrics: { deliveryRate, targetRate: 95 },
-      prescriptions: [{ action: '지연 원인 분석 및 운송사 협의', timing: '이번 주 내', expectedOutcome: { metric: 'delivery_rate', improvement: 5, confidence: 0.7 }, effort: 'high', priority: 1 }]
+      currentMetrics: { operationsScore, targetScore: 95 },
+      prescriptions: [{ action: '지연 원인 분석 및 운송사 협의', timing: '이번 주 내', expectedOutcome: { metric: 'operations_score', improvement: 10, confidence: 0.7 }, effort: 'high', priority: 1 }]
     })
   }
   return prescriptions
@@ -2187,14 +2193,16 @@ router.get('/iq-score', async (req, res) => {
     const healthScore = await agent.calculateHealthScore(period as any)
     
     // 건강도 점수를 기반으로 구성 요소 계산 (일관성 유지)
-    const baseScore = healthScore?.score?.overall || 50
+    // BusinessHealthScore 타입: { overall, calculatedAt, dimensions: { revenue, customer, artist, operations } }
+    const baseScore = healthScore?.overall || 50
     
     // 건강도의 세부 점수를 IQ 스코어 구성요소로 매핑
-    const dataMaturity = healthScore?.dimensions?.data?.score || Math.round(baseScore * 1.1)
-    const analyticsDepth = healthScore?.dimensions?.analytics?.score || calculateAnalyticsDepth()
+    // dimensions에는 revenue, customer, artist, operations만 있음
+    const dataMaturity = healthScore?.dimensions?.customer?.score || Math.round(baseScore * 1.1)
+    const analyticsDepth = healthScore?.dimensions?.revenue?.score || calculateAnalyticsDepth()
     const insightQuality = await calculateInsightQuality(agent)
     const actionConversion = healthScore?.dimensions?.operations?.score || 60
-    const predictionAccuracy = healthScore?.dimensions?.growth?.score || 70
+    const predictionAccuracy = healthScore?.dimensions?.artist?.score || 70
     
     // 최종 점수는 건강도와 동일하게 유지하여 일관성 확보
     const score = baseScore
