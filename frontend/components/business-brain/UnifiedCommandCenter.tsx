@@ -13,7 +13,6 @@ import {
 import { BusinessIQScoreCard, BusinessIQScoreData } from './BusinessIQScoreCard'
 import { DailyBriefingPanel, DailyBriefingData } from './DailyBriefingPanel'
 import { TriggerRuleManager, TriggerRule } from './TriggerRuleManager'
-import { AIQueryChat } from '../business-brain/AIQueryChat'
 
 interface UnifiedCommandCenterProps {
   period: '7d' | '30d' | '90d' | '180d' | '365d'
@@ -329,7 +328,26 @@ export function UnifiedCommandCenter({ period, onPeriodChange }: UnifiedCommandC
       {/* AI 질의 섹션 */}
       {activeSection === 'chat' && (
         <Card className="p-6">
-          <AIQueryChat />
+          <div className="text-center py-12">
+            <MessageCircle className="w-12 h-12 mx-auto text-gray-400 mb-4" />
+            <h3 className="text-lg font-medium text-gray-900 dark:text-gray-100 mb-2">
+              AI 질의 기능
+            </h3>
+            <p className="text-gray-500 dark:text-gray-400 mb-4">
+              비즈니스 데이터에 대해 자연어로 질문하세요.
+            </p>
+            <div className="max-w-md mx-auto">
+              <input
+                type="text"
+                placeholder="예: 이번 달 매출 현황은 어떤가요?"
+                className="w-full px-4 py-2 border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-800 text-gray-900 dark:text-gray-100"
+                disabled
+              />
+              <p className="text-sm text-gray-400 mt-2">
+                AI 질의 기능은 준비 중입니다.
+              </p>
+            </div>
+          </div>
         </Card>
       )}
     </div>
