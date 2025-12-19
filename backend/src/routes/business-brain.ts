@@ -2053,30 +2053,68 @@ function determineBusinessWeather(healthScore: any, anomalies: any): {
 // 고객 처방 생성
 function generateCustomerPrescriptions(rfm: any, churn: any): any[] {
   const prescriptions: any[] = []
+  
+  // RFM 세그먼트 기반 처방 생성
   if (rfm?.segments) {
-    rfm.segments.forEach((segment: any) => {
-      const prescription: any = {
-        segment: segment.name,
-        segmentSize: segment.count,
-        currentMetrics: {
-          avgLTV: segment.avgLTV || 0,
-          churnRisk: segment.churnRisk || 0,
-          engagementScore: segment.engagementScore || 50
-        },
-        prescriptions: [],
-        simulatedImpact: { revenueIncrease: 0, churnReduction: 0, costPerAction: 0, roi: 0 }
-      }
-      if (segment.name === 'Champions' || segment.name === '챔피언') {
-        prescription.prescriptions.push({
+    // Champions/VIP 세그먼트
+    const champions = rfm.segments.champions || rfm.segments.Champions || []
+    if (champions.length > 0) {
+      const championIds = champions.map((c: any) => c.userId || c.customerId || c.user_id || c.id || c).filter(Boolean)
+      prescriptions.push({
+        id: 'prescription-vip-retention',
+        title: 'VIP 고객 재활성화 캠페인',
+        description: '30일 이상 미구매 VIP 고객에게 맞춤 혜택을 제공하여 재구매를 유도합니다.',
+        category: 'customer',
+        priority: 'high',
+        status: 'pending',
+        expectedImpact: '매출 15% 증가 예상',
+        effort: 'medium',
+        metrics: [
+          { label: '대상 고객', value: `${championIds.length}명` },
+          { label: '예상 ROI', value: '320%' }
+        ],
+        targetType: 'customer',
+        targetIds: championIds.slice(0, 100), // 최대 100명
+        segment: 'Champions',
+        segmentSize: champions.length,
+        prescriptions: [{
           action: 'VIP 전용 혜택 제공',
           channel: 'email',
           timing: '월 1회',
           expectedOutcome: { metric: 'retention', improvement: 5, confidence: 0.85 },
           effort: 'low',
           priority: 1
-        })
-      } else if (segment.name === 'At Risk' || segment.name === '위험군') {
-        prescription.prescriptions.push({
+        }],
+        simulatedImpact: { revenueIncrease: championIds.length * 150, churnReduction: 5, costPerAction: 10, roi: 320 }
+      })
+    }
+    
+    // At Risk 세그먼트
+    const atRisk = rfm.segments.at_risk || rfm.segments.atRisk || rfm.segments['At Risk'] || []
+    const hibernating = rfm.segments.hibernating || rfm.segments.Hibernating || []
+    const lost = rfm.segments.lost || rfm.segments.Lost || []
+    const riskCustomers = [...atRisk, ...hibernating, ...lost]
+    
+    if (riskCustomers.length > 0) {
+      const riskIds = riskCustomers.map((c: any) => c.userId || c.customerId || c.user_id || c.id || c).filter(Boolean)
+      prescriptions.push({
+        id: 'prescription-churn-prevention',
+        title: '이탈 위험 고객 리텐션',
+        description: '이탈 위험 점수가 높은 고객에게 리텐션 쿠폰을 발송합니다.',
+        category: 'customer',
+        priority: 'high',
+        status: 'pending',
+        expectedImpact: '이탈률 25% 감소 예상',
+        effort: 'low',
+        metrics: [
+          { label: '대상 고객', value: `${riskIds.length}명` },
+          { label: '예상 절감', value: `$${(riskIds.length * 95).toLocaleString()}` }
+        ],
+        targetType: 'customer',
+        targetIds: riskIds.slice(0, 100), // 최대 100명
+        segment: 'At Risk',
+        segmentSize: riskCustomers.length,
+        prescriptions: [{
           action: '윈백 캠페인 실행',
           channel: 'push',
           timing: '즉시',
@@ -2084,11 +2122,45 @@ function generateCustomerPrescriptions(rfm: any, churn: any): any[] {
           expectedOutcome: { metric: 'reactivation', improvement: 20, confidence: 0.7 },
           effort: 'medium',
           priority: 1
-        })
-      }
-      if (prescription.prescriptions.length > 0) prescriptions.push(prescription)
-    })
+        }],
+        simulatedImpact: { revenueIncrease: riskIds.length * 50, churnReduction: 25, costPerAction: 5, roi: 250 }
+      })
+    }
+    
+    // Loyal 세그먼트
+    const loyal = rfm.segments.loyal || rfm.segments.Loyal || rfm.segments.loyal_customers || []
+    if (loyal.length > 0) {
+      const loyalIds = loyal.map((c: any) => c.userId || c.customerId || c.user_id || c.id || c).filter(Boolean)
+      prescriptions.push({
+        id: 'prescription-loyal-upgrade',
+        title: 'Loyal 고객 VIP 전환 프로그램',
+        description: 'Loyal 고객에게 VIP 혜택을 미리 제공하여 VIP 전환을 유도합니다.',
+        category: 'customer',
+        priority: 'medium',
+        status: 'pending',
+        expectedImpact: 'VIP 전환율 30% 예상',
+        effort: 'medium',
+        metrics: [
+          { label: '대상 고객', value: `${loyalIds.length}명` },
+          { label: '예상 전환', value: `${Math.round(loyalIds.length * 0.3)}명` }
+        ],
+        targetType: 'customer',
+        targetIds: loyalIds.slice(0, 100),
+        segment: 'Loyal',
+        segmentSize: loyal.length,
+        prescriptions: [{
+          action: 'VIP 프리뷰 혜택 제공',
+          channel: 'email',
+          timing: '주 1회',
+          expectedOutcome: { metric: 'upgrade', improvement: 30, confidence: 0.75 },
+          effort: 'medium',
+          priority: 2
+        }],
+        simulatedImpact: { revenueIncrease: loyalIds.length * 80, churnReduction: 0, costPerAction: 8, roi: 200 }
+      })
+    }
   }
+  
   return prescriptions
 }
 
@@ -2096,17 +2168,81 @@ function generateCustomerPrescriptions(rfm: any, churn: any): any[] {
 function generateArtistPrescriptions(pareto: any): any[] {
   const prescriptions: any[] = []
   const topArtists = pareto?.artistConcentration?.topArtists || []
+  
   if (topArtists.length > 0) {
-    // 상위 작가들에 대한 처방
-    topArtists.slice(0, 5).forEach((artist: any) => {
+    // 상위 20% 작가 협업 강화
+    const top20Count = Math.ceil(topArtists.length * 0.2)
+    const top20Artists = topArtists.slice(0, top20Count)
+    const top20Ids = top20Artists.map((a: any) => a.artistId || a.artist_id || a.id || a.name).filter(Boolean)
+    
+    if (top20Ids.length > 0) {
       prescriptions.push({
-        target: artist.name,
+        id: 'prescription-top-artist-collaboration',
+        title: '상위 작가 협업 강화',
+        description: '매출 상위 20% 작가와 독점 프로모션을 기획합니다.',
+        category: 'artist',
+        priority: 'medium',
+        status: 'pending',
+        expectedImpact: '작가 매출 20% 증가 예상',
+        effort: 'high',
+        metrics: [
+          { label: '대상 작가', value: `${top20Ids.length}명` },
+          { label: '매출 기여도', value: `${Math.round((pareto?.artistConcentration?.top20Percent?.revenueShare || 0.8) * 100)}%` }
+        ],
         targetType: 'artist',
-        currentMetrics: { revenue: artist.revenue || 0, percentage: artist.percentage || 0 },
-        prescriptions: [{ action: '작가 성장 지원', timing: '이번 주 내', expectedOutcome: { metric: 'revenue', improvement: 10, confidence: 0.7 }, effort: 'medium', priority: 1 }]
+        targetIds: top20Ids,
+        prescriptions: [{
+          action: '독점 프로모션 기획',
+          timing: '이번 달 내',
+          expectedOutcome: { metric: 'revenue', improvement: 20, confidence: 0.75 },
+          effort: 'high',
+          priority: 1
+        }],
+        simulatedImpact: { 
+          revenueIncrease: top20Artists.reduce((sum: number, a: any) => sum + (a.revenue || 0) * 0.2, 0), 
+          churnReduction: 0, 
+          costPerAction: 50, 
+          roi: 180 
+        }
       })
-    })
+    }
+    
+    // 중위권 작가 성장 지원
+    const midArtists = topArtists.slice(top20Count, Math.ceil(topArtists.length * 0.5))
+    const midIds = midArtists.map((a: any) => a.artistId || a.artist_id || a.id || a.name).filter(Boolean)
+    
+    if (midIds.length > 0) {
+      prescriptions.push({
+        id: 'prescription-mid-artist-growth',
+        title: '중위권 작가 성장 지원',
+        description: '성장 가능성이 높은 중위권 작가에게 마케팅 지원을 제공합니다.',
+        category: 'artist',
+        priority: 'medium',
+        status: 'pending',
+        expectedImpact: '작가 매출 15% 증가 예상',
+        effort: 'medium',
+        metrics: [
+          { label: '대상 작가', value: `${midIds.length}명` }
+        ],
+        targetType: 'artist',
+        targetIds: midIds.slice(0, 50), // 최대 50명
+        prescriptions: [{
+          action: '마케팅 지원 프로그램',
+          timing: '2주 내',
+          expectedOutcome: { metric: 'revenue', improvement: 15, confidence: 0.65 },
+          effort: 'medium',
+          priority: 2
+        }],
+        simulatedImpact: { 
+          revenueIncrease: midArtists.reduce((sum: number, a: any) => sum + (a.revenue || 0) * 0.15, 0), 
+          churnReduction: 0, 
+          costPerAction: 30, 
+          roi: 150 
+        }
+      })
+    }
   }
+  
   return prescriptions
 }
 

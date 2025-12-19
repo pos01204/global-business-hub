@@ -1,10 +1,12 @@
 'use client'
 
 import { useState, useMemo, useCallback } from 'react'
+import { useQuery } from '@tanstack/react-query'
 import { Card } from '@/components/ui/Card'
 import { Badge } from '@/components/ui/Badge'
 import { Icon } from '@/components/ui/Icon'
 import { Tooltip } from '@/components/ui/Tooltip'
+import { businessBrainApi } from '@/lib/api'
 import { 
   Zap, Play, Pause, CheckCircle, Clock, AlertTriangle,
   ArrowRight, Filter, Download, RefreshCw, Target,
@@ -403,6 +405,7 @@ interface UnifiedActionTabProps {
 export function UnifiedActionTab({
   actionsData,
   isLoading,
+  period,
   onActionStart,
   onActionComplete,
   onActionCancel,
@@ -411,7 +414,76 @@ export function UnifiedActionTab({
   const [activeSubTab, setActiveSubTab] = useState<ActionSubTab>('recommended')
   const [categoryFilter, setCategoryFilter] = useState<string>('all')
 
-  // 액션 데이터 처리 - 다양한 데이터 구조 지원
+  // 실제 RFM 데이터 가져오기 (VIP 고객, 이탈 위험 고객 ID)
+  const { data: rfmData } = useQuery({
+    queryKey: ['business-brain', 'rfm', period],
+    queryFn: () => businessBrainApi.getRFMAnalysis(period),
+    staleTime: 10 * 60 * 1000,
+  })
+
+  // 실제 Pareto 데이터 가져오기 (상위 작가 ID)
+  const { data: paretoData } = useQuery({
+    queryKey: ['business-brain', 'pareto', period],
+    queryFn: () => businessBrainApi.getParetoAnalysis(period),
+    staleTime: 10 * 60 * 1000,
+  })
+
+  // 실제 이탈 예측 데이터 가져오기
+  const { data: churnData } = useQuery({
+    queryKey: ['business-brain', 'churn', period],
+    queryFn: () => businessBrainApi.getChurnPrediction(period === '7d' ? '90d' : period as any),
+    staleTime: 10 * 60 * 1000,
+  })
+
+  // RFM 데이터에서 VIP 고객 ID 추출
+  const vipCustomerIds = useMemo(() => {
+    const segments = rfmData?.data?.segments || rfmData?.segments
+    if (!segments) return []
+    
+    // Champions(VIP) 세그먼트 고객 ID 추출
+    const champions = segments.champions || segments.Champions || []
+    return champions.map((c: any) => c.userId || c.customerId || c.user_id || c.id || c).filter(Boolean)
+  }, [rfmData])
+
+  // 이탈 위험 고객 ID 추출
+  const atRiskCustomerIds = useMemo(() => {
+    // 이탈 예측 데이터에서 추출
+    if (churnData?.predictions) {
+      return churnData.predictions
+        .filter((p: any) => p.riskLevel === 'high' || p.churnProbability >= 0.7)
+        .map((p: any) => p.userId || p.customerId || p.user_id || p.id)
+        .filter(Boolean)
+    }
+    
+    // RFM 데이터에서 At Risk 세그먼트 추출
+    const segments = rfmData?.data?.segments || rfmData?.segments
+    if (!segments) return []
+    
+    const atRisk = segments.at_risk || segments.atRisk || segments['At Risk'] || []
+    const hibernating = segments.hibernating || segments.Hibernating || []
+    const lost = segments.lost || segments.Lost || []
+    
+    return [...atRisk, ...hibernating, ...lost]
+      .map((c: any) => c.userId || c.customerId || c.user_id || c.id || c)
+      .filter(Boolean)
+  }, [churnData, rfmData])
+
+  // 상위 작가 ID 추출
+  const topArtistIds = useMemo(() => {
+    const artistConcentration = paretoData?.data?.artistConcentration || paretoData?.artistConcentration
+    if (!artistConcentration?.topArtists) return []
+    
+    // 상위 20% 작가 ID 추출
+    const topArtists = artistConcentration.topArtists || []
+    const top20Count = Math.ceil(topArtists.length * 0.2)
+    
+    return topArtists
+      .slice(0, top20Count)
+      .map((a: any) => a.artistId || a.artist_id || a.id || a.name)
+      .filter(Boolean)
+  }, [paretoData])
+
+  // 액션 데이터 처리 - 실제 데이터와 연동
   const actions = useMemo(() => {
     const rawActions = actionsData?.actions || 
                        actionsData?.data?.actions ||
@@ -421,10 +493,13 @@ export function UnifiedActionTab({
                        []
     
     if (!Array.isArray(rawActions) || rawActions.length === 0) {
-      // 기본 더미 데이터 제공 - 실제 환경에서는 API에서 targetIds 포함 데이터를 받아야 함
-      return [
-        {
-          id: 'action-1',
+      // 실제 데이터 기반 액션 생성
+      const generatedActions: Action[] = []
+      
+      // VIP 고객 재활성화 캠페인 (실제 VIP 고객 ID 사용)
+      if (vipCustomerIds.length > 0) {
+        generatedActions.push({
+          id: 'action-vip-reactivation',
           title: 'VIP 고객 재활성화 캠페인',
           description: '30일 이상 미구매 VIP 고객에게 맞춤 혜택을 제공하여 재구매를 유도합니다.',
           category: 'customer' as const,
@@ -432,13 +507,20 @@ export function UnifiedActionTab({
           status: 'pending' as const,
           expectedImpact: '매출 15% 증가 예상',
           effort: 'medium' as const,
-          dueDate: '2024-01-15',
-          metrics: [{ label: '대상 고객', value: '142명' }, { label: '예상 ROI', value: '320%' }],
+          dueDate: new Date(Date.now() + 14 * 24 * 60 * 60 * 1000).toISOString().split('T')[0],
+          metrics: [
+            { label: '대상 고객', value: `${vipCustomerIds.length}명` }, 
+            { label: '예상 ROI', value: '320%' }
+          ],
           targetType: 'customer' as const,
-          targetIds: ['VIP-001', 'VIP-002', 'VIP-003', 'VIP-004', 'VIP-005'] // 예시 ID
-        },
-        {
-          id: 'action-2',
+          targetIds: vipCustomerIds.slice(0, 100) // 최대 100명
+        })
+      }
+      
+      // 이탈 위험 고객 리텐션 (실제 이탈 위험 고객 ID 사용)
+      if (atRiskCustomerIds.length > 0) {
+        generatedActions.push({
+          id: 'action-churn-prevention',
           title: '이탈 위험 고객 리텐션',
           description: '이탈 위험 점수가 70% 이상인 고객에게 리텐션 쿠폰을 발송합니다.',
           category: 'customer' as const,
@@ -446,12 +528,19 @@ export function UnifiedActionTab({
           status: 'pending' as const,
           expectedImpact: '이탈률 25% 감소 예상',
           effort: 'low' as const,
-          metrics: [{ label: '대상 고객', value: '89명' }, { label: '예상 절감', value: '$8,500' }],
+          metrics: [
+            { label: '대상 고객', value: `${atRiskCustomerIds.length}명` }, 
+            { label: '예상 절감', value: `$${(atRiskCustomerIds.length * 95).toLocaleString()}` }
+          ],
           targetType: 'customer' as const,
-          targetIds: ['RISK-001', 'RISK-002', 'RISK-003'] // 예시 ID
-        },
-        {
-          id: 'action-3',
+          targetIds: atRiskCustomerIds.slice(0, 100) // 최대 100명
+        })
+      }
+      
+      // 상위 작가 협업 강화 (실제 상위 작가 ID 사용)
+      if (topArtistIds.length > 0) {
+        generatedActions.push({
+          id: 'action-top-artist-collaboration',
           title: '상위 작가 협업 강화',
           description: '매출 상위 20% 작가와 독점 프로모션을 기획합니다.',
           category: 'artist' as const,
@@ -459,12 +548,36 @@ export function UnifiedActionTab({
           status: 'pending' as const,
           expectedImpact: '작가 매출 20% 증가 예상',
           effort: 'high' as const,
+          metrics: [
+            { label: '대상 작가', value: `${topArtistIds.length}명` }
+          ],
           targetType: 'artist' as const,
-          targetIds: ['ARTIST-001', 'ARTIST-002', 'ARTIST-003', 'ARTIST-004', 'ARTIST-005', 'ARTIST-006', 'ARTIST-007', 'ARTIST-008', 'ARTIST-009', 'ARTIST-010', 'ARTIST-011', 'ARTIST-012'] // 예시 ID
-        }
-      ] as Action[]
+          targetIds: topArtistIds
+        })
+      }
+      
+      // 데이터가 아직 로딩 중이면 로딩 메시지 표시용 빈 배열 반환하지 않고 기본 액션 표시
+      if (generatedActions.length === 0) {
+        return [
+          {
+            id: 'action-loading',
+            title: '데이터 로딩 중...',
+            description: '실제 고객 및 작가 데이터를 분석하고 있습니다.',
+            category: 'operations' as const,
+            priority: 'low' as const,
+            status: 'pending' as const,
+            expectedImpact: '분석 완료 후 표시',
+            effort: 'low' as const,
+            targetType: undefined,
+            targetIds: []
+          }
+        ] as Action[]
+      }
+      
+      return generatedActions
     }
     
+    // API에서 받은 액션 데이터 처리 (targetIds 포함 가능)
     return rawActions.map((action: any, idx: number) => ({
       id: action.id || action.actionId || `action-${idx}`,
       title: action.title || action.action || action.name || '액션',
@@ -476,9 +589,11 @@ export function UnifiedActionTab({
       effort: action.effort || action.difficulty || 'medium',
       dueDate: action.dueDate || action.deadline,
       progress: action.progress || action.completion,
-      metrics: action.metrics || action.kpis
+      metrics: action.metrics || action.kpis,
+      targetType: action.targetType,
+      targetIds: action.targetIds || []
     })) as Action[]
-  }, [actionsData])
+  }, [actionsData, vipCustomerIds, atRiskCustomerIds, topArtistIds])
 
   // 필터링된 액션
   const filteredActions = useMemo(() => {
