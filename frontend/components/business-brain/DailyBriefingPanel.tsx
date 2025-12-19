@@ -321,7 +321,7 @@ export function DailyBriefingPanel({
                       {task.reason}
                     </p>
                     <div className="flex items-center gap-2 mt-2">
-                      <Badge variant="secondary" size="sm">
+                      <Badge variant="info" size="sm">
                         예상 효과: {task.expectedImpact}
                       </Badge>
                     </div>

@@ -343,7 +343,7 @@ export function TriggerRuleManager({
                           {config.label}
                         </Badge>
                         {!rule.enabled && (
-                          <Badge variant="secondary" size="sm">비활성</Badge>
+                          <Badge variant="default" size="sm">비활성</Badge>
                         )}
                       </div>
                       <div className="text-sm text-slate-500 dark:text-slate-400">
