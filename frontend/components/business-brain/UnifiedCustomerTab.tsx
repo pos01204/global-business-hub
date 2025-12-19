@@ -99,7 +99,11 @@ function SegmentCard({
   change,
   onClick,
   isExpanded,
-  details
+  details,
+  customerIds,
+  onEmailCampaign,
+  onCouponSend,
+  onDownload
 }: {
   name: string
   count: number
@@ -114,8 +118,29 @@ function SegmentCard({
     lastPurchase: string
     churnRisk?: number
   }
+  customerIds?: string[]
+  onEmailCampaign?: (segment: string, customerIds: string[]) => void
+  onCouponSend?: (segment: string, customerIds: string[]) => void
+  onDownload?: (segment: string, customerIds: string[]) => void
 }) {
   const color = segmentColors[name] || '#6B7280'
+  
+  // CSV 다운로드 핸들러
+  const handleDownload = () => {
+    if (!customerIds || customerIds.length === 0) {
+      alert('다운로드할 고객 ID가 없습니다.')
+      return
+    }
+    const csvContent = `세그먼트: ${name}\n고객 ID\n${customerIds.join('\n')}`
+    const blob = new Blob([csvContent], { type: 'text/csv;charset=utf-8;' })
+    const link = document.createElement('a')
+    link.href = URL.createObjectURL(blob)
+    link.setAttribute('download', `${name}_segment_customers.csv`)
+    document.body.appendChild(link)
+    link.click()
+    document.body.removeChild(link)
+    onDownload?.(name, customerIds)
+  }
   
   return (
     <div className="border border-slate-200 dark:border-slate-700 rounded-xl overflow-hidden">
@@ -193,15 +218,42 @@ function SegmentCard({
           </div>
           
           <div className="flex items-center gap-2 mt-4">
-            <button className="flex-1 flex items-center justify-center gap-2 px-4 py-2 bg-idus-500 text-white rounded-lg hover:bg-idus-600 transition-colors text-sm font-medium">
+            <button 
+              onClick={(e) => {
+                e.stopPropagation()
+                if (customerIds && customerIds.length > 0) {
+                  onEmailCampaign?.(name, customerIds)
+                } else {
+                  alert(`${name} 세그먼트 대상 이메일 캠페인을 준비합니다.\n대상: ${count}명`)
+                }
+              }}
+              className="flex-1 flex items-center justify-center gap-2 px-4 py-2 bg-idus-500 text-white rounded-lg hover:bg-idus-600 transition-colors text-sm font-medium"
+            >
               <Icon icon={Mail} size="xs" />
               이메일 캠페인
             </button>
-            <button className="flex-1 flex items-center justify-center gap-2 px-4 py-2 bg-slate-100 dark:bg-slate-700 text-slate-700 dark:text-slate-200 rounded-lg hover:bg-slate-200 dark:hover:bg-slate-600 transition-colors text-sm font-medium">
+            <button 
+              onClick={(e) => {
+                e.stopPropagation()
+                if (customerIds && customerIds.length > 0) {
+                  onCouponSend?.(name, customerIds)
+                } else {
+                  alert(`${name} 세그먼트 대상 쿠폰 발송을 준비합니다.\n대상: ${count}명`)
+                }
+              }}
+              className="flex-1 flex items-center justify-center gap-2 px-4 py-2 bg-slate-100 dark:bg-slate-700 text-slate-700 dark:text-slate-200 rounded-lg hover:bg-slate-200 dark:hover:bg-slate-600 transition-colors text-sm font-medium"
+            >
               <Icon icon={Gift} size="xs" />
               쿠폰 발송
             </button>
-            <button className="px-4 py-2 bg-slate-100 dark:bg-slate-700 text-slate-700 dark:text-slate-200 rounded-lg hover:bg-slate-200 dark:hover:bg-slate-600 transition-colors">
+            <button 
+              onClick={(e) => {
+                e.stopPropagation()
+                handleDownload()
+              }}
+              className="px-4 py-2 bg-slate-100 dark:bg-slate-700 text-slate-700 dark:text-slate-200 rounded-lg hover:bg-slate-200 dark:hover:bg-slate-600 transition-colors"
+              title="고객 ID 목록 다운로드"
+            >
               <Icon icon={Download} size="sm" />
             </button>
           </div>
@@ -212,7 +264,35 @@ function SegmentCard({
 }
 
 // 이탈 위험 고객 테이블
-function ChurnRiskTable({ customers }: { customers: any[] }) {
+function ChurnRiskTable({ 
+  customers,
+  onActionClick 
+}: { 
+  customers: any[]
+  onActionClick?: (customerId: string, action: string) => void
+}) {
+  // 권장 액션별 CTA 핸들러
+  const handleActionClick = (customer: any) => {
+    const { id, recommendedAction, churnProbability } = customer
+    
+    // 액션 타입에 따른 처리
+    if (recommendedAction.includes('쿠폰')) {
+      // 쿠폰 발송 페이지로 이동
+      const couponType = churnProbability >= 70 ? '긴급 할인' : '리텐션'
+      alert(`고객 ID: ${id}\n\n${couponType} 쿠폰 발송을 준비합니다.\n이탈 확률: ${churnProbability}%\n\n쿠폰 생성 페이지로 이동하시겠습니까?`)
+      onActionClick?.(id, 'coupon')
+    } else if (recommendedAction.includes('상품 추천')) {
+      alert(`고객 ID: ${id}\n\n맞춤 상품 추천 이메일을 발송합니다.\n이탈 확률: ${churnProbability}%`)
+      onActionClick?.(id, 'recommend')
+    } else if (recommendedAction.includes('VIP') || recommendedAction.includes('혜택')) {
+      alert(`고객 ID: ${id}\n\nVIP 전용 혜택 안내를 발송합니다.\n이탈 확률: ${churnProbability}%`)
+      onActionClick?.(id, 'vip')
+    } else {
+      alert(`고객 ID: ${id}\n\n${recommendedAction}을(를) 실행합니다.\n이탈 확률: ${churnProbability}%`)
+      onActionClick?.(id, 'default')
+    }
+  }
+  
   return (
     <div className="overflow-x-auto">
       <table className="w-full">
@@ -240,8 +320,8 @@ function ChurnRiskTable({ customers }: { customers: any[] }) {
                 <span 
                   className="inline-flex items-center px-2 py-1 rounded-full text-xs font-medium"
                   style={{ 
-                    backgroundColor: `${segmentColors[customer.segment]}20`,
-                    color: segmentColors[customer.segment]
+                    backgroundColor: `${segmentColors[customer.segment] || '#6B7280'}20`,
+                    color: segmentColors[customer.segment] || '#6B7280'
                   }}
                 >
                   {customer.segment}
@@ -273,7 +353,10 @@ function ChurnRiskTable({ customers }: { customers: any[] }) {
                 </div>
               </td>
               <td className="py-3 px-4">
-                <button className="px-3 py-1.5 text-xs font-medium text-idus-600 bg-idus-50 dark:bg-idus-900/30 rounded-lg hover:bg-idus-100 dark:hover:bg-idus-900/50 transition-colors">
+                <button 
+                  onClick={() => handleActionClick(customer)}
+                  className="px-3 py-1.5 text-xs font-medium text-idus-600 bg-idus-50 dark:bg-idus-900/30 rounded-lg hover:bg-idus-100 dark:hover:bg-idus-900/50 transition-colors"
+                >
                   {customer.recommendedAction}
                 </button>
               </td>
@@ -383,6 +466,27 @@ export function UnifiedCustomerTab({
     }
     
     return map
+  }, [rfmData])
+
+  // 세그먼트별 고객 ID 목록 추출
+  const segmentCustomerIds = useMemo(() => {
+    const segmentMap = new Map<string, string[]>()
+    
+    if (rfmData?.segments && Array.isArray(rfmData.segments)) {
+      rfmData.segments.forEach((seg: any) => {
+        const segmentName = seg.name || seg.segment || seg.label || 'Unknown'
+        const customers = seg.customers || []
+        
+        if (Array.isArray(customers)) {
+          const ids = customers
+            .map((customer: any) => String(customer.userId || customer.customerId || customer.id || ''))
+            .filter((id: string) => id !== '')
+          segmentMap.set(segmentName, ids)
+        }
+      })
+    }
+    
+    return segmentMap
   }, [rfmData])
 
   // 이탈 위험 고객 목록 - 다양한 데이터 구조 지원 + RFM 정보 매핑
@@ -689,6 +793,20 @@ export function UnifiedCustomerTab({
                       )}
                       isExpanded={expandedSegment === segment.name}
                       details={segment.details}
+                      customerIds={segmentCustomerIds.get(segment.name) || []}
+                      onEmailCampaign={(segName, ids) => {
+                        alert(`${segName} 세그먼트 이메일 캠페인\n\n대상 고객 수: ${ids.length}명\n\n고객 ID 샘플:\n${ids.slice(0, 5).join('\n')}${ids.length > 5 ? '\n...' : ''}`)
+                      }}
+                      onCouponSend={(segName, ids) => {
+                        // 쿠폰 생성 페이지로 이동
+                        const confirm = window.confirm(`${segName} 세그먼트 쿠폰 발송\n\n대상 고객 수: ${ids.length}명\n\n쿠폰 생성 페이지로 이동하시겠습니까?`)
+                        if (confirm) {
+                          router.push('/coupon-generator')
+                        }
+                      }}
+                      onDownload={(segName, ids) => {
+                        console.log(`${segName} 세그먼트 고객 ID 다운로드 완료: ${ids.length}명`)
+                      }}
                     />
                   ))
                 ) : (
@@ -851,7 +969,17 @@ export function UnifiedCustomerTab({
             </div>
             
             {churnRiskCustomers.length > 0 ? (
-              <ChurnRiskTable customers={churnRiskCustomers} />
+              <ChurnRiskTable 
+                customers={churnRiskCustomers} 
+                onActionClick={(customerId, actionType) => {
+                  // 액션 타입에 따른 페이지 이동
+                  if (actionType === 'coupon') {
+                    router.push('/coupon-generator')
+                  } else {
+                    console.log(`Action: ${actionType} for customer: ${customerId}`)
+                  }
+                }}
+              />
             ) : (
               <div className="text-center py-12 text-slate-400">
                 이탈 위험 고객이 없습니다.
