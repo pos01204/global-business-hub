@@ -5,12 +5,32 @@ import { dashboardApi, controlTowerApi, artistAnalyticsApi, businessBrainApi, an
 import Link from 'next/link'
 import { useState, useEffect } from 'react'
 import { format } from 'date-fns'
-import { EnhancedKPICard, Tooltip, EnhancedLoadingPage, UnifiedDateFilter, AggregationSelector, KPITooltip } from '@/components/ui'
-import type { PeriodPreset, AggregationType } from '@/components/ui'
+import { 
+  EnhancedKPICard, 
+  Tooltip, 
+  EnhancedLoadingPage, 
+  UnifiedDateFilter, 
+  AggregationSelector, 
+  KPITooltip,
+  // Phase 3: 대시보드 지표 확장 컴포넌트
+  AnomalyAlert,
+  DailyChangeSummary,
+  WeeklyTrendSummary,
+  GrowthBadges,
+} from '@/components/ui'
+import type { PeriodPreset, AggregationType, DailyChange, WeeklyMetric } from '@/components/ui'
 import { Icon } from '@/components/ui/Icon'
 import { iconMap, emojiToIconMap } from '@/lib/icon-mapping'
-import { EnhancedLineChart, EnhancedBarChart, GMVTrendChart, StatSummaryCards } from '@/components/charts'
-import type { GMVTrendData, StatCardData } from '@/components/charts'
+import { 
+  EnhancedLineChart, 
+  EnhancedBarChart, 
+  GMVTrendChart, 
+  StatSummaryCards,
+  // Phase 3: 대시보드 지표 확장 차트
+  CountryContribution,
+  MonthlyForecast,
+} from '@/components/charts'
+import type { GMVTrendData, StatCardData, ContributionCountryData, TopContributor, SeasonPattern } from '@/components/charts'
 import { 
   DollarSign, Package, BarChart3, Palette, Users, Truck,
   MessageCircle, AlertTriangle, CheckCircle, Zap, Link2,
@@ -109,6 +129,47 @@ export default function DashboardPage() {
   const { data: brainActionsData } = useQuery({
     queryKey: ['business-brain-actions-dashboard'],
     queryFn: () => businessBrainApi.getActionProposals('30d'),
+    staleTime: 5 * 60 * 1000,
+  })
+
+  // === Phase 3: 대시보드 지표 확장 데이터 ===
+  // 어제 날짜 계산 (데이터 기준일)
+  const yesterday = new Date()
+  yesterday.setDate(yesterday.getDate() - 1)
+  const referenceDate = format(yesterday, 'yyyy-MM-dd')
+
+  // 이상 탐지 데이터 (Mock - 실제 API 연동 시 교체)
+  const { data: anomalyData } = useQuery({
+    queryKey: ['dashboard-anomalies', referenceDate],
+    queryFn: () => dashboardApi.getAnomalies(referenceDate),
+    staleTime: 5 * 60 * 1000,
+  })
+
+  // 국가별 기여도 데이터 (Mock - 실제 API 연동 시 교체)
+  const { data: countryData } = useQuery({
+    queryKey: ['dashboard-country-contribution', referenceDate],
+    queryFn: () => dashboardApi.getCountryContribution(referenceDate),
+    staleTime: 5 * 60 * 1000,
+  })
+
+  // 주간 트렌드 데이터 (Mock - 실제 API 연동 시 교체)
+  const { data: weeklyTrendData } = useQuery({
+    queryKey: ['dashboard-weekly-trend', referenceDate],
+    queryFn: () => dashboardApi.getWeeklyTrend(referenceDate),
+    staleTime: 5 * 60 * 1000,
+  })
+
+  // 월간 예측 데이터 (Mock - 실제 API 연동 시 교체)
+  const { data: forecastData } = useQuery({
+    queryKey: ['dashboard-monthly-forecast', referenceDate],
+    queryFn: () => dashboardApi.getMonthlyForecast(referenceDate),
+    staleTime: 5 * 60 * 1000,
+  })
+
+  // 확장 성장률 지표 (Mock - 실제 API 연동 시 교체)
+  const { data: growthMetricsData } = useQuery({
+    queryKey: ['dashboard-growth-metrics', referenceDate],
+    queryFn: () => dashboardApi.getGrowthMetrics(referenceDate),
     staleTime: 5 * 60 * 1000,
   })
 
@@ -503,11 +564,14 @@ export default function DashboardPage() {
               prefix="₩"
               change={(data.kpis.gmv.change || 0) * 100}
               icon={DollarSign}
-              tooltip="Gross Merchandise Value: 총 상품 거래액"
+              tooltip="Gross Merchandise Value: 총 상품 거래액 (어제 기준)"
               detailInfo={`전기간 대비 ${formatChange(data.kpis.gmv.change, { isRatio: true })} 변화`}
               isPrimary={true}
               accentColor="orange"
               showBrandFeedback={true}
+              referenceDate={referenceDate}
+              growthMetrics={growthMetricsData?.gmv}
+              maxGrowthBadges={2}
             />
 
             {/* 주문 건수 */}
@@ -517,10 +581,13 @@ export default function DashboardPage() {
               suffix="건"
               change={(data.kpis.orderCount.change || 0) * 100}
               icon={Package}
-              tooltip="선택한 기간 동안 발생한 총 주문 건수"
+              tooltip="선택한 기간 동안 발생한 총 주문 건수 (어제 기준)"
               detailInfo={`전기간 대비 ${formatChange(data.kpis.orderCount.change, { isRatio: true })} 변화`}
               accentColor="blue"
               showBrandFeedback={true}
+              referenceDate={referenceDate}
+              growthMetrics={growthMetricsData?.orders}
+              maxGrowthBadges={2}
             />
 
             {/* AOV */}
@@ -530,10 +597,13 @@ export default function DashboardPage() {
               prefix="₩"
               change={(data.kpis.aov.change || 0) * 100}
               icon={BarChart3}
-              tooltip="Average Order Value: 평균 주문 금액"
+              tooltip="Average Order Value: 평균 주문 금액 (어제 기준)"
               detailInfo={`전기간 대비 ${formatChange(data.kpis.aov.change, { isRatio: true })} 변화`}
               accentColor="purple"
               showBrandFeedback={true}
+              referenceDate={referenceDate}
+              growthMetrics={growthMetricsData?.aov}
+              maxGrowthBadges={2}
             />
 
             {/* 판매 작품 수 */}
@@ -575,6 +645,68 @@ export default function DashboardPage() {
               isUrgent={(data.kpis.deliveryRate?.value ?? 0) < 70}
               showBrandFeedback={true}
             />
+          </div>
+
+          {/* === Phase 3: 확장 지표 섹션 === */}
+          
+          {/* 이상 탐지 알림 (어제 기준 - 있을 경우만 표시) */}
+          {anomalyData?.alerts && anomalyData.alerts.length > 0 && (
+            <div className="space-y-3">
+              {anomalyData.alerts.map((alert: any, index: number) => (
+                <AnomalyAlert
+                  key={index}
+                  type={alert.type}
+                  metric={alert.metric}
+                  referenceDate={anomalyData.referenceDate}
+                  actualValue={alert.actualValue}
+                  expectedValue={alert.expectedValue}
+                  deviation={alert.deviation}
+                  sigma={alert.sigma}
+                  possibleCauses={alert.possibleCauses}
+                  analysisLink={alert.analysisLink}
+                  onAcknowledge={() => console.log('알림 확인:', alert.metric)}
+                />
+              ))}
+            </div>
+          )}
+
+          {/* 국가별 기여도 + 월간 예측 + 주간 트렌드 */}
+          <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
+            {/* 국가별 GMV 기여도 */}
+            {countryData && countryData.data && countryData.data.length > 0 && (
+              <CountryContribution
+                referenceDate={countryData.referenceDate}
+                data={countryData.data}
+                topContributors={countryData.topContributors}
+                detailLink="/analytics?tab=country"
+              />
+            )}
+
+            {/* 월간 GMV 예측 */}
+            {forecastData && forecastData.currentMonth && (
+              <MonthlyForecast
+                referenceDate={forecastData.referenceDate}
+                currentMonth={forecastData.currentMonth}
+                actualToDate={forecastData.actualToDate}
+                daysElapsed={forecastData.daysElapsed}
+                totalDays={forecastData.totalDays}
+                forecast={forecastData.forecast}
+                target={forecastData.target}
+                achievementRate={forecastData.achievementRate}
+                factors={forecastData.factors}
+                recommendation={forecastData.recommendation}
+              />
+            )}
+
+            {/* 주간 트렌드 요약 */}
+            {weeklyTrendData && weeklyTrendData.metrics && weeklyTrendData.metrics.length > 0 && (
+              <WeeklyTrendSummary
+                referenceDate={weeklyTrendData.referenceDate}
+                weekRange={weeklyTrendData.weekRange}
+                metrics={weeklyTrendData.metrics}
+                highlights={weeklyTrendData.highlights}
+              />
+            )}
           </div>
 
           {/* 트렌드 차트 */}

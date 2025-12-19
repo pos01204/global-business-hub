@@ -144,3 +144,24 @@ export type { AnimatedEmptyStateProps } from './AnimatedEmptyState'
 
 // Collapsible Section (정보 밀도 조절)
 export { CollapsibleSection, DetailToggle } from './CollapsibleSection'
+
+// === Phase 3: 대시보드 지표 확장 컴포넌트 ===
+
+// EnhancedKPICard 확장 타입
+export type { GrowthMetrics } from './EnhancedKPICard'
+
+// Growth Badges (전일비/전주비/전월비/전년비)
+export { GrowthBadges, SingleGrowthBadge } from './GrowthBadges'
+export type { GrowthBadgesProps, SingleGrowthBadgeProps } from './GrowthBadges'
+
+// Anomaly Alert (이상 탐지 알림)
+export { AnomalyAlert, AnomalyAlertList } from './AnomalyAlert'
+export type { AnomalyAlertProps, AnomalyAlertListProps } from './AnomalyAlert'
+
+// Daily Change Summary (어제 주요 변화)
+export { DailyChangeSummary } from './DailyChangeSummary'
+export type { DailyChangeSummaryProps, DailyChange } from './DailyChangeSummary'
+
+// Weekly Trend Summary (주간 트렌드)
+export { WeeklyTrendSummary } from './WeeklyTrendSummary'
+export type { WeeklyTrendSummaryProps, WeeklyMetric } from './WeeklyTrendSummary'

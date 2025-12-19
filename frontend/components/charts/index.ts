@@ -88,8 +88,29 @@ export {
 } from './GeoMap'
 
 export type {
-  CountryData,
+  CountryData as GeoCountryData,
   CountryGMVMapProps,
   AsiaRegionMapProps,
 } from './GeoMap'
+
+// === Phase 3: 대시보드 지표 확장 차트 컴포넌트 ===
+
+// Season Pattern for GMVTrendChart
+export type { SeasonPattern } from './GMVTrendChart'
+
+// Country Contribution (국가별 GMV 기여도)
+export { CountryContribution } from './CountryContribution'
+export type { 
+  CountryContributionProps, 
+  CountryData as ContributionCountryData,
+  TopContributor 
+} from './CountryContribution'
+
+// Monthly Forecast (금월 GMV 예측)
+export { MonthlyForecast } from './MonthlyForecast'
+export type { 
+  MonthlyForecastProps, 
+  ForecastData, 
+  ForecastFactors 
+} from './MonthlyForecast'
 

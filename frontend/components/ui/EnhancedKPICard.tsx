@@ -9,6 +9,23 @@ import { LucideIcon } from 'lucide-react'
 import { cn } from '@/lib/utils'
 import { hoverEffects, cardHoverVariants } from '@/lib/hover-effects'
 import { BrandFeedback } from '@/components/brand'
+import { GrowthBadges } from './GrowthBadges'
+import { formatDate } from '@/lib/formatters'
+
+/**
+ * 확장 성장률 지표 인터페이스
+ * 모든 비교는 "어제" 기준으로 수행됩니다.
+ */
+export interface GrowthMetrics {
+  /** 전일 대비 성장률 (DoD) - 어제 vs 그저께 */
+  dod?: number
+  /** 전주 동일 대비 성장률 (WoW) - 어제 vs 7일 전 */
+  wow?: number
+  /** 전월 동기 대비 성장률 (MoM) - 어제 vs 30일 전 */
+  mom?: number
+  /** 전년 동기 대비 성장률 (YoY) - 어제 vs 365일 전 */
+  yoy?: number
+}
 
 export interface EnhancedKPICardProps {
   title: string
@@ -28,6 +45,12 @@ export interface EnhancedKPICardProps {
   isUrgent?: boolean
   /** 브랜드 이모션 피드백 표시 */
   showBrandFeedback?: boolean
+  /** 데이터 기준일 (어제) - YYYY-MM-DD 형식 */
+  referenceDate?: string
+  /** 확장 성장률 지표 (전일비/전주비/전월비/전년비) */
+  growthMetrics?: GrowthMetrics
+  /** 성장률 배지 최대 표시 개수 */
+  maxGrowthBadges?: number
 }
 
 const accentColors = {
@@ -61,6 +84,9 @@ export const EnhancedKPICard = memo(function EnhancedKPICard({
   isPrimary = false,
   isUrgent = false,
   showBrandFeedback = false,
+  referenceDate,
+  growthMetrics,
+  maxGrowthBadges = 2,
 }: EnhancedKPICardProps) {
   const [showDetail, setShowDetail] = useState(false)
   const [displayValue, setDisplayValue] = useState(0)
@@ -179,7 +205,15 @@ export const EnhancedKPICard = memo(function EnhancedKPICard({
             </Tooltip>
           )}
         </div>
-        {icon && <Icon icon={icon} size="lg" variant="primary" />}
+        <div className="flex items-center gap-2">
+          {/* 기준일 표시 */}
+          {referenceDate && (
+            <span className="text-[10px] text-slate-400 dark:text-slate-500 bg-slate-100 dark:bg-slate-700 px-1.5 py-0.5 rounded">
+              {formatDate(referenceDate, 'short')}
+            </span>
+          )}
+          {icon && <Icon icon={icon} size="lg" variant="primary" />}
+        </div>
       </div>
 
       <motion.div
@@ -232,6 +266,7 @@ export const EnhancedKPICard = memo(function EnhancedKPICard({
         })()}
       </motion.div>
 
+      {/* 기본 변화율 표시 */}
       {change !== undefined && (
         <div
           className={cn(
@@ -249,6 +284,20 @@ export const EnhancedKPICard = memo(function EnhancedKPICard({
             <TrendingDown className="w-4 h-4" />
           )}
           <span>{Math.abs(change).toFixed(1)}%</span>
+        </div>
+      )}
+
+      {/* 확장 성장률 배지 */}
+      {growthMetrics && (
+        <div className="mt-2">
+          <GrowthBadges
+            dod={growthMetrics.dod}
+            wow={growthMetrics.wow}
+            mom={growthMetrics.mom}
+            yoy={growthMetrics.yoy}
+            maxBadges={maxGrowthBadges}
+            size="xs"
+          />
         </div>
       )}
 

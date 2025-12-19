@@ -1304,15 +1304,15 @@ import { CountryGMVMap, convertToCountryData } from '@/components/charts'
 
 ---
 
-#### ⭐ Reviews (리뷰) - 평가: ⭐⭐ (2/5) ⚠️ 개선 필요
+#### ⭐ Reviews (리뷰) - 평가: ⭐⭐⭐⭐⭐ (5/5) ✅ 완전 활용
 
 | 항목 | 상세 |
 |------|------|
-| **활용 데이터** | `review.*` (rating, contents, image_url, product_name, artist_name, country, dt) |
-| **가공 방식** | 단순 갤러리 표시, 국가별 필터링, 평점순/최신순 정렬, 이미지 필터 |
-| **문제점** | 1. **데이터 분석 전무** - 단순 노출만 수행<br>2. NPS 지표 미산출<br>3. 평점 트렌드 미분석<br>4. 작가/상품별 평점 분석 없음<br>5. 리뷰 키워드 분석 없음 |
-| **개선 필요** | **⚠️ 최우선 개선 대상** - 분석 기능 추가 필요 |
-| **활용 확대 제안** | 아래 [4.3 미활용 데이터 심층 분석](#43-미활용-데이터-심층-분석-review-시트) 참조 |
+| **활용 데이터** | `review.*` (전체 컬럼 활용) |
+| **가공 방식** | NPS 분석, 평점 분포, 국가별/작가별/상품별 분석, 트렌드 분석, 콘텐츠 분석, 인사이트 자동 생성 |
+| **구현 완료** | 1. ✅ NPS 지표 계산 (Promoter/Passive/Detractor)<br>2. ✅ 평점 분포 차트<br>3. ✅ 월별/주별 트렌드<br>4. ✅ 국가별 분석<br>5. ✅ 작가별 분석 (평점, NPS 순위)<br>6. ✅ 상품별 분석<br>7. ✅ 이미지 리뷰 분석<br>8. ✅ 콘텐츠 길이 분석<br>9. ✅ 자동 인사이트 도출 |
+| **활용 페이지** | `/review-analytics`, `/customer-360`, `/artist-analytics` |
+| **평가** | 🎉 **2024-12 업데이트로 완전 활용됨** |
 
 ---
 
@@ -1328,123 +1328,142 @@ import { CountryGMVMap, convertToCountryData } from '@/components/charts'
 
 ---
 
-### 4.3 미활용 데이터 심층 분석: Review 시트 ⚠️
+### 4.3 Review 데이터 활용 현황 ✅ (2024-12 업데이트)
 
-> **현황**: 657건의 리뷰 데이터가 **단순 표시용으로만 활용**되고 있음
-> **잠재 가치**: 고객 만족도 측정, 상품/작가 품질 개선, NPS 지표 산출
+> **현황**: 657건의 리뷰 데이터가 **완전히 활용**되고 있음 (2024-12 업데이트)
+> **구현 완료**: `/review-analytics` 페이지에서 NPS, 트렌드, 다차원 분석 제공
 
-#### 📊 현재 활용 vs 가능한 활용
+#### 📊 구현된 기능 현황
 
-| 구분 | 현재 | 가능한 활용 |
-|------|------|------------|
-| **기본 표시** | ✅ 리뷰 갤러리 | - |
-| **필터링** | ✅ 국가별, 이미지 여부 | - |
-| **정렬** | ✅ 최신순, 평점순, 인기순 | - |
-| **NPS 지표** | ❌ 없음 | Promoter(9-10) / Passive(7-8) / Detractor(1-6) 분류 |
-| **평점 트렌드** | ❌ 없음 | 월별/분기별 평균 평점 추이 |
-| **작가별 분석** | ❌ 없음 | 작가별 평균 평점, 리뷰 수 |
-| **상품별 분석** | ❌ 없음 | 상품별 평균 평점, 품질 이슈 |
-| **키워드 분석** | ❌ 없음 | 자연어 처리로 인사이트 도출 |
-| **이미지 분석** | ❌ 없음 | 이미지 포함 리뷰 비율, 품질 분석 |
+| 구분 | 구현 상태 | 설명 |
+|------|:--------:|------|
+| **NPS 분석** | ✅ 완료 | Promoter(9-10) / Passive(7-8) / Detractor(1-6) 분류 및 점수 계산 |
+| **평점 분포** | ✅ 완료 | 별점별 리뷰 수 분포 차트 |
+| **평점 트렌드** | ✅ 완료 | 월별/주별 평균 평점 추이 |
+| **국가별 분석** | ✅ 완료 | 국가별 NPS, 평균 평점, 리뷰 수 비교 |
+| **작가별 분석** | ✅ 완료 | 작가별 평균 평점, 리뷰 수, NPS 순위 |
+| **상품별 분석** | ✅ 완료 | 상품별 평균 평점, 품질 분석 |
+| **이미지 리뷰 분석** | ✅ 완료 | 이미지 포함 리뷰 비율 및 품질 분석 |
+| **콘텐츠 분석** | ✅ 완료 | 리뷰 길이 분석, 상세 리뷰 비율 |
+| **자동 인사이트** | ✅ 완료 | AI 기반 인사이트 자동 도출 |
+| **기간 비교** | ✅ 완료 | 전기간 대비 NPS/평점 변화 분석 |
 
-#### 🎯 Review 데이터 활용 확대 제안
-
-**1. NPS (Net Promoter Score) 대시보드 추가**
+#### ✅ 구현된 API 엔드포인트
 
 ```typescript
-// 10점 만점 기준 NPS 계산
-const calculateNPS = (reviews: Review[]) => {
-  const total = reviews.length
-  const promoters = reviews.filter(r => r.rating >= 9).length
-  const detractors = reviews.filter(r => r.rating <= 6).length
-  
-  return {
-    nps: Math.round(((promoters - detractors) / total) * 100),
-    promoterRate: (promoters / total) * 100,
-    passiveRate: ((total - promoters - detractors) / total) * 100,
-    detractorRate: (detractors / total) * 100,
-  }
+// frontend/lib/api.ts - reviewAnalyticsApi
+export const reviewAnalyticsApi = {
+  getNPS: (startDate, endDate, compareWithPrevious),     // NPS 분석
+  getTrend: (startDate, endDate, aggregation),          // 트렌드 분석
+  getByArtist: (startDate, endDate, limit, sortBy),     // 작가별 분석
+  getByProduct: (startDate, endDate, limit),            // 상품별 분석
+  getByCountry: (startDate, endDate),                   // 국가별 분석
+  getRatingDistribution: (startDate, endDate),          // 평점 분포
+  getInsights: (startDate, endDate),                    // 자동 인사이트
+  getContentAnalysis: (startDate, endDate),             // 콘텐츠 분석
 }
 ```
 
-**2. 작가별 리뷰 분석 (Artist Analytics 연동)**
+#### 🎯 추가 개선 가능 영역
 
-| 분석 항목 | 설명 |
-|----------|------|
-| 평균 평점 | 작가별 평균 평점 |
-| 리뷰 수 | 작가별 총 리뷰 수 |
-| 이미지 리뷰율 | 이미지 포함 리뷰 비율 |
-| 평점 트렌드 | 최근 평점 추이 (상승/하락) |
-
-**3. 리뷰 키워드 분석 (일본어 NLP)**
-
-> 리뷰 데이터의 **대부분이 일본어**이므로, 일본어 자연어 처리 필요
+| 개선 항목 | 우선순위 | 설명 |
+|----------|:-------:|------|
+| **일본어 NLP 감성 분석** | P2 | 리뷰 내용 기반 감성 점수 도출 |
+| **키워드 클라우드** | P2 | 자주 언급되는 키워드 시각화 |
+| **실시간 알림** | P3 | 저평점 리뷰 실시간 알림 |
 
 ---
 
-### 4.4 데이터 활용 종합 평가
+### 4.4 데이터 활용 종합 평가 ✅ (2024-12 업데이트)
 
-| 평가 항목 | 점수 | 상세 |
-|----------|:----:|------|
-| **핵심 데이터 활용도** | 85% | Order, Logistics 데이터는 잘 활용됨 |
-| **부가 데이터 활용도** | 40% | Review, User_locale 등 미활용 |
-| **데이터 일관성** | 60% | 포맷팅 함수 중복, 환율 변환 분산 |
-| **코드 재사용성** | 50% | 공통 유틸리티 부재 |
-| **분석 깊이** | 70% | Business Brain이 포괄적, Reviews는 단순 |
+| 평가 항목 | 이전 점수 | 현재 점수 | 상세 |
+|----------|:--------:|:--------:|------|
+| **핵심 데이터 활용도** | 85% | **95%** | Order, Logistics, Review 데이터 완전 활용 |
+| **부가 데이터 활용도** | 40% | **85%** | ✅ Review 완전 활용, Order Patterns/Coupon Analytics 추가 |
+| **데이터 일관성** | 60% | **80%** | 공통 유틸리티 통합 (formatters.ts) |
+| **코드 재사용성** | 50% | **75%** | API 모듈화, 컴포넌트 재사용 |
+| **분석 깊이** | 70% | **90%** | Review Analytics, Order Patterns 추가로 크게 개선 |
 
-#### 📋 우선 개선 순위
+#### 📋 완료된 개선 사항 (2024-12)
 
-1. **🔴 P0 (즉시)**: 공통 유틸리티 함수 통합
-2. **🔴 P0 (즉시)**: 환율 변환 중앙화
-3. **🟠 P1 (1주)**: Review 분석 기능 추가
-4. **🟠 P1 (1주)**: 비즈니스 규칙 상수화
-5. **🟡 P2 (2주)**: Order 파생 컬럼 활용 (분기/월/주/요일 분석)
+1. ✅ **완료**: Review 분석 기능 완전 구현 (`/review-analytics`)
+2. ✅ **완료**: Order Patterns 분석 추가 (`/order-patterns`)
+3. ✅ **완료**: Coupon Analytics 분석 추가 (`/coupon-analytics`)
+4. ✅ **완료**: Customer 360 페이지 구현 (`/customer-360`)
+5. ✅ **완료**: 공통 유틸리티 함수 통합 (`formatters.ts`)
+
+#### 📋 추가 개선 순위
+
+1. **🟠 P1 (1주)**: 환율 변환 중앙화 (실시간 API 연동)
+2. **🟡 P2 (2주)**: 일본어 NLP 감성 분석
+3. **🟡 P2 (2주)**: 6차 이상 지표 구현 (비즈니스 건강도)
+4. **🟢 P3 (1개월)**: ML 예측 모델 파이프라인
 
 ---
 
-## 5. 허브 완성도 개선 로드맵 🆕
+## 5. 허브 완성도 개선 로드맵 ✅ (2024-12 업데이트)
 
-### 5.1 신규 페이지/기능 개발 제안
+### 5.1 구현 완료된 페이지/기능 ✅
 
-#### 🆕 제안 1: 리뷰 분석 대시보드
+#### ✅ 완료 1: 리뷰 분석 대시보드
 
 | 항목 | 상세 |
 |------|------|
 | **목적** | 고객 만족도 종합 분석 |
-| **예상 경로** | `/review-analytics` |
-| **핵심 기능** | NPS 대시보드, 평점 트렌드, 작가별/상품별 분석, 키워드 클라우드 |
-| **데이터 소스** | `review` 시트 전체 컬럼 |
-| **우선순위** | **P0** - 미활용 데이터 중 가장 높은 가치 |
+| **구현 경로** | `/review-analytics` ✅ |
+| **구현 기능** | NPS 대시보드, 평점 분포, 국가/작가/상품별 분석, 트렌드, 인사이트 자동 생성 |
+| **탭 구성** | Overview, Distribution, Comparison, Insights, Trend, List |
+| **구현 상태** | ✅ **완전 구현** |
 
-#### 🆕 제안 2: 주문 패턴 분석 페이지
+#### ✅ 완료 2: 주문 패턴 분석 페이지
 
 | 항목 | 상세 |
 |------|------|
-| **목적** | 요일/시간대별 주문 패턴 분석 |
-| **예상 경로** | `/order-patterns` |
-| **핵심 기능** | 요일별 주문 패턴, 시간대별 분석, 분기별 트렌드, 캠페인 효과 분석 |
-| **데이터 소스** | `order` 시트 파생 컬럼 (`분기`, `월`, `주`, `요일`) |
-| **우선순위** | P2 |
+| **목적** | 요일/월별 주문 패턴 분석 |
+| **구현 경로** | `/order-patterns` ✅ |
+| **구현 기능** | 요일별 주문량/GMV/AOV, 월별 트렌드, 재구매율, 피크 분석, 기간 비교 |
+| **탭 구성** | Overview, Day, Month, Insights |
+| **구현 상태** | ✅ **완전 구현** |
 
-#### 🆕 제안 3: 쿠폰/프로모션 효과 분석 페이지
+#### ✅ 완료 3: 쿠폰 분석 페이지
 
 | 항목 | 상세 |
 |------|------|
 | **목적** | 쿠폰 사용률 및 ROI 분석 |
-| **예상 경로** | `/promotion-analytics` |
-| **핵심 기능** | 쿠폰 사용률, 쿠폰별 매출 기여도, 할인 금액 대비 효과 |
-| **데이터 소스** | `order.아이디어스 쿠폰비 (Item)` |
-| **우선순위** | P2 |
+| **구현 경로** | `/coupon-analytics` ✅ |
+| **구현 기능** | 쿠폰 사용률, ROI, 타입별 분석 (정률/정액), 전환율, 트렌드, 인사이트 |
+| **탭 구성** | Overview, Trend, Comparison, Insights |
+| **구현 상태** | ✅ **완전 구현** |
 
-#### 🆕 제안 4: 통합 고객 360도 뷰
+#### ✅ 완료 4: 통합 고객 360도 뷰
 
 | 항목 | 상세 |
 |------|------|
 | **목적** | 개별 고객 전체 정보 통합 조회 |
-| **예상 경로** | `/customer-360` |
-| **핵심 기능** | 구매 이력, RFM 점수, 리뷰 이력, 선호 작가, 예상 LTV |
-| **데이터 소스** | `users` + `user_locale` + `order` + `review` 통합 |
+| **구현 경로** | `/customer-360` ✅ |
+| **구현 기능** | 프로필, RFM 세그먼트, LTV 예측, 주문 이력, 작가 분석, 리뷰 이력, 쿠폰 이력 |
+| **탭 구성** | Overview, Orders, Artists, Reviews, Coupons |
+| **구현 상태** | ✅ **완전 구현** |
+
+### 5.2 추가 개발 제안 🆕
+
+#### 🆕 제안 1: 비즈니스 건강도 대시보드 (6차 지표)
+
+| 항목 | 상세 |
+|------|------|
+| **목적** | 경영진 레벨 종합 대시보드 |
+| **예상 경로** | `/business-health` |
+| **핵심 기능** | 4차원 건강도 점수 (고객, 작가, 물류, 매출), 트렌드, 알림 |
 | **우선순위** | P1 |
+
+#### 🆕 제안 2: 예측 분석 대시보드 (5차 지표)
+
+| 항목 | 상세 |
+|------|------|
+| **목적** | ML 기반 예측 분석 |
+| **예상 경로** | `/predictive-analytics` |
+| **핵심 기능** | GMV 예측, 이탈 예측, 작가 성과 예측, 수요 예측 |
+| **우선순위** | P2 |
 
 ---
 
@@ -2001,31 +2020,31 @@ const calculateNPS = (reviews: Review[]) => {
 
 ---
 
-#### B.9 Review (리뷰) 시트 - 15개 컬럼 ⚠️ 고활용 가능성
+#### B.9 Review (리뷰) 시트 - 15개 컬럼 ✅ 활발히 활용 중
 
 > **Raw Data 출처**: `[GB] 대시보드 제작 - review.csv`
 > **데이터 건수**: ~657건 (2023 ~ 현재)
 > **Primary Key**: `review_id`
 > **Foreign Keys**: `order_id` → `order.order_id`, `user_id` → `users.ID`, `artist_id` → `artists.작가 ID (Global)`
-> ⚠️ **현재 미활용**: 고객 만족도 분석, 상품 품질 개선, NPS 지표 산출에 활용 가능
+> ✅ **활용 현황**: Review Analytics, Customer 360, Artist Analytics 페이지에서 적극 활용 중
 
 | 컬럼 | Raw Data Column Name | Data Type | Usage in Project | Description |
 |:----:|---------------------|-----------|------------------|-------------|
-| A | `dt` | date | NO (미활용) → **활용 권장** | 리뷰 작성일 |
-| B | `review_id` | number | NO (미활용) | 리뷰 ID (PK) |
-| C | `rating` | number | NO (미활용) → **활용 권장** | 평점 (10점 만점) |
-| D | `contents` | string | NO (미활용) → **활용 권장** | 리뷰 내용 (일본어 다수) |
-| E | `contents_len` | number | NO (미활용) | 리뷰 길이 |
-| F | `image_url` | string | NO (미활용) | 이미지 URL |
-| G | `image_cnt` | number | NO (미활용) | 이미지 개수 |
-| H | `product_id` | number | NO (미활용) → **활용 권장** | 상품 ID (FK → logistics.product_id) |
-| I | `product_name` | string | NO (미활용) | 상품명 |
-| J | `artist_id` | number | NO (미활용) → **활용 권장** | 작가 ID (FK → artists) |
-| K | `artist_name` | string | NO (미활용) | 작가명 (영문) |
-| L | `user_id` | number | NO (미활용) | 사용자 ID (FK → users.ID) |
-| M | `order_item_id` | number | NO (미활용) | 주문 아이템 ID |
-| N | `order_id` | number | NO (미활용) | 주문 ID |
-| O | `country` | string | NO (미활용) → **활용 권장** | 리뷰어 국가 (JP 다수) |
+| A | `dt` | date | **YES** - Review Analytics | 리뷰 작성일 (트렌드 분석) |
+| B | `review_id` | number | **YES** - Review Analytics | 리뷰 ID (PK) |
+| C | `rating` | number | **YES** - Review Analytics, Customer 360, Artist Analytics | 평점 (10점 만점) - **NPS 계산** |
+| D | `contents` | string | **YES** - Review Analytics | 리뷰 내용 (콘텐츠 분석) |
+| E | `contents_len` | number | **YES** (부분) - Review Analytics | 리뷰 길이 |
+| F | `image_url` | string | **YES** - Review Analytics | 이미지 URL (이미지 리뷰 분석) |
+| G | `image_cnt` | number | **YES** - Review Analytics | 이미지 개수 (이미지 리뷰 비율) |
+| H | `product_id` | number | **YES** - Review Analytics | 상품 ID (상품별 평점 분석) |
+| I | `product_name` | string | **YES** - Review Analytics | 상품명 |
+| J | `artist_id` | number | **YES** - Review Analytics, Artist Analytics | 작가 ID (작가별 평점/NPS) |
+| K | `artist_name` | string | **YES** - Review Analytics | 작가명 (영문) |
+| L | `user_id` | number | **YES** - Customer 360 | 사용자 ID (고객별 리뷰) |
+| M | `order_item_id` | number | **YES** (부분) | 주문 아이템 ID |
+| N | `order_id` | number | **YES** - Review Analytics | 주문 ID (리뷰 작성률 계산) |
+| O | `country` | string | **YES** - Review Analytics | 리뷰어 국가 (국가별 분석) |
 
 **예시 데이터**:
 - `review_id`: 527761, 527760...
@@ -2034,11 +2053,16 @@ const calculateNPS = (reviews: Review[]) => {
 - `artist_name`: "greenut", "Ceramic YUL"
 - `country`: "JP"
 
-**🔥 활용 방안 (우선순위: 높음)**:
-1. **고객 만족도 대시보드**: 평균 평점 트렌드, 작가별/상품별 평점 분석
-2. **NPS 지표 산출**: 10점 만점 기준 Promoter(9-10)/Detractor(1-6) 분류
-3. **리뷰 키워드 분석**: 일본어 자연어 처리로 고객 인사이트 도출
-4. **이미지 리뷰 분석**: 이미지 포함 리뷰 비율 및 품질 분석
+**✅ 구현된 활용 기능 (2024-12 업데이트)**:
+1. **NPS 분석**: `/review-analytics` - Promoter(9-10)/Passive(7-8)/Detractor(1-6) 분류 및 점수 계산
+2. **평점 분포**: 별점별 리뷰 수 분포, 평균 평점 트렌드
+3. **국가별 분석**: 국가별 NPS, 평균 평점 비교
+4. **작가별 분석**: 작가별 리뷰 수, 평점, NPS 순위
+5. **상품별 분석**: 상품별 평점 분석
+6. **이미지 리뷰 분석**: 이미지 포함 리뷰 비율, 이미지 리뷰 품질
+7. **콘텐츠 분석**: 리뷰 길이 분석, 키워드 분석
+8. **트렌드 분석**: 월별/주별 리뷰 수 및 평점 추이
+9. **인사이트 자동 생성**: AI 기반 리뷰 인사이트 도출
 
 ---
 

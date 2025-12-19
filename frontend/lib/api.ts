@@ -110,6 +110,159 @@ export const dashboardApi = {
     const response = await api.get('/api/dashboard/tasks')
     return response.data
   },
+  
+  // === Phase 3: 대시보드 지표 확장 API ===
+  
+  /**
+   * 이상 탐지 알림 조회
+   * 전일 기준 GMV/주문 등 핵심 지표의 이상 감지 결과
+   */
+  getAnomalies: async (date?: string) => {
+    const refDate = date || new Date(Date.now() - 86400000).toISOString().split('T')[0]
+    
+    // Mock data - 실제 API 연동 시 교체
+    // 실제 환경에서는 서버에서 이상 탐지 결과를 반환
+    return {
+      referenceDate: refDate,
+      alerts: [
+        // 예시: 배송 완료율 하락 알림 (실제로는 동적 생성)
+        // {
+        //   type: 'warning',
+        //   metric: '배송 완료율',
+        //   actualValue: 78.3,
+        //   expectedValue: 85.0,
+        //   deviation: -7.9,
+        //   sigma: 2.1,
+        //   possibleCauses: ['물류 센터 처리 지연', '해외 배송 지연'],
+        //   analysisLink: '/analytics?tab=delivery',
+        // },
+      ],
+    }
+  },
+  
+  /**
+   * 어제 주요 변화 사항 조회
+   */
+  getDailyChanges: async (date?: string) => {
+    const params = new URLSearchParams()
+    if (date) params.append('date', date)
+    
+    // Mock data - 실제 API 연동 시 교체
+    return {
+      referenceDate: date || new Date(Date.now() - 86400000).toISOString().split('T')[0],
+      changes: [],
+    }
+  },
+  
+  /**
+   * 국가별 GMV 기여도 조회
+   */
+  getCountryContribution: async (date?: string) => {
+    const refDate = date || new Date(Date.now() - 86400000).toISOString().split('T')[0]
+    
+    // Mock data - 실제 API 연동 시 교체
+    return {
+      referenceDate: refDate,
+      data: [
+        { countryCode: 'JP', country: '일본', gmv: 6850000000, share: 68.5, growthDoD: 12.3, contribution: 8.4 },
+        { countryCode: 'US', country: '미국', gmv: 2210000000, share: 22.1, growthDoD: 8.7, contribution: 1.9 },
+        { countryCode: 'TW', country: '대만', gmv: 520000000, share: 5.2, growthDoD: -3.2, contribution: -0.2 },
+        { countryCode: 'OTHER', country: '기타', gmv: 420000000, share: 4.2, growthDoD: 5.1, contribution: 0.2 },
+      ],
+      topContributors: [
+        { country: '일본', flag: '🇯🇵', contributionChange: 8.4, reason: '비중 증가 + 높은 성장률' },
+        { country: '미국', flag: '🇺🇸', contributionChange: 1.9, reason: '안정적 성장 유지' },
+        { country: '기타', flag: '🌏', contributionChange: 0.2, reason: '신규 시장 확대' },
+      ],
+    }
+  },
+  
+  /**
+   * 주간 트렌드 요약 조회
+   */
+  getWeeklyTrend: async (date?: string) => {
+    const refDate = date || new Date(Date.now() - 86400000).toISOString().split('T')[0]
+    const endDate = new Date(refDate)
+    const startDate = new Date(endDate)
+    startDate.setDate(startDate.getDate() - 6)
+    
+    // Mock data - 실제 API 연동 시 교체
+    return {
+      referenceDate: refDate,
+      weekRange: { 
+        start: `${startDate.getMonth() + 1}/${startDate.getDate()}`, 
+        end: `${endDate.getMonth() + 1}/${endDate.getDate()}` 
+      },
+      metrics: [
+        { name: 'GMV', values: [100, 105, 110, 108, 115, 120, 125], trend: 'up' as const, changePercent: 8.3 },
+        { name: '주문', values: [50, 52, 48, 55, 53, 58, 60], trend: 'up' as const, changePercent: 5.2 },
+        { name: 'AOV', values: [45, 46, 44, 47, 48, 46, 49], trend: 'up' as const, changePercent: 2.1 },
+        { name: '신규고객', values: [120, 115, 130, 125, 140, 135, 145], trend: 'up' as const, changePercent: 12.5 },
+      ],
+      highlights: [
+        'GMV 7일 연속 상승세 유지',
+        '신규 고객 유입 급증 (+12.5%)',
+        '일본 시장 성장 기여도 최고',
+      ],
+    }
+  },
+  
+  /**
+   * 월간 GMV 예측 조회
+   */
+  getMonthlyForecast: async (date?: string) => {
+    const refDate = date || new Date(Date.now() - 86400000).toISOString().split('T')[0]
+    const currentDate = new Date(refDate)
+    const currentMonth = `${currentDate.getFullYear()}-${String(currentDate.getMonth() + 1).padStart(2, '0')}`
+    const daysElapsed = currentDate.getDate()
+    const totalDays = new Date(currentDate.getFullYear(), currentDate.getMonth() + 1, 0).getDate()
+    
+    // Mock data - 실제 API 연동 시 교체
+    const avgDailyGMV = 890000000
+    const actualToDate = avgDailyGMV * daysElapsed
+    const predicted = avgDailyGMV * totalDays * 1.05 // 5% 시즌 가중치
+    const target = 25000000000
+    
+    return {
+      referenceDate: refDate,
+      currentMonth,
+      actualToDate,
+      daysElapsed,
+      totalDays,
+      forecast: { 
+        predicted, 
+        lowerBound: predicted * 0.9, 
+        upperBound: predicted * 1.1, 
+        confidence: 85 
+      },
+      target,
+      achievementRate: (predicted / target) * 100,
+      factors: { 
+        avgDailyGMV, 
+        seasonWeight: 5, 
+        yoyGrowth: 18.2 
+      },
+      recommendation: (predicted / target) >= 1 
+        ? '목표 달성 예상 - 재고 확보 점검 권장' 
+        : '목표 미달 예상 - 프로모션 검토 권장',
+    }
+  },
+  
+  /**
+   * 확장 성장률 지표 조회 (전일비/전주비/전월비/전년비)
+   */
+  getGrowthMetrics: async (date?: string) => {
+    const refDate = date || new Date(Date.now() - 86400000).toISOString().split('T')[0]
+    
+    // Mock data - 실제 API 연동 시 교체
+    // 실제 환경에서는 서버에서 각 기간별 비교 데이터 계산
+    return {
+      referenceDate: refDate,
+      gmv: { dod: 8.3, wow: 5.2, mom: 12.1, yoy: 23.5 },
+      orders: { dod: 6.1, wow: 4.8, mom: 9.3, yoy: 18.7 },
+      aov: { dod: 2.1, wow: 0.4, mom: 2.5, yoy: 4.1 },
+    }
+  },
 }
 
 // 미입고 관리 API

@@ -1,6 +1,6 @@
 'use client'
 
-import React, { useMemo } from 'react'
+import React, { useMemo, useState } from 'react'
 import {
   ComposedChart,
   Bar,
@@ -11,10 +11,13 @@ import {
   Tooltip,
   ResponsiveContainer,
   Legend,
+  ReferenceArea,
+  ReferenceLine,
 } from 'recharts'
 import { format } from 'date-fns'
 import { chartTheme } from '@/lib/chart-theme'
 import { CustomTooltip } from './ChartTooltip'
+import { cn } from '@/lib/utils'
 
 export interface GMVTrendData {
   date: string
@@ -22,6 +25,26 @@ export interface GMVTrendData {
   orders: number
   gmvMA7?: number
   ordersMA7?: number
+  /** 전년 동기 GMV (선택적) */
+  gmvLastYear?: number
+}
+
+/**
+ * 시즌 패턴 인터페이스
+ */
+export interface SeasonPattern {
+  /** 패턴 유형 */
+  type: 'peak' | 'trough' | 'event'
+  /** 라벨 */
+  label: string
+  /** 이모지 아이콘 */
+  emoji?: string
+  /** 시작일 (YYYY-MM-DD) */
+  startDate: string
+  /** 종료일 (YYYY-MM-DD) */
+  endDate: string
+  /** 전년 동기 대비 (%) */
+  yoyComparison?: number
 }
 
 export interface GMVTrendChartProps {
@@ -29,6 +52,14 @@ export interface GMVTrendChartProps {
   height?: number
   className?: string
   showMovingAverage?: boolean
+  /** 시즌 패턴 데이터 */
+  seasonPatterns?: SeasonPattern[]
+  /** 시즌 패턴 표시 여부 */
+  showSeasonPatterns?: boolean
+  /** 전년 동기 데이터 */
+  lastYearData?: { date: string; value: number }[]
+  /** 전년 동기 라인 표시 여부 */
+  showYoYComparison?: boolean
 }
 
 const formatCurrency = (value: number): string => {
@@ -50,23 +81,79 @@ const formatDate = (dateStr: string): string => {
   }
 }
 
+/**
+ * 시즌 패턴 유형별 색상 설정
+ */
+const seasonPatternColors = {
+  peak: {
+    fill: 'rgba(16, 185, 129, 0.1)',    // emerald-500/10
+    stroke: 'rgba(16, 185, 129, 0.3)',
+    label: '#10b981',
+  },
+  trough: {
+    fill: 'rgba(245, 158, 11, 0.1)',    // amber-500/10
+    stroke: 'rgba(245, 158, 11, 0.3)',
+    label: '#f59e0b',
+  },
+  event: {
+    fill: 'rgba(59, 130, 246, 0.1)',    // blue-500/10
+    stroke: 'rgba(59, 130, 246, 0.3)',
+    label: '#3b82f6',
+  },
+}
+
 export function GMVTrendChart({
   data,
   height = 400,
   className,
   showMovingAverage = true,
+  seasonPatterns = [],
+  showSeasonPatterns = false,
+  lastYearData = [],
+  showYoYComparison = false,
 }: GMVTrendChartProps) {
+  const [hoveredPattern, setHoveredPattern] = useState<string | null>(null)
+
+  // 전년 동기 데이터를 현재 데이터에 병합
   const chartData = useMemo(() => {
-    return data.map((item) => ({
-      ...item,
-      dateFormatted: formatDate(item.date),
-    }))
-  }, [data])
+    const lastYearMap = new Map(
+      lastYearData.map(item => [item.date, item.value])
+    )
+    
+    return data.map((item) => {
+      // 전년 동기 날짜 계산 (1년 전)
+      const currentDate = new Date(item.date)
+      const lastYearDate = new Date(currentDate)
+      lastYearDate.setFullYear(lastYearDate.getFullYear() - 1)
+      const lastYearDateStr = lastYearDate.toISOString().split('T')[0]
+      
+      return {
+        ...item,
+        dateFormatted: formatDate(item.date),
+        gmvLastYear: item.gmvLastYear || lastYearMap.get(lastYearDateStr) || null,
+      }
+    })
+  }, [data, lastYearData])
 
   // 범례 클릭 핸들러 (나중에 구현)
   const handleLegendClick = (e: any) => {
     // Phase 2에서 구현
   }
+
+  // 시즌 패턴 필터링 (현재 데이터 범위 내)
+  const visiblePatterns = useMemo(() => {
+    if (!showSeasonPatterns || seasonPatterns.length === 0) return []
+    
+    const dataStartDate = data[0]?.date
+    const dataEndDate = data[data.length - 1]?.date
+    
+    if (!dataStartDate || !dataEndDate) return []
+    
+    return seasonPatterns.filter(pattern => {
+      // 패턴이 데이터 범위와 겹치는지 확인
+      return pattern.startDate <= dataEndDate && pattern.endDate >= dataStartDate
+    })
+  }, [seasonPatterns, showSeasonPatterns, data])
 
   return (
     <div className={className} style={{ width: '100%', height }}>
@@ -170,6 +257,49 @@ export function GMVTrendChart({
               strokeDasharray="0"
             />
           )}
+
+          {/* 전년 동기 GMV 비교 라인 */}
+          {showYoYComparison && (
+            <Line
+              yAxisId="left"
+              type="monotone"
+              dataKey="gmvLastYear"
+              name="전년 동기 GMV"
+              stroke="#94a3b8"
+              strokeWidth={1.5}
+              strokeDasharray="5 5"
+              dot={false}
+              activeDot={{ r: 3, fill: '#94a3b8' }}
+              connectNulls
+            />
+          )}
+
+          {/* 시즌 패턴 오버레이 */}
+          {showSeasonPatterns && visiblePatterns.map((pattern, index) => {
+            const colors = seasonPatternColors[pattern.type]
+            
+            return (
+              <ReferenceArea
+                key={`season-${index}`}
+                x1={pattern.startDate}
+                x2={pattern.endDate}
+                yAxisId="left"
+                fill={colors.fill}
+                stroke={colors.stroke}
+                strokeOpacity={0.5}
+                fillOpacity={hoveredPattern === pattern.label ? 0.3 : 0.15}
+                onMouseEnter={() => setHoveredPattern(pattern.label)}
+                onMouseLeave={() => setHoveredPattern(null)}
+                label={{
+                  value: `${pattern.emoji || ''} ${pattern.label}`,
+                  position: 'top',
+                  fill: colors.label,
+                  fontSize: 11,
+                  fontWeight: 500,
+                }}
+              />
+            )
+          })}
           
           <Legend
             wrapperStyle={{ paddingTop: '20px' }}
