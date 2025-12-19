@@ -847,17 +847,9 @@ export function UnifiedActionTab({
   const filteredActions = useMemo(() => {
     let filtered = actions
 
-    // 상태 필터
-    switch (activeSubTab) {
-      case 'recommended':
-        filtered = filtered.filter(a => a.status === 'pending')
-        break
-      case 'in-progress':
-        filtered = filtered.filter(a => a.status === 'in-progress')
-        break
-      case 'completed':
-        filtered = filtered.filter(a => a.status === 'completed')
-        break
+    // 상태 필터 - 권장 액션만 표시 (진행 중/완료 탭 제거됨)
+    if (activeSubTab === 'recommended') {
+      filtered = filtered.filter(a => a.status === 'pending')
     }
 
     // 카테고리 필터
@@ -874,9 +866,7 @@ export function UnifiedActionTab({
 
   // 카운트
   const counts = useMemo(() => ({
-    recommended: actions.filter(a => a.status === 'pending').length,
-    inProgress: actions.filter(a => a.status === 'in-progress').length,
-    completed: actions.filter(a => a.status === 'completed').length
+    recommended: actions.filter(a => a.status === 'pending').length
   }), [actions])
 
   if (isLoading) {
