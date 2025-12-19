@@ -41,7 +41,11 @@ export const showToast = {
 
   promise: <T>(
     promise: Promise<T>,
-    messages: { loading: string; success: string; error: string }
+    messages: { 
+      loading: string; 
+      success: string | ((data: T) => string); 
+      error: string | ((error: any) => string) 
+    }
   ) => {
     return toast.promise(promise, messages)
   },
