@@ -381,8 +381,8 @@ export default function BusinessBrainPage() {
   const router = useRouter()
   const tabFromUrl = searchParams.get('tab')
   
-  // v6.1: 기본 탭을 'command'로 변경 (커맨드 센터)
-  const [activeTab, setActiveTab] = useState(tabFromUrl || 'command')
+  // v6.2: 기본 탭을 'home'으로 변경 (커맨드 센터 비노출)
+  const [activeTab, setActiveTab] = useState(tabFromUrl || 'home')
   const [selectedPeriod, setSelectedPeriod] = useState<PeriodPreset>('30d')
   const [countryFilter, setCountryFilter] = useState<string>('all')
   
@@ -409,9 +409,10 @@ export default function BusinessBrainPage() {
       // 입력 필드에서는 비활성화
       if ((e.target as HTMLElement).tagName === 'INPUT' || (e.target as HTMLElement).tagName === 'TEXTAREA') return
       
+      // v6.2: 커맨드 센터 제거 - 단축키 재배치
       const tabMap: Record<string, string> = {
-        '1': 'command', '2': 'home', '3': 'customer', '4': 'artist', '5': 'revenue',
-        '6': 'insight', '7': 'action', '8': 'explorer', '9': 'report'
+        '1': 'home', '2': 'customer', '3': 'artist', '4': 'revenue',
+        '5': 'insight', '6': 'action', '7': 'explorer', '8': 'report'
       }
       
       if (tabMap[e.key]) {
@@ -619,13 +620,20 @@ export default function BusinessBrainPage() {
 
   const isLoading = briefingLoading || healthLoading
 
-  // v6.1: 커맨드 센터 중심 탭 구조 (고도화)
+  // v6.2: 탭 구조 (커맨드 센터 비노출 - 추후 재활성화 가능)
+  // NOTE: 커맨드 센터 탭은 아래 주석 처리됨. 필요 시 주석 해제하여 복원 가능
+  // {
+  //   name: '커맨드 센터',
+  //   description: '비즈니스 인텔리전스 통합 관제',
+  //   tabs: [
+  //     { id: 'command', label: '커맨드 센터', icon: Brain, description: 'IQ 스코어 + 일일 브리핑 + 알림 + AI 질의' },
+  //   ]
+  // },
   const tabGroups = useMemo(() => [
     {
-      name: '커맨드 센터',
-      description: '비즈니스 인텔리전스 통합 관제',
+      name: '홈',
+      description: 'AI 브리핑 및 KPI 요약',
       tabs: [
-        { id: 'command', label: '커맨드 센터', icon: Brain, description: 'IQ 스코어 + 일일 브리핑 + 알림 + AI 질의' },
         { id: 'home', label: '홈', icon: BarChart3, description: 'AI 브리핑 + KPI 요약 + 핵심 인사이트' },
       ]
     },
@@ -666,8 +674,8 @@ export default function BusinessBrainPage() {
     [tabGroups]
   )
 
-  // v6.1: 커맨드 센터 포함 탭 목록
-  const periodEnabledTabs = ['command', 'home', 'customer', 'artist', 'revenue', 'insight', 'action', 'explorer', 'report']
+  // v6.2: 커맨드 센터 제외 탭 목록
+  const periodEnabledTabs = ['home', 'customer', 'artist', 'revenue', 'insight', 'action', 'explorer', 'report']
 
   return (
     <div className="p-6 space-y-6 min-h-screen">
@@ -817,13 +825,14 @@ export default function BusinessBrainPage() {
         </FadeIn>
       ) : (
         <>
-          {/* v6.1: 커맨드 센터 탭 */}
+          {/* v6.2: 커맨드 센터 탭 (비노출 - 추후 재활성화 가능)
           {activeTab === 'command' && (
             <UnifiedCommandCenter
               period={selectedPeriod}
               onPeriodChange={setSelectedPeriod}
             />
           )}
+          */}
 
           {/* v6.0: 통합 홈 탭 */}
           {activeTab === 'home' && (

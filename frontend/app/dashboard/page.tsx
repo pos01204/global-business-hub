@@ -736,9 +736,9 @@ export default function DashboardPage() {
           </div>
 
           <div className="grid md:grid-cols-3 gap-4">
-            {/* 성과 변화 → 인사이트 연결 */}
+            {/* 성과 변화 → 인사이트 연결 (v6.2 업데이트) */}
             <Link
-              href="/business-brain?tab=insights"
+              href="/business-brain?tab=insight"
               className="bg-white dark:bg-slate-800 rounded-lg p-4 border border-slate-200 dark:border-slate-700 hover:border-blue-300 dark:hover:border-blue-700 hover:shadow-md transition-all"
             >
               <div className="flex items-center gap-2 mb-2">
@@ -750,9 +750,9 @@ export default function DashboardPage() {
               </p>
             </Link>
 
-            {/* 인사이트 → 액션 연결 */}
+            {/* 인사이트 → 액션 연결 (v6.2 업데이트) */}
             <Link
-              href="/business-brain?tab=action-proposals"
+              href="/business-brain?tab=action"
               className="bg-white dark:bg-slate-800 rounded-lg p-4 border border-slate-200 dark:border-slate-700 hover:border-purple-300 dark:hover:border-purple-700 hover:shadow-md transition-all"
             >
               <div className="flex items-center gap-2 mb-2">
@@ -764,9 +764,9 @@ export default function DashboardPage() {
               </p>
             </Link>
 
-            {/* 액션 → 성과 추적 연결 */}
+            {/* 액션 → 성과 추적 연결 (v6.2 업데이트) */}
             <Link
-              href="/analytics?tab=daily"
+              href="/analytics"
               className="bg-white dark:bg-slate-800 rounded-lg p-4 border border-slate-200 dark:border-slate-700 hover:border-emerald-300 dark:hover:border-emerald-700 hover:shadow-md transition-all"
             >
               <div className="flex items-center gap-2 mb-2">
@@ -774,7 +774,7 @@ export default function DashboardPage() {
                 <span className="text-sm font-medium text-slate-700 dark:text-slate-300">액션 추적</span>
               </div>
               <p className="text-xs text-slate-500 dark:text-slate-400">
-                실행한 액션의 성과를 일일 운영 대시보드에서 추적
+                실행한 액션의 성과를 성과 분석 허브에서 추적
               </p>
             </Link>
           </div>
