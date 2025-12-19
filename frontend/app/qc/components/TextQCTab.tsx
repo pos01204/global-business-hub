@@ -45,57 +45,55 @@ export default function TextQCTab() {
     },
   })
 
-  // 에러 메시지 추출 헬퍼
-  const getErrorMessage = (error: any, defaultMsg: string): string => {
-    if (error?.response?.data?.message) return error.response.data.message
-    if (error?.response?.data?.error) return error.response.data.error
-    if (error?.message) return error.message
-    return defaultMsg
-  }
-
-  const handleApprove = useCallback((id: string) => {
-    showToast.promise(
-      updateStatusMutation.mutateAsync({
+  const handleApprove = useCallback(async (id: string) => {
+    const toastId = showToast.loading('승인 처리 중...')
+    try {
+      await updateStatusMutation.mutateAsync({
         id,
         status: 'approved',
         needsRevision: false,
-      }),
-      {
-        loading: '승인 처리 중...',
-        success: '항목이 승인되었습니다',
-        error: (err: any) => getErrorMessage(err, '승인 처리 중 오류가 발생했습니다'),
-      }
-    )
+      })
+      showToast.dismiss(toastId)
+      showToast.success('항목이 승인되었습니다')
+    } catch (error: any) {
+      showToast.dismiss(toastId)
+      const msg = error?.response?.data?.message || error?.response?.data?.error || error?.message || '승인 처리 중 오류가 발생했습니다'
+      showToast.error(msg)
+    }
   }, [updateStatusMutation])
 
-  const handleNeedsRevision = useCallback((id: string) => {
-    showToast.promise(
-      updateStatusMutation.mutateAsync({
+  const handleNeedsRevision = useCallback(async (id: string) => {
+    const toastId = showToast.loading('수정 필요 표시 중...')
+    try {
+      await updateStatusMutation.mutateAsync({
         id,
         status: 'needs_revision',
         needsRevision: true,
-      }),
-      {
-        loading: '수정 필요 표시 중...',
-        success: '수정 필요로 표시되었습니다',
-        error: (err: any) => getErrorMessage(err, '처리 중 오류가 발생했습니다'),
-      }
-    )
+      })
+      showToast.dismiss(toastId)
+      showToast.success('수정 필요로 표시되었습니다')
+    } catch (error: any) {
+      showToast.dismiss(toastId)
+      const msg = error?.response?.data?.message || error?.response?.data?.error || error?.message || '처리 중 오류가 발생했습니다'
+      showToast.error(msg)
+    }
   }, [updateStatusMutation])
 
-  const handleExclude = useCallback((id: string) => {
-    showToast.promise(
-      updateStatusMutation.mutateAsync({
+  const handleExclude = useCallback(async (id: string) => {
+    const toastId = showToast.loading('QC 비대상 표시 중...')
+    try {
+      await updateStatusMutation.mutateAsync({
         id,
         status: 'excluded',
         needsRevision: false,
-      }),
-      {
-        loading: 'QC 비대상 표시 중...',
-        success: 'QC 비대상으로 표시되었습니다',
-        error: (err: any) => getErrorMessage(err, '처리 중 오류가 발생했습니다'),
-      }
-    )
+      })
+      showToast.dismiss(toastId)
+      showToast.success('QC 비대상으로 표시되었습니다')
+    } catch (error: any) {
+      showToast.dismiss(toastId)
+      const msg = error?.response?.data?.message || error?.response?.data?.error || error?.message || '처리 중 오류가 발생했습니다'
+      showToast.error(msg)
+    }
   }, [updateStatusMutation])
 
   // 일괄 처리 함수들

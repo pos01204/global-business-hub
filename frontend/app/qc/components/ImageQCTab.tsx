@@ -197,75 +197,75 @@ export default function ImageQCTab() {
     },
   })
 
-  // 에러 메시지 추출 헬퍼
-  const getErrorMessage = (error: any, defaultMsg: string): string => {
-    if (error?.response?.data?.message) return error.response.data.message
-    if (error?.response?.data?.error) return error.response.data.error
-    if (error?.message) return error.message
-    return defaultMsg
-  }
-
-  const handleExclude = useCallback((id: string) => {
-    showToast.promise(
-      updateStatusMutation.mutateAsync({
+  const handleExclude = useCallback(async (id: string) => {
+    const toastId = showToast.loading('QC 비대상 처리 중...')
+    try {
+      await updateStatusMutation.mutateAsync({
         id,
         status: 'excluded',
         needsRevision: false,
-      }),
-      {
-        loading: 'QC 비대상 처리 중...',
-        success: 'QC 비대상으로 표시되었습니다',
-        error: (err: any) => getErrorMessage(err, '처리 중 오류가 발생했습니다'),
-      }
-    )
+      })
+      showToast.dismiss(toastId)
+      showToast.success('QC 비대상으로 표시되었습니다')
+    } catch (error: any) {
+      showToast.dismiss(toastId)
+      const msg = error?.response?.data?.message || error?.response?.data?.error || error?.message || '처리 중 오류가 발생했습니다'
+      showToast.error(msg)
+    }
   }, [updateStatusMutation])
 
-  const handleApproveFromThumbnail = useCallback((id: string, e: React.MouseEvent) => {
+  const handleApproveFromThumbnail = useCallback(async (id: string, e: React.MouseEvent) => {
     e.stopPropagation() // 이미지 클릭 이벤트 방지
-    showToast.promise(
-      updateStatusMutation.mutateAsync({
+    const toastId = showToast.loading('승인 처리 중...')
+    try {
+      await updateStatusMutation.mutateAsync({
         id,
         status: 'approved',
         needsRevision: false,
-      }),
-      {
-        loading: '승인 처리 중...',
-        success: '이미지가 승인되었습니다',
-        error: (err: any) => getErrorMessage(err, '승인 처리 중 오류가 발생했습니다'),
-      }
-    )
+      })
+      showToast.dismiss(toastId)
+      showToast.success('이미지가 승인되었습니다')
+    } catch (error: any) {
+      showToast.dismiss(toastId)
+      const msg = error?.response?.data?.message || error?.response?.data?.error || error?.message || '승인 처리 중 오류가 발생했습니다'
+      showToast.error(msg)
+    }
   }, [updateStatusMutation])
 
-  const handleNeedsRevisionFromThumbnail = useCallback((id: string, e: React.MouseEvent) => {
+  const handleNeedsRevisionFromThumbnail = useCallback(async (id: string, e: React.MouseEvent) => {
     e.stopPropagation() // 이미지 클릭 이벤트 방지
-    showToast.promise(
-      updateStatusMutation.mutateAsync({
+    const toastId = showToast.loading('수정 필요 표시 중...')
+    try {
+      await updateStatusMutation.mutateAsync({
         id,
         status: 'needs_revision',
         needsRevision: true,
-      }),
-      {
-        loading: '수정 필요 표시 중...',
-        success: '수정 필요로 표시되었습니다',
-        error: (err: any) => getErrorMessage(err, '처리 중 오류가 발생했습니다'),
-      }
-    )
+      })
+      showToast.dismiss(toastId)
+      showToast.success('수정 필요로 표시되었습니다')
+    } catch (error: any) {
+      showToast.dismiss(toastId)
+      const msg = error?.response?.data?.message || error?.response?.data?.error || error?.message || '처리 중 오류가 발생했습니다'
+      showToast.error(msg)
+    }
   }, [updateStatusMutation])
 
-  const handleExcludeFromThumbnail = useCallback((id: string, e: React.MouseEvent) => {
+  const handleExcludeFromThumbnail = useCallback(async (id: string, e: React.MouseEvent) => {
     e.stopPropagation() // 이미지 클릭 이벤트 방지
-    showToast.promise(
-      updateStatusMutation.mutateAsync({
+    const toastId = showToast.loading('QC 비대상 처리 중...')
+    try {
+      await updateStatusMutation.mutateAsync({
         id,
         status: 'excluded',
         needsRevision: false,
-      }),
-      {
-        loading: 'QC 비대상 처리 중...',
-        success: 'QC 비대상으로 표시되었습니다',
-        error: (err: any) => getErrorMessage(err, '처리 중 오류가 발생했습니다'),
-      }
-    )
+      })
+      showToast.dismiss(toastId)
+      showToast.success('QC 비대상으로 표시되었습니다')
+    } catch (error: any) {
+      showToast.dismiss(toastId)
+      const msg = error?.response?.data?.message || error?.response?.data?.error || error?.message || '처리 중 오류가 발생했습니다'
+      showToast.error(msg)
+    }
   }, [updateStatusMutation])
 
   const handleImageClick = (item: any, index: number) => {
