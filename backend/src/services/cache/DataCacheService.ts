@@ -25,18 +25,37 @@ export class DataCacheService {
     misses: 0,
   }
 
-  // 기본 TTL: 5분 (시트 데이터는 자주 변경되지 않음)
-  private defaultTTL = 5 * 60 * 1000
+  // 기본 TTL: 10분 (Google Sheets API 할당량 초과 방지)
+  // Google Sheets API: 분당 60회 요청 제한
+  private defaultTTL = 10 * 60 * 1000
 
-  // 시트별 TTL 설정
+  // 시트별 TTL 설정 (API 할당량 초과 방지를 위해 증가)
   private sheetTTL: Record<string, number> = {
-    order: 3 * 60 * 1000,      // 주문: 3분 (자주 변경)
-    logistics: 3 * 60 * 1000,  // 물류: 3분
-    users: 10 * 60 * 1000,     // 사용자: 10분 (덜 변경)
-    artists: 10 * 60 * 1000,   // 작가: 10분
-    review: 5 * 60 * 1000,     // 리뷰: 5분
-    settlement_records: 30 * 60 * 1000, // 정산: 30분 (거의 안 변함)
-    rate_lotte: 60 * 60 * 1000,  // 요금표: 1시간
+    // 대시보드 관련 - 10분 캐시 (가장 자주 호출됨)
+    dashboard: 10 * 60 * 1000,
+    dashboard_main: 10 * 60 * 1000,
+    dashboard_tasks: 10 * 60 * 1000,
+    
+    // 주문/물류 - 5분 캐시 (변경 빈도 높음)
+    order: 5 * 60 * 1000,
+    logistics: 5 * 60 * 1000,
+    control_tower: 5 * 60 * 1000,
+    
+    // 분석 데이터 - 10분 캐시
+    analytics: 10 * 60 * 1000,
+    artist_analytics: 10 * 60 * 1000,
+    business_brain: 10 * 60 * 1000,
+    
+    // 사용자/작가 - 15분 캐시 (덜 변경)
+    users: 15 * 60 * 1000,
+    artists: 15 * 60 * 1000,
+    
+    // 리뷰 - 10분 캐시
+    review: 10 * 60 * 1000,
+    
+    // 정산/요금표 - 30분~1시간 캐시 (거의 안 변함)
+    settlement_records: 30 * 60 * 1000,
+    rate_lotte: 60 * 60 * 1000,
     rate_ems: 60 * 60 * 1000,
     rate_kpacket: 60 * 60 * 1000,
   }

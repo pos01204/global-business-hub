@@ -2,9 +2,15 @@ import { Router } from 'express';
 import GoogleSheetsService from '../services/googleSheets';
 import { sheetsConfig, SHEET_NAMES } from '../config/sheets';
 import { CURRENCY } from '../config/constants';
+import { dataCacheService } from '../services/cache/DataCacheService';
 
 const router = Router();
 const sheetsService = new GoogleSheetsService(sheetsConfig);
+
+// 캐시 키 생성 헬퍼
+const getCacheKey = (endpoint: string, params?: any) => {
+  return params ? `${endpoint}:${JSON.stringify(params)}` : endpoint;
+};
 
 /**
  * 메인 대시보드 데이터 조회
@@ -25,6 +31,18 @@ router.get('/main', async (req, res) => {
       
       validEndDate = today.toISOString().split('T')[0];
       validStartDate = thirtyDaysAgo.toISOString().split('T')[0];
+    }
+
+    // === 캐시 확인 (API 할당량 초과 방지) ===
+    const cacheKey = getCacheKey('dashboard_main', { startDate: validStartDate, endDate: validEndDate });
+    const cachedData = dataCacheService.get<any>({
+      sheet: 'dashboard_main',
+      dateRange: { start: validStartDate, end: validEndDate },
+    });
+
+    if (cachedData) {
+      console.log(`[Dashboard] 캐시 히트: ${cacheKey}`);
+      return res.json(cachedData);
     }
 
     // Google Sheets 연결 확인
@@ -322,7 +340,7 @@ router.get('/main', async (req, res) => {
       if (row.product_id) activeItems.add(row.product_id);
     });
 
-    res.json({
+    const responseData = {
       kpis: {
         gmv: {
           value: kpisCurrent.gmv,
@@ -362,7 +380,19 @@ router.get('/main', async (req, res) => {
         activeArtists: activeArtists.size,
         activeItems: activeItems.size,
       },
-    });
+    };
+
+    // === 캐시 저장 (10분 TTL) ===
+    dataCacheService.set(
+      {
+        sheet: 'dashboard_main',
+        dateRange: { start: validStartDate, end: validEndDate },
+      },
+      responseData,
+      10 * 60 * 1000 // 10분 캐시
+    );
+
+    res.json(responseData);
   } catch (error) {
     console.error('Error fetching main dashboard data:', error);
     res.status(500).json({ error: 'Failed to fetch dashboard data' });
@@ -375,6 +405,16 @@ router.get('/main', async (req, res) => {
  */
 router.get('/tasks', async (req, res) => {
   try {
+    // === 캐시 확인 (API 할당량 초과 방지) ===
+    const cachedTasks = dataCacheService.get<any>({
+      sheet: 'dashboard_tasks',
+    });
+
+    if (cachedTasks) {
+      console.log('[Tasks] 캐시 히트');
+      return res.json(cachedTasks);
+    }
+
     const now = new Date();
     const tasks: Array<{
       id: string;
@@ -386,9 +426,18 @@ router.get('/tasks', async (req, res) => {
       description: string;
     }> = [];
 
+    // === 데이터 한 번에 로드 (API 호출 최소화) ===
+    let logisticsData: any[] = [];
+    try {
+      logisticsData = await sheetsService.getSheetDataAsJson(SHEET_NAMES.LOGISTICS, true);
+      console.log(`[Tasks] Logistics 데이터 로드: ${logisticsData.length}건`);
+    } catch (e) {
+      console.error('[Tasks] Logistics 데이터 로드 실패:', e);
+    }
+
     // 1. 미입고 7일 이상 확인
     try {
-      const logisticsData = await sheetsService.getSheetDataAsJson(SHEET_NAMES.LOGISTICS, true);
+      // 이미 로드된 logisticsData 재사용
       const unreceivedDelayed = logisticsData.filter((row: any) => {
         const status = (row.logistics || '').toLowerCase();
         if (!status.includes('미입고')) return false;
@@ -415,10 +464,14 @@ router.get('/tasks', async (req, res) => {
       console.error('[Tasks] Error checking unreceived:', e);
     }
 
-    // 2. QC 대기 건수 확인
+    // 2. QC 대기 건수 확인 (병렬 로드)
+    let qcTextData: any[] = [];
+    let qcImageData: any[] = [];
     try {
-      const qcTextData = await sheetsService.getSheetDataAsJson(SHEET_NAMES.QC_TEXT_RAW, false);
-      const qcImageData = await sheetsService.getSheetDataAsJson(SHEET_NAMES.QC_IMAGE_RAW, false);
+      [qcTextData, qcImageData] = await Promise.all([
+        sheetsService.getSheetDataAsJson(SHEET_NAMES.QC_TEXT_RAW, false),
+        sheetsService.getSheetDataAsJson(SHEET_NAMES.QC_IMAGE_RAW, false),
+      ]);
       
       const qcTextPending = qcTextData.filter((row: any) => {
         const status = (row['처리 상태'] || row.status || '').toLowerCase();
@@ -478,9 +531,8 @@ router.get('/tasks', async (req, res) => {
       console.error('[Tasks] Error checking SOPO:', e);
     }
 
-    // 4. 이탈 위험 고객 (간략 버전)
+    // 4. 이탈 위험 고객 (간략 버전) - 이미 로드된 logisticsData 재사용
     try {
-      const logisticsData = await sheetsService.getSheetDataAsJson(SHEET_NAMES.LOGISTICS, true);
       const customerLastOrder = new Map<string, Date>();
       
       logisticsData.forEach((row: any) => {
@@ -518,9 +570,8 @@ router.get('/tasks', async (req, res) => {
       console.error('[Tasks] Error checking churn:', e);
     }
 
-    // 5. 검수 대기 2일+ (긴급)
+    // 5. 검수 대기 2일+ (긴급) - 이미 로드된 logisticsData 재사용
     try {
-      const logisticsData = await sheetsService.getSheetDataAsJson(SHEET_NAMES.LOGISTICS, true);
       const awaitingInspection = logisticsData.filter((row: any) => {
         const status = (row.logistics || '').trim();
         if (status !== '입고 완료') return false;
@@ -547,9 +598,8 @@ router.get('/tasks', async (req, res) => {
       console.error('[Tasks] Error checking inspection:', e);
     }
 
-    // 6. 국제배송 14일+ 지연
+    // 6. 국제배송 14일+ 지연 - 이미 로드된 logisticsData 재사용
     try {
-      const logisticsData = await sheetsService.getSheetDataAsJson(SHEET_NAMES.LOGISTICS, true);
       const intlShippingDelayed = logisticsData.filter((row: any) => {
         const status = (row.logistics || '').trim();
         if (!status.includes('국제배송') && !status.includes('해외배송')) return false;
@@ -576,9 +626,8 @@ router.get('/tasks', async (req, res) => {
       console.error('[Tasks] Error checking intl shipping:', e);
     }
 
-    // 7. 미입고 14일+ (긴급 - 기존 7일과 별도)
+    // 7. 미입고 14일+ (긴급 - 기존 7일과 별도) - 이미 로드된 logisticsData 재사용
     try {
-      const logisticsData = await sheetsService.getSheetDataAsJson(SHEET_NAMES.LOGISTICS, true);
       const unreceived14Days = logisticsData.filter((row: any) => {
         const status = (row.logistics || '').trim();
         if (status !== '결제 완료') return false;
@@ -609,12 +658,21 @@ router.get('/tasks', async (req, res) => {
     const priorityOrder = { high: 0, medium: 1, low: 2 };
     tasks.sort((a, b) => priorityOrder[a.priority] - priorityOrder[b.priority]);
 
-    res.json({
+    const responseData = {
       success: true,
       date: now.toISOString().split('T')[0],
       totalTasks: tasks.length,
       tasks,
-    });
+    };
+
+    // === 캐시 저장 (10분 TTL) ===
+    dataCacheService.set(
+      { sheet: 'dashboard_tasks' },
+      responseData,
+      10 * 60 * 1000 // 10분 캐시
+    );
+
+    res.json(responseData);
   } catch (error) {
     console.error('[Tasks] Error:', error);
     res.status(500).json({ error: 'Failed to fetch tasks' });

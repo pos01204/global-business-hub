@@ -74,62 +74,77 @@ export default function DashboardPage() {
     queryKey: ['dashboard', 'main', startDate, endDate],
     queryFn: () => dashboardApi.getMain(startDate, endDate),
     enabled: !!startDate && !!endDate,
+    staleTime: 10 * 60 * 1000, // 10분 캐시 (API 할당량 초과 방지)
+    gcTime: 15 * 60 * 1000, // 15분 가비지 컬렉션
+    retry: 2,
+    retryDelay: (attemptIndex) => Math.min(1000 * 2 ** attemptIndex, 30000),
   })
 
 
+
+  // === API 할당량 초과 방지를 위한 캐시 설정 ===
+  // Google Sheets API: 분당 60회 요청 제한
+  // 모든 쿼리에 staleTime 10분, gcTime 15분 적용
+  
+  const queryConfig = {
+    staleTime: 10 * 60 * 1000, // 10분 캐시
+    gcTime: 15 * 60 * 1000,    // 15분 가비지 컬렉션
+    retry: 2,
+    retryDelay: (attemptIndex: number) => Math.min(1000 * 2 ** attemptIndex, 30000),
+  }
 
   // 오늘 할 일
   const { data: tasksData } = useQuery({
     queryKey: ['dashboard-tasks'],
     queryFn: dashboardApi.getTasks,
-    staleTime: 2 * 60 * 1000,
+    ...queryConfig,
   })
 
   // 물류 파이프라인 데이터
   const { data: pipelineData } = useQuery({
     queryKey: ['control-tower-summary'],
     queryFn: controlTowerApi.getData,
-    staleTime: 3 * 60 * 1000,
+    ...queryConfig,
   })
 
   // 작가 현황 데이터
   const { data: artistData } = useQuery({
     queryKey: ['artist-overview-summary'],
     queryFn: () => artistAnalyticsApi.getOverview(),
-    staleTime: 5 * 60 * 1000,
+    ...queryConfig,
   })
 
   // Business Brain 데이터
   const { data: brainHealthData } = useQuery({
     queryKey: ['business-brain-health-dashboard'],
     queryFn: () => businessBrainApi.getHealthScore('30d'),
-    staleTime: 5 * 60 * 1000,
+    ...queryConfig,
   })
 
   const { data: brainBriefingData } = useQuery({
     queryKey: ['business-brain-briefing-dashboard'],
     queryFn: () => businessBrainApi.getBriefing('30d'),
-    staleTime: 5 * 60 * 1000,
+    ...queryConfig,
   })
 
   // 통합 대시보드 뷰: 성과 분석 요약 (전일 기준 - Raw Data는 전일까지 갱신)
   const { data: analyticsSummaryData } = useQuery({
     queryKey: ['analytics-summary-dashboard'],
     queryFn: () => analyticsApi.getData('yesterday', 'all'),
-    staleTime: 2 * 60 * 1000,
+    ...queryConfig,
   })
 
   // 통합 대시보드 뷰: Business Brain 인사이트 및 액션
   const { data: brainInsightsData } = useQuery({
     queryKey: ['business-brain-insights-dashboard'],
     queryFn: () => businessBrainApi.getInsights({ limit: 5 }),
-    staleTime: 5 * 60 * 1000,
+    ...queryConfig,
   })
 
   const { data: brainActionsData } = useQuery({
     queryKey: ['business-brain-actions-dashboard'],
     queryFn: () => businessBrainApi.getActionProposals('30d'),
-    staleTime: 5 * 60 * 1000,
+    ...queryConfig,
   })
 
   // === Phase 3: 대시보드 지표 확장 데이터 ===
@@ -142,35 +157,35 @@ export default function DashboardPage() {
   const { data: anomalyData } = useQuery({
     queryKey: ['dashboard-anomalies', referenceDate],
     queryFn: () => dashboardApi.getAnomalies(referenceDate),
-    staleTime: 5 * 60 * 1000,
+    ...queryConfig,
   })
 
   // 국가별 기여도 데이터 (Mock - 실제 API 연동 시 교체)
   const { data: countryData } = useQuery({
     queryKey: ['dashboard-country-contribution', referenceDate],
     queryFn: () => dashboardApi.getCountryContribution(referenceDate),
-    staleTime: 5 * 60 * 1000,
+    ...queryConfig,
   })
 
   // 주간 트렌드 데이터 (Mock - 실제 API 연동 시 교체)
   const { data: weeklyTrendData } = useQuery({
     queryKey: ['dashboard-weekly-trend', referenceDate],
     queryFn: () => dashboardApi.getWeeklyTrend(referenceDate),
-    staleTime: 5 * 60 * 1000,
+    ...queryConfig,
   })
 
   // 월간 예측 데이터 (Mock - 실제 API 연동 시 교체)
   const { data: forecastData } = useQuery({
     queryKey: ['dashboard-monthly-forecast', referenceDate],
     queryFn: () => dashboardApi.getMonthlyForecast(referenceDate),
-    staleTime: 5 * 60 * 1000,
+    ...queryConfig,
   })
 
   // 확장 성장률 지표 (Mock - 실제 API 연동 시 교체)
   const { data: growthMetricsData } = useQuery({
     queryKey: ['dashboard-growth-metrics', referenceDate],
     queryFn: () => dashboardApi.getGrowthMetrics(referenceDate),
-    staleTime: 5 * 60 * 1000,
+    ...queryConfig,
   })
 
   const handleApply = () => {
