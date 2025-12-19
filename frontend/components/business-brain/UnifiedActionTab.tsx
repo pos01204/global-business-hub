@@ -14,8 +14,8 @@ import {
   Eye, ExternalLink, X
 } from 'lucide-react'
 
-// 서브탭 타입
-type ActionSubTab = 'recommended' | 'in-progress' | 'completed' | 'simulation'
+// 서브탭 타입 (진행 중/완료 탭 제거)
+type ActionSubTab = 'recommended' | 'simulation'
 
 // 액션 상태
 type ActionStatus = 'pending' | 'in-progress' | 'completed' | 'cancelled'
@@ -363,31 +363,279 @@ function ActionCard({
 }
 
 // What-if 시뮬레이션 미니 카드
-function SimulationCard({ 
-  title, 
-  description, 
-  onClick 
-}: { 
-  title: string
-  description: string
-  onClick: () => void
-}) {
+// What-if 시뮬레이션 섹션 - 4가지 시뮬레이션 타입
+function WhatIfSimulationSection() {
+  const [activeSimulation, setActiveSimulation] = useState<string | null>(null)
+  const [simulationParams, setSimulationParams] = useState<Record<string, number>>({})
+  const [simulationResult, setSimulationResult] = useState<any>(null)
+  const [isSimulating, setIsSimulating] = useState(false)
+
+  // 시뮬레이션 실행
+  const runSimulation = useCallback(async (type: string) => {
+    setIsSimulating(true)
+    setSimulationResult(null)
+    
+    // 시뮬레이션 타입별 계산 로직
+    setTimeout(() => {
+      let result: any = null
+      
+      switch (type) {
+        case 'price':
+          const priceChange = simulationParams.priceChange || 10
+          result = {
+            title: '가격 변경 시뮬레이션 결과',
+            currentGMV: 150000000,
+            predictedGMV: Math.round(150000000 * (1 + (priceChange > 0 ? priceChange * 0.008 : priceChange * 0.015))),
+            orderChange: priceChange > 0 ? -Math.round(priceChange * 0.5) : Math.round(Math.abs(priceChange) * 0.8),
+            profitChange: priceChange > 0 ? Math.round(priceChange * 0.7) : -Math.round(Math.abs(priceChange) * 0.3),
+            recommendation: priceChange > 15 ? '가격 인상폭이 큽니다. 단계적 인상을 권장합니다.' : 
+                           priceChange < -15 ? '할인폭이 큽니다. 마진 감소에 주의하세요.' : 
+                           '적정 수준의 가격 변동입니다.'
+          }
+          break
+        case 'marketing':
+          const budgetChange = simulationParams.budgetChange || 20
+          result = {
+            title: '마케팅 예산 시뮬레이션 결과',
+            currentBudget: 50000000,
+            newBudget: Math.round(50000000 * (1 + budgetChange / 100)),
+            newCustomers: Math.round(1000 * (1 + budgetChange * 0.008)),
+            cac: Math.round(50000 * (1 + budgetChange * 0.002)),
+            roas: budgetChange > 30 ? 2.1 : budgetChange > 10 ? 2.8 : 3.2,
+            recommendation: budgetChange > 50 ? '급격한 예산 증가는 ROAS 하락을 초래할 수 있습니다.' :
+                           budgetChange < -30 ? '예산 감소로 신규 고객 획득이 크게 줄어들 수 있습니다.' :
+                           '효율적인 예산 조정 범위입니다.'
+          }
+          break
+        case 'discount':
+          const discountRate = simulationParams.discountRate || 15
+          result = {
+            title: '할인 캠페인 시뮬레이션 결과',
+            discountRate: discountRate,
+            orderIncrease: Math.round(discountRate * 2.5),
+            gmvChange: Math.round(discountRate * 1.8 - discountRate),
+            marginImpact: -Math.round(discountRate * 0.6),
+            breakEvenOrders: Math.round(100 + discountRate * 5),
+            recommendation: discountRate > 25 ? '할인율이 높아 수익성에 영향을 줄 수 있습니다.' :
+                           discountRate < 5 ? '할인율이 낮아 고객 반응이 제한적일 수 있습니다.' :
+                           '적정 할인율입니다. 타겟 고객에게 집중하세요.'
+          }
+          break
+        case 'inventory':
+          const inventoryChange = simulationParams.inventoryChange || 20
+          result = {
+            title: '재고 관리 시뮬레이션 결과',
+            currentInventory: 10000,
+            newInventory: Math.round(10000 * (1 + inventoryChange / 100)),
+            storageCost: Math.round(5000000 * (1 + inventoryChange / 100)),
+            stockoutRisk: inventoryChange > 0 ? Math.max(0, 15 - inventoryChange * 0.5) : Math.min(50, 15 + Math.abs(inventoryChange) * 0.8),
+            turnoverDays: Math.round(30 * (1 + inventoryChange / 100)),
+            recommendation: inventoryChange > 30 ? '재고 과다로 보관 비용이 증가합니다.' :
+                           inventoryChange < -20 ? '재고 부족으로 품절 위험이 높아집니다.' :
+                           '적정 재고 수준입니다.'
+          }
+          break
+      }
+      
+      setSimulationResult(result)
+      setIsSimulating(false)
+    }, 1500)
+  }, [simulationParams])
+
+  const simulations = [
+    {
+      id: 'price',
+      title: '가격 변경 시뮬레이션',
+      description: '상품 가격 변경이 매출과 주문량에 미치는 영향 분석',
+      icon: DollarSign,
+      color: 'emerald',
+      param: { key: 'priceChange', label: '가격 변경률 (%)', min: -30, max: 30, default: 10 }
+    },
+    {
+      id: 'marketing',
+      title: '마케팅 예산 시뮬레이션',
+      description: '마케팅 예산 조정에 따른 신규 고객 획득 예측',
+      icon: Target,
+      color: 'blue',
+      param: { key: 'budgetChange', label: '예산 변경률 (%)', min: -50, max: 100, default: 20 }
+    },
+    {
+      id: 'discount',
+      title: '할인 캠페인 시뮬레이션',
+      description: '할인율별 매출 및 수익 변화 예측',
+      icon: Zap,
+      color: 'amber',
+      param: { key: 'discountRate', label: '할인율 (%)', min: 5, max: 50, default: 15 }
+    },
+    {
+      id: 'inventory',
+      title: '재고 관리 시뮬레이션',
+      description: '재고 수준 변경에 따른 비용 및 판매 영향 분석',
+      icon: RefreshCw,
+      color: 'purple',
+      param: { key: 'inventoryChange', label: '재고 변경률 (%)', min: -50, max: 50, default: 20 }
+    }
+  ]
+
+  const colorClasses: Record<string, { bg: string; border: string; text: string; light: string }> = {
+    emerald: { bg: 'bg-emerald-500', border: 'border-emerald-500', text: 'text-emerald-600', light: 'bg-emerald-100 dark:bg-emerald-900/30' },
+    blue: { bg: 'bg-blue-500', border: 'border-blue-500', text: 'text-blue-600', light: 'bg-blue-100 dark:bg-blue-900/30' },
+    amber: { bg: 'bg-amber-500', border: 'border-amber-500', text: 'text-amber-600', light: 'bg-amber-100 dark:bg-amber-900/30' },
+    purple: { bg: 'bg-purple-500', border: 'border-purple-500', text: 'text-purple-600', light: 'bg-purple-100 dark:bg-purple-900/30' }
+  }
+
   return (
-    <Card 
-      onClick={onClick}
-      className="p-5 bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700 cursor-pointer hover:shadow-md hover:border-idus-300 dark:hover:border-idus-700 transition-all"
-    >
-      <div className="flex items-start gap-4">
-        <div className="w-10 h-10 rounded-xl bg-purple-100 dark:bg-purple-900/30 flex items-center justify-center">
-          <Icon icon={TrendingUp} size="md" className="text-purple-600 dark:text-purple-400" />
-        </div>
-        <div className="flex-1">
-          <h4 className="font-semibold text-slate-800 dark:text-slate-100 mb-1">{title}</h4>
-          <p className="text-sm text-slate-600 dark:text-slate-400">{description}</p>
-        </div>
-        <Icon icon={ArrowRight} size="sm" className="text-slate-400" />
+    <div className="space-y-4">
+      {/* 시뮬레이션 카드 그리드 */}
+      <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
+        {simulations.map((sim) => {
+          const colors = colorClasses[sim.color]
+          const isActive = activeSimulation === sim.id
+          
+          return (
+            <Card 
+              key={sim.id}
+              className={`overflow-hidden transition-all ${isActive ? `ring-2 ring-offset-2 ${colors.border}` : 'hover:shadow-md'}`}
+            >
+              {/* 헤더 */}
+              <div 
+                onClick={() => {
+                  setActiveSimulation(isActive ? null : sim.id)
+                  setSimulationResult(null)
+                  if (!simulationParams[sim.param.key]) {
+                    setSimulationParams(prev => ({ ...prev, [sim.param.key]: sim.param.default }))
+                  }
+                }}
+                className="p-5 cursor-pointer bg-white dark:bg-slate-800 border-b border-slate-200 dark:border-slate-700"
+              >
+                <div className="flex items-start gap-4">
+                  <div className={`w-10 h-10 rounded-xl ${colors.light} flex items-center justify-center`}>
+                    <Icon icon={sim.icon} size="md" className={colors.text} />
+                  </div>
+                  <div className="flex-1">
+                    <h4 className="font-semibold text-slate-800 dark:text-slate-100 mb-1">{sim.title}</h4>
+                    <p className="text-sm text-slate-600 dark:text-slate-400">{sim.description}</p>
+                  </div>
+                  <ChevronDown className={`w-5 h-5 text-slate-400 transition-transform ${isActive ? 'rotate-180' : ''}`} />
+                </div>
+              </div>
+              
+              {/* 시뮬레이션 패널 */}
+              {isActive && (
+                <div className="p-5 bg-slate-50 dark:bg-slate-900/50">
+                  {/* 파라미터 입력 */}
+                  <div className="mb-4">
+                    <label className="block text-sm font-medium text-slate-700 dark:text-slate-300 mb-2">
+                      {sim.param.label}
+                    </label>
+                    <div className="flex items-center gap-4">
+                      <input
+                        type="range"
+                        min={sim.param.min}
+                        max={sim.param.max}
+                        value={simulationParams[sim.param.key] || sim.param.default}
+                        onChange={(e) => setSimulationParams(prev => ({ ...prev, [sim.param.key]: parseInt(e.target.value) }))}
+                        className="flex-1 h-2 bg-slate-200 dark:bg-slate-700 rounded-lg appearance-none cursor-pointer"
+                      />
+                      <div className="w-20 text-center">
+                        <span className={`text-xl font-bold ${colors.text}`}>
+                          {simulationParams[sim.param.key] || sim.param.default}%
+                        </span>
+                      </div>
+                    </div>
+                    <div className="flex justify-between text-xs text-slate-500 mt-1">
+                      <span>{sim.param.min}%</span>
+                      <span>{sim.param.max}%</span>
+                    </div>
+                  </div>
+                  
+                  {/* 시뮬레이션 실행 버튼 */}
+                  <button
+                    onClick={() => runSimulation(sim.id)}
+                    disabled={isSimulating}
+                    className={`w-full py-2.5 ${colors.bg} text-white rounded-lg hover:opacity-90 transition-opacity font-medium disabled:opacity-50 flex items-center justify-center gap-2`}
+                  >
+                    {isSimulating ? (
+                      <>
+                        <RefreshCw className="w-4 h-4 animate-spin" />
+                        분석 중...
+                      </>
+                    ) : (
+                      <>
+                        <TrendingUp className="w-4 h-4" />
+                        시뮬레이션 실행
+                      </>
+                    )}
+                  </button>
+                  
+                  {/* 결과 표시 */}
+                  {simulationResult && (
+                    <div className="mt-4 p-4 bg-white dark:bg-slate-800 rounded-lg border border-slate-200 dark:border-slate-700">
+                      <h5 className="font-semibold text-slate-800 dark:text-slate-100 mb-3">
+                        {simulationResult.title}
+                      </h5>
+                      <div className="grid grid-cols-2 gap-3 mb-3">
+                        {sim.id === 'price' && (
+                          <>
+                            <ResultItem label="예상 GMV" value={`₩${(simulationResult.predictedGMV / 1000000).toFixed(0)}M`} change={((simulationResult.predictedGMV - simulationResult.currentGMV) / simulationResult.currentGMV * 100).toFixed(1)} />
+                            <ResultItem label="주문량 변화" value={`${simulationResult.orderChange > 0 ? '+' : ''}${simulationResult.orderChange}%`} />
+                            <ResultItem label="수익 변화" value={`${simulationResult.profitChange > 0 ? '+' : ''}${simulationResult.profitChange}%`} />
+                          </>
+                        )}
+                        {sim.id === 'marketing' && (
+                          <>
+                            <ResultItem label="신규 예산" value={`₩${(simulationResult.newBudget / 1000000).toFixed(0)}M`} />
+                            <ResultItem label="예상 신규 고객" value={`${simulationResult.newCustomers}명`} />
+                            <ResultItem label="CAC" value={`₩${simulationResult.cac.toLocaleString()}`} />
+                            <ResultItem label="ROAS" value={`${simulationResult.roas}x`} />
+                          </>
+                        )}
+                        {sim.id === 'discount' && (
+                          <>
+                            <ResultItem label="주문 증가" value={`+${simulationResult.orderIncrease}%`} />
+                            <ResultItem label="GMV 변화" value={`${simulationResult.gmvChange > 0 ? '+' : ''}${simulationResult.gmvChange}%`} />
+                            <ResultItem label="마진 영향" value={`${simulationResult.marginImpact}%`} />
+                            <ResultItem label="손익분기 주문" value={`${simulationResult.breakEvenOrders}건`} />
+                          </>
+                        )}
+                        {sim.id === 'inventory' && (
+                          <>
+                            <ResultItem label="신규 재고량" value={`${simulationResult.newInventory.toLocaleString()}개`} />
+                            <ResultItem label="보관 비용" value={`₩${(simulationResult.storageCost / 1000000).toFixed(1)}M`} />
+                            <ResultItem label="품절 위험" value={`${simulationResult.stockoutRisk.toFixed(0)}%`} />
+                            <ResultItem label="재고 회전일" value={`${simulationResult.turnoverDays}일`} />
+                          </>
+                        )}
+                      </div>
+                      <div className="p-3 bg-slate-100 dark:bg-slate-700 rounded-lg">
+                        <p className="text-sm text-slate-700 dark:text-slate-300">
+                          💡 {simulationResult.recommendation}
+                        </p>
+                      </div>
+                    </div>
+                  )}
+                </div>
+              )}
+            </Card>
+          )
+        })}
       </div>
-    </Card>
+    </div>
+  )
+}
+
+// 시뮬레이션 결과 아이템
+function ResultItem({ label, value, change }: { label: string; value: string; change?: string }) {
+  return (
+    <div className="text-center p-2 bg-slate-50 dark:bg-slate-900/50 rounded">
+      <div className="text-xs text-slate-500 dark:text-slate-400">{label}</div>
+      <div className="font-semibold text-slate-800 dark:text-slate-100">{value}</div>
+      {change && (
+        <div className={`text-xs ${parseFloat(change) >= 0 ? 'text-emerald-600' : 'text-red-600'}`}>
+          {parseFloat(change) >= 0 ? '+' : ''}{change}%
+        </div>
+      )}
+    </div>
   )
 }
 
@@ -660,20 +908,6 @@ export function UnifiedActionTab({
               count={counts.recommended}
             />
             <SubTabButton
-              active={activeSubTab === 'in-progress'}
-              onClick={() => setActiveSubTab('in-progress')}
-              icon={Play}
-              label="진행 중"
-              count={counts.inProgress}
-            />
-            <SubTabButton
-              active={activeSubTab === 'completed'}
-              onClick={() => setActiveSubTab('completed')}
-              icon={CheckCircle}
-              label="완료"
-              count={counts.completed}
-            />
-            <SubTabButton
               active={activeSubTab === 'simulation'}
               onClick={() => setActiveSubTab('simulation')}
               icon={TrendingUp}
@@ -737,9 +971,7 @@ export function UnifiedActionTab({
               <div className="text-center">
                 <Icon icon={CheckCircle} size="xl" className="text-slate-300 mx-auto mb-4" />
                 <p className="text-slate-500 dark:text-slate-400">
-                  {activeSubTab === 'recommended' && '현재 권장 액션이 없습니다.'}
-                  {activeSubTab === 'in-progress' && '진행 중인 액션이 없습니다.'}
-                  {activeSubTab === 'completed' && '완료된 액션이 없습니다.'}
+                  현재 권장 액션이 없습니다.
                 </p>
               </div>
             </Card>
@@ -749,54 +981,7 @@ export function UnifiedActionTab({
 
       {/* What-if 시뮬레이션 */}
       {activeSubTab === 'simulation' && (
-        <div className="space-y-4">
-          <Card className="p-6 bg-gradient-to-br from-purple-50 to-indigo-50 dark:from-purple-900/20 dark:to-indigo-900/20 border border-purple-200 dark:border-purple-800">
-            <div className="flex items-start gap-4">
-              <div className="w-14 h-14 rounded-2xl bg-purple-100 dark:bg-purple-900/50 flex items-center justify-center">
-                <Icon icon={TrendingUp} size="xl" className="text-purple-600 dark:text-purple-400" />
-              </div>
-              <div className="flex-1">
-                <h3 className="text-lg font-semibold text-purple-900 dark:text-purple-100 mb-2">
-                  What-if 시뮬레이션
-                </h3>
-                <p className="text-sm text-purple-700 dark:text-purple-300 mb-4">
-                  다양한 시나리오를 시뮬레이션하여 비즈니스 의사결정에 도움을 받으세요.
-                  가격 변경, 마케팅 예산 조정 등의 영향을 미리 예측할 수 있습니다.
-                </p>
-                <button 
-                  onClick={onSimulationClick}
-                  className="flex items-center gap-2 px-4 py-2 bg-purple-600 text-white rounded-lg hover:bg-purple-700 transition-colors text-sm font-medium"
-                >
-                  시뮬레이션 시작
-                  <Icon icon={ArrowRight} size="xs" />
-                </button>
-              </div>
-            </div>
-          </Card>
-
-          <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
-            <SimulationCard
-              title="가격 변경 시뮬레이션"
-              description="상품 가격 변경이 매출과 주문량에 미치는 영향 분석"
-              onClick={() => onSimulationClick?.()}
-            />
-            <SimulationCard
-              title="마케팅 예산 시뮬레이션"
-              description="마케팅 예산 조정에 따른 신규 고객 획득 예측"
-              onClick={() => onSimulationClick?.()}
-            />
-            <SimulationCard
-              title="할인 캠페인 시뮬레이션"
-              description="할인율별 매출 및 수익 변화 예측"
-              onClick={() => onSimulationClick?.()}
-            />
-            <SimulationCard
-              title="재고 관리 시뮬레이션"
-              description="재고 수준 변경에 따른 비용 및 판매 영향 분석"
-              onClick={() => onSimulationClick?.()}
-            />
-          </div>
-        </div>
+        <WhatIfSimulationSection />
       )}
     </div>
   )

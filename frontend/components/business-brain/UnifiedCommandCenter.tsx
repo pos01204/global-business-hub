@@ -110,18 +110,10 @@ export function UnifiedCommandCenter({ period, onPeriodChange }: UnifiedCommandC
           </div>
         </div>
         <div className="flex items-center gap-3">
-          {/* 기간 선택 */}
-          <select
-            value={period}
-            onChange={(e) => onPeriodChange?.(e.target.value as any)}
-            className="px-3 py-2 border border-slate-300 dark:border-slate-600 rounded-lg bg-white dark:bg-slate-800 text-slate-800 dark:text-slate-100 text-sm"
-          >
-            <option value="7d">최근 7일</option>
-            <option value="30d">최근 30일</option>
-            <option value="90d">최근 90일</option>
-            <option value="180d">최근 180일</option>
-            <option value="365d">최근 1년</option>
-          </select>
+          {/* 전일 데이터 기준 표시 */}
+          <div className="px-3 py-2 bg-slate-100 dark:bg-slate-800 rounded-lg text-sm text-slate-600 dark:text-slate-400">
+            📅 전일 데이터 기준
+          </div>
           
           {/* 알림 버튼 */}
           <button

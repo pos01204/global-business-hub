@@ -151,6 +151,7 @@ export function BusinessIQScoreCard({
             </div>
             <div>
               <h2 className="text-xl font-bold text-white">비즈니스 IQ 스코어</h2>
+              <p className="text-xs text-white/70 mt-0.5">= 비즈니스 건강도</p>
               <div className="flex items-center gap-2 mt-1">
                 <span className="px-3 py-1 bg-white/30 rounded-full text-white font-bold text-lg">
                   {data.grade}등급
@@ -164,7 +165,7 @@ export function BusinessIQScoreCard({
               </div>
             </div>
           </div>
-          <Tooltip content="비즈니스 데이터 활용 수준을 종합적으로 평가한 점수입니다.">
+          <Tooltip content="비즈니스 데이터 활용 수준을 종합적으로 평가한 점수입니다. 비즈니스 건강도와 동일한 기준으로 계산됩니다.">
             <Info className="w-6 h-6 text-white/70 cursor-help" />
           </Tooltip>
         </div>
