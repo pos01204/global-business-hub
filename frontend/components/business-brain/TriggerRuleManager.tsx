@@ -337,7 +337,7 @@ export function TriggerRuleManager({
                           {rule.name}
                         </span>
                         <Badge 
-                          variant={rule.severity === 'critical' ? 'danger' : rule.severity === 'warning' ? 'warning' : 'secondary'}
+                          variant={rule.severity === 'critical' ? 'danger' : rule.severity === 'warning' ? 'warning' : 'info'}
                           size="sm"
                         >
                           {config.label}
