@@ -230,37 +230,87 @@ router.get('/trend', async (req: Request, res: Response) => {
       })
     }
     
-    // DB에서 일별 리뷰 지표 조회
-    const result = await db.query(`
-      SELECT 
-        ${aggregation === 'monthly' ? "TO_CHAR(date, 'YYYY-MM') as period" : 'date as period'},
-        SUM(review_count) as total_reviews,
-        AVG(avg_rating) as avg_rating,
-        SUM(rating_1) as rating_1,
-        SUM(rating_2) as rating_2,
-        SUM(rating_3) as rating_3,
-        SUM(rating_4) as rating_4,
-        SUM(rating_5) as rating_5,
-        AVG(nps_score) as avg_nps
-      FROM daily_review_metrics
-      WHERE date BETWEEN $1 AND $2
-      GROUP BY ${aggregation === 'monthly' ? "TO_CHAR(date, 'YYYY-MM')" : 'date'}
-      ORDER BY period
-    `, [startDate, endDate])
+    // 리뷰 데이터 로드 (Google Sheets에서)
+    let reviewData: any[] = []
+    try {
+      reviewData = await sheetsService.getSheetDataAsJson(SHEET_NAMES.REVIEW, false)
+    } catch (error) {
+      return res.status(404).json({
+        success: false,
+        error: '리뷰 데이터를 찾을 수 없습니다.'
+      })
+    }
     
-    const trendData = result.rows.map((row: any) => ({
-      period: row.period,
-      totalReviews: parseInt(row.total_reviews) || 0,
-      avgRating: parseFloat(row.avg_rating)?.toFixed(2) || 0,
-      npsScore: Math.round(parseFloat(row.avg_nps) || 0),
-      ratingDistribution: {
-        1: parseInt(row.rating_1) || 0,
-        2: parseInt(row.rating_2) || 0,
-        3: parseInt(row.rating_3) || 0,
-        4: parseInt(row.rating_4) || 0,
-        5: parseInt(row.rating_5) || 0
+    const start = new Date(startDate as string)
+    start.setHours(0, 0, 0, 0)
+    const end = new Date(endDate as string)
+    end.setHours(23, 59, 59, 999)
+    
+    // 기간 필터링
+    const filteredReviews = reviewData.filter((review: any) => {
+      try {
+        const dateField = review.dt || review.created_at || review.review_date || review.date
+        if (!dateField) return false
+        const reviewDate = new Date(dateField)
+        return reviewDate >= start && reviewDate <= end
+      } catch {
+        return false
       }
-    }))
+    })
+    
+    // 기간별 집계
+    const periodMap: Map<string, any[]> = new Map()
+    
+    filteredReviews.forEach((review: any) => {
+      try {
+        const dateField = review.dt || review.created_at || review.review_date || review.date
+        const reviewDate = new Date(dateField)
+        
+        let periodKey: string
+        if (aggregation === 'monthly') {
+          periodKey = `${reviewDate.getFullYear()}-${String(reviewDate.getMonth() + 1).padStart(2, '0')}`
+        } else if (aggregation === 'weekly') {
+          // 주간: ISO 주차 기준
+          const weekStart = new Date(reviewDate)
+          weekStart.setDate(weekStart.getDate() - weekStart.getDay())
+          periodKey = weekStart.toISOString().split('T')[0]
+        } else {
+          // 일별
+          periodKey = reviewDate.toISOString().split('T')[0]
+        }
+        
+        if (!periodMap.has(periodKey)) {
+          periodMap.set(periodKey, [])
+        }
+        periodMap.get(periodKey)!.push(review)
+      } catch {}
+    })
+    
+    // 각 기간별 NPS 및 통계 계산
+    const trendData = Array.from(periodMap.entries())
+      .map(([period, reviews]) => {
+        const npsResult = calculateNPS(reviews)
+        
+        // 평점 분포 (10점 만점 → 5점 스케일로 변환)
+        const ratingDist: Record<number, number> = { 1: 0, 2: 0, 3: 0, 4: 0, 5: 0 }
+        reviews.forEach((r: any) => {
+          const rating = safeNumber(r.rating || r.score, 0)
+          // 10점 만점을 5점 스케일로 변환
+          const scaledRating = Math.ceil(rating / 2)
+          if (scaledRating >= 1 && scaledRating <= 5) {
+            ratingDist[scaledRating]++
+          }
+        })
+        
+        return {
+          period,
+          totalReviews: reviews.length,
+          avgRating: npsResult.avgRating.toFixed(2),
+          npsScore: npsResult.score,
+          ratingDistribution: ratingDist
+        }
+      })
+      .sort((a, b) => a.period.localeCompare(b.period))
     
     res.json({
       success: true,
@@ -692,7 +742,15 @@ router.get('/content-analysis', async (req: Request, res: Response) => {
     let detailedReviews = 0 // 100자 이상
     
     filteredReviews.forEach((review: any) => {
-      const imageCnt = safeNumber(review.image_cnt || review.imageCount, 0)
+      // 이미지 개수 확인 - image_cnt 필드 또는 image_url 존재 여부로 판단
+      let imageCnt = safeNumber(review.image_cnt || review.img_cnt || review.imageCount, 0)
+      
+      // image_url이 있으면 최소 1개 이미지가 있는 것으로 처리
+      const imageUrl = review.image_url || review.imageUrl || ''
+      if (imageCnt === 0 && imageUrl && imageUrl.trim() !== '') {
+        imageCnt = 1
+      }
+      
       if (imageCnt > 0) {
         totalWithImages++
         totalImages += imageCnt
@@ -970,7 +1028,12 @@ router.get('/quality-score', async (req: Request, res: Response) => {
       const contentLen = safeNumber(review.contents_len || review.contentLength || (review.contents?.length || 0), 0)
       if (contentLen >= 100) detailedCount++
       
-      const imgCount = safeNumber(review.img_cnt || review.imageCount || 0, 0)
+      // 이미지 개수 확인 - image_cnt 필드 또는 image_url 존재 여부로 판단
+      let imgCount = safeNumber(review.image_cnt || review.img_cnt || review.imageCount || 0, 0)
+      const imageUrl = review.image_url || review.imageUrl || ''
+      if (imgCount === 0 && imageUrl && imageUrl.trim() !== '') {
+        imgCount = 1
+      }
       if (imgCount > 0) imageCount++
       
       const rating = safeNumber(review.rating || review.score, 0)
@@ -1024,7 +1087,11 @@ router.get('/quality-score', async (req: Request, res: Response) => {
       prevReviews.forEach((review: any) => {
         const contentLen = safeNumber(review.contents_len || review.contentLength || (review.contents?.length || 0), 0)
         if (contentLen >= 100) prevDetailed++
-        const imgCount = safeNumber(review.img_cnt || review.imageCount || 0, 0)
+        let imgCount = safeNumber(review.image_cnt || review.img_cnt || review.imageCount || 0, 0)
+        const imgUrl = review.image_url || review.imageUrl || ''
+        if (imgCount === 0 && imgUrl && imgUrl.trim() !== '') {
+          imgCount = 1
+        }
         if (imgCount > 0) prevImage++
         const rating = safeNumber(review.rating || review.score, 0)
         if (rating >= 9) prevPromoter++
