@@ -75,22 +75,27 @@ export function BusinessIQScoreCard({
   const gradeStyle = gradeColors[data.grade] || gradeColors.C
   
   // 레이더 차트 데이터 변환
-  const radarData = {
-    indicators: [
-      { name: '데이터 성숙도', max: 100 },
-      { name: '분석 깊이', max: 100 },
-      { name: '인사이트 품질', max: 100 },
-      { name: '액션 전환율', max: 100 },
-      { name: '예측 정확도', max: 100 },
-    ],
-    values: [
-      data.components.dataMaturity,
-      data.components.analyticsDepth,
-      data.components.insightQuality,
-      data.components.actionConversion,
-      data.components.predictionAccuracy,
-    ]
-  }
+  const radarIndicators = [
+    { name: '데이터 성숙도', max: 100 },
+    { name: '분석 깊이', max: 100 },
+    { name: '인사이트 품질', max: 100 },
+    { name: '액션 전환율', max: 100 },
+    { name: '예측 정확도', max: 100 },
+  ]
+  
+  const radarSeries = [
+    {
+      name: 'Business IQ',
+      values: [
+        data.components.dataMaturity,
+        data.components.analyticsDepth,
+        data.components.insightQuality,
+        data.components.actionConversion,
+        data.components.predictionAccuracy,
+      ],
+      color: '#6366f1'
+    }
+  ]
 
   if (compact) {
     return (
@@ -170,8 +175,11 @@ export function BusinessIQScoreCard({
         {/* 레이더 차트 */}
         <div className="h-64 mb-6">
           <EChartsRadar 
-            data={radarData}
-            color="#6366f1"
+            indicators={radarIndicators}
+            series={radarSeries}
+            height={256}
+            showLegend={false}
+            shape="polygon"
           />
         </div>
 
