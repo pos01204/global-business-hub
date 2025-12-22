@@ -234,66 +234,109 @@ export default function DashboardPage() {
   }, [analyticsSummaryData, referenceDate])
 
   // 주간 트렌드 데이터 - 실제 대시보드 데이터 기반 계산
+  // 전주 대비 금주 평균 변화율 계산
   const weeklyTrendData = useMemo(() => {
     if (!data?.trend?.labels || !data?.trend?.datasets) return null
     
     const now = new Date()
-    const endDate = new Date(now)
-    endDate.setDate(endDate.getDate() - 1) // 어제까지
-    const startDate = new Date(endDate)
-    startDate.setDate(startDate.getDate() - 6) // 7일 전
+    // 금주: 최근 7일 (오늘 제외, 어제부터 7일 전까지)
+    const thisWeekEnd = new Date(now)
+    thisWeekEnd.setDate(thisWeekEnd.getDate() - 1) // 어제
+    const thisWeekStart = new Date(thisWeekEnd)
+    thisWeekStart.setDate(thisWeekStart.getDate() - 6) // 7일 전
     
-    const startStr = format(startDate, 'yyyy-MM-dd')
-    const endStr = format(endDate, 'yyyy-MM-dd')
+    // 전주: 금주 이전 7일
+    const lastWeekEnd = new Date(thisWeekStart)
+    lastWeekEnd.setDate(lastWeekEnd.getDate() - 1)
+    const lastWeekStart = new Date(lastWeekEnd)
+    lastWeekStart.setDate(lastWeekStart.getDate() - 6)
     
-    // 최근 7일 데이터 추출
+    const thisWeekStartStr = format(thisWeekStart, 'yyyy-MM-dd')
+    const thisWeekEndStr = format(thisWeekEnd, 'yyyy-MM-dd')
+    const lastWeekStartStr = format(lastWeekStart, 'yyyy-MM-dd')
+    const lastWeekEndStr = format(lastWeekEnd, 'yyyy-MM-dd')
+    
+    // 데이터셋 추출
     const gmvDataset = data.trend.datasets.find((ds: any) => ds.label === 'GMV (일별)')
     const ordersDataset = data.trend.datasets.find((ds: any) => ds.label === '주문 건수 (일별)')
     
-    const weeklyGmv: number[] = []
-    const weeklyOrders: number[] = []
+    // 금주/전주 데이터 추출
+    const thisWeekGmv: number[] = []
+    const thisWeekOrders: number[] = []
+    const lastWeekGmv: number[] = []
+    const lastWeekOrders: number[] = []
     
     data.trend.labels.forEach((label: string, index: number) => {
-      if (label >= startStr && label <= endStr) {
-        weeklyGmv.push(gmvDataset?.data?.[index] || 0)
-        weeklyOrders.push(ordersDataset?.data?.[index] || 0)
+      const gmv = gmvDataset?.data?.[index] || 0
+      const orders = ordersDataset?.data?.[index] || 0
+      
+      if (label >= thisWeekStartStr && label <= thisWeekEndStr) {
+        thisWeekGmv.push(gmv)
+        thisWeekOrders.push(orders)
+      } else if (label >= lastWeekStartStr && label <= lastWeekEndStr) {
+        lastWeekGmv.push(gmv)
+        lastWeekOrders.push(orders)
       }
     })
     
-    // 변화율 계산
-    const calcChange = (arr: number[]) => {
-      if (arr.length < 2) return 0
-      const first = arr[0] || 1
-      const last = arr[arr.length - 1] || 0
-      return ((last - first) / first) * 100
+    // 평균 계산 (유효한 데이터만)
+    const calcAvg = (arr: number[]) => {
+      const validValues = arr.filter(v => v > 0)
+      if (validValues.length === 0) return 0
+      return validValues.reduce((a, b) => a + b, 0) / validValues.length
     }
     
-    const gmvChange = calcChange(weeklyGmv)
-    const ordersChange = calcChange(weeklyOrders)
+    // 전주 대비 금주 변화율 계산
+    const calcChangePercent = (thisWeekArr: number[], lastWeekArr: number[]) => {
+      const thisAvg = calcAvg(thisWeekArr)
+      const lastAvg = calcAvg(lastWeekArr)
+      
+      if (lastAvg === 0) {
+        // 전주 데이터가 없으면 금주 데이터 유무로 판단
+        return thisAvg > 0 ? 100 : 0
+      }
+      return ((thisAvg - lastAvg) / lastAvg) * 100
+    }
     
-    // AOV 계산
-    const weeklyAov = weeklyGmv.map((gmv, i) => {
-      const orders = weeklyOrders[i] || 1
-      return Math.round(gmv / orders)
+    const gmvChange = calcChangePercent(thisWeekGmv, lastWeekGmv)
+    const ordersChange = calcChangePercent(thisWeekOrders, lastWeekOrders)
+    
+    // AOV 계산 (금주 기준)
+    const thisWeekTotalGmv = thisWeekGmv.reduce((a, b) => a + b, 0)
+    const thisWeekTotalOrders = thisWeekOrders.reduce((a, b) => a + b, 0)
+    const lastWeekTotalGmv = lastWeekGmv.reduce((a, b) => a + b, 0)
+    const lastWeekTotalOrders = lastWeekOrders.reduce((a, b) => a + b, 0)
+    
+    const thisWeekAov = thisWeekTotalOrders > 0 ? thisWeekTotalGmv / thisWeekTotalOrders : 0
+    const lastWeekAov = lastWeekTotalOrders > 0 ? lastWeekTotalGmv / lastWeekTotalOrders : 0
+    const aovChange = lastWeekAov > 0 ? ((thisWeekAov - lastWeekAov) / lastWeekAov) * 100 : 0
+    
+    // 미니 차트용 일별 AOV
+    const weeklyAov = thisWeekGmv.map((gmv, i) => {
+      const orders = thisWeekOrders[i] || 1
+      return orders > 0 ? Math.round(gmv / orders) : 0
     })
-    const aovChange = calcChange(weeklyAov)
     
     // 하이라이트 생성
     const highlights: string[] = []
-    if (gmvChange > 0) highlights.push(`GMV ${gmvChange > 5 ? '큰 폭' : ''} 상승세 (+${gmvChange.toFixed(1)}%)`)
-    else if (gmvChange < 0) highlights.push(`GMV 하락세 주의 (${gmvChange.toFixed(1)}%)`)
+    if (Math.abs(gmvChange) > 0.1) {
+      if (gmvChange > 0) highlights.push(`GMV ${gmvChange > 10 ? '큰 폭' : ''} 상승세 (+${gmvChange.toFixed(1)}%)`)
+      else highlights.push(`GMV 비교세 추이 (${gmvChange.toFixed(1)}%)`)
+    }
     if (ordersChange > 5) highlights.push(`주문 건수 증가 (+${ordersChange.toFixed(1)}%)`)
-    if (aovChange > 3) highlights.push(`객단가 상승 (+${aovChange.toFixed(1)}%)`)
+    else if (ordersChange < -5) highlights.push(`주문 건수 감소 (${ordersChange.toFixed(1)}%)`)
+    if (aovChange > 5) highlights.push(`객단가 상승 (+${aovChange.toFixed(1)}%)`)
+    else if (aovChange < -5) highlights.push(`객단가 하락 (${aovChange.toFixed(1)}%)`)
     
     return {
       referenceDate,
       weekRange: {
-        start: `${startDate.getMonth() + 1}/${startDate.getDate()}`,
-        end: `${endDate.getMonth() + 1}/${endDate.getDate()}`,
+        start: `${thisWeekStart.getMonth() + 1}/${thisWeekStart.getDate()}`,
+        end: `${thisWeekEnd.getMonth() + 1}/${thisWeekEnd.getDate()}`,
       },
       metrics: [
-        { name: 'GMV', values: weeklyGmv, trend: gmvChange >= 0 ? 'up' as const : 'down' as const, changePercent: gmvChange },
-        { name: '주문', values: weeklyOrders, trend: ordersChange >= 0 ? 'up' as const : 'down' as const, changePercent: ordersChange },
+        { name: 'GMV', values: thisWeekGmv, trend: gmvChange >= 0 ? 'up' as const : 'down' as const, changePercent: gmvChange },
+        { name: '주문', values: thisWeekOrders, trend: ordersChange >= 0 ? 'up' as const : 'down' as const, changePercent: ordersChange },
         { name: 'AOV', values: weeklyAov, trend: aovChange >= 0 ? 'up' as const : 'down' as const, changePercent: aovChange },
       ],
       highlights: highlights.length > 0 ? highlights : ['주간 데이터 분석 중'],
