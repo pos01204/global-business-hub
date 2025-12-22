@@ -56,23 +56,37 @@ async function loadReviews(): Promise<Review[]> {
       return [];
     }
 
-    const reviews: Review[] = rows.map((row: any) => ({
-      dt: row.dt || '',
-      review_id: parseInt(row.review_id) || 0,
-      rating: parseInt(row.rating) || 0,
-      contents: row.contents || '',
-      contents_len: parseInt(row.contents_len) || 0,
-      image_url: row.image_url || '',
-      image_cnt: parseInt(row.image_cnt) || 0,
-      product_id: parseInt(row.product_id) || 0,
-      product_name: row.product_name || '',
-      artist_id: parseInt(row.artist_id) || 0,
-      artist_name: row.artist_name || '',
-      user_id: parseInt(row.user_id) || 0,
-      order_item_id: parseInt(row.order_item_id) || 0,
-      order_id: parseInt(row.order_id) || 0,
-      country: row.country || '',
-    }));
+    // 컬럼명 확인 (디버깅용)
+    if (rows.length > 0) {
+      const sampleRow = rows[0];
+      const columns = Object.keys(sampleRow);
+      console.log('[Reviews] 시트 컬럼명:', columns.join(', '));
+      console.log('[Reviews] 샘플 데이터:', JSON.stringify(sampleRow).substring(0, 500));
+    }
+
+    const reviews: Review[] = rows.map((row: any) => {
+      // contents 컬럼: contents, content, review_content, text, body 등 다양한 이름 지원
+      const contents = row.contents || row.content || row.review_content || row.text || row.body || row.review_text || '';
+      const contentsLen = parseInt(row.contents_len || row.content_len || row.contentLength || 0) || contents.length;
+      
+      return {
+        dt: row.dt || row.date || row.created_at || row.createdAt || '',
+        review_id: parseInt(row.review_id || row.reviewId || row.id) || 0,
+        rating: parseInt(row.rating || row.score || row.star) || 0,
+        contents,
+        contents_len: contentsLen,
+        image_url: row.image_url || row.imageUrl || row.img_url || '',
+        image_cnt: parseInt(row.image_cnt || row.img_cnt || row.imageCount || row.image_count) || 0,
+        product_id: parseInt(row.product_id || row.productId) || 0,
+        product_name: row.product_name || row.productName || '',
+        artist_id: parseInt(row.artist_id || row.artistId) || 0,
+        artist_name: row.artist_name || row.artistName || '',
+        user_id: parseInt(row.user_id || row.userId) || 0,
+        order_item_id: parseInt(row.order_item_id || row.orderItemId) || 0,
+        order_id: parseInt(row.order_id || row.orderId) || 0,
+        country: row.country || row.country_code || '',
+      };
+    });
 
     reviewsCache = reviews;
     lastLoadTime = now;
@@ -179,8 +193,10 @@ router.get('/gallery', async (req: Request, res: Response) => {
         reviews: paginated.map(r => ({
           id: r.review_id,
           date: r.dt,
+          createdAt: r.dt, // 프론트엔드 호환용
           rating: r.rating,
-          contents: r.contents,
+          content: r.contents, // 프론트엔드에서 content 사용
+          contents: r.contents, // 기존 호환용
           imageUrl: r.image_url,
           imageCount: r.image_cnt,
           productName: r.product_name,
@@ -229,8 +245,10 @@ router.get('/highlights', async (req: Request, res: Response) => {
       .map(r => ({
         id: r.review_id,
         date: r.dt,
+        createdAt: r.dt, // 프론트엔드 호환용
         rating: r.rating,
-        contents: r.contents,
+        content: r.contents, // 프론트엔드에서 content 사용
+        contents: r.contents, // 기존 호환용
         imageUrl: r.image_url,
         productName: r.product_name,
         artistName: r.artist_name,
