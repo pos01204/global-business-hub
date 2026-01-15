@@ -969,9 +969,7 @@ backend/src/services/analytics/
 ├── InsightScorer.ts
 ├── BusinessBrainCache.ts
 ├── types.ts
-└── index.ts
-
-backend/src/routes/
+└── index.tsbackend/src/routes/
 └── business-brain.ts         # 신규 API 엔드포인트 추가
 
 frontend/app/business-brain/
